@@ -1,0 +1,10 @@
+[build]
+  base    = "InspectionWebsite"
+  command = "npm install && npm run build"
+  publish = "InspectionWebsite/dist"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
