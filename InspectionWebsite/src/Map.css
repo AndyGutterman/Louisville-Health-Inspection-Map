@@ -1,0 +1,76 @@
+.info-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, .6);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  z-index: 1000
+}
+
+.info-drawer {
+  background: #1f1f1f;
+  width: 80%;
+  max-width: 320px;
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, .5);
+  animation: slideIn .3s ease-out forwards
+}
+
+.info-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  color: #ccc;
+  cursor: pointer
+}
+
+.info-close:hover {
+  color: #fff
+}
+
+.info-title {
+  margin: 0;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600
+}
+
+.info-score {
+  margin-top: 8px;
+  color: #aaa;
+  font-size: 16px
+}
+
+.map-container {
+  position: absolute;
+  inset: 0
+}
+
+.dark-style-popup .maplibregl-popup-content {
+  background: #1b1b1f;
+  color: #fff
+}
+
+.dark-style-popup .maplibregl-popup-tip {
+  border-top-color: #1b1b1f
+}
+
+@keyframes slideIn {
+  0% {
+    transform: translateX(100%)
+  }
+
+  100% {
+    transform: translateX(0)
+  }
+}
