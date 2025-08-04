@@ -28,7 +28,6 @@ export default function Map() {
   const [geoData, setGeoData] = useState(null);
   const [selected, setSelected] = useState(null);
 
-  // load GeoJSON once
   useEffect(() => {
     const KEY = "geoDataCache";
     const TKEY = "geoDataCacheTime";
@@ -62,7 +61,6 @@ export default function Map() {
     }
   }, []);
 
-  // report coverage stats
   useEffect(() => {
     if (!geoData) return;
     const total = geoData.features.length;
@@ -70,11 +68,13 @@ export default function Map() {
       (f) => f.properties.Score_Recent == null,
     ).length;
     console.log(
-      `Coverage: ${total - missing}/${total} (${(((total - missing) / total) * 100).toFixed(1)}%)`,
+      `Coverage: ${total - missing}/${total} (${(
+        ((total - missing) / total) *
+        100
+      ).toFixed(1)}%)`,
     );
   }, [geoData]);
 
-  // init the map when data arrives
   useEffect(() => {
     if (mapInstanceRef.current || !geoData) return;
 
@@ -116,7 +116,9 @@ export default function Map() {
     });
 
     function onMapMouseMove(e) {
-      const hits = map.queryRenderedFeatures(e.point, { layers: ["points"] });
+      const hits = map.queryRenderedFeatures(e.point, {
+        layers: ["points"],
+      });
       if (hits.length) {
         const f = hits[0];
         showOrUpdatePopup(f.properties, f.geometry.coordinates);
@@ -145,6 +147,7 @@ export default function Map() {
           anchor: "bottom",
           offset: [0, -14],
           closeButton: false,
+          closeOnMove: false,
           className: "dark-style-popup",
           focusAfterOpen: false,
         })
@@ -169,7 +172,7 @@ export default function Map() {
         el.addEventListener("click", () => {
           map.easeTo({
             center: coords,
-            zoom: 15,
+            zoom: 13,
             duration: 800,
             easing: (t) => t * (2 - t),
           });
@@ -190,7 +193,7 @@ export default function Map() {
 
     mapInstanceRef.current.easeTo({
       center: coords,
-      zoom: 15,
+      zoom: 14,
       duration: 800,
       easing: (t) => t * (2 - t),
     });
