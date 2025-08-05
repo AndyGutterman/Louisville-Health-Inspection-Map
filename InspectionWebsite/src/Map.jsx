@@ -9,9 +9,11 @@ const GEOJSON_URL =
   "FoodMapping/FeatureServer/0/query?" +
   "where=1%3D1&outFields=*&returnGeometry=true&f=geojson";
 
+  const isMobile = window.innerWidth <= 600;
+
 const circlePaintStyles = {
   "circle-color": getCircleColorExpression(),
-  "circle-radius": 12,
+  "circle-radius": isMobile ? 6 : 10.5,
   "circle-opacity": 0.9,
   "circle-stroke-width": 2,
   "circle-stroke-color": "rgba(0,0,0,0.4)",
