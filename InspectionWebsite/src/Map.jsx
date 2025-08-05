@@ -6,10 +6,10 @@ import { getCircleColorExpression } from "./styleUtils";
 
 const GEOJSON_URL =
   "https://services1.arcgis.com/79kfd2K6fskCAkyg/arcgis/rest/services/" +
-  "FoodMapping/FeatureServer/0/query?" +
-  "where=1%3D1&outFields=*&returnGeometry=true&f=geojson";
-
-  const isMobile = window.innerWidth <= 600;
+  "louisville-metro-ky-restaurant-inspection-scores/FeatureServer/0/query?" +
+  "where=1%3D1&outFields=*,InspectionDate&returnGeometry=true&f=geojson";
+  
+const isMobile = window.innerWidth <= 600;
 
 const circlePaintStyles = {
   "circle-color": getCircleColorExpression(),
@@ -130,7 +130,8 @@ export default function Map() {
       });
       if (hits.length) {
         const f = hits[0];
-        showOrUpdatePopup(f.properties, f.geometry.coordinates);
+        const address = f.properties.premise_address || "No address";
+        showOrUpdatePopup(f.properties, f.geometry.coordinates, address);
         clearTimeout(hideTimeout.current);
       } else {
         scheduleHide();
@@ -146,11 +147,11 @@ export default function Map() {
       }, HIDE_DELAY);
     }
 
-    function showOrUpdatePopup(props, coords) {
+    function showOrUpdatePopup(props, coords, address) {
       const name = props.premise_name || "Unnamed";
       const score = props.Score_Recent ?? "N/A";
       const grade = props.Grade_Recent || "";
-      const html = getPopupHTML(name, score, grade);
+      const html  = getPopupHTML(name, address, score, grade);
 
       if (!popupRef.current) {
         const popup = new maplibregl.Popup({
@@ -187,7 +188,7 @@ export default function Map() {
             duration: 800,
             easing: (t) => t * (2 - t),
           });
-          setSelected({ name, score, grade });
+          setSelected({ name, address, score, grade });
         });
       } else {
         popupRef.current.setHTML(html).setLngLat(coords);
@@ -199,6 +200,7 @@ export default function Map() {
     const { properties: props, geometry } = e.features[0];
     const coords = geometry.coordinates;
     const name = props.premise_name || "Unnamed";
+    const address = props.premise_address || "No address";
     const score = props.Score_Recent ?? "N/A";
     const grade = props.Grade_Recent || "";
 
@@ -212,13 +214,14 @@ export default function Map() {
     mapInstanceRef.current.once("moveend", () =>
       popupRef.current?.setLngLat(coords).addTo(mapInstanceRef.current)
     );
-    setSelected({ name, score, grade });
+    setSelected({ name, address, score, grade });
   }
 
-  function getPopupHTML(name, score, grade) {
+  function getPopupHTML(name, address, score, grade) {
     return `
       <div class="popup-content" style="font-size:14px;line-height:1.4;max-width:200px;cursor:pointer">
         <strong style="font-size:16px;">${name}</strong><br/>
+        <small style="opacity:0.8;">${address}</small><br/>  
         Score: ${score} ${grade ? `(${grade})` : ""}
       </div>
     `;
@@ -247,6 +250,7 @@ export default function Map() {
               ×
             </button>
             <h2 className="info-title">{selected.name}</h2>
+            <p className="info-address">{selected.address}</p>
             <p className="info-score">
               Score: {selected.score}
               {selected.grade && ` (${selected.grade})`}
