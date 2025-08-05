@@ -1,7 +1,10 @@
 /* Map drawer & popup */
 .info-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, .6);
   display: flex;
   justify-content: flex-end;
@@ -68,13 +71,27 @@
   inset: 0;
 }
 
-/* MapLibre dark‐style popup tweaks */
-.dark-style-popup .maplibregl-popup-content {
+/* Popup styling for dark theme */
+.dark-style-popup .mapboxgl-popup-content {
   background: #1b1b1f;
   color: #fff;
 }
 
-.dark-style-popup .maplibregl-popup-tip {
+.dark-style-popup .mapboxgl-popup-tip {
+  border-top-color: #1b1b1f;
+}
+
+/* Ensure our custom inner popup-content text is visible */
+.dark-style-popup .popup-content {
+  color: #fff;
+}
+
+.maplibregl-popup-content {   /* was .mapboxgl-… */
+  background: #1b1b1f;
+  color: #fff;
+}
+
+.maplibregl-popup-tip {       /* was .mapboxgl-… */
   border-top-color: #1b1b1f;
 }
 
@@ -83,7 +100,7 @@
   to   { transform: translateX(0); }
 }
 
-/* Mobile: slide‐up footer style */
+/* Mobile: slide-up footer style */
 @media (max-width: 600px) {
   .info-drawer {
     width: 100%;
