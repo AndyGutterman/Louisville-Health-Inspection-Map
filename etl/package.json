@@ -1,0 +1,18 @@
+{
+  "name": "etl",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate"      : "psql < migrations.sql",
+    "seed:categories": "node seed_categories.js",
+    "seed:facilities": "node seed_facilities.js",
+    "overlay:fm"   : "node overlay_geometry.js",
+    "geocode:missing": "node geocode_missing.js",
+    "seed:inspections": "node seed_inspections.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^17.2.1",
+    "node-fetch": "^3.3.2"
+  }
+}
