@@ -13,7 +13,13 @@ const GEOJSON_URL =
 
 const circlePaintStyles = {
   "circle-color": getCircleColorExpression(),
-  "circle-radius": isMobile ? 8 : 10.5,
+  "circle-radius": [
+    "interpolate", ["linear"], ["zoom"],
+      /* at zoom 8 */  8,  isMobile ? 4  : 6,
+      /* at zoom 11 */ 11, isMobile ? 8  : 10.5,
+      /* at zoom 14 */ 14, isMobile ? 12 : 14,
+      /* at zoom 17 */ 17, isMobile ? 16 : 18
+  ],
   "circle-opacity": 0.9,
   "circle-stroke-width": 2,
   "circle-stroke-color": "rgba(0,0,0,0.4)",
