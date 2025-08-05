@@ -71,7 +71,6 @@
   inset: 0;
 }
 
-/* Popup styling for dark theme */
 .dark-style-popup .mapboxgl-popup-content {
   background: #1b1b1f;
   color: #fff;
@@ -81,17 +80,16 @@
   border-top-color: #1b1b1f;
 }
 
-/* Ensure our custom inner popup-content text is visible */
 .dark-style-popup .popup-content {
   color: #fff;
 }
 
-.maplibregl-popup-content {   /* was .mapboxgl-… */
+.maplibregl-popup-content { 
   background: #1b1b1f;
   color: #fff;
 }
 
-.maplibregl-popup-tip {       /* was .mapboxgl-… */
+.maplibregl-popup-tip {
   border-top-color: #1b1b1f;
 }
 
