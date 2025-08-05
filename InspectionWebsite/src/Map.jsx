@@ -1,19 +1,14 @@
+// src/Map.jsx
 import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { getCircleColorExpression } from "./styleUtils";
 
-// GeoJSON for geometry & permit lookup
-const GEOJSON_URL =
-  "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/" +
-  "FoodMapping/FeatureServer/0/query?" +
-  "where=1%3D1&outFields=permit_number,premise_name,premise_address&returnGeometry=true&f=geojson";
-
-// Table of inspections (paged)
-const SCORE_TABLE_URL_BASE =
-  "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/" +
-  "FoodServiceData/FeatureServer/0/query?";
+// Explicit bases to avoid bad splits/404s
+// Food map (for location data where available) / Food service (for scores)
+const FM_BASE = "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0";
+const FS_BASE = "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0";
 
 const isMobile = window.innerWidth <= 600;
 const circlePaintStyles = {
@@ -63,37 +58,89 @@ export default function Map() {
     );
   }
 
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // Page FoodMapping via OBJECTIDs and convert to GeoJSON
+  async function fetchAllGeoJSON() {
+    try {
+      const countResp = await fetch(`${FM_BASE}/query?where=1%3D1&returnCountOnly=true&f=json`).then(r => r.json());
+      if (typeof countResp?.count === "number") {
+        console.log("FoodMapping reported count:", countResp.count);
+      }
+    } catch {}
+
+    const idsJson = await fetch(`${FM_BASE}/query?where=1%3D1&returnIdsOnly=true&f=json`).then(r => r.json());
+    const ids = Array.isArray(idsJson?.objectIds) ? idsJson.objectIds : [];
+    if (!ids.length) {
+      console.warn("FoodMapping returned no objectIds", idsJson);
+      return { type: "FeatureCollection", features: [] };
+    }
+
+    const chunkSize = 300;
+    const features = [];
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize).join(",");
+      const url = `${FM_BASE}/query?objectIds=${chunk}&outFields=permit_number,premise_name,premise_address&returnGeometry=true&outSR=4326&f=json`;
+      const page = await fetch(url).then(r => r.json());
+      const feats = Array.isArray(page.features) ? page.features : [];
+      for (const esriFeat of feats) {
+        const a = esriFeat.attributes || {};
+        const g = esriFeat.geometry || {};
+        if (typeof g.x !== "number" || typeof g.y !== "number") continue;
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [g.x, g.y] },
+          properties: {
+            permit_number: a.permit_number,
+            premise_name: a.premise_name,
+            premise_address: a.premise_address,
+          }
+        });
+      }
+      await sleep(40);
+    }
+
+    console.log("FoodMapping fetched features:", features.length);
+    return { type: "FeatureCollection", features };
+  }
+
+  async function fetchAllServiceRows() {
+    const pageSize = 1000;
+    let offset = 0;
+    let all = [];
+    let page;
+    do {
+      const params = new URLSearchParams({
+        where:             "1=1",
+        outFields:         "EstablishmentID,EstablishmentName,Address,InspectionDate,score,Grade,NameSearch",
+        orderByFields:     "InspectionDate DESC",
+        resultRecordCount: String(pageSize),
+        resultOffset:      String(offset),
+        returnGeometry:    "false",
+        f:                 "json",
+      });
+      const url = `${FS_BASE}/query?${params.toString()}`;
+      page = await fetch(url).then(r => r.json());
+      if (page.features) for (const f of page.features) all.push(f.attributes);
+      offset += pageSize;
+    } while (page.features && page.features.length === pageSize);
+    return all;
+  }
+
   useEffect(() => {
     (async () => {
-      const geoJson = await fetch(GEOJSON_URL).then(r => r.json());
-
-      let offset = 0, all = [], page;
-      do {
-        const params = new URLSearchParams({
-          where:             "1=1",
-          outFields:         "EstablishmentID,EstablishmentName,Address,InspectionDate,score,Grade",
-          orderByFields:     "InspectionDate DESC",
-          resultRecordCount: "1000",
-          resultOffset:      String(offset),
-          returnGeometry:    "false",
-          f:                 "json",
-        });
-        page = await fetch(SCORE_TABLE_URL_BASE + params).then(r => r.json());
-        if (page.features) {
-          for (const f of page.features) all.push(f.attributes);
-        }
-        offset += 1000;
-      } while (page.features && page.features.length === 1000);
+      const [geoJson, allRows] = await Promise.all([
+        fetchAllGeoJSON(),
+        fetchAllServiceRows(),
+      ]);
 
       const byId = {};
       const byNameAddr = {};
-      for (const r of all) {
+      for (const r of allRows) {
         const idKey = normId(r.EstablishmentID);
         if (idKey) (byId[idKey] = byId[idKey] || []).push(r);
-
-        const nameKey = normText(r.EstablishmentName);
-        const addrKey = normText(r.Address);
-        const naKey = nameKey + "|" + addrKey;
+        const naKey = ((r.NameSearch && normText(r.NameSearch)) || normText(r.EstablishmentName))
+                    + "|" + normText(r.Address);
         (byNameAddr[naKey] = byNameAddr[naKey] || []).push(r);
       }
 
@@ -101,12 +148,9 @@ export default function Map() {
         ...geoJson,
         features: geoJson.features.map((f, idx) => {
           const idKey   = normId(f.properties.permit_number);
-          const nameKey = normText(f.properties.premise_name);
-          const addrKey = normText(f.properties.premise_address);
-
-          let recs = (idKey && byId[idKey]) || byNameAddr[nameKey + "|" + addrKey] || [];
-          const best = pickLatestWithNonZeroFirst(recs);
-
+          const naKey   = normText(f.properties.premise_name) + "|" + normText(f.properties.premise_address);
+          const recs    = (idKey && byId[idKey]) || byNameAddr[naKey] || [];
+          const best    = pickLatestWithNonZeroFirst(recs);
           return {
             ...f,
             id: idx,
@@ -119,6 +163,11 @@ export default function Map() {
           };
         })
       };
+
+      console.groupCollapsed("%cGeomap coverage","color:#7bd88f;font-weight:bold");
+      console.log("GeoJSON features:", enriched.features.length);
+      console.log("Table rows:", allRows.length);
+      console.groupEnd();
 
       setGeoData(enriched);
     })().catch(console.error);
