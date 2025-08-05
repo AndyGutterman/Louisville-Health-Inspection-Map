@@ -1,10 +1,8 @@
+/* Map drawer & popup */
 .info-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.33);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, .6);
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -12,15 +10,18 @@
 }
 
 .info-drawer {
-  background: #1f1f1f;
-  width: 80%;
-  max-width: 320px;
+  background: #1e1e1e;
+  color: #fff;
+  width: 85%;
+  max-width: 360px;
   height: 100%;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
-  animation: slideIn 0.3s ease-out forwards;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, .5);
+  animation: slideIn .3s ease-out forwards;
+  font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
 .info-close {
@@ -39,16 +40,27 @@
 }
 
 .info-title {
-  margin: 0;
+  margin: 0 0 16px;
   color: #fff;
-  font-size: 20px;
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
-.info-score {
-  margin-top: 8px;
-  color: #aaa;
-  font-size: 16px;
+.info-detail {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.info-detail .label {
+  opacity: 0.7;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.info-detail .value {
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .map-container {
@@ -56,6 +68,7 @@
   inset: 0;
 }
 
+/* MapLibre dark‐style popup tweaks */
 .dark-style-popup .maplibregl-popup-content {
   background: #1b1b1f;
   color: #fff;
@@ -66,53 +79,17 @@
 }
 
 @keyframes slideIn {
-  0% {
-    transform: translateX(100%);
-  }
-  100% {
-    transform: translateX(0);
-  }
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
 
-/* Mobile info drawer*/
+/* Mobile: slide‐up footer style */
 @media (max-width: 600px) {
-  .info-overlay {
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-  }
-
-  /* drawer slides up, full width, 40% height */
   .info-drawer {
     width: 100%;
-    max-width: 100%;
+    max-width: none;
+    border-radius: 12px 12px 0 0;
     height: 40%;
-    position: absolute;
-    bottom: 0;
-    top: auto;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
     padding: 16px;
-    box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
-    animation: slideUp 0.3s ease-out forwards;
-  }
-
-  .info-close {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 28px;
-    cursor: pointer;
-  }
-
-  .dark-style-popup .maplibregl-popup-content {
-    font-size: 16px;
-    max-width: 90vw;
-  }
-
-  /* slide-up animation keyframes */
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
   }
 }
