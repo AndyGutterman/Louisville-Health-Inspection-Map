@@ -5,8 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { getCircleColorExpression } from "./styleUtils";
 
-// Explicit bases to avoid bad splits/404s
-// Food map (for location data where available) / Food service (for scores)
+// Explicit bases
 const FM_BASE = "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0";
 const FS_BASE = "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0";
 
@@ -60,13 +59,10 @@ export default function Map() {
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Page FoodMapping via OBJECTIDs and convert to GeoJSON
   async function fetchAllGeoJSON() {
     try {
       const countResp = await fetch(`${FM_BASE}/query?where=1%3D1&returnCountOnly=true&f=json`).then(r => r.json());
-      if (typeof countResp?.count === "number") {
-        console.log("FoodMapping reported count:", countResp.count);
-      }
+      if (typeof countResp?.count === "number") console.log("FoodMapping reported count:", countResp.count);
     } catch {}
 
     const idsJson = await fetch(`${FM_BASE}/query?where=1%3D1&returnIdsOnly=true&f=json`).then(r => r.json());
@@ -129,10 +125,7 @@ export default function Map() {
 
   useEffect(() => {
     (async () => {
-      const [geoJson, allRows] = await Promise.all([
-        fetchAllGeoJSON(),
-        fetchAllServiceRows(),
-      ]);
+      const [geoJson, allRows] = await Promise.all([fetchAllGeoJSON(), fetchAllServiceRows()]);
 
       const byId = {};
       const byNameAddr = {};
@@ -144,6 +137,85 @@ export default function Map() {
         (byNameAddr[naKey] = byNameAddr[naKey] || []).push(r);
       }
 
+      // ---- uniques/overlap summary ----
+      const fsIdSet = new Set();
+      const fsNASet = new Set();
+      const fsIdToLabel = new globalThis.Map();   // <-- FIXED: use global Map
+      for (const r of allRows) {
+        const id = normId(r.EstablishmentID);
+        const na = (((r.NameSearch && normText(r.NameSearch)) || normText(r.EstablishmentName))
+                   + "|" + normText(r.Address));
+        if (id) {
+          fsIdSet.add(id);
+          if (!fsIdToLabel.has(id)) fsIdToLabel.set(id, { Name: r.EstablishmentName, Address: r.Address });
+        } else {
+          fsNASet.add(na);
+        }
+      }
+
+      const fmIdSet = new Set();
+      const fmNASet = new Set();
+      const fmIdToLabel = new globalThis.Map();   // <-- FIXED: use global Map
+      for (const f of geoJson.features || []) {
+        const id = normId(f.properties?.permit_number);
+        const na = normText(f.properties?.premise_name) + "|" + normText(f.properties?.premise_address);
+        if (id) {
+          fmIdSet.add(id);
+          if (!fmIdToLabel.has(id)) fmIdToLabel.set(id, { Name: f.properties?.premise_name, Address: f.properties?.premise_address });
+        } else {
+          fmNASet.add(na);
+        }
+      }
+
+      const fsUniqueById = fsIdSet.size;
+      const fsUniqueNoId = fsNASet.size;
+      const fsEstimatedUnique = fsUniqueById + fsUniqueNoId;
+
+      const fmUniqueById = fmIdSet.size;
+      const fmUniqueNoId = fmNASet.size;
+      const fmEstimatedUnique = fmUniqueById + fmUniqueNoId;
+
+      let overlapById = 0;
+      for (const id of fsIdSet) if (fmIdSet.has(id)) overlapById++;
+      const fsOnlyById = fsUniqueById - overlapById;
+      const fmOnlyById = fmUniqueById - overlapById;
+
+      console.groupCollapsed("%cDataset uniques (ID-first)", "color:#7bd88f;font-weight:bold");
+      console.log("FoodServiceData unique by EstablishmentID:", fsUniqueById);
+      console.log("FoodServiceData rows without ID (unique Name|Address):", fsUniqueNoId);
+      console.log("FoodServiceData estimated unique establishments:", fsEstimatedUnique);
+      console.log("FoodMapping unique by permit_number:", fmUniqueById);
+      console.log("FoodMapping without permit_number (unique Name|Address):", fmUniqueNoId);
+      console.log("FoodMapping estimated unique places:", fmEstimatedUnique);
+      console.log("Overlap by ID (present in both):", overlapById);
+      console.log("FS-only by ID:", fsOnlyById);
+      console.log("FM-only by ID:", fmOnlyById);
+
+      const sampleFsOnly = [];
+      for (const id of fsIdSet) {
+        if (!fmIdSet.has(id)) {
+          const row = fsIdToLabel.get(id) || {};
+          sampleFsOnly.push({ EstablishmentID: id, ...row });
+          if (sampleFsOnly.length >= 12) break;
+        }
+      }
+      const sampleFmOnly = [];
+      for (const id of fmIdSet) {
+        if (!fsIdSet.has(id)) {
+          const row = fmIdToLabel.get(id) || {};
+          sampleFmOnly.push({ Permit_Number: id, ...row });
+          if (sampleFmOnly.length >= 12) break;
+        }
+      }
+      console.groupCollapsed(`Sample: FS-only by ID (${sampleFsOnly.length})`);
+      console.table(sampleFsOnly);
+      console.groupEnd();
+      console.groupCollapsed(`Sample: FM-only by ID (${sampleFmOnly.length})`);
+      console.table(sampleFmOnly);
+      console.groupEnd();
+      console.groupEnd();
+
+      // ---- enrich features with score/date/grade ----
       const enriched = {
         ...geoJson,
         features: geoJson.features.map((f, idx) => {
