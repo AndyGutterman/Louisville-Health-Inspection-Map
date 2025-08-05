@@ -23,6 +23,7 @@ export default function Map() {
   const mapInstanceRef = useRef(null);
   const popupRef = useRef(null);
   const hideTimeout = useRef();
+  const pinnedRef = useRef(false);
   const HIDE_DELAY = 150;
 
   const [geoData, setGeoData] = useState(null);
@@ -46,7 +47,7 @@ export default function Map() {
 
         do {
           lastJson = await fetch(
-            `${GEOJSON_URL}&resultOffset=${offset}&resultRecordCount=${pageSize}`,
+            `${GEOJSON_URL}&resultOffset=${offset}&resultRecordCount=${pageSize}`
           ).then((r) => r.json());
 
           allFeats = allFeats.concat(lastJson.features);
@@ -65,13 +66,12 @@ export default function Map() {
     if (!geoData) return;
     const total = geoData.features.length;
     const missing = geoData.features.filter(
-      (f) => f.properties.Score_Recent == null,
+      (f) => f.properties.Score_Recent == null
     ).length;
     console.log(
       `Coverage: ${total - missing}/${total} (${(
-        ((total - missing) / total) *
-        100
-      ).toFixed(1)}%)`,
+        ((total - missing) / total) * 100
+      ).toFixed(1)}%)`
     );
   }, [geoData]);
 
@@ -85,7 +85,8 @@ export default function Map() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      style:
+        "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [-85.75, 38.25],
       zoom: 11,
     });
@@ -107,12 +108,12 @@ export default function Map() {
       map.on("mousemove", onMapMouseMove);
       map.on("mouseleave", "points", scheduleHide);
       map.on("click", "points", onPointClick);
-      map.on(
-        "mouseenter",
-        "points",
-        () => (map.getCanvas().style.cursor = "pointer"),
+      map.on("mouseenter", "points", () =>
+        (map.getCanvas().style.cursor = "pointer")
       );
-      map.on("mouseleave", "points", () => (map.getCanvas().style.cursor = ""));
+      map.on("mouseleave", "points", () =>
+        (map.getCanvas().style.cursor = "")
+      );
     });
 
     function onMapMouseMove(e) {
@@ -129,6 +130,7 @@ export default function Map() {
     }
 
     function scheduleHide() {
+      if (pinnedRef.current) return;
       clearTimeout(hideTimeout.current);
       hideTimeout.current = window.setTimeout(() => {
         popupRef.current?.remove();
@@ -148,6 +150,7 @@ export default function Map() {
           offset: [0, -14],
           closeButton: false,
           closeOnMove: false,
+          closeOnClick: false,
           className: "dark-style-popup",
           focusAfterOpen: false,
         })
@@ -165,7 +168,7 @@ export default function Map() {
         contentEl.style.userSelect = "none";
 
         el.addEventListener("mouseenter", () =>
-          clearTimeout(hideTimeout.current),
+          clearTimeout(hideTimeout.current)
         );
         el.addEventListener("mouseleave", scheduleHide);
 
@@ -191,6 +194,7 @@ export default function Map() {
     const score = props.Score_Recent ?? "N/A";
     const grade = props.Grade_Recent || "";
 
+    pinnedRef.current = true;
     mapInstanceRef.current.easeTo({
       center: coords,
       zoom: 14,
@@ -198,7 +202,7 @@ export default function Map() {
       easing: (t) => t * (2 - t),
     });
     mapInstanceRef.current.once("moveend", () =>
-      popupRef.current?.setLngLat(coords).addTo(mapInstanceRef.current),
+      popupRef.current?.setLngLat(coords).addTo(mapInstanceRef.current)
     );
     setSelected({ name, score, grade });
   }
@@ -217,9 +221,21 @@ export default function Map() {
       <div ref={mapContainerRef} className="map-container" />
 
       {selected && (
-        <div className="info-overlay" onClick={() => setSelected(null)}>
+        <div
+          className="info-overlay"
+          onClick={() => {
+            pinnedRef.current = false;
+            setSelected(null);
+          }}
+        >
           <div className="info-drawer" onClick={(e) => e.stopPropagation()}>
-            <button className="info-close" onClick={() => setSelected(null)}>
+            <button
+              className="info-close"
+              onClick={() => {
+                pinnedRef.current = false;
+                setSelected(null);
+              }}
+            >
               ×
             </button>
             <h2 className="info-title">{selected.name}</h2>
