@@ -5,197 +5,299 @@ import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
 import { getCircleColorExpression } from "./styleUtils";
 
-// initialize supabase
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-const isMobile = window.innerWidth <= 600;
-const circlePaintStyles = {
-  "circle-color": getCircleColorExpression(),
-  "circle-radius": [
-    "interpolate", ["linear"], ["zoom"],
-       8,  isMobile ? 4  : 6,
-      11,  isMobile ? 8  : 10.5,
-      14,  isMobile ? 12 : 14,
-      17,  isMobile ? 16 : 18
-  ],
-  "circle-opacity":      0.9,
-  "circle-stroke-width": 2,
-  "circle-stroke-color": "rgba(0,0,0,0.4)",
-  "circle-blur":         0.25,
-};
-
 export default function Map() {
   const mapContainerRef = useRef(null);
-  const mapRef          = useRef(null);
-  const popupRef        = useRef(null);
-  const hideTimeout     = useRef(null);
-  const lastHoverId     = useRef(null);
+  const mapRef = useRef(null);
+  const popupRef = useRef(null);
+  const hideTimeout = useRef(null);
+  const lastHoverId = useRef(null);
+  const pinnedRef = useRef(false);
+  const hoverFeatureRef = useRef(null);
+  const lastClickIdRef = useRef(null);
 
-  const [geoData,    setGeoData]    = useState(null);
-  const [selected,   setSelected]   = useState(null);
+  const [geoData, setGeoData] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [showPurple, setShowPurple] = useState(false);
-  const [showNull,   setShowNull]   = useState(false);
+  const [showNull, setShowNull] = useState(false);
+  const [autoZoom, setAutoZoom] = useState(true);
+
+  const autoZoomRef = useRef(autoZoom);
+  useEffect(() => {
+    autoZoomRef.current = autoZoom;
+  }, [autoZoom]);
 
   const HIDE_DELAY = 150;
+  const TARGET_ZOOM = 14;
+  const MIN_ZOOM = 11;
 
-  // 1) fetch → geoData (only latest inspection per facility)
   useEffect(() => {
     (async () => {
-      // fetch count
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
-      if (headErr) {
-        console.error(headErr);
-        return;
-      }
-      console.log("Total rows in view:", count);
+      if (headErr) return console.error(headErr);
 
-      // page‐through
       const pageSize = 1000;
       let allRows = [];
       for (let offset = 0; offset < count; offset += pageSize) {
         const to = Math.min(count - 1, offset + pageSize - 1);
-        console.log(`Fetching rows ${offset}–${to}…`);
         const { data, error } = await supabase
           .from("v_facility_map_feed")
-          .select(`establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent`)
+          .select(
+            `establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent`
+          )
           .range(offset, to);
-        if (error) {
-          console.error(error);
-          return;
-        }
+        if (error) return console.error(error);
         allRows = allRows.concat(data);
       }
-      console.log(`Pulled ${allRows.length}/${count} records from Supabase.`);
 
-      // map to GeoJSON features
       const features = allRows
         .filter(r => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => ({
           type: "Feature",
-          id:   i,
+          id: i,
           geometry: { type: "Point", coordinates: [r.lon, r.lat] },
           properties: {
             establishment_id: r.establishment_id,
-            name:             r.premise_name,
-            address:          r.address,
-            date:             r.inspection_date_recent,
-            score:            r.score_recent,
-            grade:            r.grade_recent,
-}
+            name: r.premise_name,
+            address: r.address,
+            date: r.inspection_date_recent,
+            score: r.score_recent,
+            grade: r.grade_recent,
+          },
         }));
 
-      // reduce to the latest inspection per establishment_id
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
-        if (
-          !prev ||
-          (feat.properties.date && feat.properties.date > prev.properties.date)
-        ) {
+        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date)) {
           acc[eid] = feat;
         }
         return acc;
       }, {});
-      const latestFeatures = Object.values(latestMap);
-
-      setGeoData({ type: "FeatureCollection", features: latestFeatures });
+      setGeoData({ type: "FeatureCollection", features: Object.values(latestMap) });
     })();
   }, []);
 
-  // 2) init map once
   useEffect(() => {
     if (!geoData || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style:     "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center:    [-85.75, 38.25],
-      zoom:      11,
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      center: [-85.75, 38.25],
+      zoom: MIN_ZOOM,
     });
     mapRef.current = map;
+
+    const isMobile = window.matchMedia("(pointer: coarse)").matches;
+    let mousePos = null;
+    let animId = null;
+    const margin = 150;
+    const maxSpeed = 12;
+
+    function animatePan() {
+      if (!isMobile && mousePos) {
+        const rect = map.getContainer().getBoundingClientRect();
+        const { x, y } = mousePos;
+        let dx = 0, dy = 0;
+        if (x < margin) dx = -maxSpeed * (1 - x / margin);
+        else if (x > rect.width - margin) dx = maxSpeed * (1 - (rect.width - x) / margin);
+        if (y < margin) dy = -maxSpeed * (1 - y / margin);
+        else if (y > rect.height - margin) dy = maxSpeed * (1 - (rect.height - y) / margin);
+        if (dx || dy) map.panBy([dx, dy], { duration: 0 });
+      }
+      animId = requestAnimationFrame(animatePan);
+    }
 
     map.on("load", () => {
       map.addSource("facilities", { type: "geojson", data: geoData });
       map.addLayer({
-        id:     "points",
-        type:   "circle",
+        id: "points",
+        type: "circle",
         source: "facilities",
-        paint:  circlePaintStyles,
+        paint: {
+          "circle-color": getCircleColorExpression(),
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            8,  window.innerWidth <= 600 ? 4  : 6,
+            11, window.innerWidth <= 600 ? 8  : 10.5,
+            14, window.innerWidth <= 600 ? 12 : 14,
+            17, window.innerWidth <= 600 ? 16 : 18,
+          ],
+          "circle-opacity":      0.9,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "rgba(0,0,0,0.4)",
+          "circle-blur":         0.25,
+        },
       });
 
       map.on("mousemove",  "points", onHover);
       map.on("mouseleave", "points", hidePopup);
-      map.on("click",      "points", onClick);
+      map.on("click",     "points", onClick);
       map.on("mouseenter","points", () => map.getCanvas().style.cursor = "pointer");
       map.on("mouseleave","points", () => map.getCanvas().style.cursor = "");
 
+      map.on("click", (e) => {
+        const hits = map.queryRenderedFeatures(e.point, { layers: ["points"] });
+        if (hits.length === 0) {
+          pinnedRef.current = false;
+          popupRef.current?.remove();
+          popupRef.current = null;
+          lastHoverId.current = null;
+          hoverFeatureRef.current = null;
+        }
+      });
+
       applyFilter(map);
+
+      if (!isMobile) {
+        map.getCanvas().addEventListener("mousemove", (e) => {
+          const rect = map.getContainer().getBoundingClientRect();
+          mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        });
+        map.getCanvas().addEventListener("mouseleave", () => {
+          mousePos = null;
+        });
+        animatePan();
+      }
     });
 
-    return () => map.remove();
+    return () => {
+      cancelAnimationFrame(animId);
+      map.getCanvas().removeEventListener("mousemove", () => {});
+      map.getCanvas().removeEventListener("mouseleave", () => {});
+      map.remove();
+    };
   }, [geoData]);
 
-  // 3) re-filter on toggle changes
   useEffect(() => {
     if (mapRef.current) applyFilter(mapRef.current);
   }, [showPurple, showNull]);
 
+  useEffect(() => {
+    if (selected === null) {
+      pinnedRef.current = false;
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+        lastHoverId.current = null;
+        hoverFeatureRef.current = null;
+      }
+    }
+  }, [selected]);
+
   function applyFilter(map) {
     const filter = ["all"];
-    // hide purple (<25)
     if (!showPurple) {
-      filter.push(["!", ["all",
-        ["!=", ["get","score"], null],
-        ["<",  ["get","score"], 25]
-      ]]);
+      filter.push([
+        "!",
+        ["all",
+          ["!=", ["get","score"], null],
+          ["<",  ["get","score"], 25]
+        ]
+      ]);
     }
-    // hide null
     if (!showNull) {
       filter.push(["!", ["==", ["get","score"], null]]);
     }
     map.setFilter("points", filter);
   }
 
-  // popup handlers
+  function zoomToCluster(e) {
+    const map = mapRef.current;
+    const bbox = [
+      [e.point.x - 100, e.point.y - 100],
+      [e.point.x + 100, e.point.y + 100]
+    ];
+    const nearby = map.queryRenderedFeatures(bbox, { layers: ["points"] });
+    const currZoom = map.getZoom();
+    const clickCoords = e.features[0].geometry.coordinates;
+
+    if (nearby.length <= 1) {
+      const newZoom = Math.max(MIN_ZOOM, currZoom - 1);
+      map.easeTo({ center: clickCoords, zoom: newZoom, duration: 600 });
+      return;
+    }
+
+    let zoomLevel = TARGET_ZOOM - 1;
+    if (nearby.length > 30) zoomLevel = TARGET_ZOOM + 0.5;
+    else if (nearby.length > 10) zoomLevel = TARGET_ZOOM;
+    else zoomLevel = TARGET_ZOOM - 1;
+
+    const lons = nearby.map((f) => f.geometry.coordinates[0]);
+    const lats = nearby.map((f) => f.geometry.coordinates[1]);
+    const avgLon = lons.reduce((sum, x) => sum + x, 0) / lons.length;
+    const avgLat = lats.reduce((sum, y) => sum + y, 0) / lats.length;
+    const bias = 0.2;
+    const center = [
+      clickCoords[0] + (avgLon - clickCoords[0]) * bias,
+      clickCoords[1] + (avgLat - clickCoords[1]) * bias
+    ];
+
+    if (currZoom < zoomLevel) {
+      map.easeTo({ center, zoom: zoomLevel, duration: 600 });
+    } else {
+      map.easeTo({ center, duration: 600 });
+    }
+  }
+
+  function handlePopupClick() {
+    const f = hoverFeatureRef.current;
+    if (!f) return;
+    const { name, address, date, score, grade } = f.properties;
+    setSelected({
+      name,
+      address,
+      inspectionDate: date ? new Date(date).toLocaleDateString() : "n/a",
+      score: score != null ? score : "n/a",
+      grade,
+    });
+    pinnedRef.current = true;
+  }
+
   function onHover(e) {
+    if (pinnedRef.current) return;
     if (!e.features.length) return hidePopup();
     const f = e.features[0];
     if (f.id === lastHoverId.current) return;
     lastHoverId.current = f.id;
+    hoverFeatureRef.current = f;
 
     const { name, address, date, score, grade } = f.properties;
-    const html = `
-      <div class="popup-content" style="font-size:14px;max-width:220px">
-        <strong>${name}</strong><br/>
-        <small>${address}</small><br/>
-        <small>Inspected: ${date ? new Date(date).toLocaleDateString() : "n/a"}</small><br/>
-        Score: ${score != null ? score : "n/a"}${grade ? ` (${grade})` : ''}
-      </div>`;
+    const html =
+      '<div class="popup-content" style="font-size:14px;max-width:220px">' +
+      '<strong>' + name + '</strong><br/>' +
+      '<small>' + address + '</small><br/>' +
+      '<small>Inspected: ' + (date ? new Date(date).toLocaleDateString() : 'n/a') + '</small><br/>' +
+      'Score: ' + (score != null ? score : 'n/a') +
+      (grade ? ' (' + grade + ')' : '') +
+      '</div>';
 
     if (!popupRef.current) {
       popupRef.current = new maplibregl.Popup({
-        anchor:      "bottom",
-        offset:      [0, -14],
+        anchor: "bottom",
+        offset: [0, -14],
         closeButton: false,
         closeOnMove: false,
-        closeOnClick:false
+        closeOnClick: false,
       })
-      .setLngLat(f.geometry.coordinates)
-      .setHTML(html)
-      .addTo(mapRef.current);
-    } else {
-      popupRef.current
         .setLngLat(f.geometry.coordinates)
-        .setHTML(html);
+        .setHTML(html)
+        .addTo(mapRef.current);
+      popupRef.current.getElement().addEventListener("click", handlePopupClick);
+    } else {
+      popupRef.current.setLngLat(f.geometry.coordinates).setHTML(html);
     }
   }
 
   function hidePopup() {
+    if (pinnedRef.current) return;
     clearTimeout(hideTimeout.current);
     hideTimeout.current = setTimeout(() => {
       popupRef.current?.remove();
@@ -205,19 +307,47 @@ export default function Map() {
   }
 
   function onClick(e) {
-    const { name, address, date, score, grade } = e.features[0].properties;
-    setSelected({
-      name,
-      address,
-      inspectionDate: date ? new Date(date).toLocaleDateString() : "n/a",
-      score:          score != null ? score : "n/a",
-      grade,
-    });
-    mapRef.current.easeTo({
-      center:   e.features[0].geometry.coordinates,
-      zoom:     14,
-      duration: 600,
-    });
+    const f = e.features[0];
+    hoverFeatureRef.current = f;
+
+    const isSame = lastClickIdRef.current === f.id;
+    if (isSame && pinnedRef.current) {
+      handlePopupClick();
+      return;
+    }
+
+    lastClickIdRef.current = f.id;
+    if (autoZoomRef.current) {
+      zoomToCluster(e);
+    }
+
+    const { name, address, date, score, grade } = f.properties;
+    const html =
+      '<div class="popup-content" style="font-size:14px;max-width:220px">' +
+      '<strong>' + name + '</strong><br/>' +
+      '<small>' + address + '</small><br/>' +
+      '<small>Inspected: ' + (date ? new Date(date).toLocaleDateString() : 'n/a') + '</small><br/>' +
+      'Score: ' + (score != null ? score : 'n/a') +
+      (grade ? ' (' + grade + ')' : '') +
+      '</div>';
+
+    if (!popupRef.current) {
+      popupRef.current = new maplibregl.Popup({
+        anchor: "bottom",
+        offset: [0, -14],
+        closeButton: false,
+        closeOnMove: false,
+        closeOnClick: false,
+      })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(html)
+        .addTo(mapRef.current);
+      popupRef.current.getElement().addEventListener("click", handlePopupClick);
+    } else {
+      popupRef.current.setLngLat(f.geometry.coordinates).setHTML(html);
+    }
+
+    pinnedRef.current = true;
   }
 
   return (
@@ -225,10 +355,21 @@ export default function Map() {
       <div ref={mapContainerRef} className="map-container" />
 
       <div className="controls">
-        <div className="search-bar">
-          <span className="icon">🔍</span>
-          <input type="text" placeholder="Search…" disabled />
+        <div className="search-group">
+          <div className="search-bar">
+            <span className="icon">🔍</span>
+            <input type="text" placeholder="Search…" disabled />
+          </div>
+          <label className="autozoom">
+            <input
+              type="checkbox"
+              checked={autoZoom}
+              onChange={e => setAutoZoom(e.target.checked)}
+            />
+            Auto-zoom
+          </label>
         </div>
+
         <div className="filters">
           <label>
             <input

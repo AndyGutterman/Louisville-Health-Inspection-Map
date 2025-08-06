@@ -93,6 +93,10 @@
   border-top-color: #1b1b1f;
 }
 
+.popup-content {
+  cursor: pointer;
+}
+
 @keyframes slideIn {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
