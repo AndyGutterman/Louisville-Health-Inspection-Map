@@ -25,16 +25,16 @@ export default function Map() {
   const [showPurple, setShowPurple] = useState(false);
   const [showNull, setShowNull] = useState(false);
   const [autoZoom, setAutoZoom] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const autoZoomRef = useRef(autoZoom);
-  useEffect(() => {
-    autoZoomRef.current = autoZoom;
-  }, [autoZoom]);
+  useEffect(() => { autoZoomRef.current = autoZoom }, [autoZoom]);
 
   const HIDE_DELAY = 150;
   const TARGET_ZOOM = 14;
   const MIN_ZOOM = 11;
 
+  // fetch and prepare geoData
   useEffect(() => {
     (async () => {
       const { count, error: headErr } = await supabase
@@ -80,13 +80,14 @@ export default function Map() {
         }
         return acc;
       }, {});
+
       setGeoData({ type: "FeatureCollection", features: Object.values(latestMap) });
     })();
   }, []);
 
+  // initialize map & layers
   useEffect(() => {
     if (!geoData || mapRef.current) return;
-
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
@@ -98,8 +99,7 @@ export default function Map() {
     const isMobile = window.matchMedia("(pointer: coarse)").matches;
     let mousePos = null;
     let animId = null;
-    const margin = 150;
-    const maxSpeed = 12;
+    const margin = 150, maxSpeed = 12;
 
     function animatePan() {
       if (!isMobile && mousePos) {
@@ -125,27 +125,27 @@ export default function Map() {
           "circle-color": getCircleColorExpression(),
           "circle-radius": [
             "interpolate", ["linear"], ["zoom"],
-            8,  window.innerWidth <= 600 ? 4  : 6,
-            11, window.innerWidth <= 600 ? 8  : 10.5,
+            8, window.innerWidth <= 600 ? 4 : 6,
+            11, window.innerWidth <= 600 ? 8 : 10.5,
             14, window.innerWidth <= 600 ? 12 : 14,
             17, window.innerWidth <= 600 ? 16 : 18,
           ],
-          "circle-opacity":      0.9,
+          "circle-opacity": 0.9,
           "circle-stroke-width": 2,
           "circle-stroke-color": "rgba(0,0,0,0.4)",
-          "circle-blur":         0.25,
-        },
+          "circle-blur": 0.25,
+        }
       });
 
-      map.on("mousemove",  "points", onHover);
+      map.on("mousemove", "points", onHover);
       map.on("mouseleave", "points", hidePopup);
-      map.on("click",     "points", onClick);
-      map.on("mouseenter","points", () => map.getCanvas().style.cursor = "pointer");
-      map.on("mouseleave","points", () => map.getCanvas().style.cursor = "");
+      map.on("click", "points", onClick);
+      map.on("mouseenter", "points", () => map.getCanvas().style.cursor = "pointer");
+      map.on("mouseleave", "points", () => map.getCanvas().style.cursor = "");
 
-      map.on("click", (e) => {
+      map.on("click", e => {
         const hits = map.queryRenderedFeatures(e.point, { layers: ["points"] });
-        if (hits.length === 0) {
+        if (!hits.length) {
           pinnedRef.current = false;
           popupRef.current?.remove();
           popupRef.current = null;
@@ -155,108 +155,101 @@ export default function Map() {
       });
 
       applyFilter(map);
-
-      if (!isMobile) {
-        map.getCanvas().addEventListener("mousemove", (e) => {
-          const rect = map.getContainer().getBoundingClientRect();
-          mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        });
-        map.getCanvas().addEventListener("mouseleave", () => {
-          mousePos = null;
-        });
-        animatePan();
-      }
+      animatePan();
     });
 
     return () => {
       cancelAnimationFrame(animId);
-      map.getCanvas().removeEventListener("mousemove", () => {});
-      map.getCanvas().removeEventListener("mouseleave", () => {});
       map.remove();
     };
   }, [geoData]);
 
+  // reapply on search or toggles
   useEffect(() => {
     if (mapRef.current) applyFilter(mapRef.current);
-  }, [showPurple, showNull]);
+  }, [showPurple, showNull, searchTerm]);
+
+  function applyFilter(map) {
+    const filters = ["all"];
+
+    if (!showPurple) {
+      filters.push([
+        "!",
+        ["all",
+          ["!=", ["get", "score"], null],
+          ["<", ["get", "score"], 25]
+        ]
+      ]);
+    }
+
+    if (!showNull) {
+      filters.push(["!", ["==", ["get", "score"], null]]);
+    }
+
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      filters.push([
+        "in",
+        term,
+        ["downcase", ["get", "name"]]
+      ]);
+
+    }
+
+    map.setFilter("points", filters);
+  }
 
   useEffect(() => {
     if (selected === null) {
       pinnedRef.current = false;
-      if (popupRef.current) {
-        popupRef.current.remove();
-        popupRef.current = null;
-        lastHoverId.current = null;
-        hoverFeatureRef.current = null;
-      }
+      popupRef.current?.remove();
+      popupRef.current = null;
+      lastHoverId.current = null;
+      hoverFeatureRef.current = null;
     }
   }, [selected]);
 
-  function applyFilter(map) {
-    const filter = ["all"];
-    if (!showPurple) {
-      filter.push([
-        "!",
-        ["all",
-          ["!=", ["get","score"], null],
-          ["<",  ["get","score"], 25]
-        ]
-      ]);
-    }
-    if (!showNull) {
-      filter.push(["!", ["==", ["get","score"], null]]);
-    }
-    map.setFilter("points", filter);
-  }
-
   function zoomToCluster(e) {
     const map = mapRef.current;
-    const bbox = [
-      [e.point.x - 100, e.point.y - 100],
-      [e.point.x + 100, e.point.y + 100]
-    ];
+    const point = e.point;
+    const bbox = [[point.x - 100, point.y - 100], [point.x + 100, point.y + 100]];
     const nearby = map.queryRenderedFeatures(bbox, { layers: ["points"] });
-    const currZoom = map.getZoom();
-    const clickCoords = e.features[0].geometry.coordinates;
+    const curr = map.getZoom();
+    const coords = e.features[0].geometry.coordinates;
 
     if (nearby.length <= 1) {
-      const newZoom = Math.max(MIN_ZOOM, currZoom - 1);
-      map.easeTo({ center: clickCoords, zoom: newZoom, duration: 600 });
+      map.easeTo({ center: coords, zoom: Math.max(MIN_ZOOM, curr - 1), duration: 600 });
       return;
     }
 
-    let zoomLevel = TARGET_ZOOM - 1;
-    if (nearby.length > 30) zoomLevel = TARGET_ZOOM + 0.5;
-    else if (nearby.length > 10) zoomLevel = TARGET_ZOOM;
-    else zoomLevel = TARGET_ZOOM - 1;
+    let zl = TARGET_ZOOM - 1;
+    if (nearby.length > 30) zl = TARGET_ZOOM + 0.5;
+    else if (nearby.length > 10) zl = TARGET_ZOOM;
 
-    const lons = nearby.map((f) => f.geometry.coordinates[0]);
-    const lats = nearby.map((f) => f.geometry.coordinates[1]);
-    const avgLon = lons.reduce((sum, x) => sum + x, 0) / lons.length;
-    const avgLat = lats.reduce((sum, y) => sum + y, 0) / lats.length;
+    const lons = nearby.map(f => f.geometry.coordinates[0]);
+    const lats = nearby.map(f => f.geometry.coordinates[1]);
+    const avgLon = lons.reduce((s, x) => s + x, 0) / lons.length;
+    const avgLat = lats.reduce((s, y) => s + y, 0) / lats.length;
     const bias = 0.2;
     const center = [
-      clickCoords[0] + (avgLon - clickCoords[0]) * bias,
-      clickCoords[1] + (avgLat - clickCoords[1]) * bias
+      coords[0] + (avgLon - coords[0]) * bias,
+      coords[1] + (avgLat - coords[1]) * bias
     ];
 
-    if (currZoom < zoomLevel) {
-      map.easeTo({ center, zoom: zoomLevel, duration: 600 });
-    } else {
-      map.easeTo({ center, duration: 600 });
-    }
+    map.easeTo({ center, zoom: curr < zl ? zl : curr, duration: 600 });
   }
 
   function handlePopupClick() {
     const f = hoverFeatureRef.current;
     if (!f) return;
-    const { name, address, date, score, grade } = f.properties;
     setSelected({
-      name,
-      address,
-      inspectionDate: date ? new Date(date).toLocaleDateString() : "n/a",
-      score: score != null ? score : "n/a",
-      grade,
+      name: f.properties.name,
+      address: f.properties.address,
+      inspectionDate: f.properties.date
+        ? new Date(f.properties.date).toLocaleDateString()
+        : "n/a",
+      score: f.properties.score != null ? f.properties.score : "n/a",
+      grade: f.properties.grade,
     });
     pinnedRef.current = true;
   }
@@ -271,13 +264,12 @@ export default function Map() {
 
     const { name, address, date, score, grade } = f.properties;
     const html =
-      '<div class="popup-content" style="font-size:14px;max-width:220px">' +
-      '<strong>' + name + '</strong><br/>' +
-      '<small>' + address + '</small><br/>' +
-      '<small>Inspected: ' + (date ? new Date(date).toLocaleDateString() : 'n/a') + '</small><br/>' +
-      'Score: ' + (score != null ? score : 'n/a') +
-      (grade ? ' (' + grade + ')' : '') +
-      '</div>';
+      `<div class="popup-content" style="font-size:14px;max-width:220px">
+         <strong>${name}</strong><br/>
+         <small>${address}</small><br/>
+         <small>Inspected: ${date ? new Date(date).toLocaleDateString() : 'n/a'}</small><br/>
+         Score: ${score != null ? score : 'n/a'}${grade ? ` (${grade})` : ''}
+       </div>`;
 
     if (!popupRef.current) {
       popupRef.current = new maplibregl.Popup({
@@ -309,27 +301,22 @@ export default function Map() {
   function onClick(e) {
     const f = e.features[0];
     hoverFeatureRef.current = f;
-
-    const isSame = lastClickIdRef.current === f.id;
-    if (isSame && pinnedRef.current) {
+    const same = lastClickIdRef.current === f.id;
+    if (same && pinnedRef.current) {
       handlePopupClick();
       return;
     }
-
     lastClickIdRef.current = f.id;
-    if (autoZoomRef.current) {
-      zoomToCluster(e);
-    }
+    if (autoZoomRef.current) zoomToCluster(e);
 
     const { name, address, date, score, grade } = f.properties;
     const html =
-      '<div class="popup-content" style="font-size:14px;max-width:220px">' +
-      '<strong>' + name + '</strong><br/>' +
-      '<small>' + address + '</small><br/>' +
-      '<small>Inspected: ' + (date ? new Date(date).toLocaleDateString() : 'n/a') + '</small><br/>' +
-      'Score: ' + (score != null ? score : 'n/a') +
-      (grade ? ' (' + grade + ')' : '') +
-      '</div>';
+      `<div class="popup-content" style="font-size:14px;max-width:220px">
+         <strong>${name}</strong><br/>
+         <small>${address}</small><br/>
+         <small>Inspected: ${date ? new Date(date).toLocaleDateString() : 'n/a'}</small><br/>
+         Score: ${score != null ? score : 'n/a'}${grade ? ` (${grade})` : ''}
+       </div>`;
 
     if (!popupRef.current) {
       popupRef.current = new maplibregl.Popup({
@@ -358,7 +345,12 @@ export default function Map() {
         <div className="search-group">
           <div className="search-bar">
             <span className="icon">🔍</span>
-            <input type="text" placeholder="Search…" disabled />
+            <input
+              type="text"
+              placeholder="Search…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
           </div>
           <label className="autozoom">
             <input
