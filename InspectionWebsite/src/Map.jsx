@@ -5,7 +5,7 @@ import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
 import { getCircleColorExpression } from "./styleUtils";
 
-// initialize Supabase from env
+// initialize supabase
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -16,10 +16,10 @@ const circlePaintStyles = {
   "circle-color": getCircleColorExpression(),
   "circle-radius": [
     "interpolate", ["linear"], ["zoom"],
-       8, isMobile ? 4  : 6,
-      11, isMobile ? 8  : 10.5,
-      14, isMobile ? 12 : 14,
-      17, isMobile ? 16 : 18
+       8,  isMobile ? 4  : 6,
+      11,  isMobile ? 8  : 10.5,
+      14,  isMobile ? 12 : 14,
+      17,  isMobile ? 16 : 18
   ],
   "circle-opacity":      0.9,
   "circle-stroke-width": 2,
@@ -34,23 +34,27 @@ export default function Map() {
   const hideTimeout     = useRef(null);
   const lastHoverId     = useRef(null);
 
-  const [geoData, setGeoData]   = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [geoData,    setGeoData]    = useState(null);
+  const [selected,   setSelected]   = useState(null);
+  const [showPurple, setShowPurple] = useState(false);
+  const [showNull,   setShowNull]   = useState(false);
+
   const HIDE_DELAY = 150;
 
+  // 1) fetch → geoData (only latest inspection per facility)
   useEffect(() => {
     (async () => {
-      // 1) get exact count
+      // fetch count
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
       if (headErr) {
-        console.error("Error fetching total count:", headErr);
+        console.error(headErr);
         return;
       }
       console.log("Total rows in view:", count);
 
-      // 2) page‐through in 1000-row chunks
+      // page‐through
       const pageSize = 1000;
       let allRows = [];
       for (let offset = 0; offset < count; offset += pageSize) {
@@ -58,28 +62,17 @@ export default function Map() {
         console.log(`Fetching rows ${offset}–${to}…`);
         const { data, error } = await supabase
           .from("v_facility_map_feed")
-          .select(`
-            establishment_id,
-            name,
-            address,
-            lon,
-            lat,
-            inspection_date,
-            score,
-            grade
-          `)
+          .select(`establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent`)
           .range(offset, to);
-
         if (error) {
-          console.error(`Error fetching range ${offset}–${to}:`, error);
+          console.error(error);
           return;
         }
         allRows = allRows.concat(data);
       }
-
       console.log(`Pulled ${allRows.length}/${count} records from Supabase.`);
 
-      // 3) convert into GeoJSON (drop any w/o coords)
+      // map to GeoJSON features
       const features = allRows
         .filter(r => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => ({
@@ -87,18 +80,34 @@ export default function Map() {
           id:   i,
           geometry: { type: "Point", coordinates: [r.lon, r.lat] },
           properties: {
-            name:    r.name,
-            address: r.address,
-            date:    r.inspection_date,
-            score:   r.score,
-            grade:   r.grade,
-          }
+            establishment_id: r.establishment_id,
+            name:             r.premise_name,
+            address:          r.address,
+            date:             r.inspection_date_recent,
+            score:            r.score_recent,
+            grade:            r.grade_recent,
+}
         }));
 
-      setGeoData({ type: "FeatureCollection", features });
+      // reduce to the latest inspection per establishment_id
+      const latestMap = features.reduce((acc, feat) => {
+        const eid = feat.properties.establishment_id;
+        const prev = acc[eid];
+        if (
+          !prev ||
+          (feat.properties.date && feat.properties.date > prev.properties.date)
+        ) {
+          acc[eid] = feat;
+        }
+        return acc;
+      }, {});
+      const latestFeatures = Object.values(latestMap);
+
+      setGeoData({ type: "FeatureCollection", features: latestFeatures });
     })();
   }, []);
 
+  // 2) init map once
   useEffect(() => {
     if (!geoData || mapRef.current) return;
 
@@ -119,49 +128,70 @@ export default function Map() {
         paint:  circlePaintStyles,
       });
 
-      map.on("mousemove", "points", onHover);
+      map.on("mousemove",  "points", onHover);
       map.on("mouseleave", "points", hidePopup);
       map.on("click",      "points", onClick);
       map.on("mouseenter","points", () => map.getCanvas().style.cursor = "pointer");
       map.on("mouseleave","points", () => map.getCanvas().style.cursor = "");
+
+      applyFilter(map);
     });
 
     return () => map.remove();
   }, [geoData]);
 
+  // 3) re-filter on toggle changes
+  useEffect(() => {
+    if (mapRef.current) applyFilter(mapRef.current);
+  }, [showPurple, showNull]);
+
+  function applyFilter(map) {
+    const filter = ["all"];
+    // hide purple (<25)
+    if (!showPurple) {
+      filter.push(["!", ["all",
+        ["!=", ["get","score"], null],
+        ["<",  ["get","score"], 25]
+      ]]);
+    }
+    // hide null
+    if (!showNull) {
+      filter.push(["!", ["==", ["get","score"], null]]);
+    }
+    map.setFilter("points", filter);
+  }
+
+  // popup handlers
   function onHover(e) {
     if (!e.features.length) return hidePopup();
     const f = e.features[0];
     if (f.id === lastHoverId.current) return;
     lastHoverId.current = f.id;
 
-    const p     = f.properties;
-    const date  = p.date  ? new Date(p.date).toLocaleDateString() : "n/a";
-    const score = p.score != null ? p.score : "n/a";
-    const grade = p.grade || "";
-
-    const html = /* html */`
-      <div class="popup-content" style="font-size:14px;line-height:1.4;max-width:220px;">
-        <strong style="font-size:16px;">${p.name}</strong><br/>
-        <small style="opacity:0.8;">${p.address}</small><br/>
-        <small style="opacity:0.8;">Inspected: ${date}</small><br/>
-        Score: ${score}${grade ? ` (${grade})` : ""}
-      </div>
-    `;
+    const { name, address, date, score, grade } = f.properties;
+    const html = `
+      <div class="popup-content" style="font-size:14px;max-width:220px">
+        <strong>${name}</strong><br/>
+        <small>${address}</small><br/>
+        <small>Inspected: ${date ? new Date(date).toLocaleDateString() : "n/a"}</small><br/>
+        Score: ${score != null ? score : "n/a"}${grade ? ` (${grade})` : ''}
+      </div>`;
 
     if (!popupRef.current) {
       popupRef.current = new maplibregl.Popup({
-        anchor:       "bottom",
-        offset:       [0, -14],
-        closeButton:  false,
-        closeOnMove:  false,
-        closeOnClick: false,
+        anchor:      "bottom",
+        offset:      [0, -14],
+        closeButton: false,
+        closeOnMove: false,
+        closeOnClick:false
       })
       .setLngLat(f.geometry.coordinates)
       .setHTML(html)
       .addTo(mapRef.current);
     } else {
-      popupRef.current.setLngLat(f.geometry.coordinates).setHTML(html);
+      popupRef.current
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(html);
     }
   }
 
@@ -175,22 +205,17 @@ export default function Map() {
   }
 
   function onClick(e) {
-    const p     = e.features[0].properties;
-    const date  = p.date  ? new Date(p.date).toLocaleDateString() : "n/a";
-    const score = p.score != null ? p.score : "n/a";
-    const grade = p.grade || "";
-
+    const { name, address, date, score, grade } = e.features[0].properties;
     setSelected({
-      name:           p.name,
-      address:        p.address,
-      inspectionDate: date,
-      score,
+      name,
+      address,
+      inspectionDate: date ? new Date(date).toLocaleDateString() : "n/a",
+      score:          score != null ? score : "n/a",
       grade,
     });
-
     mapRef.current.easeTo({
-      center: e.features[0].geometry.coordinates,
-      zoom:   14,
+      center:   e.features[0].geometry.coordinates,
+      zoom:     14,
       duration: 600,
     });
   }
@@ -198,6 +223,31 @@ export default function Map() {
   return (
     <>
       <div ref={mapContainerRef} className="map-container" />
+
+      <div className="controls">
+        <div className="search-bar">
+          <span className="icon">🔍</span>
+          <input type="text" placeholder="Search…" disabled />
+        </div>
+        <div className="filters">
+          <label>
+            <input
+              type="checkbox"
+              checked={showPurple}
+              onChange={e => setShowPurple(e.target.checked)}
+            />
+            Show purple (&lt;25)
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showNull}
+              onChange={e => setShowNull(e.target.checked)}
+            />
+            Show null
+          </label>
+        </div>
+      </div>
 
       {selected && (
         <div className="info-overlay" onClick={() => setSelected(null)}>
