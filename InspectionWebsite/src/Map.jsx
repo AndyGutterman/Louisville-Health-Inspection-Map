@@ -3,12 +3,27 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
-import { getCircleColorExpression } from "./styleUtils";
+import { buildBandsFromCurrentStyle, getCircleColorExpression } from "./styleUtils";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+const SCORE_BANDS = buildBandsFromCurrentStyle();
+
+function renderScoreCheckboxes(cfg, checks, setChecks) {
+  return cfg.map(b => (
+    <label key={b.key}>
+      <input
+        type="checkbox"
+        checked={!!checks[b.key]}
+        onChange={e => setChecks(prev => ({ ...prev, [b.key]: e.target.checked }))}
+      />
+      {b.label}
+    </label>
+  ));
+}
 
 export default function Map() {
   const mapContainerRef = useRef(null);
@@ -22,10 +37,17 @@ export default function Map() {
 
   const [geoData, setGeoData] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [showPurple, setShowPurple] = useState(false);
-  const [showNull, setShowNull] = useState(false);
   const [autoZoom, setAutoZoom] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [scoreChecks, setScoreChecks] = useState({
+    green: true,
+    yellow: true,
+    red:   true,
+    verylow: true,
+    zero:  false,
+    null:  false,
+  });
 
   const autoZoomRef = useRef(autoZoom);
   useEffect(() => { autoZoomRef.current = autoZoom }, [autoZoom]);
@@ -34,7 +56,6 @@ export default function Map() {
   const TARGET_ZOOM = 14;
   const MIN_ZOOM = 11;
 
-  // fetch and prepare geoData
   useEffect(() => {
     (async () => {
       const { count, error: headErr } = await supabase
@@ -85,7 +106,6 @@ export default function Map() {
     })();
   }, []);
 
-  // initialize map & layers
   useEffect(() => {
     if (!geoData || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -117,34 +137,45 @@ export default function Map() {
 
     map.on("load", () => {
       map.addSource("facilities", { type: "geojson", data: geoData });
-      map.addLayer({
-        id: "points",
-        type: "circle",
-        source: "facilities",
-        paint: {
-          "circle-color": getCircleColorExpression(),
-          "circle-radius": [
-            "interpolate", ["linear"], ["zoom"],
-            8, window.innerWidth <= 600 ? 4 : 6,
-            11, window.innerWidth <= 600 ? 8 : 10.5,
-            14, window.innerWidth <= 600 ? 12 : 14,
-            17, window.innerWidth <= 600 ? 16 : 18,
-          ],
-          "circle-opacity": 0.9,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "rgba(0,0,0,0.4)",
-          "circle-blur": 0.25,
-        }
-      });
 
-      map.on("mousemove", "points", onHover);
-      map.on("mouseleave", "points", hidePopup);
-      map.on("click", "points", onClick);
-      map.on("mouseenter", "points", () => map.getCanvas().style.cursor = "pointer");
-      map.on("mouseleave", "points", () => map.getCanvas().style.cursor = "");
+      const basePaint = {
+        "circle-color": getCircleColorExpression(),
+        "circle-radius": [
+          "interpolate", ["linear"], ["zoom"],
+          8,  window.innerWidth <= 600 ? 4  : 6,
+          11, window.innerWidth <= 600 ? 8  : 10.5,
+          14, window.innerWidth <= 600 ? 12 : 14,
+          17, window.innerWidth <= 600 ? 16 : 18,
+        ],
+        "circle-opacity": 0.9,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "rgba(0,0,0,0.4)",
+        "circle-blur": 0.25,
+      };
+
+      const renderOrder = ["green", "yellow", "zero", "null", "verylow", "red"];
+      for (const key of renderOrder) {
+        const band = SCORE_BANDS.find(b => b.key === key);
+        map.addLayer({
+          id: `points-${band.key}`,
+          type: "circle",
+          source: "facilities",
+          paint: basePaint,
+          filter: band.expr,
+        });
+      }
+
+      const layerIds = renderOrder.map(k => `points-${k}`);
+      for (const id of layerIds) {
+        map.on("mousemove", id, onHover);
+        map.on("mouseleave", id, hidePopup);
+        map.on("click", id, onClick);
+        map.on("mouseenter", id, () => map.getCanvas().style.cursor = "pointer");
+        map.on("mouseleave", id, () => map.getCanvas().style.cursor = "");
+      }
 
       map.on("click", e => {
-        const hits = map.queryRenderedFeatures(e.point, { layers: ["points"] });
+        const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
         if (!hits.length) {
           pinnedRef.current = false;
           popupRef.current?.remove();
@@ -164,39 +195,23 @@ export default function Map() {
     };
   }, [geoData]);
 
-  // reapply on search or toggles
   useEffect(() => {
     if (mapRef.current) applyFilter(mapRef.current);
-  }, [showPurple, showNull, searchTerm]);
+  }, [scoreChecks, searchTerm]);
 
   function applyFilter(map) {
-    const filters = ["all"];
-
-    if (!showPurple) {
-      filters.push([
-        "!",
-        ["all",
-          ["!=", ["get", "score"], null],
-          ["<", ["get", "score"], 25]
-        ]
-      ]);
-    }
-
-    if (!showNull) {
-      filters.push(["!", ["==", ["get", "score"], null]]);
-    }
-
     const term = searchTerm.trim().toLowerCase();
-    if (term) {
-      filters.push([
-        "in",
-        term,
-        ["downcase", ["get", "name"]]
-      ]);
+    const searchExpr = term ? ["in", term, ["downcase", ["get", "name"]]] : null;
 
+    for (const band of SCORE_BANDS) {
+      const id = `points-${band.key}`;
+      if (!scoreChecks[band.key]) {
+        map.setFilter(id, ["==", ["get", "score"], "__none__"]);
+        continue;
+      }
+      const f = searchExpr ? ["all", band.expr, searchExpr] : band.expr;
+      map.setFilter(id, f);
     }
-
-    map.setFilter("points", filters);
   }
 
   useEffect(() => {
@@ -213,7 +228,7 @@ export default function Map() {
     const map = mapRef.current;
     const point = e.point;
     const bbox = [[point.x - 100, point.y - 100], [point.x + 100, point.y + 100]];
-    const nearby = map.queryRenderedFeatures(bbox, { layers: ["points"] });
+    const nearby = map.queryRenderedFeatures(bbox, { layers: SCORE_BANDS.map(b => `points-${b.key}`) });
     const curr = map.getZoom();
     const coords = e.features[0].geometry.coordinates;
 
@@ -363,22 +378,18 @@ export default function Map() {
         </div>
 
         <div className="filters">
-          <label>
-            <input
-              type="checkbox"
-              checked={showPurple}
-              onChange={e => setShowPurple(e.target.checked)}
-            />
-            Show purple (&lt;25)
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={showNull}
-              onChange={e => setShowNull(e.target.checked)}
-            />
-            Show null
-          </label>
+          {renderScoreCheckboxes(
+            [
+              SCORE_BANDS.find(b => b.key === "green"),
+              SCORE_BANDS.find(b => b.key === "yellow"),
+              SCORE_BANDS.find(b => b.key === "red"),
+              SCORE_BANDS.find(b => b.key === "verylow"),
+              SCORE_BANDS.find(b => b.key === "zero"),
+              SCORE_BANDS.find(b => b.key === "null"),
+            ],
+            scoreChecks,
+            setScoreChecks
+          )}
         </div>
       </div>
 
