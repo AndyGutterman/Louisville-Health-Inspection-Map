@@ -18,7 +18,6 @@ const COLORS = {
   null: "#657786",
 };
 
-// bottom → top (worse on top)
 const DRAW_ORDER = ["green", "eq100", "yellow", "zero", "null", "red"];
 
 const MIN_ZOOM = 11;
@@ -26,8 +25,8 @@ const TARGET_ZOOM = 13.5;
 
 const SCORE_MIN = 1;
 const SCORE_MAX = 99;
-const RED_CAP = 98;   // red handle ≤ 98
-const YEL_CAP = 99;   // yellow handle ≤ 99 (100 is its own class)
+const RED_CAP = 98;
+const YEL_CAP = 99;
 
 function clampPins([r, y]) {
   r = Math.max(SCORE_MIN, Math.min(RED_CAP, Math.round(r)));
@@ -40,7 +39,7 @@ function bandExprs([rMax, yMax]) {
   return {
     red: ["all", [">=", GET, 1], ["<=", GET, rMax]],
     yellow: ["all", [">=", GET, rMax + 1], ["<=", GET, yMax]],
-    green: ["all", [">", GET, 1000], ["<", GET, -1000]], // none (kept for stacking baseline)
+    green: ["all", [">", GET, 1000], ["<", GET, -1000]],
     eq100: ["==", GET, 100],
     zero: ["==", GET, 0],
     null: ["==", GET, null],
@@ -65,13 +64,17 @@ export default function Map() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  // two handles: [Rmax, Ymax]
   const [pins, setPins] = useState(clampPins([85, 94]));
   const pinsRef = useRef(pins);
   useEffect(() => { pinsRef.current = pins; }, [pins]);
 
   const [showZero, setShowZero] = useState(false);
   const [showNull, setShowNull] = useState(false);
+
+  const [showRedPins, setShowRedPins] = useState(true);
+  const [showYellowPins, setShowYellowPins] = useState(true);
+  const [showGreenPins, setShowGreenPins] = useState(true);
+
   const [bandsOpen, setBandsOpen] = useState(false);
 
   useEffect(() => {
@@ -111,7 +114,6 @@ export default function Map() {
           },
         }));
 
-      // latest per establishment
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
@@ -175,8 +177,8 @@ export default function Map() {
             ...basePaint,
             "circle-color":
               key === "green" ? COLORS.green :
-                key === "eq100" ? COLORS.greenDark :
-                  COLORS[key],
+              key === "eq100" ? COLORS.greenDark :
+              COLORS[key],
           },
           filter: exprs[key],
         });
@@ -337,7 +339,7 @@ export default function Map() {
 
   useEffect(() => {
     if (mapRef.current) applyFilterWhenReady();
-  }, [pins, showZero, showNull, searchTerm]);
+  }, [pins, showZero, showNull, searchTerm, showRedPins, showYellowPins, showGreenPins]);
 
   useEffect(() => {
     const m = mapRef.current;
@@ -384,7 +386,7 @@ export default function Map() {
   function applyFilter(map) {
     const exprs = bandExprs(pins);
     const term = searchTerm.trim().toLowerCase();
-    const searchExpr = term ? ["in", term, ["downcase", ["get", "name"]]] : null;
+    const searchExpr = term ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0] : null;
     const hidden = ["==", ["get", "score"], "__none__"];
 
     for (const key of DRAW_ORDER) {
@@ -392,6 +394,10 @@ export default function Map() {
       let visible = true;
       if (key === "zero" && !showZero) visible = false;
       if (key === "null" && !showNull) visible = false;
+      if (key === "red" && !showRedPins) visible = false;
+      if (key === "yellow" && !showYellowPins) visible = false;
+      if ((key === "green" || key === "eq100") && !showGreenPins) visible = false;
+
       const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
       map.setFilter(id, visible ? f : hidden);
 
@@ -405,7 +411,6 @@ export default function Map() {
     }
   }
 
-  // slider utils
   const valueToPct = (v) => (v / SCORE_MAX) * 100;
   const pctToValue = (pct) => {
     const v = Math.round((pct / 100) * SCORE_MAX);
@@ -418,17 +423,41 @@ export default function Map() {
     return pctToValue(pct);
   };
 
+  const MINI_GAMMA = 1.45;
+  const warp = (t) => Math.pow(t, MINI_GAMMA);
+  const unwarp = (t) => Math.pow(t, 1 / MINI_GAMMA);
+  const valueToMiniPct = (v) => warp(v / SCORE_MAX) * 100;
+  const pctToValueMini = (pct) => {
+    const v = Math.round(unwarp(pct / 100) * SCORE_MAX);
+    return Math.max(SCORE_MIN, Math.min(YEL_CAP, v));
+  };
+  const pxToValueMini = (clientX, el) => {
+    const rect = el.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const pct = Math.max(0, Math.min(1, ratio)) * 100;
+    return pctToValueMini(pct);
+  };
+
   const [rMax, yMax] = pins;
+
   const pR = valueToPct(rMax);
   const pY = valueToPct(yMax);
 
+  const pRMini = valueToMiniPct(rMax);
+  const pYMini = valueToMiniPct(yMax);
+
+  const rWarp = warp(rMax / SCORE_MAX);
+  const yWarp = warp(yMax / SCORE_MAX);
+  const wRedMini = rWarp * 100;
+  const wYellowMini = Math.max(0, (yWarp - rWarp) * 100);
+  const wGreenMini = Math.max(0, (1 - yWarp) * 100);
+
   function applyPreset(r, y) { setPins(clampPins([r, y])); }
 
-  // mini pill drag
   const miniRef = useRef(null);
   function miniStart(which, e) {
     setMiniActive(which);
-    dragStart(which, miniRef.current, e.clientX);
+    dragStart(which, miniRef.current, e.clientX, "mini");
   }
   function miniMove(e) { dragMove(e.clientX); }
   function miniEnd() {
@@ -437,7 +466,7 @@ export default function Map() {
   }
   function miniBarDown(e) {
     const el = miniRef.current;
-    const v = pxToValue(e.clientX, el);
+    const v = pxToValueMini(e.clientX, el);
     const [r, y] = pinsRef.current;
     const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
     setPins(prev => {
@@ -451,7 +480,6 @@ export default function Map() {
     window.addEventListener("pointerup", miniEnd, { once: true });
   }
 
-  // sheet drag
   const trackRef = useRef(null);
   function trackDown(e) {
     const el = trackRef.current;
@@ -465,20 +493,20 @@ export default function Map() {
       else y2 = Math.max(r2 + 1, v);
       return clampPins([r2, y2]);
     });
-    dragStart(which, el, e.clientX);
+    dragStart(which, el, e.clientX, "track");
   }
   function handleDown(which, e) {
     setActiveHandle(which);
-    dragStart(which, trackRef.current, e.clientX);
+    dragStart(which, trackRef.current, e.clientX, "track");
   }
 
-  const dragRef = useRef({ which: null, el: null });
-  function dragStart(which, el, clientX) {
-    dragRef.current = { which, el };
+  const dragRef = useRef({ which: null, el: null, mode: "track" });
+  function dragStart(which, el, clientX, mode = "track") {
+    dragRef.current = { which, el, mode };
     if (typeof clientX === "number") dragMove(clientX);
     const move = (ev) => dragMove(ev.clientX);
     const up = () => {
-      dragRef.current = { which: null, el: null };
+      dragRef.current = { which: null, el: null, mode: "track" };
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       setActiveHandle(null);
@@ -488,9 +516,9 @@ export default function Map() {
     window.addEventListener("pointerup", up, { once: true });
   }
   function dragMove(clientX) {
-    const { which, el } = dragRef.current;
+    const { which, el, mode } = dragRef.current;
     if (!el || which == null) return;
-    const v = pxToValue(clientX, el);
+    const v = mode === "mini" ? pxToValueMini(clientX, el) : pxToValue(clientX, el);
     setPins(prev => {
       let [r, y] = prev;
       if (which === 0) r = Math.min(v, y - 1);
@@ -503,36 +531,75 @@ export default function Map() {
     .filter(v => v >= SCORE_MIN && v <= SCORE_MAX);
   const MINOR_TICKS = Array.from({ length: 97 }, (_, i) => i + 2);
 
-  // editor segment widths
-  const wRed = pR;
-  const wYellow = Math.max(0, pY - pR);
-  const wGreen = Math.max(0, 100 - pY);
+  const wRed = (rMax / SCORE_MAX) * 100;
+  const wYellow = Math.max(0, (yMax / SCORE_MAX) * 100 - (rMax / SCORE_MAX) * 100);
+  const wGreen = Math.max(0, 100 - (yMax / SCORE_MAX) * 100);
 
   return (
     <>
       <div ref={mapContainerRef} className="map-container" />
 
       <div className="controls">
-        <div className="search-bar">
-          <span className="icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Search…"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+        <div className="control-card">
+          <div className="search-bar">
+            <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <label className="autozoom">
+            <input
+              type="checkbox"
+              checked={autoZoom}
+              onChange={e => setAutoZoom(e.target.checked)}
+            />
+            Auto-zoom
+          </label>
+
+          <div className="rgb-toggles">
+            <div className="rgb-row">
+              <span className="label" style={{ color: COLORS.red }}>Red</span>
+              <label className="switch sm">
+                <input
+                  type="checkbox"
+                  checked={showRedPins}
+                  onChange={e => setShowRedPins(e.target.checked)}
+                />
+                <span />
+              </label>
+            </div>
+            <div className="rgb-row">
+              <span className="label" style={{ color: COLORS.yellow }}>Yellow</span>
+              <label className="switch sm">
+                <input
+                  type="checkbox"
+                  checked={showYellowPins}
+                  onChange={e => setShowYellowPins(e.target.checked)}
+                />
+                <span />
+              </label>
+            </div>
+            <div className="rgb-row">
+              <span className="label" style={{ color: COLORS.green }}>Green</span>
+              <label className="switch sm">
+                <input
+                  type="checkbox"
+                  checked={showGreenPins}
+                  onChange={e => setShowGreenPins(e.target.checked)}
+                />
+                <span />
+              </label>
+            </div>
+          </div>
         </div>
-        <label className="autozoom">
-          <input
-            type="checkbox"
-            checked={autoZoom}
-            onChange={e => setAutoZoom(e.target.checked)}
-          />
-          Auto-zoom
-        </label>
       </div>
 
-      {/* Scores pill (mini view) */}
       <div className="fab-scores">
         <div className="fab-row">
           <span>Scores</span>
@@ -542,14 +609,13 @@ export default function Map() {
             ref={miniRef}
             onPointerDown={miniBarDown}
           >
-            {/* REAL segments so the mini view always mirrors thresholds */}
-            <div className="mini-seg red" style={{ width: `${wRed}%` }} />
-            <div className="mini-seg yellow" style={{ width: `${wYellow}%` }} />
-            <div className="mini-seg green" style={{ width: `${wGreen}%` }} />
+            <div className="mini-seg red" style={{ width: `${wRedMini}%` }} />
+            <div className="mini-seg yellow" style={{ width: `${wYellowMini}%` }} />
+            <div className="mini-seg green" style={{ width: `${wGreenMini}%` }} />
 
             <div
               className={`mini-handle ${miniActive === 0 ? "active" : ""}`}
-              style={{ left: `${pR}%` }}
+              style={{ "--pos": `${pRMini}%` }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 miniStart(0, e);
@@ -561,7 +627,7 @@ export default function Map() {
             </div>
             <div
               className={`mini-handle ${miniActive === 1 ? "active" : ""}`}
-              style={{ left: `${pY}%` }}
+              style={{ "--pos": `${pYMini}%` }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 miniStart(1, e);
@@ -578,10 +644,11 @@ export default function Map() {
           {`R 1–${pins[0]} · Y ${pins[0] + 1}–${pins[1]} · G 100`}
         </div>
 
-        <button className="fab-open" onClick={() => setBandsOpen(true)}>Adjust</button>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="fab-open" onClick={() => setBandsOpen(true)}>Adjust</button>
+        </div>
       </div>
 
-      {/* Bottom-sheet editor */}
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
         <div className="bands-backdrop" onClick={() => setBandsOpen(false)} />
         <div className="bands-sheet">
@@ -602,39 +669,34 @@ export default function Map() {
               ref={trackRef}
               onPointerDown={trackDown}
             >
-              {/* colored bands */}
-              <div className="seg red" style={{ width: `${wRed}%` }} />
-              <div className="seg yellow" style={{ width: `${wYellow}%` }} />
-              <div className="seg green" style={{ width: `${wGreen}%` }} />
+              <div className="seg red" style={{ width: `${(rMax / SCORE_MAX) * 100}%` }} />
+              <div className="seg yellow" style={{ width: `${Math.max(0, (yMax / SCORE_MAX) * 100 - (rMax / SCORE_MAX) * 100)}%` }} />
+              <div className="seg green" style={{ width: `${Math.max(0, 100 - (yMax / SCORE_MAX) * 100)}%` }} />
 
-              {/* ruler */}
               <div className="ruler">
-                {MINOR_TICKS.map(v => (
-                  <div
-                    key={`m-${v}`}
-                    className="tick minor"
-                    style={{ left: `${(v / SCORE_MAX) * 100}%` }}
-                  />
+                {Array.from({ length: 97 }, (_, i) => i + 2).map(v => (
+                  <div key={`m-${v}`} className="tick minor" style={{ left: `${(v / SCORE_MAX) * 100}%` }} />
                 ))}
-                {MAJOR_TICKS.map(v => (
-                  <div key={`M-${v}`} className="major-wrap" style={{ left: `${(v / SCORE_MAX) * 100}%` }}>
-                    <div className="tick major" />
-                    <div className="tick-label">{v}</div>
-                  </div>
-                ))}
+                {Array.from({ length: 20 }, (_, i) => 5 * i + 5)
+                  .filter(v => v >= SCORE_MIN && v <= SCORE_MAX)
+                  .map(v => (
+                    <div key={`M-${v}`} className="major-wrap" style={{ left: `${(v / SCORE_MAX) * 100}%` }}>
+                      <div className="tick major" />
+                      <div className="tick-label">{v}</div>
+                    </div>
+                  ))}
               </div>
 
-              {/* handles */}
               <div
                 className={`handle ${activeHandle === 0 ? "active" : ""}`}
-                style={{ left: `${pR}%` }}
+                style={{ "--pos": `${pR}%` }}
                 onPointerDown={(e) => handleDown(0, e)}
               >
                 <span className="label">{pins[0]}</span>
               </div>
               <div
                 className={`handle ${activeHandle === 1 ? "active" : ""}`}
-                style={{ left: `${pY}%` }}
+                style={{ "--pos": `${pY}%` }}
                 onPointerDown={(e) => handleDown(1, e)}
               >
                 <span className="label">{pins[1]}</span>
@@ -670,23 +732,11 @@ export default function Map() {
           <div className="info-drawer" onClick={e => e.stopPropagation()}>
             <button className="info-close" onClick={() => setSelected(null)}>×</button>
             <h2 className="info-title">{selected.name}</h2>
-            <div className="info-detail">
-              <span className="label">Address</span>
-              <span className="value">{selected.address}</span>
-            </div>
-            <div className="info-detail">
-              <span className="label">Inspected</span>
-              <span className="value">{selected.inspectionDate}</span>
-            </div>
-            <div className="info-detail">
-              <span className="label">Score</span>
-              <span className="value">{selected.score}</span>
-            </div>
+            <div className="info-detail"><span className="label">Address</span><span className="value">{selected.address}</span></div>
+            <div className="info-detail"><span className="label">Inspected</span><span className="value">{selected.inspectionDate}</span></div>
+            <div className="info-detail"><span className="label">Score</span><span className="value">{selected.score}</span></div>
             {selected.grade && (
-              <div className="info-detail">
-                <span className="label">Grade</span>
-                <span className="value">{selected.grade}</span>
-              </div>
+              <div className="info-detail"><span className="label">Grade</span><span className="value">{selected.grade}</span></div>
             )}
           </div>
         </div>
