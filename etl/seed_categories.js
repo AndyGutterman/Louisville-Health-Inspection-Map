@@ -27,7 +27,7 @@ async function seedCategories() {
   console.log(`Inserting ${records.length} category rows…`);
   const { data, error } = await supa
     .from("facility_categories")
-    .insert(records)
+    .upsert(records, { onConflict: 'facility_type,subtype' })
     .select();
   if (error) throw error;
   console.log(`Inserted ${data.length} categories.`);
