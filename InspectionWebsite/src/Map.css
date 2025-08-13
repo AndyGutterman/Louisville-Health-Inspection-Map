@@ -41,7 +41,7 @@
   flex-direction: column;
   gap: 8px;
 
-  min-width: 176px;                    
+  min-width: 176px;
   width: clamp(192px, 17.6vw, 256px);
   max-width: 92vw;
 
@@ -536,13 +536,8 @@
 }
 
 @keyframes drawerIn {
-  from {
-    transform: translateX(100%)
-  }
-
-  to {
-    transform: translateX(0)
-  }
+  from { transform: translateX(100%) }
+  to { transform: translateX(0) }
 }
 
 .info-close {
@@ -556,9 +551,7 @@
   cursor: pointer
 }
 
-.info-close:hover {
-  color: #fff
-}
+.info-close:hover { color: #fff }
 
 .info-title {
   margin: 0 0 16px;
@@ -593,7 +586,5 @@
     padding: 16px
   }
 
-  .fab-scores {
-    min-width: 90vw
-  }
+  .fab-scores { min-width: 90vw }
 }
