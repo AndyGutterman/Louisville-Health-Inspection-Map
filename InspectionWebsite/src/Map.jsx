@@ -13,7 +13,6 @@ const COLORS = {
   red: "#ea4335",
   yellow: "#fbbc05",
   green: "#34a853",
-  greenDark: "#0f9d58",
   zero: "#000000",
   null: "#657786",
 };
@@ -66,11 +65,22 @@ function formatDateSafe(val) {
 
 function CurrentInspectionCard({ data }) {
   if (!data) return null;
-  const { name, address, inspectionDate, score, grade } = data;
+  const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
+  const scoreNum = typeof score === "number" ? score : null;
+  const badgeClass =
+    scoreNum != null && scoreNum >= 95 ? "ok" : scoreNum != null && scoreNum >= 85 ? "warn" : "bad";
+  const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
+
   return (
     <div className="inspect-card">
+      {meta && (
+        <div className="inspect-meta" title={metaTitle || ""}>
+          {meta}
+        </div>
+      )}
+
       <div className="inspect-card_header">
         <div className="inspect-card_title">{name}</div>
         <div className="inspect-card_sub">{address}</div>
@@ -78,13 +88,7 @@ function CurrentInspectionCard({ data }) {
 
       <div className="inspect-card_stats">
         <div className="inspect-stat">
-          <div
-            className={`inspect-badge ${
-              score === 100 ? "good" : score >= 95 ? "ok" : score >= 85 ? "warn" : "bad"
-            }`}
-          >
-            {score ?? "n/a"}
-          </div>
+          <div className={`inspect-badge ${badgeClass}`}>{scoreText}</div>
           <div className="inspect-stat_label">Score</div>
         </div>
 
@@ -104,6 +108,156 @@ function CurrentInspectionCard({ data }) {
   );
 }
 
+function ViolationRow({ v }) {
+  const yn = String(v.critical_yn || "").trim().toLowerCase();
+  const isCrit = yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
+  const title = v.violation_desc || "Violation";
+  const body = (v.insp_viol_comments || "").trim();
+  const [open, setOpen] = React.useState(false);
+  const maxLen = 240;
+  const hasMore = body.length > maxLen;
+  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "…";
+
+  return (
+    <li className={`viol-card ${isCrit ? "crit" : ""}`}>
+      <div className="viol-rail" />
+      <div className="viol-body">
+        <div className="viol-header">
+          {isCrit && <span className="viol-chip crit">Critical</span>}
+          <span className="viol-title">{title}</span>
+        </div>
+
+        {shown && <div className="viol-text">{shown}</div>}
+
+        {hasMore && (
+          <button
+            className="viol-toggle"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((x) => !x);
+            }}
+          >
+            {open ? "Show less" : "Read more"}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function PastInspection({ row }) {
+  const date = formatDateSafe(row.inspection_date);
+  const gradeDisplay =
+    row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
+  const scoreNum = typeof row.score === "number" ? row.score : null;
+  const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
+  const badgeClass =
+    scoreNum != null && scoreNum >= 95 ? "ok" : scoreNum != null && scoreNum >= 85 ? "warn" : "bad";
+
+  const rawViols = Array.isArray(row.violations) ? row.violations : [];
+  const isCrit = (v) => {
+    const yn = String(v.critical_yn || "").trim().toLowerCase();
+    return yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
+  };
+  const viols = [...rawViols].sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
+
+  const [open, setOpen] = React.useState(false);
+  const previewCount = 3;
+  const showToggle = viols.length > previewCount;
+  const list = open ? viols : viols.slice(0, previewCount);
+  const anyCrit = viols.some(isCrit);
+
+  return (
+    <div className="hist-item">
+      <div className="hist-head">
+        <div className="hist-left">
+          <div className={`hist-score ${badgeClass}`}>{scoreText}</div>
+          <div className="hist-meta">
+            <div className="hist-date">{date}</div>
+            <div className="hist-type">{row.ins_type_desc || "Inspection"}</div>
+          </div>
+        </div>
+        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
+      </div>
+
+      {viols.length > 0 && (
+        <div className="viol-group">
+          <div className="viol-group-header">
+            <span className={`viol-count ${anyCrit ? "crit" : ""}`}>
+              {viols.length} {viols.length === 1 ? "violation" : "violations"}
+            </span>
+            {showToggle && (
+              <button className="viol-group-toggle" onClick={() => setOpen((x) => !x)}>
+                {open ? "Collapse" : `Show all ${viols.length}`}
+              </button>
+            )}
+          </div>
+
+          <ul className="viol-list">
+            {list.map((v) => (
+              <ViolationRow key={v.violation_oid ?? `${row.inspection_id}-${v.violation_desc}`} v={v} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function History({ rows }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div className="hist-wrap">
+      <div className="hist-title">Inspection History</div>
+      <div className="hist-list">
+        {rows.map((r) => (
+          <PastInspection
+            key={r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`}
+            row={r}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FacilityDetails({ details }) {
+  const [open, setOpen] = React.useState(false);
+  if (!details) return null;
+
+  const items = [
+    { label: "Opening date", value: details.opening_date ? details.opening_date : "—" },
+    { label: "Facility type", value: details.facility_type ?? "—" },
+    { label: "Subtype", value: details.subtype ?? "—" },
+  ];
+  const allEmpty = items.every((i) => i.value === "—");
+  if (allEmpty) return null;
+
+  return (
+    <div className="details-wrap">
+      <button className={`details-toggle ${open ? "open" : ""}`} onClick={() => setOpen((v) => !v)}>
+        <span>More details</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" className="chev">
+          <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="details-card">
+          <div className="details-grid">
+            {items.map((it) => (
+              <div className="d-item" key={it.label}>
+                <div className="d-label">{it.label}</div>
+                <div className="d-value">{it.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Map() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -116,11 +270,20 @@ export default function Map() {
   const isDraggingRef = useRef(false);
 
   const [geoData, setGeoData] = useState(null);
+
   const [selected, setSelected] = useState(null);
   const selectedRef = useRef(selected);
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  const [history, setHistory] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const loadSeqRef = useRef(0);
+
+  const [facDetails, setFacDetails] = useState(null);
+  const [facDetailsFor, setFacDetailsFor] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -160,7 +323,6 @@ export default function Map() {
         console.error(headErr);
         return;
       }
-
       const pageSize = 1000;
       let allRows = [];
       for (let offset = 0; offset < count; offset += pageSize) {
@@ -177,7 +339,6 @@ export default function Map() {
         }
         allRows = allRows.concat(data);
       }
-
       const features = allRows
         .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => ({
@@ -193,7 +354,6 @@ export default function Map() {
             grade: r.grade_recent,
           },
         }));
-
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
@@ -274,18 +434,18 @@ export default function Map() {
         const [rMax, yMax] = pinsRef.current;
         if (score == null) return COLORS.null;
         if (score === 0) return COLORS.zero;
-        if (score === 100) return COLORS.greenDark;
         if (score <= rMax) return COLORS.red;
         if (score <= yMax) return COLORS.yellow;
         return COLORS.green;
       };
 
       const renderHTML = (p) => {
+        const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
         return `<div class="popup-content" style="font-size:14px;max-width:220px">
           <strong>${p.name}</strong><br/>
           <small>${p.address}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
-          Score: ${p.score != null ? p.score : "n/a"}${p.grade ? ` (${p.grade})` : ""}
+          Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
         </div>`;
       };
 
@@ -309,6 +469,133 @@ export default function Map() {
         wirePopupInteractions(pinnedPopupRef.current, feature);
       };
 
+      const beginDrawerLoad = async (eid, p) => {
+        const seq = ++loadSeqRef.current;
+        setDrawerLoading(true);
+        setHistory(null);
+        setHistoryFor(null);
+        setFacDetails(null);
+        setFacDetailsFor(null);
+
+        const { data: insp, error } = await supabase
+          .from("inspections")
+          .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
+          .eq("establishment_id", eid)
+          .order("inspection_date", { ascending: false });
+
+        if (error) {
+          console.error("history fetch error", error);
+          if (seq !== loadSeqRef.current) return;
+          setDrawerLoading(false);
+          return;
+        }
+
+        const { data: viols, error: vErr } = await supabase
+          .from("inspection_violations")
+          .select(
+            "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id"
+          )
+          .eq("establishment_id", eid);
+
+        if (vErr) console.error("violations fetch error", vErr);
+        if (seq !== loadSeqRef.current) return;
+
+        const byId = new globalThis.Map();
+        const byDate = new globalThis.Map();
+        for (const v of viols || []) {
+          if (v.inspection_id != null) {
+            if (!byId.has(v.inspection_id)) byId.set(v.inspection_id, []);
+            byId.get(v.inspection_id).push(v);
+          }
+          if (v.inspection_date) {
+            if (!byDate.has(v.inspection_date)) byDate.set(v.inspection_date, []);
+            byDate.get(v.inspection_date).push(v);
+          }
+        }
+        const mergedDesc = (insp || []).map((r) => {
+          const viaId = byId.get(r.inspection_id) || [];
+          const viaDate = byDate.get(r.inspection_date) || [];
+          const seen = new Set();
+          const violations = [];
+          for (const x of [...viaId, ...viaDate]) {
+            const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
+            if (!seen.has(k)) {
+              seen.add(k);
+              violations.push(x);
+            }
+          }
+          return { ...r, violations };
+        });
+
+        const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
+        const headerRow = latestNonZero || mergedDesc[0] || null;
+
+        const selectedData = headerRow
+          ? {
+              establishment_id: eid,
+              name: p.name,
+              address: p.address,
+              inspectionDate: formatDateSafe(headerRow.inspection_date),
+              score: headerRow.score ?? null,
+              grade: headerRow.grade ?? null,
+              _displayedInspectionId: headerRow.inspection_id,
+              meta: (headerRow.score ?? 0) > 0 ? "Last scored" : null,
+              metaTitle:
+                (headerRow.score ?? 0) > 0
+                  ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
+                  : "",
+            }
+          : {
+              establishment_id: eid,
+              name: p.name,
+              address: p.address,
+              inspectionDate: formatDateSafe(p.date),
+              score: p.score ?? null,
+              grade: p.grade ?? null,
+              _displayedInspectionId: null,
+              meta: null,
+            };
+
+        let details = null;
+        {
+          const { data: fac, error: facErr } = await supabase
+            .from("facilities")
+            .select("opening_date, facility_type, subtype")
+            .eq("establishment_id", eid)
+            .maybeSingle();
+
+          if (facErr) console.error("facilities fetch error", facErr);
+
+          let typeLabel = fac?.facility_type ?? null;
+          let subtypeLabel = fac?.subtype ?? null;
+
+          if (fac?.facility_type != null && fac?.subtype != null) {
+            const { data: cat, error: catErr } = await supabase
+              .from("facility_categories")
+              .select("facility_type_description, subtype_description")
+              .eq("facility_type", fac.facility_type)
+              .eq("subtype", fac.subtype)
+              .maybeSingle();
+            if (catErr) console.error("facility_categories fetch error", catErr);
+            typeLabel = cat?.facility_type_description ?? typeLabel;
+            subtypeLabel = cat?.subtype_description ?? subtypeLabel;
+          }
+
+          details = {
+            opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
+            facility_type: typeLabel,
+            subtype: subtypeLabel,
+          };
+        }
+
+        setSelected(selectedData);
+        setHistory(mergedDesc);
+        setHistoryFor(eid);
+        setFacDetails(details);
+        setFacDetailsFor(eid);
+        setDrawerLoading(false);
+      };
+
       const wirePopupInteractions = (popup, feature) => {
         const root = popup.getElement();
         const tip = root?.querySelector(".maplibregl-popup-tip");
@@ -318,18 +605,8 @@ export default function Map() {
         if (content) {
           content.onclick = (ev) => {
             ev.stopPropagation();
-            hoverPopupRef.current?.remove();
-            hoverPopupRef.current = null;
-            lastHoverId.current = null;
-            showPinnedPopup(feature);
             const p = feature.properties;
-            setSelected({
-              name: p.name,
-              address: p.address,
-              inspectionDate: formatDateSafe(p.date),
-              score: p.score ?? "n/a",
-              grade: p.grade,
-            });
+            beginDrawerLoad(p.establishment_id, p);
           };
         }
       };
@@ -369,22 +646,13 @@ export default function Map() {
 
       const onClick = (e) => {
         const f = e.features[0];
-
         hoverPopupRef.current?.remove();
         hoverPopupRef.current = null;
         lastHoverId.current = null;
-
         showPinnedPopup(f);
-
         if (selectedRef.current && isHoverCapableRef.current) {
           const p = f.properties;
-          setSelected({
-            name: p.name,
-            address: p.address,
-            inspectionDate: formatDateSafe(p.date),
-            score: p.score ?? "n/a",
-            grade: p.grade,
-          });
+          beginDrawerLoad(p.establishment_id, p);
         }
       };
 
@@ -423,6 +691,12 @@ export default function Map() {
           hoverPopupRef.current = null;
           lastHoverId.current = null;
           setSelected(null);
+          setHistory(null);
+          setHistoryFor(null);
+          setFacDetails(null);
+          setFacDetailsFor(null);
+          setDrawerLoading(false);
+          loadSeqRef.current++;
         }
       });
 
@@ -444,6 +718,12 @@ export default function Map() {
         hoverPopupRef.current = null;
         lastHoverId.current = null;
         setSelected(null);
+        setHistory(null);
+        setHistoryFor(null);
+        setFacDetails(null);
+        setFacDetailsFor(null);
+        setDrawerLoading(false);
+        loadSeqRef.current++;
       };
       document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
@@ -543,9 +823,7 @@ export default function Map() {
   function applyFilter(map) {
     const exprs = bandExprs(pins);
     const term = searchTerm.trim().toLowerCase();
-    const searchExpr = term
-      ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0]
-      : null;
+    const searchExpr = term ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0] : null;
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
       const id = `points-${key}`;
@@ -557,11 +835,7 @@ export default function Map() {
       const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") {
-        map.setPaintProperty(
-          id,
-          "circle-color",
-          ["case", ["==", ["get", "score"], 100], COLORS.greenDark, COLORS.green]
-        );
+        map.setPaintProperty(id, "circle-color", COLORS.green);
       }
     }
   }
@@ -584,9 +858,7 @@ export default function Map() {
     const { which, el, mode } = dragRef.current;
     if (!el || which == null) return;
     const v = mode === "mini" ? pxToValueMini(clientX, el) : pxToValueTrack(clientX, el);
-    setPins(([r, y]) =>
-      clampPins(which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)])
-    );
+    setPins(([r, y]) => clampPins(which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)]));
   }
 
   const isInDeadzone = (x, y) => {
@@ -596,21 +868,12 @@ export default function Map() {
       );
     for (const el of els) {
       const r = el.getBoundingClientRect();
-      if (
-        x >= r.left - M &&
-        x <= r.right + M &&
-        y >= r.top - M &&
-        y <= r.bottom + M
-      )
-        return true;
+      if (x >= r.left - M && x <= r.right + M && y >= r.top - M && y <= r.bottom + M) return true;
     }
     return false;
   };
   const spurtDisabled = () =>
-    !mapRef.current ||
-    bandsOpen ||
-    miniActive !== null ||
-    activeHandle !== null;
+    !mapRef.current || bandsOpen || miniActive !== null || activeHandle !== null;
 
   useEffect(() => {
     const onMove = (e) => {
@@ -622,10 +885,7 @@ export default function Map() {
       else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
       const nearEdge = dx !== 0 || dy !== 0;
       const active =
-        nearEdge &&
-        !spurtDisabled() &&
-        e.buttons === 0 &&
-        !isInDeadzone(e.clientX, e.clientY);
+        nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
       if (active && !inEdgeRef.current) {
         mapRef.current.panBy([dx * SPURT_PX, dy * SPURT_PX], { duration: 240 });
         inEdgeRef.current = true;
@@ -713,7 +973,12 @@ export default function Map() {
             ref={miniRef}
             onPointerDown={(e) => {
               const el = miniRef.current;
-              const v = pxToValueMini(e.clientX, el);
+              const rct = el.getBoundingClientRect();
+              const ratio = (e.clientX - rct.left) / rct.width;
+              const pct = Math.max(0, Math.min(1, ratio)) * 100;
+              const unwarpMini = (t) => Math.pow(t, 1 / 1.8);
+              const val = Math.round(unwarpMini(pct / 100) * 99);
+              const v = Math.max(1, Math.min(99, val));
               const [r, y] = pinsRef.current;
               const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
               setPins((prev) => {
@@ -724,7 +989,11 @@ export default function Map() {
               });
               setMiniActive(which);
               const move = (ev) => {
-                const nv = pxToValueMini(ev.clientX, el);
+                const rct2 = el.getBoundingClientRect();
+                const ratio2 = (ev.clientX - rct2.left) / rct2.width;
+                const pct2 = Math.max(0, Math.min(1, ratio2)) * 100;
+                const unwarpMini2 = (t) => Math.pow(t, 1 / 1.8);
+                const nv = Math.max(1, Math.min(99, Math.round(unwarpMini2(pct2 / 100) * 99)));
                 setPins(([rr, yy]) =>
                   clampPins(which === 0 ? [Math.min(nv, yy - 1), yy] : [rr, Math.max(rr + 1, nv)])
                 );
@@ -737,131 +1006,36 @@ export default function Map() {
               window.addEventListener("pointerup", up, { once: true });
             }}
           >
-            <div className="mini-seg red" style={{ width: `${wRedMini}%` }} />
-            <div className="mini-seg yellow" style={{ width: `${wYellowMini}%` }} />
-            <div className="mini-seg green" style={{ width: `${wGreenMini}%` }} />
+            <div className="mini-seg red" style={{ width: `${Math.pow(pins[0] / 99, 1.8) * 100}%` }} />
+            <div
+              className="mini-seg yellow"
+              style={{
+                width: `${(Math.pow(pins[1] / 99, 1.8) - Math.pow(pins[0] / 99, 1.8)) * 100}%`,
+              }}
+            />
+            <div className="mini-seg green" style={{ width: `${(1 - Math.pow(pins[1] / 99, 1.8)) * 100}%` }} />
 
-            <div className={`mini-handle ${miniActive === 0 ? "active" : ""}`} style={{ "--pos": `${pRMini}%` }}>
+            <div
+              className={`mini-handle ${miniActive === 0 ? "active" : ""}`}
+              style={{ "--pos": `${Math.pow(pins[0] / 99, 1.8) * 100}%` }}
+            >
               <span>{pins[0]}</span>
             </div>
-            <div className={`mini-handle ${miniActive === 1 ? "active" : ""}`} style={{ "--pos": `${pYMini}%` }}>
+            <div
+              className={`mini-handle ${miniActive === 1 ? "active" : ""}`}
+              style={{ "--pos": `${Math.pow(pins[1] / 99, 1.8) * 100}%` }}
+            >
               <span>{pins[1]}</span>
             </div>
           </div>
         </div>
 
-        <div className="fab-sub">{`R 1–${pins[0]} · Y ${pins[0] + 1}–${pins[1]} · G ${
-          pins[1] + 1
-        }–100`}</div>
+        <div className="fab-sub">{`R 1–${pins[0]} · Y ${pins[0] + 1}–${pins[1]} · G ${pins[1] + 1}–100`}</div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button className="fab-open" onClick={() => setBandsOpen(true)}>
             Adjust
           </button>
-        </div>
-      </div>
-
-      <div className={`bands ${bandsOpen ? "open" : ""}`}>
-        <div className="bands-backdrop" onClick={() => setBandsOpen(false)} />
-        <div className="bands-sheet">
-          <div className="bands-header">
-            <div className="grab" />
-            <div className="title">Score Bands</div>
-          </div>
-
-          <div className="presets">
-            <button onClick={() => setPins(clampPins([80, 92]))}>Loose</button>
-            <button onClick={() => setPins(clampPins([85, 94]))}>Balanced</button>
-            <button onClick={() => setPins(clampPins([90, 96]))}>Strict</button>
-          </div>
-
-          <div className="band-editor">
-            <div
-              className={`track ${activeHandle != null ? "dragging" : ""}`}
-              ref={trackRef}
-              onPointerDown={(e) => {
-                const el = trackRef.current;
-                const v = pxToValueTrack(e.clientX, el);
-                const [r, y] = pinsRef.current;
-                const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
-                setActiveHandle(which);
-                setPins((prev) => {
-                  let [r2, y2] = prev;
-                  if (which === 0) r2 = Math.min(v, y2 - 1);
-                  else y2 = Math.max(r2 + 1, v);
-                  return clampPins([r2, y2]);
-                });
-                const move = (ev) => {
-                  const nv = pxToValueTrack(ev.clientX, el);
-                  setPins(([rr, yy]) =>
-                    clampPins(which === 0 ? [Math.min(nv, yy - 1), yy] : [rr, Math.max(rr + 1, nv)])
-                  );
-                };
-                const up = () => {
-                  setActiveHandle(null);
-                  window.removeEventListener("pointermove", move);
-                };
-                window.addEventListener("pointermove", move);
-                window.addEventListener("pointerup", up, { once: true });
-              }}
-            >
-              <div className="seg red" style={{ width: `${wRed}%` }} />
-              <div className="seg yellow" style={{ width: `${wYellow}%` }} />
-              <div className="seg green" style={{ width: `${wGreen}%` }} />
-
-              <div className="ruler">
-                {Array.from({ length: 97 }, (_, i) => i + 2).map((v) => (
-                  <div key={`m-${v}`} className="tick minor" style={{ left: `${valueToTrackPct(v)}%` }} />
-                ))}
-                {Array.from({ length: 20 }, (_, i) => 5 * i + 5)
-                  .filter((v) => v >= SCORE_MIN && v <= SCORE_MAX)
-                  .map((v) => (
-                    <div key={`M-${v}`} className="major-wrap" style={{ left: `${valueToTrackPct(v)}%` }}>
-                      <div className="tick major" />
-                      <div className="tick-label">{v}</div>
-                    </div>
-                  ))}
-              </div>
-
-              <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${pRTrack}%` }}>
-                <span className="label">{pins[0]}</span>
-              </div>
-              <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${pYTrack}%` }}>
-                <span className="label">{pins[1]}</span>
-              </div>
-            </div>
-
-            <div className="legend">
-              <div>
-                <span className="sw" style={{ background: COLORS.red }} />
-                {`1–${pins[0]}`}
-              </div>
-              <div>
-                <span className="sw" style={{ background: COLORS.yellow }} />
-                {`${pins[0] + 1}–${pins[1]}`}
-              </div>
-              <div>
-                <span className="sw" style={{ background: COLORS.greenDark }} />
-                {`${pins[1] + 1}–100`}
-              </div>
-            </div>
-          </div>
-
-          <div className="toggles">
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={showMissing}
-                onChange={(e) => setShowMissing(e.target.checked)}
-              />
-            </label>
-          </div>
-
-          <div className="sheet-actions">
-            <button className="ghost" onClick={() => setBandsOpen(false)}>
-              Done
-            </button>
-          </div>
         </div>
       </div>
 
@@ -886,7 +1060,15 @@ export default function Map() {
         >
           <button
             className="info-close"
-            onClick={() => setSelected(null)}
+            onClick={() => {
+              setSelected(null);
+              setHistory(null);
+              setHistoryFor(null);
+              setFacDetails(null);
+              setFacDetailsFor(null);
+              setDrawerLoading(false);
+              loadSeqRef.current++;
+            }}
             style={{
               position: "absolute",
               right: 10,
@@ -903,9 +1085,14 @@ export default function Map() {
             ×
           </button>
 
+          <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
+
           <CurrentInspectionCard data={selected} />
+          {facDetailsFor === selected.establishment_id && <FacilityDetails details={facDetails} />}
+
           <div className="inspect-card_spacer" />
-          <div className="inspect-card_future" />
+          {historyFor === selected.establishment_id && <History rows={history} />}
+          <div className="inspect-card_spacer" />
         </div>
       )}
     </>
