@@ -26,8 +26,8 @@ const SCORE_MAX = 99;
 const RED_CAP = 98;
 const YEL_CAP = 99;
 
-const EDGE_ZONE = 24;   // px near viewport edge
-const SPURT_PX  = 60;   // px per spurt
+const EDGE_ZONE = 24;
+const SPURT_PX = 60;
 
 function clampPins([r, y]) {
   r = Math.max(SCORE_MIN, Math.min(RED_CAP, Math.round(r)));
@@ -39,11 +39,11 @@ function bandExprs([rMax, yMax]) {
   const GET = ["get", "score"];
   const GETN = ["coalesce", ["get", "score"], -999999];
   return {
-    red:    ["all", [">=", GETN, 1],           ["<=", GETN, rMax]],
-    yellow: ["all", [">=", GETN, rMax + 1],    ["<=", GETN, yMax]],
-    green:  ["all", [">=", GETN, yMax + 1],    ["<=", GETN, 100]],
-    zero:   ["==", GET, 0],
-    null:   ["==", GET, null],
+    red: ["all", [">=", GETN, 1], ["<=", GETN, rMax]],
+    yellow: ["all", [">=", GETN, rMax + 1], ["<=", GETN, yMax]],
+    green: ["all", [">=", GETN, yMax + 1], ["<=", GETN, 100]],
+    zero: ["==", GET, 0],
+    null: ["==", GET, null],
   };
 }
 
@@ -59,30 +59,78 @@ function formatDateSafe(val) {
   try {
     const d = new Date(val);
     return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
-  } catch { return String(val); }
+  } catch {
+    return String(val);
+  }
+}
+
+function CurrentInspectionCard({ data }) {
+  if (!data) return null;
+  const { name, address, inspectionDate, score, grade } = data;
+  const gradeDisplay =
+    grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
+  return (
+    <div className="inspect-card">
+      <div className="inspect-card_header">
+        <div className="inspect-card_title">{name}</div>
+        <div className="inspect-card_sub">{address}</div>
+      </div>
+
+      <div className="inspect-card_stats">
+        <div className="inspect-stat">
+          <div
+            className={`inspect-badge ${
+              score === 100 ? "good" : score >= 95 ? "ok" : score >= 85 ? "warn" : "bad"
+            }`}
+          >
+            {score ?? "n/a"}
+          </div>
+          <div className="inspect-stat_label">Score</div>
+        </div>
+
+        <div className="inspect-stat">
+          <div className="inspect-date">{inspectionDate}</div>
+          <div className="inspect-stat_label">Date</div>
+        </div>
+
+        <div className="inspect-stat">
+          <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
+            {gradeDisplay}
+          </div>
+          <div className="inspect-stat_label">Grade</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Map() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
 
-  const popupRef = useRef(null);
+  const hoverPopupRef = useRef(null);
+  const pinnedPopupRef = useRef(null);
   const lastHoverId = useRef(null);
-  const pinnedRef = useRef(false);
+  const pinnedFeatureRef = useRef(null);
   const docCloseHandlerRef = useRef(null);
+  const isDraggingRef = useRef(false);
 
   const [geoData, setGeoData] = useState(null);
   const [selected, setSelected] = useState(null);
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   const [searchTerm, setSearchTerm] = useState("");
 
   const [pins, setPins] = useState(clampPins([85, 94]));
   const pinsRef = useRef(pins);
-  useEffect(() => { pinsRef.current = pins; }, [pins]);
+  useEffect(() => {
+    pinsRef.current = pins;
+  }, [pins]);
 
-  const [showZero, setShowZero] = useState(false);
-  const [showNull, setShowNull] = useState(false);
-
+  const [showMissing, setShowMissing] = useState(false);
   const [showRedPins, setShowRedPins] = useState(true);
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
@@ -93,15 +141,25 @@ export default function Map() {
   const trackRef = useRef(null);
   const dragRef = useRef({ which: null, el: null, mode: "track" });
 
-  // edge spurt state
   const inEdgeRef = useRef(false);
+
+  const isHoverCapableRef = useRef(
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(hover: hover)").matches
+      : false
+  );
+
+  const suppressDocCloseRef = useRef(false);
 
   useEffect(() => {
     (async () => {
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
-      if (headErr) { console.error(headErr); return; }
+      if (headErr) {
+        console.error(headErr);
+        return;
+      }
 
       const pageSize = 1000;
       let allRows = [];
@@ -109,14 +167,19 @@ export default function Map() {
         const to = Math.min(count - 1, offset + pageSize - 1);
         const { data, error } = await supabase
           .from("v_facility_map_feed")
-          .select("establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent")
+          .select(
+            "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent"
+          )
           .range(offset, to);
-        if (error) { console.error(error); return; }
+        if (error) {
+          console.error(error);
+          return;
+        }
         allRows = allRows.concat(data);
       }
 
       const features = allRows
-        .filter(r => typeof r.lon === "number" && typeof r.lat === "number")
+        .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => ({
           type: "Feature",
           id: i,
@@ -134,7 +197,8 @@ export default function Map() {
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
-        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date)) acc[eid] = feat;
+        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date))
+          acc[eid] = feat;
         return acc;
       }, {});
       setGeoData({ type: "FeatureCollection", features: Object.values(latestMap) });
@@ -144,13 +208,15 @@ export default function Map() {
   function isMapReady() {
     const m = mapRef.current;
     if (!m || !m.isStyleLoaded()) return false;
-    return DRAW_ORDER.every(k => m.getLayer(`points-${k}`));
+    return DRAW_ORDER.every((k) => m.getLayer(`points-${k}`));
   }
   function applyFilterWhenReady() {
     const m = mapRef.current;
     if (!m) return;
     if (isMapReady()) applyFilter(m);
-    else m.once("idle", () => { if (isMapReady()) applyFilter(m); });
+    else m.once("idle", () => {
+      if (isMapReady()) applyFilter(m);
+    });
   }
 
   useEffect(() => {
@@ -161,7 +227,10 @@ export default function Map() {
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [-85.75, 38.25],
       zoom: MIN_ZOOM,
-      maxBounds: [[-86.4, 37.7], [-85.0, 38.7]],
+      maxBounds: [
+        [-86.4, 37.7],
+        [-85.0, 38.7],
+      ],
     });
     mapRef.current = map;
 
@@ -170,11 +239,17 @@ export default function Map() {
 
       const basePaint = {
         "circle-radius": [
-          "interpolate", ["linear"], ["zoom"],
-          8, window.innerWidth <= 600 ? 4 : 6,
-          11, window.innerWidth <= 600 ? 8 : 10.5,
-          14, window.innerWidth <= 600 ? 12 : 14,
-          17, window.innerWidth <= 600 ? 16 : 18,
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          window.innerWidth <= 600 ? 4 : 6,
+          11,
+          window.innerWidth <= 600 ? 8 : 10.5,
+          14,
+          window.innerWidth <= 600 ? 12 : 14,
+          17,
+          window.innerWidth <= 600 ? 16 : 18,
         ],
         "circle-opacity": 0.9,
         "circle-stroke-width": 2,
@@ -193,7 +268,7 @@ export default function Map() {
         });
       }
 
-      const layerIds = DRAW_ORDER.map(k => `points-${k}`);
+      const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
 
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
@@ -205,96 +280,172 @@ export default function Map() {
         return COLORS.green;
       };
 
-      const showPopup = (f) => {
-        const { name, address, date, score, grade } = f.properties;
-        const html =
-          `<div class="popup-content" style="font-size:14px;max-width:220px">
-             <strong>${name}</strong><br/>
-             <small>${address}</small><br/>
-             <small>Inspected: ${formatDateSafe(date)}</small><br/>
-             Score: ${score != null ? score : 'n/a'}${grade ? ` (${grade})` : ''}
-           </div>`;
-        if (!popupRef.current) {
-          popupRef.current = new maplibregl.Popup({
-            anchor: "bottom", offset: [0, -14],
-            closeButton: false, closeOnMove: false, closeOnClick: false,
-          }).setLngLat(f.geometry.coordinates).setHTML(html).addTo(mapRef.current);
-        } else {
-          popupRef.current.setLngLat(f.geometry.coordinates).setHTML(html);
-        }
-        const tip = popupRef.current.getElement()?.querySelector(".maplibregl-popup-tip");
-        if (tip) tip.style.borderTopColor = colorForScore(f.properties.score);
+      const renderHTML = (p) => {
+        return `<div class="popup-content" style="font-size:14px;max-width:220px">
+          <strong>${p.name}</strong><br/>
+          <small>${p.address}</small><br/>
+          <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
+          Score: ${p.score != null ? p.score : "n/a"}${p.grade ? ` (${p.grade})` : ""}
+        </div>`;
+      };
 
-        const root = popupRef.current.getElement();
+      const showPinnedPopup = (feature) => {
+        const html = renderHTML(feature.properties);
+        if (!pinnedPopupRef.current) {
+          pinnedPopupRef.current = new maplibregl.Popup({
+            anchor: "bottom",
+            offset: [0, -14],
+            closeButton: false,
+            closeOnMove: false,
+            closeOnClick: false,
+          })
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html)
+            .addTo(mapRef.current);
+        } else {
+          pinnedPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
+        }
+        pinnedFeatureRef.current = feature;
+        wirePopupInteractions(pinnedPopupRef.current, feature);
+      };
+
+      const wirePopupInteractions = (popup, feature) => {
+        const root = popup.getElement();
+        const tip = root?.querySelector(".maplibregl-popup-tip");
+        if (tip) tip.style.borderTopColor = colorForScore(feature.properties.score);
+
         const content = root?.querySelector(".popup-content");
         if (content) {
           content.onclick = (ev) => {
             ev.stopPropagation();
-            const p = f.properties;
+            hoverPopupRef.current?.remove();
+            hoverPopupRef.current = null;
+            lastHoverId.current = null;
+            showPinnedPopup(feature);
+            const p = feature.properties;
             setSelected({
-              name: p.name, address: p.address,
+              name: p.name,
+              address: p.address,
               inspectionDate: formatDateSafe(p.date),
-              score: p.score ?? "n/a", grade: p.grade ?? "",
+              score: p.score ?? "n/a",
+              grade: p.grade,
             });
           };
         }
       };
 
+      const showHoverPopup = (feature) => {
+        const html = renderHTML(feature.properties);
+        if (!hoverPopupRef.current) {
+          hoverPopupRef.current = new maplibregl.Popup({
+            anchor: "bottom",
+            offset: [0, -14],
+            closeButton: false,
+            closeOnMove: false,
+            closeOnClick: false,
+          })
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html)
+            .addTo(mapRef.current);
+        } else {
+          hoverPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
+        }
+        wirePopupInteractions(hoverPopupRef.current, feature);
+      };
+
       const onHover = (e) => {
-        if (pinnedRef.current) return;
         if (!e.features.length) return;
         const f = e.features[0];
         if (f.id === lastHoverId.current) return;
         lastHoverId.current = f.id;
-        showPopup(f);
+        showHoverPopup(f);
       };
 
       const onLeave = () => {
-        if (pinnedRef.current) return;
-        popupRef.current?.remove();
-        popupRef.current = null;
         lastHoverId.current = null;
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
       };
 
       const onClick = (e) => {
         const f = e.features[0];
-        pinnedRef.current = true;
-        lastHoverId.current = f.id;
-        showPopup(f);
+
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
+        lastHoverId.current = null;
+
+        showPinnedPopup(f);
+
+        if (selectedRef.current && isHoverCapableRef.current) {
+          const p = f.properties;
+          setSelected({
+            name: p.name,
+            address: p.address,
+            inspectionDate: formatDateSafe(p.date),
+            score: p.score ?? "n/a",
+            grade: p.grade,
+          });
+        }
       };
 
       for (const id of layerIds) {
         map.on("mousemove", id, onHover);
         map.on("mouseleave", id, onLeave);
+        map.on("mousedown", id, () => {
+          suppressDocCloseRef.current = true;
+        });
         map.on("click", id, onClick);
         map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
       }
 
-      map.on("click", e => {
-        const el = popupRef.current?.getElement();
-        if (el && e.originalEvent && el.contains(e.originalEvent.target)) return;
+      map.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
+      map.on("dragend", () => {
+        isDraggingRef.current = false;
+      });
+
+      map.on("click", (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
-        if (!hits.length) {
-          pinnedRef.current = false;
-          popupRef.current?.remove();
-          popupRef.current = null;
+        const insidePinned =
+          pinnedPopupRef.current &&
+          pinnedPopupRef.current.getElement()?.contains(e.originalEvent.target);
+        const insideHover =
+          hoverPopupRef.current &&
+          hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
+
+        if (!hits.length && !insidePinned && !insideHover) {
+          pinnedPopupRef.current?.remove();
+          pinnedPopupRef.current = null;
+          pinnedFeatureRef.current = null;
+          hoverPopupRef.current?.remove();
+          hoverPopupRef.current = null;
           lastHoverId.current = null;
           setSelected(null);
         }
       });
 
       const outsideClose = (ev) => {
-        const el = popupRef.current?.getElement();
-        if (!el) return;
-        if (!el.contains(ev.target)) {
-          pinnedRef.current = false;
-          popupRef.current?.remove();
-          popupRef.current = null;
-          lastHoverId.current = null;
+        if (suppressDocCloseRef.current) {
+          suppressDocCloseRef.current = false;
+          return;
         }
+        if (isDraggingRef.current) return;
+        const p1 = pinnedPopupRef.current?.getElement();
+        const p2 = hoverPopupRef.current?.getElement();
+        if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
+        if (document.querySelector(".bands.open")) return;
+        if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
+        pinnedPopupRef.current?.remove();
+        pinnedPopupRef.current = null;
+        pinnedFeatureRef.current = null;
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
+        lastHoverId.current = null;
+        setSelected(null);
       };
-      document.addEventListener("mousedown", outsideClose, true);
+      document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
 
       applyFilter(map);
@@ -302,131 +453,197 @@ export default function Map() {
 
     return () => {
       if (docCloseHandlerRef.current) {
-        document.removeEventListener("mousedown", docCloseHandlerRef.current, true);
+        document.removeEventListener("click", docCloseHandlerRef.current, true);
         docCloseHandlerRef.current = null;
       }
+      hoverPopupRef.current?.remove();
+      hoverPopupRef.current = null;
+      pinnedPopupRef.current?.remove();
+      pinnedPopupRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
   }, [geoData]);
 
-  useEffect(() => { if (mapRef.current) applyFilterWhenReady(); },
-    [pins, showZero, showNull, searchTerm, showRedPins, showYellowPins, showGreenPins]);
+  useEffect(() => {
+    if (mapRef.current) applyFilterWhenReady();
+  }, [pins, showMissing, searchTerm, showRedPins, showYellowPins, showGreenPins]);
 
   useEffect(() => {
-    const m = mapRef.current; if (!m) return;
-    m.resize(); const t = setTimeout(() => m.resize(), 320);
+    const m = mapRef.current;
+    if (!m) return;
+    m.resize();
+    const t = setTimeout(() => m.resize(), 320);
     return () => clearTimeout(t);
   }, [bandsOpen]);
 
   const [miniActive, setMiniActive] = useState(null);
   const [activeHandle, setActiveHandle] = useState(null);
+
   useEffect(() => {
-    const m = mapRef.current; if (!m) return;
+    const m = mapRef.current;
+    if (!m) return;
     const dragging = miniActive != null || activeHandle != null || bandsOpen;
     const stopWheel = (e) => e.preventDefault();
     if (dragging) {
-      m.dragPan.disable(); m.scrollZoom.disable(); m.boxZoom.disable(); m.keyboard.disable();
-      document.body.style.overflow = "hidden"; window.addEventListener("wheel", stopWheel, { passive: false });
+      m.dragPan.disable();
+      m.scrollZoom.disable();
+      m.boxZoom.disable();
+      m.keyboard.disable();
+      document.body.style.overflow = "hidden";
+      window.addEventListener("wheel", stopWheel, { passive: false });
     }
     return () => {
-      window.removeEventListener("wheel", stopWheel); document.body.style.overflow = "";
-      m.dragPan.enable(); m.scrollZoom.enable(); m.boxZoom.enable(); m.keyboard.enable();
+      window.removeEventListener("wheel", stopWheel);
+      document.body.style.overflow = "";
+      m.dragPan.enable();
+      m.scrollZoom.enable();
+      m.boxZoom.enable();
+      m.keyboard.enable();
     };
   }, [miniActive, activeHandle, bandsOpen]);
 
-  useEffect(() => {
-    if (selected === null) {
-      pinnedRef.current = false;
-      popupRef.current?.remove();
-      popupRef.current = null;
-      lastHoverId.current = null;
-    }
-  }, [selected]);
-
-  // non-linear mini; linear big
-  const MINI_GAMMA = 1.8, TRACK_GAMMA = 2;
+  const MINI_GAMMA = 1.8,
+    TRACK_GAMMA = 2;
   const warpMini = (t) => Math.pow(t, MINI_GAMMA);
   const unwarpMini = (t) => Math.pow(t, 1 / MINI_GAMMA);
   const warpTrack = (t) => Math.pow(t, TRACK_GAMMA);
   const unwarpTrack = (t) => Math.pow(t, 1 / TRACK_GAMMA);
 
-  const valueToMiniPct = (v)=>warpMini(v/SCORE_MAX)*100;
-  const pctToValueMini = (pct)=>Math.max(SCORE_MIN,Math.min(YEL_CAP,Math.round(unwarpMini(pct/100)*SCORE_MAX)));
-  const pxToValueMini = (x,el)=>{const r=el.getBoundingClientRect();const ratio=(x-r.left)/r.width;return pctToValueMini(Math.max(0,Math.min(1,ratio))*100)};
+  const valueToMiniPct = (v) => warpMini(v / SCORE_MAX) * 100;
+  const pctToValueMini = (pct) =>
+    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round(unwarpMini(pct / 100) * SCORE_MAX)));
+  const pxToValueMini = (x, el) => {
+    const r = el.getBoundingClientRect();
+    const ratio = (x - r.left) / r.width;
+    return pctToValueMini(Math.max(0, Math.min(1, ratio)) * 100);
+  };
 
-  const valueToTrackPct=(v)=>warpTrack(v/SCORE_MAX)*100;
-  const pctToValueTrack=(pct)=>Math.max(SCORE_MIN,Math.min(YEL_CAP,Math.round(unwarpTrack(pct/100)*SCORE_MAX)));
-  const pxToValueTrack=(x,el)=>{const r=el.getBoundingClientRect();const ratio=(x-r.left)/r.width;return pctToValueTrack(Math.max(0,Math.min(1,ratio))*100)};
+  const valueToTrackPct = (v) => warpTrack(v / SCORE_MAX) * 100;
+  const pctToValueTrack = (pct) =>
+    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round(unwarpTrack(pct / 100) * SCORE_MAX)));
+  const pxToValueTrack = (x, el) => {
+    const r = el.getBoundingClientRect();
+    const ratio = (x - r.left) / r.width;
+    return pctToValueTrack(Math.max(0, Math.min(1, ratio)) * 100);
+  };
 
   const [rMax, yMax] = pins;
-  const pRMini=valueToMiniPct(rMax), pYMini=valueToMiniPct(yMax);
-  const wRedMini=warpMini(rMax/SCORE_MAX)*100, wYellowMini=Math.max(0,(warpMini(yMax/SCORE_MAX)-warpMini(rMax/SCORE_MAX))*100), wGreenMini=Math.max(0,(1-warpMini(yMax/SCORE_MAX))*100);
-  const pRTrack=valueToTrackPct(rMax), pYTrack=valueToTrackPct(yMax);
-  const wRed=warpTrack(rMax/SCORE_MAX)*100, wYellow=Math.max(0,(warpTrack(yMax/SCORE_MAX)-warpTrack(rMax/SCORE_MAX))*100), wGreen=Math.max(0,(1-warpTrack(yMax/SCORE_MAX))*100);
+  const pRMini = valueToMiniPct(rMax),
+    pYMini = valueToMiniPct(yMax);
+  const wRedMini = warpMini(rMax / SCORE_MAX) * 100,
+    wYellowMini = Math.max(0, (warpMini(yMax / SCORE_MAX) - warpMini(rMax / SCORE_MAX)) * 100),
+    wGreenMini = Math.max(0, (1 - warpMini(yMax / SCORE_MAX)) * 100);
+  const pRTrack = valueToTrackPct(rMax),
+    pYTrack = valueToTrackPct(yMax);
+  const wRed = warpTrack(rMax / SCORE_MAX) * 100,
+    wYellow = Math.max(0, (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100),
+    wGreen = Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100);
 
   function applyFilter(map) {
     const exprs = bandExprs(pins);
     const term = searchTerm.trim().toLowerCase();
-    const searchExpr = term ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0] : null;
+    const searchExpr = term
+      ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0]
+      : null;
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
       const id = `points-${key}`;
       let visible = true;
-      if (key === "zero" && !showZero) visible = false;
-      if (key === "null" && !showNull) visible = false;
+      if ((key === "zero" || key === "null") && !showMissing) visible = false;
       if (key === "red" && !showRedPins) visible = false;
       if (key === "yellow" && !showYellowPins) visible = false;
       if (key === "green" && !showGreenPins) visible = false;
       const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") {
-        map.setPaintProperty(id, "circle-color",
-          ["case", ["==", ["get", "score"], 100], COLORS.greenDark, COLORS.green]);
+        map.setPaintProperty(
+          id,
+          "circle-color",
+          ["case", ["==", ["get", "score"], 100], COLORS.greenDark, COLORS.green]
+        );
       }
     }
   }
 
-  function dragStart(which, el, clientX, mode="track") {
-    dragRef.current = { which, el, mode }; if (typeof clientX==="number") dragMove(clientX);
-    const move = (ev)=>dragMove(ev.clientX);
-    const up = ()=>{dragRef.current={which:null,el:null,mode:"track"};window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);setActiveHandle(null);setMiniActive(null);};
-    window.addEventListener("pointermove",move); window.addEventListener("pointerup",up,{once:true});
+  function dragStart(which, el, clientX, mode = "track") {
+    dragRef.current = { which, el, mode };
+    if (typeof clientX === "number") dragMove(clientX);
+    const move = (ev) => dragMove(ev.clientX);
+    const up = () => {
+      dragRef.current = { which: null, el: null, mode: "track" };
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setActiveHandle(null);
+      setMiniActive(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
   }
-  function dragMove(clientX){
-    const { which, el, mode } = dragRef.current; if(!el||which==null) return;
-    const v = mode==="mini" ? pxToValueMini(clientX,el) : pxToValueTrack(clientX,el);
-    setPins(([r,y])=>clampPins(which===0?[Math.min(v,y-1),y]:[r,Math.max(r+1,v)]));
+  function dragMove(clientX) {
+    const { which, el, mode } = dragRef.current;
+    if (!el || which == null) return;
+    const v = mode === "mini" ? pxToValueMini(clientX, el) : pxToValueTrack(clientX, el);
+    setPins(([r, y]) =>
+      clampPins(which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)])
+    );
   }
 
-  // ---- automatic single-spurt edge pan ----
-  const isInDeadzone = (x,y)=>{
-    const M=8, els=[document.querySelector(".fab-scores"),document.querySelector(".control-card")].filter(Boolean);
-    for(const el of els){const r=el.getBoundingClientRect(); if(x>=r.left-M&&x<=r.right+M&&y>=r.top-M&&y<=r.bottom+M) return true;}
+  const isInDeadzone = (x, y) => {
+    const M = 8,
+      els = [document.querySelector(".fab-scores"), document.querySelector(".control-card")].filter(
+        Boolean
+      );
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (
+        x >= r.left - M &&
+        x <= r.right + M &&
+        y >= r.top - M &&
+        y <= r.bottom + M
+      )
+        return true;
+    }
     return false;
   };
-  const spurtDisabled = ()=>!mapRef.current || selected!==null || bandsOpen || miniActive!==null || activeHandle!==null;
+  const spurtDisabled = () =>
+    !mapRef.current ||
+    bandsOpen ||
+    miniActive !== null ||
+    activeHandle !== null;
 
-  useEffect(()=>{
-    const onMove=(e)=>{
-      let dx=0,dy=0;
-      if(e.clientX<=EDGE_ZONE) dx=-1; else if(e.clientX>=window.innerWidth-EDGE_ZONE) dx=1;
-      if(e.clientY<=EDGE_ZONE) dy=-1; else if(e.clientY>=window.innerHeight-EDGE_ZONE) dy=1;
-      const nearEdge = dx!==0 || dy!==0;
-      const active = nearEdge && !spurtDisabled() && e.buttons===0 && !isInDeadzone(e.clientX,e.clientY);
-      if(active && !inEdgeRef.current){
-        mapRef.current.panBy([dx*SPURT_PX, dy*SPURT_PX], { duration: 240 });
+  useEffect(() => {
+    const onMove = (e) => {
+      let dx = 0,
+        dy = 0;
+      if (e.clientX <= EDGE_ZONE) dx = -1;
+      else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
+      if (e.clientY <= EDGE_ZONE) dy = -1;
+      else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
+      const nearEdge = dx !== 0 || dy !== 0;
+      const active =
+        nearEdge &&
+        !spurtDisabled() &&
+        e.buttons === 0 &&
+        !isInDeadzone(e.clientX, e.clientY);
+      if (active && !inEdgeRef.current) {
+        mapRef.current.panBy([dx * SPURT_PX, dy * SPURT_PX], { duration: 240 });
         inEdgeRef.current = true;
       }
-      if(!active) inEdgeRef.current = false;
+      if (!active) inEdgeRef.current = false;
     };
-    const reset=()=>{inEdgeRef.current=false;};
-    document.addEventListener("mousemove",onMove,{passive:true});
-    document.addEventListener("mouseleave",reset);
-    window.addEventListener("blur",reset);
-    return ()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseleave",reset);window.removeEventListener("blur",reset);};
-  },[bandsOpen,selected,miniActive,activeHandle]);
-  // -----------------------------------------
+    const reset = () => {
+      inEdgeRef.current = false;
+    };
+    document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("mouseleave", reset);
+    window.addEventListener("blur", reset);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", reset);
+      window.removeEventListener("blur", reset);
+    };
+  }, [bandsOpen, miniActive, activeHandle]);
 
   return (
     <>
@@ -436,30 +653,50 @@ export default function Map() {
         <div className="control-card">
           <div className="search-bar">
             <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+              <path
+                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                fill="currentColor"
+              />
             </svg>
-            <input type="text" placeholder="Search by name" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
           <div className="rgb-toggles">
             <div className="rgb-row">
               <span className="label">Show Red</span>
               <label className="switch sm red">
-                <input type="checkbox" checked={showRedPins} onChange={e=>setShowRedPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showRedPins}
+                  onChange={(e) => setShowRedPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Yellow</span>
               <label className="switch sm yellow">
-                <input type="checkbox" checked={showYellowPins} onChange={e=>setShowYellowPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showYellowPins}
+                  onChange={(e) => setShowYellowPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Green</span>
               <label className="switch sm green">
-                <input type="checkbox" checked={showGreenPins} onChange={e=>setShowGreenPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showGreenPins}
+                  onChange={(e) => setShowGreenPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
@@ -474,105 +711,157 @@ export default function Map() {
           <div
             className={`mini-bar ${miniActive != null ? "dragging" : ""}`}
             ref={miniRef}
-            onPointerDown={e=>{
-              const el=miniRef.current; const v=pxToValueMini(e.clientX,el);
-              const [r,y]=pinsRef.current; const which=Math.abs(v-r)<=Math.abs(v-y)?0:1;
-              setPins(prev=>{let[r2,y2]=prev; if(which===0) r2=Math.min(v,y2-1); else y2=Math.max(r2+1,v); return clampPins([r2,y2]);});
-              setMiniActive(which); dragStart(which,miniRef.current,e.clientX,"mini");
-              const move=(ev)=>dragMove(ev.clientX); const up=()=>{setMiniActive(null);window.removeEventListener("pointermove",move);};
-              window.addEventListener("pointermove",move); window.addEventListener("pointerup",up,{once:true});
+            onPointerDown={(e) => {
+              const el = miniRef.current;
+              const v = pxToValueMini(e.clientX, el);
+              const [r, y] = pinsRef.current;
+              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
+              setPins((prev) => {
+                let [r2, y2] = prev;
+                if (which === 0) r2 = Math.min(v, y2 - 1);
+                else y2 = Math.max(r2 + 1, v);
+                return clampPins([r2, y2]);
+              });
+              setMiniActive(which);
+              const move = (ev) => {
+                const nv = pxToValueMini(ev.clientX, el);
+                setPins(([rr, yy]) =>
+                  clampPins(which === 0 ? [Math.min(nv, yy - 1), yy] : [rr, Math.max(rr + 1, nv)])
+                );
+              };
+              const up = () => {
+                setMiniActive(null);
+                window.removeEventListener("pointermove", move);
+              };
+              window.addEventListener("pointermove", move);
+              window.addEventListener("pointerup", up, { once: true });
             }}
           >
-            <div className="mini-seg red" style={{width:`${wRedMini}%`}} />
-            <div className="mini-seg yellow" style={{width:`${wYellowMini}%`}} />
-            <div className="mini-seg green" style={{width:`${wGreenMini}%`}} />
+            <div className="mini-seg red" style={{ width: `${wRedMini}%` }} />
+            <div className="mini-seg yellow" style={{ width: `${wYellowMini}%` }} />
+            <div className="mini-seg green" style={{ width: `${wGreenMini}%` }} />
 
-            <div
-              className={`mini-handle ${miniActive===0?"active":""}`}
-              style={{"--pos":`${pRMini}%`}}
-              onPointerDown={e=>{
-                e.stopPropagation(); setMiniActive(0); dragStart(0,miniRef.current,e.clientX,"mini");
-                const move=(ev)=>dragMove(ev.clientX); const up=()=>{setMiniActive(null);window.removeEventListener("pointermove",move);};
-                window.addEventListener("pointermove",move); window.addEventListener("pointerup",up,{once:true});
-              }}
-            ><span>{pins[0]}</span></div>
-
-            <div
-              className={`mini-handle ${miniActive===1?"active":""}`}
-              style={{"--pos":`${pYMini}%`}}
-              onPointerDown={e=>{
-                e.stopPropagation(); setMiniActive(1); dragStart(1,miniRef.current,e.clientX,"mini");
-                const move=(ev)=>dragMove(ev.clientX); const up=()=>{setMiniActive(null);window.removeEventListener("pointermove",move);};
-                window.addEventListener("pointermove",move); window.addEventListener("pointerup",up,{once:true});
-              }}
-            ><span>{pins[1]}</span></div>
+            <div className={`mini-handle ${miniActive === 0 ? "active" : ""}`} style={{ "--pos": `${pRMini}%` }}>
+              <span>{pins[0]}</span>
+            </div>
+            <div className={`mini-handle ${miniActive === 1 ? "active" : ""}`} style={{ "--pos": `${pYMini}%` }}>
+              <span>{pins[1]}</span>
+            </div>
           </div>
         </div>
 
-        <div className="fab-sub">{`R 1–${pins[0]} · Y ${pins[0]+1}–${pins[1]} · G ${pins[1]+1}–100`}</div>
+        <div className="fab-sub">{`R 1–${pins[0]} · Y ${pins[0] + 1}–${pins[1]} · G ${
+          pins[1] + 1
+        }–100`}</div>
 
-        <div style={{display:"flex",justifyContent:"flex-end"}}>
-          <button className="fab-open" onClick={()=>setBandsOpen(true)}>Adjust</button>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="fab-open" onClick={() => setBandsOpen(true)}>
+            Adjust
+          </button>
         </div>
       </div>
 
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
-        <div className="bands-backdrop" onClick={()=>setBandsOpen(false)} />
+        <div className="bands-backdrop" onClick={() => setBandsOpen(false)} />
         <div className="bands-sheet">
-          <div className="bands-header"><div className="grab" /><div className="title">Score Bands</div></div>
+          <div className="bands-header">
+            <div className="grab" />
+            <div className="title">Score Bands</div>
+          </div>
 
           <div className="presets">
-            <button onClick={()=>setPins(clampPins([80,92]))}>Loose</button>
-            <button onClick={()=>setPins(clampPins([85,94]))}>Balanced</button>
-            <button onClick={()=>setPins(clampPins([90,96]))}>Strict</button>
+            <button onClick={() => setPins(clampPins([80, 92]))}>Loose</button>
+            <button onClick={() => setPins(clampPins([85, 94]))}>Balanced</button>
+            <button onClick={() => setPins(clampPins([90, 96]))}>Strict</button>
           </div>
 
           <div className="band-editor">
             <div
-              className={`track ${activeHandle!=null?"dragging":""}`}
+              className={`track ${activeHandle != null ? "dragging" : ""}`}
               ref={trackRef}
-              onPointerDown={e=>{
-                const el=trackRef.current; const v=pxToValueTrack(e.clientX,el);
-                const [r,y]=pinsRef.current; const which=Math.abs(v-r)<=Math.abs(v-y)?0:1;
+              onPointerDown={(e) => {
+                const el = trackRef.current;
+                const v = pxToValueTrack(e.clientX, el);
+                const [r, y] = pinsRef.current;
+                const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
                 setActiveHandle(which);
-                setPins(prev=>{let[r2,y2]=prev; if(which===0) r2=Math.min(v,y2-1); else y2=Math.max(r2+1,v); return clampPins([r2,y2]);});
-                dragStart(which,el,e.clientX,"track");
+                setPins((prev) => {
+                  let [r2, y2] = prev;
+                  if (which === 0) r2 = Math.min(v, y2 - 1);
+                  else y2 = Math.max(r2 + 1, v);
+                  return clampPins([r2, y2]);
+                });
+                const move = (ev) => {
+                  const nv = pxToValueTrack(ev.clientX, el);
+                  setPins(([rr, yy]) =>
+                    clampPins(which === 0 ? [Math.min(nv, yy - 1), yy] : [rr, Math.max(rr + 1, nv)])
+                  );
+                };
+                const up = () => {
+                  setActiveHandle(null);
+                  window.removeEventListener("pointermove", move);
+                };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", up, { once: true });
               }}
             >
-              <div className="seg red" style={{width:`${wRed}%`}} />
-              <div className="seg yellow" style={{width:`${wYellow}%`}} />
-              <div className="seg green" style={{width:`${wGreen}%`}} />
+              <div className="seg red" style={{ width: `${wRed}%` }} />
+              <div className="seg yellow" style={{ width: `${wYellow}%` }} />
+              <div className="seg green" style={{ width: `${wGreen}%` }} />
 
               <div className="ruler">
-                {Array.from({length:97},(_,i)=>i+2).map(v=><div key={`m-${v}`} className="tick minor" style={{left:`${valueToTrackPct(v)}%`}} />)}
-                {Array.from({length:20},(_,i)=>5*i+5).filter(v=>v>=SCORE_MIN&&v<=SCORE_MAX).map(v=>(
-                  <div key={`M-${v}`} className="major-wrap" style={{left:`${valueToTrackPct(v)}%`}}>
-                    <div className="tick major"/><div className="tick-label">{v}</div>
-                  </div>
+                {Array.from({ length: 97 }, (_, i) => i + 2).map((v) => (
+                  <div key={`m-${v}`} className="tick minor" style={{ left: `${valueToTrackPct(v)}%` }} />
                 ))}
+                {Array.from({ length: 20 }, (_, i) => 5 * i + 5)
+                  .filter((v) => v >= SCORE_MIN && v <= SCORE_MAX)
+                  .map((v) => (
+                    <div key={`M-${v}`} className="major-wrap" style={{ left: `${valueToTrackPct(v)}%` }}>
+                      <div className="tick major" />
+                      <div className="tick-label">{v}</div>
+                    </div>
+                  ))}
               </div>
 
-              <div className={`handle ${activeHandle===0?"active":""}`} style={{"--pos":`${pRTrack}%`}} onPointerDown={e=>{setActiveHandle(0);dragStart(0,trackRef.current,e.clientX,"track");}}>
+              <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${pRTrack}%` }}>
                 <span className="label">{pins[0]}</span>
               </div>
-              <div className={`handle ${activeHandle===1?"active":""}`} style={{"--pos":`${pYTrack}%`}} onPointerDown={e=>{setActiveHandle(1);dragStart(1,trackRef.current,e.clientX,"track");}}>
+              <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${pYTrack}%` }}>
                 <span className="label">{pins[1]}</span>
               </div>
             </div>
 
             <div className="legend">
-              <div><span className="sw" style={{background:COLORS.red}} />{`1–${pins[0]}`}</div>
-              <div><span className="sw" style={{background:COLORS.yellow}} />{`${pins[0]+1}–${pins[1]}`}</div>
-              <div><span className="sw" style={{background:COLORS.greenDark}} />{`${pins[1]+1}–100`}</div>
+              <div>
+                <span className="sw" style={{ background: COLORS.red }} />
+                {`1–${pins[0]}`}
+              </div>
+              <div>
+                <span className="sw" style={{ background: COLORS.yellow }} />
+                {`${pins[0] + 1}–${pins[1]}`}
+              </div>
+              <div>
+                <span className="sw" style={{ background: COLORS.greenDark }} />
+                {`${pins[1] + 1}–100`}
+              </div>
             </div>
           </div>
 
           <div className="toggles">
-            <label className="switch"><input type="checkbox" checked={showZero} onChange={e=>setShowZero(e.target.checked)} /><span/> Show 0</label>
-            <label className="switch"><input type="checkbox" checked={showNull} onChange={e=>setShowNull(e.target.checked)} /><span/> Show null</label>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={showMissing}
+                onChange={(e) => setShowMissing(e.target.checked)}
+              />
+            </label>
           </div>
 
-          <div className="sheet-actions"><button className="ghost" onClick={()=>setBandsOpen(false)}>Done</button></div>
+          <div className="sheet-actions">
+            <button className="ghost" onClick={() => setBandsOpen(false)}>
+              Done
+            </button>
+          </div>
         </div>
       </div>
 
@@ -580,17 +869,43 @@ export default function Map() {
         <div
           className="info-drawer"
           style={{
-            position:"fixed",right:16,top:16,bottom:16,width:"min(420px,90vw)",
-            background:"rgba(24,24,24,0.96)",backdropFilter:"blur(6px)",color:"#fff",zIndex:5,
-            borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,0.4)",overflow:"auto",padding:16
+            position: "fixed",
+            right: 16,
+            top: 16,
+            bottom: 16,
+            width: "min(520px,92vw)",
+            background: "rgba(24,24,24,0.96)",
+            backdropFilter: "blur(6px)",
+            color: "#fff",
+            zIndex: 5,
+            borderRadius: 12,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+            overflow: "auto",
+            padding: 16,
           }}
         >
-          <button className="info-close" onClick={()=>setSelected(null)} style={{position:"absolute",right:10,top:6,border:"none",background:"transparent",color:"#bbb",fontSize:24,cursor:"pointer"}} aria-label="Close" title="Close">×</button>
-          <h2 className="info-title" style={{marginTop:6}}>{selected.name}</h2>
-          <div className="info-detail"><span className="label">Address</span><span className="value">{selected.address}</span></div>
-          <div className="info-detail"><span className="label">Inspected</span><span className="value">{selected.inspectionDate}</span></div>
-          <div className="info-detail"><span className="label">Score</span><span className="value">{selected.score}</span></div>
-          {selected.grade && <div className="info-detail"><span className="label">Grade</span><span className="value">{selected.grade}</span></div>}
+          <button
+            className="info-close"
+            onClick={() => setSelected(null)}
+            style={{
+              position: "absolute",
+              right: 10,
+              top: 6,
+              border: "none",
+              background: "transparent",
+              color: "#bbb",
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+            aria-label="Close"
+            title="Close"
+          >
+            ×
+          </button>
+
+          <CurrentInspectionCard data={selected} />
+          <div className="inspect-card_spacer" />
+          <div className="inspect-card_future" />
         </div>
       )}
     </>
