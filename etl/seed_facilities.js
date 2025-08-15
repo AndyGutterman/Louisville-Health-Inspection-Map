@@ -42,7 +42,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       pageCount++;
       const params = new URLSearchParams({
         where:             '1=1',
-        outFields:         'EstablishmentID,EstablishmentName,Address,City,State,Zip,NameSearch',
+		outFields:         'EstablishmentID,EstablishmentName,Address,City,State,Zip,NameSearch,EstType,Subtype',
         orderByFields:     'EstablishmentID ASC',
         resultRecordCount: String(pageSize),
         resultOffset:      String(offset),
@@ -71,7 +71,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
           zip:              a.Zip != null ? String(a.Zip) : null,
           name_search:      normText(a.NameSearch || a.EstablishmentName),
           addr_search:      normText(a.Address),
-          loc_source:       'legacy'
+          loc_source:       'legacy',
+		  facility_type:    Number.isFinite(+a.EstType) ? +a.EstType : null,
+		  subtype:          Number.isFinite(+a.Subtype) ? +a.Subtype : null
         });
       }
 
