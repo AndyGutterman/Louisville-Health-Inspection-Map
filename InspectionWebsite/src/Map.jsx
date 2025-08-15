@@ -25,6 +25,12 @@ const SCORE_MAX = 99;
 const RED_CAP = 98;
 const YEL_CAP = 99;
 
+const PRESETS = {
+  loose: clampPins([75, 90]),
+  balanced: clampPins([86, 94]),
+  strict: clampPins([90, 96]),
+};
+
 const EDGE_ZONE = 24;
 const SPURT_PX = 60;
 
@@ -309,16 +315,34 @@ export default function Map() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [pins, setPins] = useState(clampPins([85, 94]));
+  const [pins, setPins] = useState(PRESETS.balanced);
+  const [preset, setPreset] = useState("balanced");
+
+  const applyPreset = (name) => {
+    const next = PRESETS[name];
+    if (!next) return;
+    setPins(next);
+    setPreset(name);
+  };
+
   const pinsRef = useRef(pins);
   useEffect(() => {
     pinsRef.current = pins;
+  }, [pins]);
+
+  useEffect(() => {
+  const match = Object.entries(PRESETS)
+    .find(([, v]) => v[0] === pins[0] && v[1] === pins[1]);
+  setPreset(match ? match[0] : null);
   }, [pins]);
 
   const [showMissing, setShowMissing] = useState(false);
   const [showRedPins, setShowRedPins] = useState(true);
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
+
+  const [fabHidden, setFabHidden] = useState(false);
+
 
   const [bandsOpen, setBandsOpen] = useState(false);
 
@@ -804,8 +828,8 @@ export default function Map() {
     };
   }, [miniActive, activeHandle]);
 
-  const MINI_GAMMA = 1.8,
-    TRACK_GAMMA = 2;
+  const MINI_GAMMA = 4,
+    TRACK_GAMMA = 4;
   const warpMini = (t) => Math.pow(t, MINI_GAMMA);
   const unwarpMini = (t) => Math.pow(t, 1 / MINI_GAMMA);
   const warpTrack = (t) => Math.pow(t, TRACK_GAMMA);
@@ -862,6 +886,7 @@ export default function Map() {
   }
 
   function dragStart(which, el, clientX, mode = "track") {
+    setPreset(null);
     dragRef.current = { which, el, mode };
     if (typeof clientX === "number") dragMove(clientX);
     const move = (ev) => dragMove(ev.clientX);
@@ -874,6 +899,7 @@ export default function Map() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });
+    window.addEventListener("pointercancel", up, { once: true });
   }
   function dragMove(clientX) {
     const { which, el, mode } = dragRef.current;
@@ -994,73 +1020,140 @@ export default function Map() {
                 <span />
               </label>
             </div>
+            <div className="rgb-row">
+              <span className="label">Show bad data</span>
+              <label className="switch sm">
+                <input
+                  type="checkbox"
+                  checked={showMissing}
+                  onChange={(e) => setShowMissing(e.target.checked)}
+                />
+                <span />
+            </label>
           </div>
+                    </div>
         </div>
       </div>
 
-      <div className="fab-scores">
-        <div className="fab-row">
-          <span>Scores</span>
+      {fabHidden ? (
+        <button
+          className="fab-reopen"
+          aria-label="Show score thresholds"
+          onClick={() => setFabHidden(false)}
+        >
+          Adjust Score Thresholds
+        </button>
+      ) : (
+        <div className="fab-scores" id="score-thresholds">
+          
 
-          <div
-            className={`mini-bar ${miniActive != null ? "dragging" : ""}`}
-            ref={miniRef}
-            onPointerDown={(e) => {
-              const el = miniRef.current;
-              const rct = el.getBoundingClientRect();
-              const ratio = (e.clientX - rct.left) / rct.width;
-              const pct = Math.max(0, Math.min(1, ratio)) * 100;
-              const unwarpMini = (t) => Math.pow(t, 1 / 1.8);
-              const val = Math.round(unwarpMini(pct / 100) * 99);
-              const v = Math.max(1, Math.min(99, val));
-              const [r, y] = pinsRef.current;
-              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
-              setMiniActive(which);
-              dragStart(which, el, e.clientX, "mini");
-            }}
-          >
-            <div className="mini-seg red" style={{ width: `${warpMini(rMax / SCORE_MAX) * 100}%` }} />
-            <div
-              className="mini-seg yellow"
-              style={{
-                width: `${Math.max(
-                  0,
-                  (warpMini(yMax / SCORE_MAX) - warpMini(rMax / SCORE_MAX)) * 100
-                )}%`,
-              }}
-            />
-            <div
-              className="mini-seg green"
-              style={{ width: `${Math.max(0, (1 - warpMini(yMax / SCORE_MAX)) * 100)}%` }}
-            />
+          <div className="fab-row head">
+            <span className="fab-title">Score Thresholds</span>
 
-            <div
-              className="mini-handle"
-              style={{ "--pos": `${warpMini(rMax / SCORE_MAX) * 100}%` }}
-              onPointerDown={(e) => {
-                setMiniActive(0);
-                dragStart(0, miniRef.current, e.clientX, "mini");
-              }}
-            >
-              <span>{pins[0]}</span>
+            <div className="presets">
+              <button
+                className={preset === "loose" ? "active" : ""}
+                onClick={() => applyPreset("loose")}
+              >
+                Loose
+              </button>
+              <button
+                className={preset === null || preset === "balanced" ? "active" : ""}
+                onClick={() => applyPreset("balanced")}
+              >
+                Balanced
+              </button>
+              <button
+                className={preset === "strict" ? "active" : ""}
+                onClick={() => applyPreset("strict")}
+              >
+                Strict
+              </button>
             </div>
-            <div
-              className="mini-handle"
-              style={{ "--pos": `${warpMini(yMax / SCORE_MAX) * 100}%` }}
-              onPointerDown={(e) => {
-                setMiniActive(1);
-                dragStart(1, miniRef.current, e.clientX, "mini");
-              }}
+
+            <button
+              type="button"
+              className="fab-hide"
+              aria-expanded={!fabHidden}
+              aria-controls="score-thresholds"
+              onClick={() => setFabHidden(true)}
             >
-              <span>{pins[1]}</span>
-            </div>
+              Hide
+            </button>
           </div>
 
-          <button className="fab-open" onClick={() => setBandsOpen(true)}>
-            Adjust
-          </button>
-        </div>
-      </div>
+            <div
+              className={`track compact ${activeHandle != null ? "dragging" : ""}`}
+              ref={trackRef}
+              onPointerDown={(e) => {
+                const el = trackRef.current;
+                const rct = el.getBoundingClientRect();
+                const ratio = (e.clientX - rct.left) / rct.width;
+                const pct = Math.max(0, Math.min(1, ratio)) * 100;
+                const unwarpTrack = (t) => Math.pow(t, 1 / 2);
+                const val = Math.round(unwarpTrack(pct / 100) * 99);
+                const v = Math.max(1, Math.min(99, val));
+                const [rr, yy] = pinsRef.current;
+                const which = Math.abs(v - rr) <= Math.abs(v - yy) ? 0 : 1;
+                setActiveHandle(which);
+                dragStart(which, el, e.clientX, "track");
+              }}
+            >
+              <div className="seg red" style={{ width: `${warpTrack(rMax / SCORE_MAX) * 100}%` }} />
+              <div
+                className="seg yellow"
+                style={{
+                  width: `${Math.max(0, (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100)}%`,
+                }}
+              />
+              <div
+                className="seg green"
+                style={{ width: `${Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100)}%` }}
+              />
+
+              <div className="ruler">
+                {Array.from({ length: 100 }, (_, i) => i + 1).map((v) => {
+                  const left = `${warpTrack(v / SCORE_MAX) * 100}%`;
+                  if (v % 10 === 0) {
+                    return (
+                      <div key={`M-${v}`} className="major-wrap" style={{ left }}>
+                        <div className="tick major" />
+                        <div className="tick-label">{v}</div>
+                      </div>
+                    );
+                  }
+                  if (v >= 50 && v % 5 === 0) {
+                    return <div key={`m-${v}`} className="tick minor" style={{ left }} />;
+                  }
+                  return <div key={`u-${v}`} className="tick micro" style={{ left }} />;
+                })}
+              </div>
+
+              <div
+                className={`handle ${activeHandle === 0 ? "active" : ""}`}
+                style={{ "--pos": `${warpTrack(rMax / SCORE_MAX) * 100}%` }}
+                onPointerDown={(e) => {
+                  setActiveHandle(0);
+                  dragStart(0, trackRef.current, e.clientX, "track");
+                }}
+              >
+                <span className="label">{pins[0]}</span>
+              </div>
+              <div
+                className={`handle ${activeHandle === 1 ? "active" : ""}`}
+                style={{ "--pos": `${warpTrack(yMax / SCORE_MAX) * 100}%` }}
+                onPointerDown={(e) => {
+                  setActiveHandle(1);
+                  dragStart(1, trackRef.current, e.clientX, "track");
+                }}
+              >
+                <span className="label">{pins[1]}</span>
+              </div>
+            </div>
+          </div>
+      )}
+
+
 
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
         <div className="bands-backdrop" />
@@ -1149,7 +1242,6 @@ export default function Map() {
               />
               <span />
             </label>
-            <span className="label">Show limited data</span>
           </div>
         </div>
       </div>
@@ -1169,6 +1261,8 @@ export default function Map() {
             zIndex: 5,
             borderRadius: 12,
             boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",  
           }}
         >
           <button

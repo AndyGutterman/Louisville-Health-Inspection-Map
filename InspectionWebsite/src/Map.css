@@ -103,6 +103,29 @@
   color: #fff
 }
 
+/* bottom pill uses the big-track visuals */
+.fab-scores .track {
+  width: clamp(320px, 58vw, 720px);
+}
+
+.track.compact {
+  height: clamp(52px, 10vh, 72px);
+  border-radius: 18px;
+}
+
+/* extra ruler ticks for dense scale */
+.ruler .tick.minor {
+  width: 2px;
+  height: 10px;
+  background: rgba(255, 255, 255, .55);
+}
+
+.ruler .tick.micro {
+  width: 1px;
+  height: 6px;
+  background: rgba(255, 255, 255, .38);
+}
+
 /* scores pill */
 .fab-scores {
   position: absolute;
@@ -291,6 +314,69 @@
   background: rgba(255, 255, 255, .06);
   color: #fff;
   font-size: .86rem
+}
+
+/* stack the presets above the pill */
+.fab-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* reuse existing .presets; add active look and tighter spacing in the fab */
+.fab-scores .presets {
+  margin: 0 0 2px;
+}
+
+/* center presets + pill inside the bottom card */
+.fab-row.stack { align-items: center; }
+.fab-scores .presets { justify-content: center; text-align: center; }
+.fab-scores .track.compact { margin: 0 auto; }
+
+/* header row for label + hide button */
+.fab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fab-title {
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: 1rem;
+  opacity: .95;
+}
+.fab-hide {
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: .88rem;
+}
+
+/* collapsed “reopen” chip */
+.fab-reopen {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 1002;
+  background: rgba(24,24,28,.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: 0 14px 26px rgba(0,0,0,.35);
+  font-weight: 700;
+}
+
+
+.presets button.active {
+  background: rgba(255, 255, 255, .18);
+  border-color: rgba(255, 255, 255, .28);
+  font-weight: 700;
 }
 
 /* large slider */
@@ -501,6 +587,9 @@
   max-width: 520px;
   height: 100%;
   padding: 24px;
+  overflow-y: auto; 
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   border-radius: 12px 0 0 12px;
@@ -1003,6 +1092,21 @@
   border-color: rgba(255, 61, 61, .40)
 }
 
+
+/* desktop: title | presets | hide on one line */
+.fab-row.head{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:12px;
+}
+.fab-row.head .presets{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
 /* small screen */
 @media (max-width:600px) {
   .info-drawer {
@@ -1013,11 +1117,49 @@
     padding: 16px
   }
 
-  .fab-scores {
-    min-width: 90vw
-  }
 
   .inspect-card_stats {
     grid-template-columns: 1fr 1fr 1fr
   }
+}
+
+/* desktop: title | presets | hide on one line */
+.fab-row.head{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:12px;
+}
+.fab-row.head .presets{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+/* small screens: title & Hide stay top row; presets wrap full-width under them */
+@media (max-width: 540px){
+  .fab-scores{
+    min-width: unset;
+    width: calc(100vw - 24px);
+    padding: 12px 14px;
+  }
+  .fab-row.head{
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title hide"
+      "presets presets";
+    row-gap: 8px;
+  }
+  .fab-row.head .fab-title{ grid-area: title; }
+  .fab-row.head .presets{ grid-area: presets; justify-content:center; }
+  .fab-row.head .fab-hide{ grid-area: hide; justify-self:end; }
+
+  .fab-scores .track{ width:100%; }
+  .presets button{ padding:6px 10px; font-size:.82rem; }
+}
+
+/* very small phones: hide the chips entirely */
+@media (max-width: 360px){
+  .fab-row.head .presets{ display:none; }
 }
