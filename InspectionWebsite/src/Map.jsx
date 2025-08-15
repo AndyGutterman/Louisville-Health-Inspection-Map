@@ -204,7 +204,7 @@ function PastInspection({ row }) {
   };
   const viols = [...rawViols].sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
 
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const showToggle = viols.length > 0;
   const list = viols;
   const anyCrit = viols.some(isCrit);
