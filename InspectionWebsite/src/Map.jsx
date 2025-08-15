@@ -740,9 +740,8 @@ export default function Map() {
     };
   }, [activeHandle]);
 
-  // --- Linear track math (no gamma) ---
-  const M_TRACK = 25; // left/right padding so handles don't clip
-  const valueToPct = (v) => (v / SCORE_MAX) * 100; // 1..99 -> 1.01..100%
+  const M_TRACK = 25; 
+  const valueToPct = (v) => (v / SCORE_MAX) * 100;
   const pctToValue = (pct) =>
     Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round((pct / 100) * SCORE_MAX)));
 
