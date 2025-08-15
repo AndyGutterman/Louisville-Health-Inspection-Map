@@ -75,10 +75,10 @@ function CurrentInspectionCard({ data, details }) {
 
   const items = details
     ? [
-        { label: "Opening date", value: details.opening_date ?? "—" },
-        { label: "Facility type", value: details.facility_type ?? "—" },
-        { label: "Subtype", value: details.subtype ?? "—" },
-      ]
+      { label: "Opening date", value: details.opening_date ?? "—" },
+      { label: "Facility type", value: details.facility_type ?? "—" },
+      { label: "Subtype", value: details.subtype ?? "—" },
+    ]
     : [];
 
   const hasDetails = items.some((i) => i.value && i.value !== "—");
@@ -159,7 +159,7 @@ function ViolationRow({ v }) {
   const [open, setOpen] = React.useState(false);
   const maxLen = 240;
   const hasMore = body.length > maxLen;
-  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "...";
+  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "…";
 
   return (
     <li className={`viol-card ${isCrit ? "crit" : ""}`}>
@@ -554,28 +554,28 @@ export default function Map() {
 
         const selectedData = headerRow
           ? {
-              establishment_id: eid,
-              name: p.name,
-              address: p.address,
-              inspectionDate: formatDateSafe(headerRow.inspection_date),
-              score: headerRow.score ?? null,
-              grade: headerRow.grade ?? null,
-              _displayedInspectionId: headerRow.inspection_id,
-              metaTitle:
-                (headerRow.score ?? 0) > 0
-                  ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
-                  : "",
-            }
+            establishment_id: eid,
+            name: p.name,
+            address: p.address,
+            inspectionDate: formatDateSafe(headerRow.inspection_date),
+            score: headerRow.score ?? null,
+            grade: headerRow.grade ?? null,
+            _displayedInspectionId: headerRow.inspection_id,
+            metaTitle:
+              (headerRow.score ?? 0) > 0
+                ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
+                : "",
+          }
           : {
-              establishment_id: eid,
-              name: p.name,
-              address: p.address,
-              inspectionDate: formatDateSafe(p.date),
-              score: p.score ?? null,
-              grade: p.grade ?? null,
-              _displayedInspectionId: null,
-              meta: null,
-            };
+            establishment_id: eid,
+            name: p.name,
+            address: p.address,
+            inspectionDate: formatDateSafe(p.date),
+            score: p.score ?? null,
+            grade: p.grade ?? null,
+            _displayedInspectionId: null,
+            meta: null,
+          };
 
         let details = null;
         {
@@ -784,7 +784,7 @@ export default function Map() {
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    const dragging = miniActive != null || activeHandle != null || bandsOpen;
+    const dragging = miniActive != null || activeHandle != null;
     const stopWheel = (e) => e.preventDefault();
     if (dragging) {
       m.dragPan.disable();
@@ -802,7 +802,7 @@ export default function Map() {
       m.boxZoom.enable();
       m.keyboard.enable();
     };
-  }, [miniActive, activeHandle, bandsOpen]);
+  }, [miniActive, activeHandle]);
 
   const MINI_GAMMA = 1.8,
     TRACK_GAMMA = 2;
@@ -925,6 +925,19 @@ export default function Map() {
       window.removeEventListener("blur", reset);
     };
   }, [bandsOpen, miniActive, activeHandle]);
+
+  useEffect(() => {
+    if (!bandsOpen) return;
+    const closeOnTap = (ev) => {
+      if (isDraggingRef.current) return;
+      const sheet = document.querySelector(".bands-sheet");
+      if (sheet && !sheet.contains(ev.target)) {
+        setBandsOpen(false);
+      }
+    };
+    document.addEventListener("click", closeOnTap, true);
+    return () => document.removeEventListener("click", closeOnTap, true);
+  }, [bandsOpen]);
 
   return (
     <>
@@ -1050,8 +1063,11 @@ export default function Map() {
       </div>
 
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
-        <div className="bands-backdrop" onClick={() => setBandsOpen(false)} />
+        <div className="bands-backdrop" />
         <div className="bands-sheet">
+          <button className="bands-close" aria-label="Close" onClick={() => setBandsOpen(false)}>
+            ×
+          </button>
           <div className="bands-header">
             <div className="grab" />
             <div className="title">Score bands</div>
@@ -1080,7 +1096,7 @@ export default function Map() {
               dragStart(which, el, e.clientX, "track");
             }}
           >
-            <div className="seg red" style={{ width: `${(warpTrack(rMax / SCORE_MAX)) * 100}%` }} />
+            <div className="seg red" style={{ width: `${warpTrack(rMax / SCORE_MAX) * 100}%` }} />
             <div
               className="seg yellow"
               style={{
@@ -1093,23 +1109,18 @@ export default function Map() {
             <div className="seg green" style={{ width: `${Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100)}%` }} />
 
             <div className="ruler">
-              {Array.from({ length: 97 }, (_, i) => i + 2).map((v) => (
-                <div key={`m-${v}`} className="tick minor" style={{ left: `${(warpTrack(v / SCORE_MAX)) * 100}%` }} />
+              {[25, 50, 75].map((v) => (
+                <div key={`M-${v}`} className="major-wrap" style={{ left: `${warpTrack(v / SCORE_MAX) * 100}%` }}>
+                  <div className="tick major" />
+                  <div className="tick-label">{v}</div>
+                </div>
               ))}
-              {Array.from({ length: 20 }, (_, i) => 5 * i + 5)
-                .filter((v) => v >= SCORE_MIN && v <= SCORE_MAX)
-                .map((v) => (
-                  <div key={`M-${v}`} className="major-wrap" style={{ left: `${(warpTrack(v / SCORE_MAX)) * 100}%` }}>
-                    <div className="tick major" />
-                    <div className="tick-label">{v}</div>
-                  </div>
-                ))}
             </div>
 
-            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${(warpTrack(rMax / SCORE_MAX)) * 100}%` }}>
+            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${warpTrack(rMax / SCORE_MAX) * 100}%` }}>
               <span className="label">{pins[0]}</span>
             </div>
-            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${(warpTrack(yMax / SCORE_MAX)) * 100}%` }}>
+            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${warpTrack(yMax / SCORE_MAX) * 100}%` }}>
               <span className="label">{pins[1]}</span>
             </div>
           </div>
@@ -1139,12 +1150,6 @@ export default function Map() {
               <span />
             </label>
             <span className="label">Show limited data</span>
-          </div>
-
-          <div className="sheet-actions">
-            <button className="ghost" onClick={() => setBandsOpen(false)}>
-              Done
-            </button>
           </div>
         </div>
       </div>
