@@ -1119,7 +1119,7 @@ export default function Map() {
           style={{
             position: "fixed",
             right: 16,
-            top: 16,
+            top: "calc(var(--header-h) + 10px)",
             bottom: 16,
             width: "min(520px,92vw)",
             background: "rgba(24,24,24,0.96)",
