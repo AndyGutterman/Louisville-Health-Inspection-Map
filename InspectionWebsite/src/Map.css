@@ -159,66 +159,9 @@
   font-size: 1.15rem
 }
 
-/* mini slider */
-.mini-bar {
-  position: relative;
-  width: clamp(240px, 58vw, 520px);
-  height: 16px;
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
-  cursor: ew-resize;
-  transition: transform .06s;
-  overflow: hidden;
-  display: flex
-}
 
-.mini-bar.dragging {
-  transform: scaleY(1.05)
-}
-
-.mini-seg {
-  height: 100%
-}
-
-.mini-seg.red {
-  background: #ea4335
-}
-
-.mini-seg.yellow {
-  background: #fbbc05
-}
-
-.mini-seg.green {
-  background: linear-gradient(90deg, #34a853 0%, #0f9d58 100%)
-}
-
-.mini-handle {
-  position: absolute;
-  top: 50%;
-  left: clamp(13px, var(--pos, 0%), calc(100% - 13px));
-  transform: translate(-50%, -50%);
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, .55);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .38), inset 0 0 0 1px rgba(255, 255, 255, .18);
-  user-select: none;
-  cursor: grab;
-  z-index: 3
-}
-
-.mini-handle.active {
-  cursor: grabbing
-}
-
-.mini-handle>span {
-  transform: translateY(.2px)
-}
+.track.dragging .handle { 
+  transition: none; }
 
 .fab-open {
   margin-left: 0.1rem;
@@ -1092,7 +1035,6 @@
   border-color: rgba(255, 61, 61, .40)
 }
 
-
 /* desktop: title | presets | hide on one line */
 .fab-row.head{
   display:grid;
@@ -1106,6 +1048,75 @@
   gap:8px;
   flex-wrap:wrap;
 }
+
+:root {
+  --header-h: clamp(60px, 7vw, 80px);
+}
+
+/* Header */
+.app-header{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-h);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  background: rgba(16,16,20,.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+/* Brand */
+.brand{
+  display:flex;
+  align-items:center;
+  gap:clamp(10px,1.5vw,16px);
+  line-height:1;
+}
+
+.brand > span{
+  font-family:"Tilt Neon", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-optical-sizing:auto;
+  font-weight:600;
+  letter-spacing:.04em;
+  font-size:clamp(28px,3.2vw,52px);
+  text-rendering:optimizeLegibility;
+}
+
+/* neon core + halo */
+.brand > span{
+  color:var(--c);
+  text-shadow:
+    0 0 .5px #fff,
+    0 0 6px var(--c),
+    0 0 14px var(--c),
+    0 0 26px var(--c);
+  filter: drop-shadow(0 0 2px rgba(0,0,0,.35));
+}
+
+/* colors + casing per word */
+.brand-louisville{ --c:#ea4335;}
+.brand-food      { --c:#fbbc05;}
+.brand-safe      { --c:#34a853; }
+
+/* header + layout */
+:root{ --header-h: clamp(60px,7vw,80px); }
+.app-header{
+  position:fixed; top:0; left:0; right:0; height:var(--header-h);
+  z-index:1100; display:flex; align-items:center; justify-content:center;
+  padding:0 16px; background:rgba(16,16,20,.92);
+  backdrop-filter:blur(8px); border-bottom:1px solid rgba(255,255,255,.08);
+}
+.map-container{ top:var(--header-h); }
+.controls{ top:calc(var(--header-h) + 12px); }
+
+@media (max-width:640px){
+  :root{ --header-h: clamp(56px,10vw,68px); }
+  .brand > span{ font-size:clamp(24px,6.2vw,36px); }
+}
+
 
 /* small screen */
 @media (max-width:600px) {
@@ -1123,7 +1134,7 @@
   }
 }
 
-/* desktop: title | presets | hide on one line */
+/* desktop: title | presets*/
 .fab-row.head{
   display:grid;
   grid-template-columns:auto 1fr auto;
@@ -1137,7 +1148,7 @@
   flex-wrap:wrap;
 }
 
-/* small screens: title & Hide stay top row; presets wrap full-width under them */
+/* small screens: title & Hide stay top row; presets wrap full width under them */
 @media (max-width: 540px){
   .fab-scores{
     min-width: unset;
