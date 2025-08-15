@@ -21,7 +21,7 @@ const DRAW_ORDER = ["green", "yellow", "zero", "null", "red"];
 const MIN_ZOOM = 11;
 
 const SCORE_MIN = 1;
-const SCORE_MAX = 99;
+const SCORE_MAX = 99; // slider max (green runs to 100; handle range is 1..99)
 const RED_CAP = 98;
 const YEL_CAP = 99;
 
@@ -81,10 +81,10 @@ function CurrentInspectionCard({ data, details }) {
 
   const items = details
     ? [
-      { label: "Opening date", value: details.opening_date ?? "—" },
-      { label: "Facility type", value: details.facility_type ?? "—" },
-      { label: "Subtype", value: details.subtype ?? "—" },
-    ]
+        { label: "Opening date", value: details.opening_date ?? "—" },
+        { label: "Facility type", value: details.facility_type ?? "—" },
+        { label: "Subtype", value: details.subtype ?? "—" },
+      ]
     : [];
 
   const hasDetails = items.some((i) => i.value && i.value !== "—");
@@ -301,9 +301,7 @@ export default function Map() {
 
   const [selected, setSelected] = useState(null);
   const selectedRef = useRef(selected);
-  useEffect(() => {
-    selectedRef.current = selected;
-  }, [selected]);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
 
   const [history, setHistory] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
@@ -326,14 +324,11 @@ export default function Map() {
   };
 
   const pinsRef = useRef(pins);
-  useEffect(() => {
-    pinsRef.current = pins;
-  }, [pins]);
+  useEffect(() => { pinsRef.current = pins; }, [pins]);
 
   useEffect(() => {
-  const match = Object.entries(PRESETS)
-    .find(([, v]) => v[0] === pins[0] && v[1] === pins[1]);
-  setPreset(match ? match[0] : null);
+    const match = Object.entries(PRESETS).find(([, v]) => v[0] === pins[0] && v[1] === pins[1]);
+    setPreset(match ? match[0] : null);
   }, [pins]);
 
   const [showMissing, setShowMissing] = useState(false);
@@ -342,13 +337,7 @@ export default function Map() {
   const [showGreenPins, setShowGreenPins] = useState(true);
 
   const [fabHidden, setFabHidden] = useState(false);
-
-
   const [bandsOpen, setBandsOpen] = useState(false);
-
-  const miniRef = useRef(null);
-  const trackRef = useRef(null);
-  const dragRef = useRef({ which: null, el: null, mode: "track" });
 
   const inEdgeRef = useRef(false);
 
@@ -365,28 +354,22 @@ export default function Map() {
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
-      if (headErr) {
-        console.error(headErr);
-        return;
-      }
+      if (headErr) { console.error(headErr); return; }
+
       const pageSize = 1000;
       let allRows = [];
       for (let offset = 0; offset < count; offset += pageSize) {
         const to = Math.min(count - 1, offset + pageSize - 1);
         const { data, error } = await supabase
           .from("v_facility_map_feed")
-          .select(
-            "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent"
-          )
+          .select("establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent")
           .range(offset, to);
-        if (error) {
-          console.error(error);
-          return;
-        }
+        if (error) { console.error(error); return; }
         allRows = allRows.concat(data);
       }
+
       const features = allRows
-        .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
+        .filter(r => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => ({
           type: "Feature",
           id: i,
@@ -400,11 +383,11 @@ export default function Map() {
             grade: r.grade_recent,
           },
         }));
+
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
-        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date))
-          acc[eid] = feat;
+        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date)) acc[eid] = feat;
         return acc;
       }, {});
       setGeoData({ type: "FeatureCollection", features: Object.values(latestMap) });
@@ -414,15 +397,13 @@ export default function Map() {
   function isMapReady() {
     const m = mapRef.current;
     if (!m || !m.isStyleLoaded()) return false;
-    return DRAW_ORDER.every((k) => m.getLayer(`points-${k}`));
+    return DRAW_ORDER.every(k => m.getLayer(`points-${k}`));
   }
   function applyFilterWhenReady() {
     const m = mapRef.current;
     if (!m) return;
     if (isMapReady()) applyFilter(m);
-    else m.once("idle", () => {
-      if (isMapReady()) applyFilter(m);
-    });
+    else m.once("idle", () => { if (isMapReady()) applyFilter(m); });
   }
 
   useEffect(() => {
@@ -433,10 +414,7 @@ export default function Map() {
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [-85.75, 38.25],
       zoom: MIN_ZOOM,
-      maxBounds: [
-        [-86.4, 37.7],
-        [-85.0, 38.7],
-      ],
+      maxBounds: [[-86.4, 37.7], [-85.0, 38.7]],
     });
     mapRef.current = map;
 
@@ -445,17 +423,11 @@ export default function Map() {
 
       const basePaint = {
         "circle-radius": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          8,
-          window.innerWidth <= 600 ? 4 : 6,
-          11,
-          window.innerWidth <= 600 ? 8 : 10.5,
-          14,
-          window.innerWidth <= 600 ? 12 : 14,
-          17,
-          window.innerWidth <= 600 ? 16 : 18,
+          "interpolate", ["linear"], ["zoom"],
+          8, window.innerWidth <= 600 ? 4 : 6,
+          11, window.innerWidth <= 600 ? 8 : 10.5,
+          14, window.innerWidth <= 600 ? 12 : 14,
+          17, window.innerWidth <= 600 ? 16 : 18,
         ],
         "circle-opacity": 0.9,
         "circle-stroke-width": 2,
@@ -469,12 +441,12 @@ export default function Map() {
           id: `points-${key}`,
           type: "circle",
           source: "facilities",
-          paint: { ...basePaint, "circle-color": key === "green" ? COLORS.green : COLORS[key] },
+          paint: { ...basePaint, "circle-color": COLORS[key] ?? COLORS.green },
           filter: exprs[key],
         });
       }
 
-      const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
+      const layerIds = DRAW_ORDER.map(k => `points-${k}`);
 
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
@@ -501,13 +473,8 @@ export default function Map() {
           pinnedPopupRef.current = new maplibregl.Popup({
             anchor: "bottom",
             offset: [0, -14],
-            closeButton: false,
-            closeOnMove: false,
-            closeOnClick: false,
-          })
-            .setLngLat(feature.geometry.coordinates)
-            .setHTML(html)
-            .addTo(mapRef.current);
+            closeButton: false, closeOnMove: false, closeOnClick: false,
+          }).setLngLat(feature.geometry.coordinates).setHTML(html).addTo(mapRef.current);
         } else {
           pinnedPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
         }
@@ -518,10 +485,8 @@ export default function Map() {
       const beginDrawerLoad = async (eid, p) => {
         const seq = ++loadSeqRef.current;
         setDrawerLoading(true);
-        setHistory(null);
-        setHistoryFor(null);
-        setFacDetails(null);
-        setFacDetailsFor(null);
+        setHistory(null); setHistoryFor(null);
+        setFacDetails(null); setFacDetailsFor(null);
 
         const { data: insp, error } = await supabase
           .from("inspections")
@@ -565,10 +530,7 @@ export default function Map() {
           const violations = [];
           for (const x of [...viaId, ...viaDate]) {
             const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
-            if (!seen.has(k)) {
-              seen.add(k);
-              violations.push(x);
-            }
+            if (!seen.has(k)) { seen.add(k); violations.push(x); }
           }
           return { ...r, violations };
         });
@@ -578,28 +540,28 @@ export default function Map() {
 
         const selectedData = headerRow
           ? {
-            establishment_id: eid,
-            name: p.name,
-            address: p.address,
-            inspectionDate: formatDateSafe(headerRow.inspection_date),
-            score: headerRow.score ?? null,
-            grade: headerRow.grade ?? null,
-            _displayedInspectionId: headerRow.inspection_id,
-            metaTitle:
-              (headerRow.score ?? 0) > 0
-                ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
-                : "",
-          }
+              establishment_id: eid,
+              name: p.name,
+              address: p.address,
+              inspectionDate: formatDateSafe(headerRow.inspection_date),
+              score: headerRow.score ?? null,
+              grade: headerRow.grade ?? null,
+              _displayedInspectionId: headerRow.inspection_id,
+              metaTitle:
+                (headerRow.score ?? 0) > 0
+                  ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
+                  : "",
+            }
           : {
-            establishment_id: eid,
-            name: p.name,
-            address: p.address,
-            inspectionDate: formatDateSafe(p.date),
-            score: p.score ?? null,
-            grade: p.grade ?? null,
-            _displayedInspectionId: null,
-            meta: null,
-          };
+              establishment_id: eid,
+              name: p.name,
+              address: p.address,
+              inspectionDate: formatDateSafe(p.date),
+              score: p.score ?? null,
+              grade: p.grade ?? null,
+              _displayedInspectionId: null,
+              meta: null,
+            };
 
         let details = null;
         {
@@ -662,13 +624,8 @@ export default function Map() {
           hoverPopupRef.current = new maplibregl.Popup({
             anchor: "bottom",
             offset: [0, -14],
-            closeButton: false,
-            closeOnMove: false,
-            closeOnClick: false,
-          })
-            .setLngLat(feature.geometry.coordinates)
-            .setHTML(html)
-            .addTo(mapRef.current);
+            closeButton: false, closeOnMove: false, closeOnClick: false,
+          }).setLngLat(feature.geometry.coordinates).setHTML(html).addTo(mapRef.current);
         } else {
           hoverPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
         }
@@ -704,71 +661,42 @@ export default function Map() {
       for (const id of layerIds) {
         map.on("mousemove", id, onHover);
         map.on("mouseleave", id, onLeave);
-        map.on("mousedown", id, () => {
-          suppressDocCloseRef.current = true;
-        });
+        map.on("mousedown", id, () => { suppressDocCloseRef.current = true; });
         map.on("click", id, onClick);
         map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
       }
 
-      map.on("dragstart", () => {
-        isDraggingRef.current = true;
-      });
-      map.on("dragend", () => {
-        isDraggingRef.current = false;
-      });
+      map.on("dragstart", () => { isDraggingRef.current = true; });
+      map.on("dragend", () => { isDraggingRef.current = false; });
 
       map.on("click", (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
         const insidePinned =
-          pinnedPopupRef.current &&
-          pinnedPopupRef.current.getElement()?.contains(e.originalEvent.target);
+          pinnedPopupRef.current && pinnedPopupRef.current.getElement()?.contains(e.originalEvent.target);
         const insideHover =
-          hoverPopupRef.current &&
-          hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
+          hoverPopupRef.current && hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
 
         if (!hits.length && !insidePinned && !insideHover) {
-          pinnedPopupRef.current?.remove();
-          pinnedPopupRef.current = null;
-          pinnedFeatureRef.current = null;
-          hoverPopupRef.current?.remove();
-          hoverPopupRef.current = null;
-          lastHoverId.current = null;
-          setSelected(null);
-          setHistory(null);
-          setHistoryFor(null);
-          setFacDetails(null);
-          setFacDetailsFor(null);
-          setDrawerLoading(false);
-          loadSeqRef.current++;
+          pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null; pinnedFeatureRef.current = null;
+          hoverPopupRef.current?.remove(); hoverPopupRef.current = null; lastHoverId.current = null;
+          setSelected(null); setHistory(null); setHistoryFor(null); setFacDetails(null); setFacDetailsFor(null);
+          setDrawerLoading(false); loadSeqRef.current++;
         }
       });
 
       const outsideClose = (ev) => {
-        if (suppressDocCloseRef.current) {
-          suppressDocCloseRef.current = false;
-          return;
-        }
+        if (suppressDocCloseRef.current) { suppressDocCloseRef.current = false; return; }
         if (isDraggingRef.current) return;
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
         if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
-        pinnedPopupRef.current?.remove();
-        pinnedPopupRef.current = null;
-        pinnedFeatureRef.current = null;
-        hoverPopupRef.current?.remove();
-        hoverPopupRef.current = null;
-        lastHoverId.current = null;
-        setSelected(null);
-        setHistory(null);
-        setHistoryFor(null);
-        setFacDetails(null);
-        setFacDetailsFor(null);
-        setDrawerLoading(false);
-        loadSeqRef.current++;
+        pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null; pinnedFeatureRef.current = null;
+        hoverPopupRef.current?.remove(); hoverPopupRef.current = null; lastHoverId.current = null;
+        setSelected(null); setHistory(null); setHistoryFor(null); setFacDetails(null); setFacDetailsFor(null);
+        setDrawerLoading(false); loadSeqRef.current++;
       };
       document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
@@ -781,89 +709,60 @@ export default function Map() {
         document.removeEventListener("click", docCloseHandlerRef.current, true);
         docCloseHandlerRef.current = null;
       }
-      hoverPopupRef.current?.remove();
-      hoverPopupRef.current = null;
-      pinnedPopupRef.current?.remove();
-      pinnedPopupRef.current = null;
-      mapRef.current?.remove();
-      mapRef.current = null;
+      hoverPopupRef.current?.remove(); hoverPopupRef.current = null;
+      pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null;
+      mapRef.current?.remove(); mapRef.current = null;
     };
   }, [geoData]);
 
-  useEffect(() => {
-    if (mapRef.current) applyFilterWhenReady();
-  }, [pins, showMissing, searchTerm, showRedPins, showYellowPins, showGreenPins]);
+  useEffect(() => { if (mapRef.current) applyFilterWhenReady(); },
+    [pins, showMissing, searchTerm, showRedPins, showYellowPins, showGreenPins]);
 
   useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-    m.resize();
-    const t = setTimeout(() => m.resize(), 320);
+    const m = mapRef.current; if (!m) return;
+    m.resize(); const t = setTimeout(() => m.resize(), 320);
     return () => clearTimeout(t);
   }, [bandsOpen]);
 
-  const [miniActive, setMiniActive] = useState(null);
   const [activeHandle, setActiveHandle] = useState(null);
 
   useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-    const dragging = miniActive != null || activeHandle != null;
+    const m = mapRef.current; if (!m) return;
+    const dragging = activeHandle != null;
     const stopWheel = (e) => e.preventDefault();
     if (dragging) {
-      m.dragPan.disable();
-      m.scrollZoom.disable();
-      m.boxZoom.disable();
-      m.keyboard.disable();
-      document.body.style.overflow = "hidden";
-      window.addEventListener("wheel", stopWheel, { passive: false });
+      m.dragPan.disable(); m.scrollZoom.disable(); m.boxZoom.disable(); m.keyboard.disable();
+      document.body.style.overflow = "hidden"; window.addEventListener("wheel", stopWheel, { passive: false });
     }
     return () => {
-      window.removeEventListener("wheel", stopWheel);
-      document.body.style.overflow = "";
-      m.dragPan.enable();
-      m.scrollZoom.enable();
-      m.boxZoom.enable();
-      m.keyboard.enable();
+      window.removeEventListener("wheel", stopWheel); document.body.style.overflow = "";
+      m.dragPan.enable(); m.scrollZoom.enable(); m.boxZoom.enable(); m.keyboard.enable();
     };
-  }, [miniActive, activeHandle]);
+  }, [activeHandle]);
 
-  const MINI_GAMMA = 4,
-    TRACK_GAMMA = 4;
-  const warpMini = (t) => Math.pow(t, MINI_GAMMA);
-  const unwarpMini = (t) => Math.pow(t, 1 / MINI_GAMMA);
-  const warpTrack = (t) => Math.pow(t, TRACK_GAMMA);
-  const unwarpTrack = (t) => Math.pow(t, 1 / TRACK_GAMMA);
+  // --- Linear track math (no gamma) ---
+  const M_TRACK = 25; // left/right padding so handles don't clip
+  const valueToPct = (v) => (v / SCORE_MAX) * 100; // 1..99 -> 1.01..100%
+  const pctToValue = (pct) =>
+    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round((pct / 100) * SCORE_MAX)));
 
-  const valueToMiniPct = (v) => warpMini(v / SCORE_MAX) * 100;
-  const pctToValueMini = (pct) =>
-    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round(unwarpMini(pct / 100) * SCORE_MAX)));
-  const pxToValueMini = (x, el) => {
+  const pxToValue = (x, el) => {
     const r = el.getBoundingClientRect();
-    const ratio = (x - r.left) / r.width;
-    return pctToValueMini(Math.max(0, Math.min(1, ratio)) * 100);
+    const L = r.left + M_TRACK, R = r.right - M_TRACK;
+    const ratio = (x - L) / Math.max(1, (R - L));
+    return pctToValue(Math.max(0, Math.min(1, ratio)) * 100);
   };
-
-  const valueToTrackPct = (v) => warpTrack(v / SCORE_MAX) * 100;
-  const pctToValueTrack = (pct) =>
-    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round(unwarpTrack(pct / 100) * SCORE_MAX)));
-  const pxToValueTrack = (x, el) => {
+  const valueToPx = (v, el) => {
     const r = el.getBoundingClientRect();
-    const ratio = (x - r.left) / r.width;
-    return pctToValueTrack(Math.max(0, Math.min(1, ratio)) * 100);
+    const L = r.left + M_TRACK, R = r.right - M_TRACK;
+    return L + ((R - L) * valueToPct(v)) / 100;
   };
 
   const [rMax, yMax] = pins;
-  const pRMini = valueToMiniPct(rMax),
-    pYMini = valueToMiniPct(yMax);
-  const wRedMini = warpMini(rMax / SCORE_MAX) * 100,
-    wYellowMini = Math.max(0, (warpMini(yMax / SCORE_MAX) - warpMini(rMax / SCORE_MAX)) * 100),
-    wGreenMini = Math.max(0, (1 - warpMini(yMax / SCORE_MAX)) * 100);
-  const pRTrack = valueToTrackPct(rMax),
-    pYTrack = valueToTrackPct(yMax);
-  const wRed = warpTrack(rMax / SCORE_MAX) * 100,
-    wYellow = Math.max(0, (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100),
-    wGreen = Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100);
+  const pR = valueToPct(rMax), pY = valueToPct(yMax);
+  const wRed = valueToPct(rMax),
+        wYellow = Math.max(0, valueToPct(yMax) - valueToPct(rMax)),
+        wGreen = Math.max(0, 100 - valueToPct(yMax));
 
   function applyFilter(map) {
     const exprs = bandExprs(pins);
@@ -876,7 +775,7 @@ export default function Map() {
       if ((key === "zero" || key === "null") && !showMissing) visible = false;
       if (key === "red" && !showRedPins) visible = false;
       if (key === "yellow" && !showYellowPins) visible = false;
-      if (key === "green") visible = visible && showGreenPins;
+      if (key === "green" && !showGreenPins) visible = false;
       const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") {
@@ -885,63 +784,56 @@ export default function Map() {
     }
   }
 
-  function dragStart(which, el, clientX, mode = "track") {
+  function dragStart(which, el, clientX, dx) {
     setPreset(null);
-    dragRef.current = { which, el, mode };
-    if (typeof clientX === "number") dragMove(clientX);
-    const move = (ev) => dragMove(ev.clientX);
+    dragRef.current = { which, el, dx };
+    if (typeof clientX === "number") dragMove(clientX + dx);
+    const move = (ev) => dragMove(ev.clientX + dragRef.current.dx);
     const up = () => {
-      dragRef.current = { which: null, el: null, mode: "track" };
+      dragRef.current = { which: null, el: null, dx: 0 };
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
       setActiveHandle(null);
-      setMiniActive(null);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });
     window.addEventListener("pointercancel", up, { once: true });
   }
+
+  const dragRef = useRef({ which: null, el: null, dx: 0 });
   function dragMove(clientX) {
-    const { which, el, mode } = dragRef.current;
-    if (!el || which == null) return;
-    const v = mode === "mini" ? pxToValueMini(clientX, el) : pxToValueTrack(clientX, el);
+    const { which, el } = dragRef.current; if (!el || which == null) return;
+    const v = pxToValue(clientX, el);
     setPins(([r, y]) => clampPins(which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)]));
   }
 
+  // edge panning spurts
   const isInDeadzone = (x, y) => {
-    const M = 8,
-      els = [document.querySelector(".fab-scores"), document.querySelector(".control-card")].filter(
-        Boolean
-      );
+    const M = 8;
+    const els = [document.querySelector(".fab-scores"), document.querySelector(".control-card")].filter(Boolean);
     for (const el of els) {
       const r = el.getBoundingClientRect();
       if (x >= r.left - M && x <= r.right + M && y >= r.top - M && y <= r.bottom + M) return true;
     }
     return false;
   };
-  const spurtDisabled = () =>
-    !mapRef.current || bandsOpen || miniActive !== null || activeHandle !== null;
+  const spurtDisabled = () => !mapRef.current || bandsOpen || activeHandle !== null;
 
   useEffect(() => {
     const onMove = (e) => {
-      let dx = 0,
-        dy = 0;
-      if (e.clientX <= EDGE_ZONE) dx = -1;
-      else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
-      if (e.clientY <= EDGE_ZONE) dy = -1;
-      else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
+      let dx = 0, dy = 0;
+      if (e.clientX <= EDGE_ZONE) dx = -1; else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
+      if (e.clientY <= EDGE_ZONE) dy = -1; else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
       const nearEdge = dx !== 0 || dy !== 0;
-      const active =
-        nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
+      const active = nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
       if (active && !inEdgeRef.current) {
         mapRef.current.panBy([dx * SPURT_PX, dy * SPURT_PX], { duration: 240 });
         inEdgeRef.current = true;
       }
       if (!active) inEdgeRef.current = false;
     };
-    const reset = () => {
-      inEdgeRef.current = false;
-    };
+    const reset = () => { inEdgeRef.current = false; };
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseleave", reset);
     window.addEventListener("blur", reset);
@@ -950,7 +842,7 @@ export default function Map() {
       document.removeEventListener("mouseleave", reset);
       window.removeEventListener("blur", reset);
     };
-  }, [bandsOpen, miniActive, activeHandle]);
+  }, [bandsOpen, activeHandle]);
 
   useEffect(() => {
     if (!bandsOpen) return;
@@ -965,18 +857,33 @@ export default function Map() {
     return () => document.removeEventListener("click", closeOnTap, true);
   }, [bandsOpen]);
 
+  // helpers to start drag from a track click, without jumping the handle
+  const startFromTrack = (e, which) => {
+    const el = e.currentTarget;
+    setActiveHandle(which);
+    const currentVal = which === 0 ? pinsRef.current[0] : pinsRef.current[1];
+    const cx = valueToPx(currentVal, el); // center of handle
+    const dx = cx - e.clientX; // preserves no-jump
+    dragStart(which, el, e.clientX, dx);
+  };
+
   return (
     <>
+      <header className="app-header">
+        <div className="brand">
+          <span className="brand-louisville">LOUISVILLE</span>
+          <span className="brand-food">FOOD</span>
+          <span className="brand-safe">SAFE</span>
+        </div>
+      </header>
+
       <div ref={mapContainerRef} className="map-container" />
 
       <div className="controls">
         <div className="control-card">
           <div className="search-bar">
             <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-              <path
-                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
-                fill="currentColor"
-              />
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
             </svg>
             <input
               type="text"
@@ -990,48 +897,32 @@ export default function Map() {
             <div className="rgb-row">
               <span className="label">Show Red</span>
               <label className="switch sm red">
-                <input
-                  type="checkbox"
-                  checked={showRedPins}
-                  onChange={(e) => setShowRedPins(e.target.checked)}
-                />
+                <input type="checkbox" checked={showRedPins} onChange={(e) => setShowRedPins(e.target.checked)} />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Yellow</span>
               <label className="switch sm yellow">
-                <input
-                  type="checkbox"
-                  checked={showYellowPins}
-                  onChange={(e) => setShowYellowPins(e.target.checked)}
-                />
+                <input type="checkbox" checked={showYellowPins} onChange={(e) => setShowYellowPins(e.target.checked)} />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Green</span>
               <label className="switch sm green">
-                <input
-                  type="checkbox"
-                  checked={showGreenPins}
-                  onChange={(e) => setShowGreenPins(e.target.checked)}
-                />
+                <input type="checkbox" checked={showGreenPins} onChange={(e) => setShowGreenPins(e.target.checked)} />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show bad data</span>
               <label className="switch sm">
-                <input
-                  type="checkbox"
-                  checked={showMissing}
-                  onChange={(e) => setShowMissing(e.target.checked)}
-                />
+                <input type="checkbox" checked={showMissing} onChange={(e) => setShowMissing(e.target.checked)} />
                 <span />
-            </label>
+              </label>
+            </div>
           </div>
-                    </div>
         </div>
       </div>
 
@@ -1045,8 +936,6 @@ export default function Map() {
         </button>
       ) : (
         <div className="fab-scores" id="score-thresholds">
-          
-
           <div className="fab-row head">
             <span className="fab-title">Score Thresholds</span>
 
@@ -1082,78 +971,72 @@ export default function Map() {
             </button>
           </div>
 
+          <div
+            className={`track compact ${activeHandle != null ? "dragging" : ""}`}
+            onPointerDown={(e) => {
+              const el = e.currentTarget;
+              const v = pxToValue(e.clientX, el);
+              const [r, y] = pinsRef.current;
+              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
+              startFromTrack(e, which);
+            }}
+          >
+            <div className="seg red" style={{ width: `${wRed}%` }} />
+            <div className="seg yellow" style={{ width: `${wYellow}%` }} />
+            <div className="seg green" style={{ width: `${wGreen}%` }} />
+
+            <div className="ruler">
+              {Array.from({ length: 100 }, (_, i) => i + 1).map((v) => {
+                const left = `${Math.min(100, valueToPct(Math.min(v, SCORE_MAX)))}%`;
+                if (v % 10 === 0) {
+                  return (
+                    <div key={`M-${v}`} className="major-wrap" style={{ left }}>
+                      <div className="tick major" />
+                      <div className="tick-label">{v}</div>
+                    </div>
+                  );
+                }
+                if (v >= 50 && v % 5 === 0) {
+                  return <div key={`m-${v}`} className="tick minor" style={{ left }} />;
+                }
+                return <div key={`u-${v}`} className="tick micro" style={{ left }} />;
+              })}
+            </div>
+
             <div
-              className={`track compact ${activeHandle != null ? "dragging" : ""}`}
-              ref={trackRef}
+              className={`handle ${activeHandle === 0 ? "active" : ""}`}
+              style={{ "--pos": `${pR}%` }}
               onPointerDown={(e) => {
-                const el = trackRef.current;
-                const rct = el.getBoundingClientRect();
-                const ratio = (e.clientX - rct.left) / rct.width;
-                const pct = Math.max(0, Math.min(1, ratio)) * 100;
-                const unwarpTrack = (t) => Math.pow(t, 1 / 2);
-                const val = Math.round(unwarpTrack(pct / 100) * 99);
-                const v = Math.max(1, Math.min(99, val));
-                const [rr, yy] = pinsRef.current;
-                const which = Math.abs(v - rr) <= Math.abs(v - yy) ? 0 : 1;
-                setActiveHandle(which);
-                dragStart(which, el, e.clientX, "track");
+                e.stopPropagation();
+                e.preventDefault();
+                setActiveHandle(0);
+                const rect = e.currentTarget.getBoundingClientRect();
+                const mid = (rect.left + rect.right) / 2;
+                const dx = mid - e.clientX; // no jump
+                dragStart(0, e.currentTarget.parentElement, e.clientX, dx);
               }}
             >
-              <div className="seg red" style={{ width: `${warpTrack(rMax / SCORE_MAX) * 100}%` }} />
-              <div
-                className="seg yellow"
-                style={{
-                  width: `${Math.max(0, (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100)}%`,
-                }}
-              />
-              <div
-                className="seg green"
-                style={{ width: `${Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100)}%` }}
-              />
+              <span className="label">{pins[0]}</span>
+            </div>
 
-              <div className="ruler">
-                {Array.from({ length: 100 }, (_, i) => i + 1).map((v) => {
-                  const left = `${warpTrack(v / SCORE_MAX) * 100}%`;
-                  if (v % 10 === 0) {
-                    return (
-                      <div key={`M-${v}`} className="major-wrap" style={{ left }}>
-                        <div className="tick major" />
-                        <div className="tick-label">{v}</div>
-                      </div>
-                    );
-                  }
-                  if (v >= 50 && v % 5 === 0) {
-                    return <div key={`m-${v}`} className="tick minor" style={{ left }} />;
-                  }
-                  return <div key={`u-${v}`} className="tick micro" style={{ left }} />;
-                })}
-              </div>
-
-              <div
-                className={`handle ${activeHandle === 0 ? "active" : ""}`}
-                style={{ "--pos": `${warpTrack(rMax / SCORE_MAX) * 100}%` }}
-                onPointerDown={(e) => {
-                  setActiveHandle(0);
-                  dragStart(0, trackRef.current, e.clientX, "track");
-                }}
-              >
-                <span className="label">{pins[0]}</span>
-              </div>
-              <div
-                className={`handle ${activeHandle === 1 ? "active" : ""}`}
-                style={{ "--pos": `${warpTrack(yMax / SCORE_MAX) * 100}%` }}
-                onPointerDown={(e) => {
-                  setActiveHandle(1);
-                  dragStart(1, trackRef.current, e.clientX, "track");
-                }}
-              >
-                <span className="label">{pins[1]}</span>
-              </div>
+            <div
+              className={`handle ${activeHandle === 1 ? "active" : ""}`}
+              style={{ "--pos": `${pY}%` }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setActiveHandle(1);
+                const rect = e.currentTarget.getBoundingClientRect();
+                const mid = (rect.left + rect.right) / 2;
+                const dx = mid - e.clientX; // no jump
+                dragStart(1, e.currentTarget.parentElement, e.clientX, dx);
+              }}
+            >
+              <span className="label">{pins[1]}</span>
             </div>
           </div>
+        </div>
       )}
-
-
 
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
         <div className="bands-backdrop" />
@@ -1167,53 +1050,38 @@ export default function Map() {
           </div>
 
           <div className="presets">
-            <button onClick={() => setPins(clampPins([73, 95]))}>Loose</button>
-            <button onClick={() => setPins(clampPins([85, 94]))}>Balanced</button>
-            <button onClick={() => setPins(clampPins([90, 96]))}>Strict</button>
+            <button onClick={() => setPins(PRESETS.loose)}>Loose</button>
+            <button onClick={() => setPins(PRESETS.balanced)}>Balanced</button>
+            <button onClick={() => setPins(PRESETS.strict)}>Strict</button>
           </div>
 
           <div
             className={`track ${activeHandle != null ? "dragging" : ""}`}
-            ref={trackRef}
             onPointerDown={(e) => {
-              const el = trackRef.current;
-              const rct = el.getBoundingClientRect();
-              const ratio = (e.clientX - rct.left) / rct.width;
-              const pct = Math.max(0, Math.min(1, ratio)) * 100;
-              const unwarpTrack = (t) => Math.pow(t, 1 / 2);
-              const val = Math.round(unwarpTrack(pct / 100) * 99);
-              const v = Math.max(1, Math.min(99, val));
-              const [rr, yy] = pinsRef.current;
-              const which = Math.abs(v - rr) <= Math.abs(v - yy) ? 0 : 1;
-              setActiveHandle(which);
-              dragStart(which, el, e.clientX, "track");
+              const el = e.currentTarget;
+              const v = pxToValue(e.clientX, el);
+              const [r, y] = pinsRef.current;
+              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
+              startFromTrack(e, which);
             }}
           >
-            <div className="seg red" style={{ width: `${warpTrack(rMax / SCORE_MAX) * 100}%` }} />
-            <div
-              className="seg yellow"
-              style={{
-                width: `${Math.max(
-                  0,
-                  (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100
-                )}%`,
-              }}
-            />
-            <div className="seg green" style={{ width: `${Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100)}%` }} />
+            <div className="seg red" style={{ width: `${wRed}%` }} />
+            <div className="seg yellow" style={{ width: `${wYellow}%` }} />
+            <div className="seg green" style={{ width: `${wGreen}%` }} />
 
             <div className="ruler">
               {[25, 50, 75].map((v) => (
-                <div key={`M-${v}`} className="major-wrap" style={{ left: `${warpTrack(v / SCORE_MAX) * 100}%` }}>
+                <div key={`M-${v}`} className="major-wrap" style={{ left: `${valueToPct(v)}%` }}>
                   <div className="tick major" />
                   <div className="tick-label">{v}</div>
                 </div>
               ))}
             </div>
 
-            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${warpTrack(rMax / SCORE_MAX) * 100}%` }}>
+            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${pR}%` }}>
               <span className="label">{pins[0]}</span>
             </div>
-            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${warpTrack(yMax / SCORE_MAX) * 100}%` }}>
+            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${pY}%` }}>
               <span className="label">{pins[1]}</span>
             </div>
           </div>
@@ -1262,7 +1130,7 @@ export default function Map() {
             borderRadius: 12,
             boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
             overflowY: "auto",
-            WebkitOverflowScrolling: "touch",  
+            WebkitOverflowScrolling: "touch",
           }}
         >
           <button
