@@ -63,7 +63,7 @@ function formatDateSafe(val) {
   }
 }
 
-function CurrentInspectionCard({ data }) {
+function CurrentInspectionCard({ data, details }) {
   if (!data) return null;
   const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
   const gradeDisplay =
@@ -73,8 +73,27 @@ function CurrentInspectionCard({ data }) {
     scoreNum != null && scoreNum >= 95 ? "ok" : scoreNum != null && scoreNum >= 85 ? "warn" : "bad";
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
+  const items = details
+    ? [
+        { label: "Opening date", value: details.opening_date ?? "—" },
+        { label: "Facility type", value: details.facility_type ?? "—" },
+        { label: "Subtype", value: details.subtype ?? "—" },
+      ]
+    : [];
+
+  const hasDetails = items.some((i) => i.value && i.value !== "—");
+  const [open, setOpen] = React.useState(false);
+
   return (
-    <div className="inspect-card">
+    <div
+      className={`inspect-card ${open ? "open" : ""}`}
+      onClick={() => setOpen((v) => !v)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") setOpen((v) => !v);
+      }}
+    >
       {meta && (
         <div className="inspect-meta" title={metaTitle || ""}>
           {meta}
@@ -104,6 +123,30 @@ function CurrentInspectionCard({ data }) {
           <div className="inspect-stat_label">Grade</div>
         </div>
       </div>
+
+      {hasDetails && (
+        <>
+          <div className="inspect-more-inline">
+            <span>More info</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" className="chev" aria-hidden="true">
+              <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </div>
+
+          {open && (
+            <div className="inspect-details">
+              <div className="inspect-details-grid">
+                {items.map((it) => (
+                  <div className="detail-item" key={it.label}>
+                    <div className="detail-label">{it.label}</div>
+                    <div className="detail-value">{it.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -116,7 +159,7 @@ function ViolationRow({ v }) {
   const [open, setOpen] = React.useState(false);
   const maxLen = 240;
   const hasMore = body.length > maxLen;
-  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "…";
+  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "...";
 
   return (
     <li className={`viol-card ${isCrit ? "crit" : ""}`}>
@@ -161,11 +204,18 @@ function PastInspection({ row }) {
   };
   const viols = [...rawViols].sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
 
-  const [open, setOpen] = React.useState(false);
-  const previewCount = 3;
-  const showToggle = viols.length > previewCount;
-  const list = open ? viols : viols.slice(0, previewCount);
+  const [open, setOpen] = React.useState(true);
+  const showToggle = viols.length > 0;
+  const list = viols;
   const anyCrit = viols.some(isCrit);
+
+  const listRef = useRef(null);
+  const [maxH, setMaxH] = useState(0);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    setMaxH(open ? el.scrollHeight : 0);
+  }, [open, viols.length]);
 
   return (
     <div className="hist-item">
@@ -177,27 +227,36 @@ function PastInspection({ row }) {
             <div className="hist-type">{row.ins_type_desc || "Inspection"}</div>
           </div>
         </div>
+
+        {viols.length > 0 && (
+          <button
+            type="button"
+            className={`viol-count ${anyCrit ? "crit" : ""} ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
+            onClick={showToggle ? () => setOpen((x) => !x) : undefined}
+            aria-expanded={open}
+            title={showToggle ? (open ? "Collapse" : `Show all ${viols.length}`) : `${viols.length} violations`}
+          >
+            {viols.length} {viols.length === 1 ? "violation" : "violations"}
+            {showToggle && <span className="chev" aria-hidden="true">▾</span>}
+          </button>
+        )}
+
         <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
       </div>
 
       {viols.length > 0 && (
         <div className="viol-group">
-          <div className="viol-group-header">
-            <span className={`viol-count ${anyCrit ? "crit" : ""}`}>
-              {viols.length} {viols.length === 1 ? "violation" : "violations"}
-            </span>
-            {showToggle && (
-              <button className="viol-group-toggle" onClick={() => setOpen((x) => !x)}>
-                {open ? "Collapse" : `Show all ${viols.length}`}
-              </button>
-            )}
+          <div className="viol-group-header" />
+          <div className={`viol-collapse ${open ? "open" : ""}`} style={{ maxHeight: maxH }}>
+            <ul ref={listRef} className="viol-list">
+              {list.map((v) => (
+                <ViolationRow
+                  key={v.violation_oid ?? `${row.inspection_id}-${v.violation_desc}`}
+                  v={v}
+                />
+              ))}
+            </ul>
           </div>
-
-          <ul className="viol-list">
-            {list.map((v) => (
-              <ViolationRow key={v.violation_oid ?? `${row.inspection_id}-${v.violation_desc}`} v={v} />
-            ))}
-          </ul>
         </div>
       )}
     </div>
@@ -217,43 +276,6 @@ function History({ rows }) {
           />
         ))}
       </div>
-    </div>
-  );
-}
-
-function FacilityDetails({ details }) {
-  const [open, setOpen] = React.useState(false);
-  if (!details) return null;
-
-  const items = [
-    { label: "Opening date", value: details.opening_date ? details.opening_date : "—" },
-    { label: "Facility type", value: details.facility_type ?? "—" },
-    { label: "Subtype", value: details.subtype ?? "—" },
-  ];
-  const allEmpty = items.every((i) => i.value === "—");
-  if (allEmpty) return null;
-
-  return (
-    <div className="details-wrap">
-      <button className={`details-toggle ${open ? "open" : ""}`} onClick={() => setOpen((v) => !v)}>
-        <span>More details</span>
-        <svg viewBox="0 0 24 24" width="16" height="16" className="chev">
-          <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="details-card">
-          <div className="details-grid">
-            {items.map((it) => (
-              <div className="d-item" key={it.label}>
-                <div className="d-label">{it.label}</div>
-                <div className="d-value">{it.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -539,7 +561,6 @@ export default function Map() {
               score: headerRow.score ?? null,
               grade: headerRow.grade ?? null,
               _displayedInspectionId: headerRow.inspection_id,
-              meta: (headerRow.score ?? 0) > 0 ? "Last scored" : null,
               metaTitle:
                 (headerRow.score ?? 0) > 0
                   ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
@@ -831,7 +852,7 @@ export default function Map() {
       if ((key === "zero" || key === "null") && !showMissing) visible = false;
       if (key === "red" && !showRedPins) visible = false;
       if (key === "yellow" && !showYellowPins) visible = false;
-      if (key === "green" && !showGreenPins) visible = false;
+      if (key === "green") visible = visible && showGreenPins;
       const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") {
@@ -981,61 +1002,150 @@ export default function Map() {
               const v = Math.max(1, Math.min(99, val));
               const [r, y] = pinsRef.current;
               const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
-              setPins((prev) => {
-                let [r2, y2] = prev;
-                if (which === 0) r2 = Math.min(v, y2 - 1);
-                else y2 = Math.max(r2 + 1, v);
-                return clampPins([r2, y2]);
-              });
               setMiniActive(which);
-              const move = (ev) => {
-                const rct2 = el.getBoundingClientRect();
-                const ratio2 = (ev.clientX - rct2.left) / rct2.width;
-                const pct2 = Math.max(0, Math.min(1, ratio2)) * 100;
-                const unwarpMini2 = (t) => Math.pow(t, 1 / 1.8);
-                const nv = Math.max(1, Math.min(99, Math.round(unwarpMini2(pct2 / 100) * 99)));
-                setPins(([rr, yy]) =>
-                  clampPins(which === 0 ? [Math.min(nv, yy - 1), yy] : [rr, Math.max(rr + 1, nv)])
-                );
-              };
-              const up = () => {
-                setMiniActive(null);
-                window.removeEventListener("pointermove", move);
-              };
-              window.addEventListener("pointermove", move);
-              window.addEventListener("pointerup", up, { once: true });
+              dragStart(which, el, e.clientX, "mini");
             }}
           >
-            <div className="mini-seg red" style={{ width: `${Math.pow(pins[0] / 99, 1.8) * 100}%` }} />
+            <div className="mini-seg red" style={{ width: `${warpMini(rMax / SCORE_MAX) * 100}%` }} />
             <div
               className="mini-seg yellow"
               style={{
-                width: `${(Math.pow(pins[1] / 99, 1.8) - Math.pow(pins[0] / 99, 1.8)) * 100}%`,
+                width: `${Math.max(
+                  0,
+                  (warpMini(yMax / SCORE_MAX) - warpMini(rMax / SCORE_MAX)) * 100
+                )}%`,
               }}
             />
-            <div className="mini-seg green" style={{ width: `${(1 - Math.pow(pins[1] / 99, 1.8)) * 100}%` }} />
+            <div
+              className="mini-seg green"
+              style={{ width: `${Math.max(0, (1 - warpMini(yMax / SCORE_MAX)) * 100)}%` }}
+            />
 
             <div
-              className={`mini-handle ${miniActive === 0 ? "active" : ""}`}
-              style={{ "--pos": `${Math.pow(pins[0] / 99, 1.8) * 100}%` }}
+              className="mini-handle"
+              style={{ "--pos": `${warpMini(rMax / SCORE_MAX) * 100}%` }}
+              onPointerDown={(e) => {
+                setMiniActive(0);
+                dragStart(0, miniRef.current, e.clientX, "mini");
+              }}
             >
               <span>{pins[0]}</span>
             </div>
             <div
-              className={`mini-handle ${miniActive === 1 ? "active" : ""}`}
-              style={{ "--pos": `${Math.pow(pins[1] / 99, 1.8) * 100}%` }}
+              className="mini-handle"
+              style={{ "--pos": `${warpMini(yMax / SCORE_MAX) * 100}%` }}
+              onPointerDown={(e) => {
+                setMiniActive(1);
+                dragStart(1, miniRef.current, e.clientX, "mini");
+              }}
             >
               <span>{pins[1]}</span>
             </div>
           </div>
-        </div>
 
-        <div className="fab-sub">{`R 1–${pins[0]} · Y ${pins[0] + 1}–${pins[1]} · G ${pins[1] + 1}–100`}</div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button className="fab-open" onClick={() => setBandsOpen(true)}>
             Adjust
           </button>
+        </div>
+      </div>
+
+      <div className={`bands ${bandsOpen ? "open" : ""}`}>
+        <div className="bands-backdrop" onClick={() => setBandsOpen(false)} />
+        <div className="bands-sheet">
+          <div className="bands-header">
+            <div className="grab" />
+            <div className="title">Score bands</div>
+          </div>
+
+          <div className="presets">
+            <button onClick={() => setPins(clampPins([73, 95]))}>Loose</button>
+            <button onClick={() => setPins(clampPins([85, 94]))}>Balanced</button>
+            <button onClick={() => setPins(clampPins([90, 96]))}>Strict</button>
+          </div>
+
+          <div
+            className={`track ${activeHandle != null ? "dragging" : ""}`}
+            ref={trackRef}
+            onPointerDown={(e) => {
+              const el = trackRef.current;
+              const rct = el.getBoundingClientRect();
+              const ratio = (e.clientX - rct.left) / rct.width;
+              const pct = Math.max(0, Math.min(1, ratio)) * 100;
+              const unwarpTrack = (t) => Math.pow(t, 1 / 2);
+              const val = Math.round(unwarpTrack(pct / 100) * 99);
+              const v = Math.max(1, Math.min(99, val));
+              const [rr, yy] = pinsRef.current;
+              const which = Math.abs(v - rr) <= Math.abs(v - yy) ? 0 : 1;
+              setActiveHandle(which);
+              dragStart(which, el, e.clientX, "track");
+            }}
+          >
+            <div className="seg red" style={{ width: `${(warpTrack(rMax / SCORE_MAX)) * 100}%` }} />
+            <div
+              className="seg yellow"
+              style={{
+                width: `${Math.max(
+                  0,
+                  (warpTrack(yMax / SCORE_MAX) - warpTrack(rMax / SCORE_MAX)) * 100
+                )}%`,
+              }}
+            />
+            <div className="seg green" style={{ width: `${Math.max(0, (1 - warpTrack(yMax / SCORE_MAX)) * 100)}%` }} />
+
+            <div className="ruler">
+              {Array.from({ length: 97 }, (_, i) => i + 2).map((v) => (
+                <div key={`m-${v}`} className="tick minor" style={{ left: `${(warpTrack(v / SCORE_MAX)) * 100}%` }} />
+              ))}
+              {Array.from({ length: 20 }, (_, i) => 5 * i + 5)
+                .filter((v) => v >= SCORE_MIN && v <= SCORE_MAX)
+                .map((v) => (
+                  <div key={`M-${v}`} className="major-wrap" style={{ left: `${(warpTrack(v / SCORE_MAX)) * 100}%` }}>
+                    <div className="tick major" />
+                    <div className="tick-label">{v}</div>
+                  </div>
+                ))}
+            </div>
+
+            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${(warpTrack(rMax / SCORE_MAX)) * 100}%` }}>
+              <span className="label">{pins[0]}</span>
+            </div>
+            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${(warpTrack(yMax / SCORE_MAX)) * 100}%` }}>
+              <span className="label">{pins[1]}</span>
+            </div>
+          </div>
+
+          <div className="legend">
+            <div>
+              <span className="sw" style={{ background: COLORS.red }} />
+              {`1–${pins[0]}`}
+            </div>
+            <div>
+              <span className="sw" style={{ background: COLORS.yellow }} />
+              {`${pins[0] + 1}–${pins[1]}`}
+            </div>
+            <div>
+              <span className="sw" style={{ background: "#0f9d58" }} />
+              {`${pins[1] + 1}–100`}
+            </div>
+          </div>
+
+          <div className="toggles">
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={showMissing}
+                onChange={(e) => setShowMissing(e.target.checked)}
+              />
+              <span />
+            </label>
+            <span className="label">Show limited data</span>
+          </div>
+
+          <div className="sheet-actions">
+            <button className="ghost" onClick={() => setBandsOpen(false)}>
+              Done
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1054,8 +1164,6 @@ export default function Map() {
             zIndex: 5,
             borderRadius: 12,
             boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-            overflow: "auto",
-            padding: 16,
           }}
         >
           <button
@@ -1069,30 +1177,31 @@ export default function Map() {
               setDrawerLoading(false);
               loadSeqRef.current++;
             }}
-            style={{
-              position: "absolute",
-              right: 10,
-              top: 6,
-              border: "none",
-              background: "transparent",
-              color: "#bbb",
-              fontSize: 24,
-              cursor: "pointer",
-            }}
             aria-label="Close"
-            title="Close"
           >
             ×
           </button>
 
           <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
 
-          <CurrentInspectionCard data={selected} />
-          {facDetailsFor === selected.establishment_id && <FacilityDetails details={facDetails} />}
+          <CurrentInspectionCard
+            data={
+              selected && {
+                name: selected.name,
+                address: selected.address,
+                inspectionDate: selected.inspectionDate,
+                score: selected.score,
+                grade: selected.grade,
+                meta: selected.meta,
+                metaTitle: selected.metaTitle,
+              }
+            }
+            details={facDetails}
+          />
 
           <div className="inspect-card_spacer" />
-          {historyFor === selected.establishment_id && <History rows={history} />}
-          <div className="inspect-card_spacer" />
+
+          {history && <History rows={history} />}
         </div>
       )}
     </>
