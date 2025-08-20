@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
 );
 
 const COLORS = {
@@ -17,7 +17,7 @@ const COLORS = {
   null: "#657786",
 };
 
-const DRAW_ORDER = ["green", "yellow", "zero", "null", "red"];
+const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
 const MIN_ZOOM = 11;
 
 const SCORE_MIN = 1;
@@ -30,6 +30,94 @@ const PRESETS = {
   balanced: clampPins([86, 94]),
   strict: clampPins([90, 96]),
 };
+
+// --- Category filters: subtypes grouped under user-facing categories ---
+// Restaurants (Food Service) --> 605:11
+// Daycares --> 605:31
+// Hospitals / Nursing --> 605:32
+// Schools --> 605:33
+// Charity --> 605:36
+// Concessions --> 603:51, 603:53
+// Temporary & Mobile --> 604:16, 605:52, 610:73
+// Retail --> All 610 (61,62,63,64,65,73,212) + 607:(54,55) + 605:54
+// Caterers & Commissaries --> 605:(42,43)
+// Unknown / Unfiltered --> anything not matching above
+const CATEGORY_SPECS = {
+  restaurants: { label: "Restaurants", subs: [{ ft: 605, st: 11 }] },
+  daycare: { label: "Daycares", subs: [{ ft: 605, st: 31 }] },
+  hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
+  schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
+  charity: { label: "Charity", subs: [{ ft: 605, st: 36 }] },
+  concessions: {
+    label: "Concessions",
+    subs: [
+      { ft: 603, st: 51 },
+      { ft: 603, st: 53 },
+    ],
+  },
+  temp_mobile: {
+    label: "Temporary & Mobile",
+    subs: [
+      { ft: 604, st: 16 },
+      { ft: 605, st: 52 },
+      { ft: 610, st: 73 },
+    ],
+  },
+  retail: {
+    label: "Retail",
+    subs: [
+      { ft: 610, st: 61 },
+      { ft: 610, st: 62 },
+      { ft: 610, st: 63 },
+      { ft: 610, st: 64 },
+      { ft: 610, st: 65 },
+      { ft: 610, st: 73 },
+      { ft: 610, st: 212 },
+      { ft: 607, st: 54 },
+      { ft: 607, st: 55 },
+      { ft: 605, st: 54 },
+    ],
+  },
+  caterers_commissary: {
+    label: "Caterers & Commissaries",
+    subs: [
+      { ft: 605, st: 42 },
+      { ft: 605, st: 43 },
+    ],
+  },
+  unknown: { label: "Unknown / Unfiltered", subs: [] },
+};
+
+const CAT_COLORS = {
+  restaurants: "#ff9f43",
+  daycare: "#ff7eb3",
+  hospitals: "#4db0ff",
+  schools: "#c792ea",
+  charity: "#2ed5a2",
+  concessions: "#ffcd4d",
+  temp_mobile: "#5ad0ff",
+  retail: "#a3e635",
+  caterers_commissary: "#ff85a1",
+  unknown: "#94a3b8",
+};
+
+function classifyCategory(ft, st) {
+  for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
+    if (key === "unknown") continue;
+    if (spec.subs.some((p) => p.ft === ft && p.st === st)) return key;
+  }
+  return "unknown";
+}
+
+function buildInitialCatToggles() {
+  const obj = {};
+  for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
+    const subs = {};
+    for (const p of spec.subs) subs[`${p.ft}:${p.st}`] = true;
+    obj[key] = { enabled: true, subs }; // start checked
+  }
+  return obj;
+}
 
 const EDGE_ZONE = 24;
 const SPURT_PX = 60;
@@ -68,6 +156,8 @@ function formatDateSafe(val) {
     return String(val);
   }
 }
+const displayField = (v) =>
+  v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
 
 function CurrentInspectionCard({ data, details }) {
   if (!data) return null;
@@ -76,14 +166,19 @@ function CurrentInspectionCard({ data, details }) {
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum = typeof score === "number" ? score : null;
   const badgeClass =
-    scoreNum != null && scoreNum >= 95 ? "ok" : scoreNum != null && scoreNum >= 85 ? "warn" : "bad";
+    scoreNum != null && scoreNum >= 95
+      ? "ok"
+      : scoreNum != null && scoreNum >= 85
+        ? "warn"
+        : "bad";
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
   const items = details
     ? [
-        { label: "Opening date", value: details.opening_date ?? "—" },
-        { label: "Facility type", value: details.facility_type ?? "—" },
-        { label: "Subtype", value: details.subtype ?? "—" },
+        { label: "Opening date", value: displayField(details.opening_date) },
+        { label: "Facility type", value: displayField(details.facility_type) },
+        { label: "Subtype", value: displayField(details.subtype) },
+        { label: "Permit number", value: displayField(details.permit_number) },
       ]
     : [];
 
@@ -123,7 +218,9 @@ function CurrentInspectionCard({ data, details }) {
         </div>
 
         <div className="inspect-stat">
-          <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
+          <div
+            className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}
+          >
             {gradeDisplay}
           </div>
           <div className="inspect-stat_label">Grade</div>
@@ -134,8 +231,19 @@ function CurrentInspectionCard({ data, details }) {
         <>
           <div className="inspect-more-inline">
             <span>More info</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" className="chev" aria-hidden="true">
-              <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              className="chev"
+              aria-hidden="true"
+            >
+              <path
+                d="M7 10l5 5 5-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
             </svg>
           </div>
 
@@ -158,8 +266,11 @@ function CurrentInspectionCard({ data, details }) {
 }
 
 function ViolationRow({ v }) {
-  const yn = String(v.critical_yn || "").trim().toLowerCase();
-  const isCrit = yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
+  const yn = String(v.critical_yn || "")
+    .trim()
+    .toLowerCase();
+  const isCrit =
+    yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   const title = v.violation_desc || "Violation";
   const body = (v.insp_viol_comments || "").trim();
   const [open, setOpen] = React.useState(false);
@@ -197,18 +308,30 @@ function ViolationRow({ v }) {
 function PastInspection({ row }) {
   const date = formatDateSafe(row.inspection_date);
   const gradeDisplay =
-    row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
+    row.grade && String(row.grade).trim().length > 0
+      ? String(row.grade).trim()
+      : "—";
   const scoreNum = typeof row.score === "number" ? row.score : null;
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
   const badgeClass =
-    scoreNum != null && scoreNum >= 95 ? "ok" : scoreNum != null && scoreNum >= 85 ? "warn" : "bad";
+    scoreNum != null && scoreNum >= 95
+      ? "ok"
+      : scoreNum != null && scoreNum >= 85
+        ? "warn"
+        : "bad";
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
   const isCrit = (v) => {
-    const yn = String(v.critical_yn || "").trim().toLowerCase();
-    return yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
+    const yn = String(v.critical_yn || "")
+      .trim()
+      .toLowerCase();
+    return (
+      yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1"
+    );
   };
-  const viols = [...rawViols].sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
+  const viols = [...rawViols].sort(
+    (a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0),
+  );
 
   const [open, setOpen] = React.useState(false);
   const showToggle = viols.length > 0;
@@ -240,24 +363,42 @@ function PastInspection({ row }) {
             className={`viol-count ${anyCrit ? "crit" : ""} ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
             onClick={showToggle ? () => setOpen((x) => !x) : undefined}
             aria-expanded={open}
-            title={showToggle ? (open ? "Collapse" : `Show all ${viols.length}`) : `${viols.length} violations`}
+            title={
+              showToggle
+                ? open
+                  ? "Collapse"
+                  : `Show all ${viols.length}`
+                : `${viols.length} violations`
+            }
           >
             {viols.length} {viols.length === 1 ? "violation" : "violations"}
-            {showToggle && <span className="chev" aria-hidden="true">▾</span>}
+            {showToggle && (
+              <span className="chev" aria-hidden="true">
+                ▾
+              </span>
+            )}
           </button>
         )}
 
-        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
+        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>
+          {gradeDisplay}
+        </div>
       </div>
 
       {viols.length > 0 && (
         <div className="viol-group">
           <div className="viol-group-header" />
-          <div className={`viol-collapse ${open ? "open" : ""}`} style={{ maxHeight: maxH }}>
+          <div
+            className={`viol-collapse ${open ? "open" : ""}`}
+            style={{ maxHeight: maxH }}
+          >
             <ul ref={listRef} className="viol-list">
               {list.map((v) => (
                 <ViolationRow
-                  key={v.violation_oid ?? `${row.inspection_id}-${v.violation_desc}`}
+                  key={
+                    v.violation_oid ??
+                    `${row.inspection_id}-${v.violation_desc}`
+                  }
                   v={v}
                 />
               ))}
@@ -277,7 +418,9 @@ function History({ rows }) {
       <div className="hist-list">
         {rows.map((r) => (
           <PastInspection
-            key={r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`}
+            key={
+              r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`
+            }
             row={r}
           />
         ))}
@@ -301,7 +444,9 @@ export default function Map() {
 
   const [selected, setSelected] = useState(null);
   const selectedRef = useRef(selected);
-  useEffect(() => { selectedRef.current = selected; }, [selected]);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   const [history, setHistory] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
@@ -324,10 +469,14 @@ export default function Map() {
   };
 
   const pinsRef = useRef(pins);
-  useEffect(() => { pinsRef.current = pins; }, [pins]);
+  useEffect(() => {
+    pinsRef.current = pins;
+  }, [pins]);
 
   useEffect(() => {
-    const match = Object.entries(PRESETS).find(([, v]) => v[0] === pins[0] && v[1] === pins[1]);
+    const match = Object.entries(PRESETS).find(
+      ([, v]) => v[0] === pins[0] && v[1] === pins[1],
+    );
     setPreset(match ? match[0] : null);
   }, [pins]);
 
@@ -335,6 +484,8 @@ export default function Map() {
   const [showRedPins, setShowRedPins] = useState(true);
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [catToggles, setCatToggles] = useState(buildInitialCatToggles());
 
   const [fabHidden, setFabHidden] = useState(false);
   const [bandsOpen, setBandsOpen] = useState(false);
@@ -344,7 +495,7 @@ export default function Map() {
   const isHoverCapableRef = useRef(
     typeof window !== "undefined" && window.matchMedia
       ? window.matchMedia("(hover: hover)").matches
-      : false
+      : false,
   );
 
   const suppressDocCloseRef = useRef(false);
@@ -354,7 +505,10 @@ export default function Map() {
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
-      if (headErr) { console.error(headErr); return; }
+      if (headErr) {
+        console.error(headErr);
+        return;
+      }
 
       const pageSize = 1000;
       let allRows = [];
@@ -362,48 +516,119 @@ export default function Map() {
         const to = Math.min(count - 1, offset + pageSize - 1);
         const { data, error } = await supabase
           .from("v_facility_map_feed")
-          .select("establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent")
+          .select(
+            "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
+          )
           .range(offset, to);
-        if (error) { console.error(error); return; }
+        if (error) {
+          console.error(error);
+          return;
+        }
         allRows = allRows.concat(data);
       }
 
+      // Build (establishment_id -> { ft, st }) lookup for category filtering
+      let metaById = new globalThis.Map();
+      try {
+        const { count: facCount } = await supabase
+          .from("facilities")
+          .select("*", { head: true, count: "exact" });
+        const page2 = 1000;
+        for (let off = 0; off < (facCount || 0); off += page2) {
+          const to2 = Math.min((facCount || 0) - 1, off + page2 - 1);
+          const { data: facRows, error: facErr } = await supabase
+            .from("facilities")
+            .select(
+              "establishment_id, facility_type, subtype, address, city, state, zip",
+            )
+            .range(off, to2);
+          if (facErr) {
+            console.error("facilities meta fetch error", facErr);
+            break;
+          }
+          for (const f of facRows || [])
+            metaById.set(f.establishment_id, {
+              ft: f.facility_type,
+              st: f.subtype,
+            });
+        }
+      } catch (e) {
+        console.error("facilities meta lookup failed", e);
+      }
+
       const features = allRows
-        .filter(r => typeof r.lon === "number" && typeof r.lat === "number")
-        .map((r, i) => ({
-          type: "Feature",
-          id: i,
-          geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-          properties: {
-            establishment_id: r.establishment_id,
-            name: r.premise_name,
-            address: r.address,
-            date: r.inspection_date_recent,
-            score: r.score_recent,
-            grade: r.grade_recent,
-          },
-        }));
+        .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
+        .map((r, i) => {
+          const meta = metaById.get(r.establishment_id) || {};
+          const ft = typeof meta.ft === "number" ? meta.ft : null;
+          const st = typeof meta.st === "number" ? meta.st : null;
+          const fullAddr =
+            [meta?.address || r.address, meta?.city, meta?.state]
+              .filter(Boolean)
+              .join(", ") + (meta?.zip ? ` ${meta.zip}` : "");
+          const cat =
+            ft != null && st != null ? classifyCategory(ft, st) : "unknown";
+
+          if (cat === "unknown" && ft != null && st != null) {
+            console.warn("Unmapped facility (category filters)", {
+              establishment_id: r.establishment_id,
+              name: r.premise_name,
+              address: r.address,
+              address_full: fullAddr,
+              facility_type: ft,
+              subtype: st,
+            });
+          }
+
+          return {
+            type: "Feature",
+            id: i,
+            geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+            properties: {
+              establishment_id: r.establishment_id,
+              name: r.premise_name,
+              address: r.address,
+              address_full: fullAddr,
+              date: r.inspection_date_recent,
+              score: r.score_recent,
+              grade: r.grade_recent,
+              facility_type: ft,
+              subtype: st,
+              cat,
+            },
+          };
+        });
 
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
-        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date)) acc[eid] = feat;
+        if (
+          !prev ||
+          (feat.properties.date && feat.properties.date > prev.properties.date)
+        )
+          acc[eid] = feat;
         return acc;
       }, {});
-      setGeoData({ type: "FeatureCollection", features: Object.values(latestMap) });
+      setGeoData({
+        type: "FeatureCollection",
+        features: Object.values(latestMap),
+      });
     })();
   }, []);
 
   function isMapReady() {
     const m = mapRef.current;
     if (!m || !m.isStyleLoaded()) return false;
-    return DRAW_ORDER.every(k => m.getLayer(`points-${k}`));
+    return DRAW_ORDER.every((k) => m.getLayer(`points-${k}`));
   }
   function applyFilterWhenReady() {
     const m = mapRef.current;
     if (!m) return;
     if (isMapReady()) applyFilter(m);
-    else m.once("idle", () => { if (isMapReady()) applyFilter(m); });
+    else
+      m.once("idle", () => {
+        if (isMapReady()) applyFilter(m);
+      });
   }
 
   useEffect(() => {
@@ -414,7 +639,10 @@ export default function Map() {
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [-85.75, 38.25],
       zoom: MIN_ZOOM,
-      maxBounds: [[-86.4, 37.7], [-85.0, 38.7]],
+      maxBounds: [
+        [-86.4, 37.7],
+        [-85.0, 38.7],
+      ],
     });
     mapRef.current = map;
 
@@ -423,11 +651,17 @@ export default function Map() {
 
       const basePaint = {
         "circle-radius": [
-          "interpolate", ["linear"], ["zoom"],
-          8, window.innerWidth <= 600 ? 4 : 6,
-          11, window.innerWidth <= 600 ? 8 : 10.5,
-          14, window.innerWidth <= 600 ? 12 : 14,
-          17, window.innerWidth <= 600 ? 16 : 18,
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          window.innerWidth <= 600 ? 4 : 6,
+          11,
+          window.innerWidth <= 600 ? 8 : 10.5,
+          14,
+          window.innerWidth <= 600 ? 12 : 14,
+          17,
+          window.innerWidth <= 600 ? 16 : 18,
         ],
         "circle-opacity": 0.9,
         "circle-stroke-width": 2,
@@ -446,7 +680,7 @@ export default function Map() {
         });
       }
 
-      const layerIds = DRAW_ORDER.map(k => `points-${k}`);
+      const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
 
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
@@ -459,9 +693,10 @@ export default function Map() {
 
       const renderHTML = (p) => {
         const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
+        const addr = p.address_full || p.address || "";
         return `<div class="popup-content" style="font-size:14px;max-width:220px">
-          <strong>${p.name}</strong><br/>
-          <small>${p.address}</small><br/>
+     <strong>${p.name}</strong><br/>
+    <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
           Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
         </div>`;
@@ -473,10 +708,17 @@ export default function Map() {
           pinnedPopupRef.current = new maplibregl.Popup({
             anchor: "bottom",
             offset: [0, -14],
-            closeButton: false, closeOnMove: false, closeOnClick: false,
-          }).setLngLat(feature.geometry.coordinates).setHTML(html).addTo(mapRef.current);
+            closeButton: false,
+            closeOnMove: false,
+            closeOnClick: false,
+          })
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html)
+            .addTo(mapRef.current);
         } else {
-          pinnedPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
+          pinnedPopupRef.current
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html);
         }
         pinnedFeatureRef.current = feature;
         wirePopupInteractions(pinnedPopupRef.current, feature);
@@ -485,14 +727,19 @@ export default function Map() {
       const beginDrawerLoad = async (eid, p) => {
         const seq = ++loadSeqRef.current;
         setDrawerLoading(true);
-        setHistory(null); setHistoryFor(null);
-        setFacDetails(null); setFacDetailsFor(null);
+        setHistory(null);
+        setHistoryFor(null);
+        setFacDetails(null);
+        setFacDetailsFor(null);
 
         const { data: insp, error } = await supabase
           .from("inspections")
-          .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
+          .select(
+            "inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id",
+          )
           .eq("establishment_id", eid)
-          .order("inspection_date", { ascending: false });
+          .order("inspection_date", { ascending: false })
+          .order("inspection_id", { ascending: false });
 
         if (error) {
           console.error("history fetch error", error);
@@ -504,7 +751,7 @@ export default function Map() {
         const { data: viols, error: vErr } = await supabase
           .from("inspection_violations")
           .select(
-            "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id"
+            "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
           )
           .eq("establishment_id", eid);
 
@@ -519,7 +766,8 @@ export default function Map() {
             byId.get(v.inspection_id).push(v);
           }
           if (v.inspection_date) {
-            if (!byDate.has(v.inspection_date)) byDate.set(v.inspection_date, []);
+            if (!byDate.has(v.inspection_date))
+              byDate.set(v.inspection_date, []);
             byDate.get(v.inspection_date).push(v);
           }
         }
@@ -529,14 +777,29 @@ export default function Map() {
           const seen = new Set();
           const violations = [];
           for (const x of [...viaId, ...viaDate]) {
-            const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
-            if (!seen.has(k)) { seen.add(k); violations.push(x); }
+            const k =
+              x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
+            if (!seen.has(k)) {
+              seen.add(k);
+              violations.push(x);
+            }
           }
           return { ...r, violations };
         });
 
-        const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
-        const headerRow = latestNonZero || mergedDesc[0] || null;
+        const headerRow = (() => {
+          const byExact = mergedDesc.find(
+            (r) =>
+              r.inspection_date === p.date &&
+              (r.score ?? null) === (p.score ?? null) &&
+              (r.grade ?? null) === (p.grade ?? null),
+          );
+          if (byExact) return byExact;
+          const byDate = mergedDesc.find((r) => r.inspection_date === p.date);
+          if (byDate) return byDate;
+          const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
+          return latestNonZero || mergedDesc[0] || null;
+        })();
 
         const selectedData = headerRow
           ? {
@@ -564,10 +827,13 @@ export default function Map() {
             };
 
         let details = null;
+        let fullAddress = null;
         {
           const { data: fac, error: facErr } = await supabase
             .from("facilities")
-            .select("opening_date, facility_type, subtype")
+            .select(
+              "opening_date, facility_type, subtype, address, city, state, zip, permit_number",
+            )
             .eq("establishment_id", eid)
             .maybeSingle();
 
@@ -583,19 +849,30 @@ export default function Map() {
               .eq("facility_type", fac.facility_type)
               .eq("subtype", fac.subtype)
               .maybeSingle();
-            if (catErr) console.error("facility_categories fetch error", catErr);
+            if (catErr)
+              console.error("facility_categories fetch error", catErr);
             typeLabel = cat?.facility_type_description ?? typeLabel;
             subtypeLabel = cat?.subtype_description ?? subtypeLabel;
           }
 
           details = {
-            opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
+            opening_date: fac?.opening_date
+              ? formatDateSafe(fac.opening_date)
+              : null,
             facility_type: typeLabel,
             subtype: subtypeLabel,
+            permit_number: fac?.permit_number ?? null,
           };
+          fullAddress =
+            [fac?.address || p.address, fac?.city, fac?.state]
+              .filter(Boolean)
+              .join(", ") + (fac?.zip ? ` ${fac.zip}` : "");
         }
 
-        setSelected(selectedData);
+        setSelected({
+          ...selectedData,
+          address: fullAddress || selectedData.address,
+        });
         setHistory(mergedDesc);
         setHistoryFor(eid);
         setFacDetails(details);
@@ -606,7 +883,8 @@ export default function Map() {
       const wirePopupInteractions = (popup, feature) => {
         const root = popup.getElement();
         const tip = root?.querySelector(".maplibregl-popup-tip");
-        if (tip) tip.style.borderTopColor = colorForScore(feature.properties.score);
+        if (tip)
+          tip.style.borderTopColor = colorForScore(feature.properties.score);
 
         const content = root?.querySelector(".popup-content");
         if (content) {
@@ -624,10 +902,17 @@ export default function Map() {
           hoverPopupRef.current = new maplibregl.Popup({
             anchor: "bottom",
             offset: [0, -14],
-            closeButton: false, closeOnMove: false, closeOnClick: false,
-          }).setLngLat(feature.geometry.coordinates).setHTML(html).addTo(mapRef.current);
+            closeButton: false,
+            closeOnMove: false,
+            closeOnClick: false,
+          })
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html)
+            .addTo(mapRef.current);
         } else {
-          hoverPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
+          hoverPopupRef.current
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(html);
         }
         wirePopupInteractions(hoverPopupRef.current, feature);
       };
@@ -661,42 +946,76 @@ export default function Map() {
       for (const id of layerIds) {
         map.on("mousemove", id, onHover);
         map.on("mouseleave", id, onLeave);
-        map.on("mousedown", id, () => { suppressDocCloseRef.current = true; });
+        map.on("mousedown", id, () => {
+          suppressDocCloseRef.current = true;
+        });
         map.on("click", id, onClick);
-        map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
+        map.on(
+          "mouseenter",
+          id,
+          () => (map.getCanvas().style.cursor = "pointer"),
+        );
         map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
       }
 
-      map.on("dragstart", () => { isDraggingRef.current = true; });
-      map.on("dragend", () => { isDraggingRef.current = false; });
+      map.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
+      map.on("dragend", () => {
+        isDraggingRef.current = false;
+      });
 
       map.on("click", (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
         const insidePinned =
-          pinnedPopupRef.current && pinnedPopupRef.current.getElement()?.contains(e.originalEvent.target);
+          pinnedPopupRef.current &&
+          pinnedPopupRef.current.getElement()?.contains(e.originalEvent.target);
         const insideHover =
-          hoverPopupRef.current && hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
+          hoverPopupRef.current &&
+          hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
 
         if (!hits.length && !insidePinned && !insideHover) {
-          pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null; pinnedFeatureRef.current = null;
-          hoverPopupRef.current?.remove(); hoverPopupRef.current = null; lastHoverId.current = null;
-          setSelected(null); setHistory(null); setHistoryFor(null); setFacDetails(null); setFacDetailsFor(null);
-          setDrawerLoading(false); loadSeqRef.current++;
+          pinnedPopupRef.current?.remove();
+          pinnedPopupRef.current = null;
+          pinnedFeatureRef.current = null;
+          hoverPopupRef.current?.remove();
+          hoverPopupRef.current = null;
+          lastHoverId.current = null;
+          setSelected(null);
+          setHistory(null);
+          setHistoryFor(null);
+          setFacDetails(null);
+          setFacDetailsFor(null);
+          setDrawerLoading(false);
+          loadSeqRef.current++;
         }
       });
 
       const outsideClose = (ev) => {
-        if (suppressDocCloseRef.current) { suppressDocCloseRef.current = false; return; }
+        if (suppressDocCloseRef.current) {
+          suppressDocCloseRef.current = false;
+          return;
+        }
         if (isDraggingRef.current) return;
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
-        if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
+        if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target)))
+          return;
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
-        pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null; pinnedFeatureRef.current = null;
-        hoverPopupRef.current?.remove(); hoverPopupRef.current = null; lastHoverId.current = null;
-        setSelected(null); setHistory(null); setHistoryFor(null); setFacDetails(null); setFacDetailsFor(null);
-        setDrawerLoading(false); loadSeqRef.current++;
+        pinnedPopupRef.current?.remove();
+        pinnedPopupRef.current = null;
+        pinnedFeatureRef.current = null;
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
+        lastHoverId.current = null;
+        setSelected(null);
+        setHistory(null);
+        setHistoryFor(null);
+        setFacDetails(null);
+        setFacDetailsFor(null);
+        setDrawerLoading(false);
+        loadSeqRef.current++;
       };
       document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
@@ -709,64 +1028,122 @@ export default function Map() {
         document.removeEventListener("click", docCloseHandlerRef.current, true);
         docCloseHandlerRef.current = null;
       }
-      hoverPopupRef.current?.remove(); hoverPopupRef.current = null;
-      pinnedPopupRef.current?.remove(); pinnedPopupRef.current = null;
-      mapRef.current?.remove(); mapRef.current = null;
+      hoverPopupRef.current?.remove();
+      hoverPopupRef.current = null;
+      pinnedPopupRef.current?.remove();
+      pinnedPopupRef.current = null;
+      mapRef.current?.remove();
+      mapRef.current = null;
     };
   }, [geoData]);
 
-  useEffect(() => { if (mapRef.current) applyFilterWhenReady(); },
-    [pins, showMissing, searchTerm, showRedPins, showYellowPins, showGreenPins]);
+  useEffect(() => {
+    if (mapRef.current) applyFilterWhenReady();
+  }, [
+    pins,
+    showMissing,
+    searchTerm,
+    showRedPins,
+    showYellowPins,
+    showGreenPins,
+    catToggles,
+  ]);
 
   useEffect(() => {
-    const m = mapRef.current; if (!m) return;
-    m.resize(); const t = setTimeout(() => m.resize(), 320);
+    const m = mapRef.current;
+    if (!m) return;
+    m.resize();
+    const t = setTimeout(() => m.resize(), 320);
     return () => clearTimeout(t);
   }, [bandsOpen]);
 
   const [activeHandle, setActiveHandle] = useState(null);
 
   useEffect(() => {
-    const m = mapRef.current; if (!m) return;
+    const m = mapRef.current;
+    if (!m) return;
     const dragging = activeHandle != null;
     const stopWheel = (e) => e.preventDefault();
     if (dragging) {
-      m.dragPan.disable(); m.scrollZoom.disable(); m.boxZoom.disable(); m.keyboard.disable();
-      document.body.style.overflow = "hidden"; window.addEventListener("wheel", stopWheel, { passive: false });
+      m.dragPan.disable();
+      m.scrollZoom.disable();
+      m.boxZoom.disable();
+      m.keyboard.disable();
+      document.body.style.overflow = "hidden";
+      window.addEventListener("wheel", stopWheel, { passive: false });
     }
     return () => {
-      window.removeEventListener("wheel", stopWheel); document.body.style.overflow = "";
-      m.dragPan.enable(); m.scrollZoom.enable(); m.boxZoom.enable(); m.keyboard.enable();
+      window.removeEventListener("wheel", stopWheel);
+      document.body.style.overflow = "";
+      m.dragPan.enable();
+      m.scrollZoom.enable();
+      m.boxZoom.enable();
+      m.keyboard.enable();
     };
   }, [activeHandle]);
 
-  const M_TRACK = 25; 
+  const M_TRACK = 25;
   const valueToPct = (v) => (v / SCORE_MAX) * 100;
   const pctToValue = (pct) =>
     Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round((pct / 100) * SCORE_MAX)));
 
   const pxToValue = (x, el) => {
     const r = el.getBoundingClientRect();
-    const L = r.left + M_TRACK, R = r.right - M_TRACK;
-    const ratio = (x - L) / Math.max(1, (R - L));
+    const L = r.left + M_TRACK,
+      R = r.right - M_TRACK;
+    const ratio = (x - L) / Math.max(1, R - L);
     return pctToValue(Math.max(0, Math.min(1, ratio)) * 100);
   };
   const valueToPx = (v, el) => {
     const r = el.getBoundingClientRect();
-    const L = r.left + M_TRACK, R = r.right - M_TRACK;
+    const L = r.left + M_TRACK,
+      R = r.right - M_TRACK;
     return L + ((R - L) * valueToPct(v)) / 100;
   };
 
   const [rMax, yMax] = pins;
-  const pR = valueToPct(rMax), pY = valueToPct(yMax);
+  const pR = valueToPct(rMax),
+    pY = valueToPct(yMax);
   const wRed = valueToPct(rMax),
-        wYellow = Math.max(0, valueToPct(yMax) - valueToPct(rMax)),
-        wGreen = Math.max(0, 100 - valueToPct(yMax));
+    wYellow = Math.max(0, valueToPct(yMax) - valueToPct(rMax)),
+    wGreen = Math.max(0, 100 - valueToPct(yMax));
 
   function applyFilter(map) {
     const exprs = bandExprs(pins);
     const term = searchTerm.trim().toLowerCase();
-    const searchExpr = term ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0] : null;
+    const searchExpr = term
+      ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0]
+      : null;
+
+    // Category filter: allowed subtype pairs + optional 'unknown'
+    const selectedPairs = [];
+    for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
+      if (key === "unknown") continue;
+      const state = catToggles[key];
+      if (!state || !state.enabled) continue;
+      for (const p of spec.subs) {
+        const code = `${p.ft}:${p.st}`;
+        if (state.subs?.[code]) selectedPairs.push(code);
+      }
+    }
+    const unknownOn = !!(catToggles.unknown && catToggles.unknown.enabled);
+    const pairToken = [
+      "concat",
+      ["to-string", ["get", "facility_type"]],
+      ":",
+      ["to-string", ["get", "subtype"]],
+    ];
+    const pairExpr = ["in", pairToken, ["literal", selectedPairs]];
+    const unknownExpr = ["==", ["get", "cat"], "unknown"];
+    const catExpr =
+      selectedPairs.length > 0
+        ? unknownOn
+          ? ["any", pairExpr, unknownExpr]
+          : pairExpr
+        : unknownOn
+          ? unknownExpr
+          : ["boolean", false];
+
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
       const id = `points-${key}`;
@@ -775,11 +1152,13 @@ export default function Map() {
       if (key === "red" && !showRedPins) visible = false;
       if (key === "yellow" && !showYellowPins) visible = false;
       if (key === "green" && !showGreenPins) visible = false;
-      const f = searchExpr ? ["all", exprs[key], searchExpr] : exprs[key];
+
+      const fBase = ["all", exprs[key], catExpr];
+      const f = searchExpr ? ["all", ...fBase, searchExpr] : fBase;
+
       map.setFilter(id, visible ? f : hidden);
-      if (key === "green") {
+      if (key === "green")
         map.setPaintProperty(id, "circle-color", COLORS.green);
-      }
     }
   }
 
@@ -802,37 +1181,61 @@ export default function Map() {
 
   const dragRef = useRef({ which: null, el: null, dx: 0 });
   function dragMove(clientX) {
-    const { which, el } = dragRef.current; if (!el || which == null) return;
+    const { which, el } = dragRef.current;
+    if (!el || which == null) return;
     const v = pxToValue(clientX, el);
-    setPins(([r, y]) => clampPins(which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)]));
+    setPins(([r, y]) =>
+      clampPins(
+        which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)],
+      ),
+    );
   }
 
   // edge panning spurts
   const isInDeadzone = (x, y) => {
     const M = 8;
-    const els = [document.querySelector(".fab-scores"), document.querySelector(".control-card")].filter(Boolean);
+    const els = [
+      document.querySelector(".fab-scores"),
+      document.querySelector(".control-card"),
+    ].filter(Boolean);
     for (const el of els) {
       const r = el.getBoundingClientRect();
-      if (x >= r.left - M && x <= r.right + M && y >= r.top - M && y <= r.bottom + M) return true;
+      if (
+        x >= r.left - M &&
+        x <= r.right + M &&
+        y >= r.top - M &&
+        y <= r.bottom + M
+      )
+        return true;
     }
     return false;
   };
-  const spurtDisabled = () => !mapRef.current || bandsOpen || activeHandle !== null;
+  const spurtDisabled = () =>
+    !mapRef.current || bandsOpen || activeHandle !== null;
 
   useEffect(() => {
     const onMove = (e) => {
-      let dx = 0, dy = 0;
-      if (e.clientX <= EDGE_ZONE) dx = -1; else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
-      if (e.clientY <= EDGE_ZONE) dy = -1; else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
+      let dx = 0,
+        dy = 0;
+      if (e.clientX <= EDGE_ZONE) dx = -1;
+      else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
+      if (e.clientY <= EDGE_ZONE) dy = -1;
+      else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
       const nearEdge = dx !== 0 || dy !== 0;
-      const active = nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
+      const active =
+        nearEdge &&
+        !spurtDisabled() &&
+        e.buttons === 0 &&
+        !isInDeadzone(e.clientX, e.clientY);
       if (active && !inEdgeRef.current) {
         mapRef.current.panBy([dx * SPURT_PX, dy * SPURT_PX], { duration: 240 });
         inEdgeRef.current = true;
       }
       if (!active) inEdgeRef.current = false;
     };
-    const reset = () => { inEdgeRef.current = false; };
+    const reset = () => {
+      inEdgeRef.current = false;
+    };
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseleave", reset);
     window.addEventListener("blur", reset);
@@ -875,14 +1278,15 @@ export default function Map() {
           <span className="brand-safe">SAFE</span>
         </div>
       </header>
-
       <div ref={mapContainerRef} className="map-container" />
-
       <div className="controls">
         <div className="control-card">
           <div className="search-bar">
             <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+              <path
+                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                fill="currentColor"
+              />
             </svg>
             <input
               type="text"
@@ -896,35 +1300,126 @@ export default function Map() {
             <div className="rgb-row">
               <span className="label">Show Red</span>
               <label className="switch sm red">
-                <input type="checkbox" checked={showRedPins} onChange={(e) => setShowRedPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showRedPins}
+                  onChange={(e) => setShowRedPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Yellow</span>
               <label className="switch sm yellow">
-                <input type="checkbox" checked={showYellowPins} onChange={(e) => setShowYellowPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showYellowPins}
+                  onChange={(e) => setShowYellowPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
               <span className="label">Show Green</span>
               <label className="switch sm green">
-                <input type="checkbox" checked={showGreenPins} onChange={(e) => setShowGreenPins(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showGreenPins}
+                  onChange={(e) => setShowGreenPins(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
             <div className="rgb-row">
-              <span className="label">Show bad data</span>
+              <span className="label">Show unscored</span>
               <label className="switch sm">
-                <input type="checkbox" checked={showMissing} onChange={(e) => setShowMissing(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showMissing}
+                  onChange={(e) => setShowMissing(e.target.checked)}
+                />
                 <span />
               </label>
             </div>
           </div>
-        </div>
-      </div>
 
+          {/* Show more --> category filters */}
+          <div className="filters">
+            <button
+              type="button"
+              className={`filter-toggle ${filtersOpen ? "open" : ""}`}
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              Filter{" "}
+              <span className="chev" aria-hidden="true">
+                ▾
+              </span>
+            </button>
+
+            {filtersOpen && (
+              <div className="cat-filters">
+                <div className="filter-toolbar">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setCatToggles(buildInitialCatToggles())}
+                  >
+                    All on
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      const off = {};
+                      for (const [k, spec] of Object.entries(CATEGORY_SPECS)) {
+                        const subs = {};
+                        for (const p of spec.subs)
+                          subs[`${p.ft}:${p.st}`] = false;
+                        off[k] = { enabled: false, subs };
+                      }
+                      setCatToggles(off);
+                    }}
+                  >
+                    All off
+                  </button>
+                </div>
+                {Object.entries(CATEGORY_SPECS).map(([key, spec]) => (
+                  <div className="rgb-row" key={key}>
+                    <span className="label">
+                      <span
+                        className="cat-dot"
+                        style={{ background: CAT_COLORS[key] }}
+                      />
+                      {spec.label}
+                    </span>
+                    <label className="switch sm">
+                      <input
+                        type="checkbox"
+                        checked={!!catToggles[key]?.enabled}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setCatToggles((prev) => {
+                            const next = { ...prev };
+                            const subs = {};
+                            for (const p of spec.subs)
+                              subs[`${p.ft}:${p.st}`] = checked;
+                            next[key] = { enabled: checked, subs };
+                            return next;
+                          });
+                        }}
+                      />
+                      <span />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>{" "}
+        {/* .control-card */}
+      </div>{" "}
+      {/* .controls */}
       {fabHidden ? (
         <button
           className="fab-reopen"
@@ -946,7 +1441,9 @@ export default function Map() {
                 Loose
               </button>
               <button
-                className={preset === null || preset === "balanced" ? "active" : ""}
+                className={
+                  preset === null || preset === "balanced" ? "active" : ""
+                }
                 onClick={() => applyPreset("balanced")}
               >
                 Balanced
@@ -996,9 +1493,17 @@ export default function Map() {
                   );
                 }
                 if (v >= 50 && v % 5 === 0) {
-                  return <div key={`m-${v}`} className="tick minor" style={{ left }} />;
+                  return (
+                    <div
+                      key={`m-${v}`}
+                      className="tick minor"
+                      style={{ left }}
+                    />
+                  );
                 }
-                return <div key={`u-${v}`} className="tick micro" style={{ left }} />;
+                return (
+                  <div key={`u-${v}`} className="tick micro" style={{ left }} />
+                );
               })}
             </div>
 
@@ -1036,11 +1541,14 @@ export default function Map() {
           </div>
         </div>
       )}
-
       <div className={`bands ${bandsOpen ? "open" : ""}`}>
         <div className="bands-backdrop" />
         <div className="bands-sheet">
-          <button className="bands-close" aria-label="Close" onClick={() => setBandsOpen(false)}>
+          <button
+            className="bands-close"
+            aria-label="Close"
+            onClick={() => setBandsOpen(false)}
+          >
             ×
           </button>
           <div className="bands-header">
@@ -1070,17 +1578,27 @@ export default function Map() {
 
             <div className="ruler">
               {[25, 50, 75].map((v) => (
-                <div key={`M-${v}`} className="major-wrap" style={{ left: `${valueToPct(v)}%` }}>
+                <div
+                  key={`M-${v}`}
+                  className="major-wrap"
+                  style={{ left: `${valueToPct(v)}%` }}
+                >
                   <div className="tick major" />
                   <div className="tick-label">{v}</div>
                 </div>
               ))}
             </div>
 
-            <div className={`handle ${activeHandle === 0 ? "active" : ""}`} style={{ "--pos": `${pR}%` }}>
+            <div
+              className={`handle ${activeHandle === 0 ? "active" : ""}`}
+              style={{ "--pos": `${pR}%` }}
+            >
               <span className="label">{pins[0]}</span>
             </div>
-            <div className={`handle ${activeHandle === 1 ? "active" : ""}`} style={{ "--pos": `${pY}%` }}>
+            <div
+              className={`handle ${activeHandle === 1 ? "active" : ""}`}
+              style={{ "--pos": `${pY}%` }}
+            >
               <span className="label">{pins[1]}</span>
             </div>
           </div>
@@ -1112,7 +1630,6 @@ export default function Map() {
           </div>
         </div>
       </div>
-
       {selected && (
         <div
           className="info-drawer"
