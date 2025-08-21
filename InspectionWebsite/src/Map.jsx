@@ -1111,11 +1111,18 @@ export default function Map() {
   function applyFilter(map) {
     const exprs = bandExprs(pins);
     const term = searchTerm.trim().toLowerCase();
-    const searchExpr = term
-      ? [">=", ["index-of", term, ["downcase", ["get", "name"]]], 0]
-      : null;
 
-    // Category filter: allowed subtype pairs + optional 'unknown'
+    const haystack = [
+      "downcase",
+      [
+        "concat",
+        ["coalesce", ["get", "name"], ""], " ",
+        ["coalesce", ["get", "address_full"], ""], " ",
+        ["coalesce", ["get", "address"], ""]
+      ]
+    ];
+    const searchExpr = term ? [">=", ["index-of", term, haystack], 0] : null;
+
     const selectedPairs = [];
     for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
       if (key === "unknown") continue;
@@ -1137,12 +1144,8 @@ export default function Map() {
     const unknownExpr = ["==", ["get", "cat"], "unknown"];
     const catExpr =
       selectedPairs.length > 0
-        ? unknownOn
-          ? ["any", pairExpr, unknownExpr]
-          : pairExpr
-        : unknownOn
-          ? unknownExpr
-          : ["boolean", false];
+        ? (unknownOn ? ["any", pairExpr, unknownExpr] : pairExpr)
+        : (unknownOn ? unknownExpr : ["boolean", false]);
 
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
@@ -1153,14 +1156,14 @@ export default function Map() {
       if (key === "yellow" && !showYellowPins) visible = false;
       if (key === "green" && !showGreenPins) visible = false;
 
-      const fBase = ["all", exprs[key], catExpr];
-      const f = searchExpr ? ["all", ...fBase, searchExpr] : fBase;
+      const base = ["all", exprs[key], catExpr];
+      const f = searchExpr ? ["all", exprs[key], catExpr, searchExpr] : base;
 
       map.setFilter(id, visible ? f : hidden);
-      if (key === "green")
-        map.setPaintProperty(id, "circle-color", COLORS.green);
+      if (key === "green") map.setPaintProperty(id, "circle-color", COLORS.green);
     }
   }
+
 
   function dragStart(which, el, clientX, dx) {
     setPreset(null);
