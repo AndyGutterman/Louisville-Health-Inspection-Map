@@ -3,19 +3,15 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
+import InfoDrawer from "./InfoDrawer.jsx";
+import FilterSearch from "./FilterSearch.jsx";
+import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
+import { PIN_COLORS, CAT_COLORS} from "./Colors.jsx";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
 );
-
-const COLORS = {
-  red: "#ea4335",
-  yellow: "#fbbc05",
-  green: "#34a853",
-  zero: "#000000",
-  null: "#657786",
-};
 
 const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
 const MIN_ZOOM = 11;
@@ -25,6 +21,11 @@ const SCORE_MAX = 99; // slider max (green runs to 100; handle range is 1..99)
 const RED_CAP = 98;
 const YEL_CAP = 99;
 
+function clampPins([r, y]) {
+  r = Math.max(SCORE_MIN, Math.min(RED_CAP, Math.round(r)));
+  y = Math.max(r + 1, Math.min(YEL_CAP, Math.round(y)));
+  return [r, y];
+}
 const PRESETS = {
   loose: clampPins([75, 90]),
   balanced: clampPins([86, 94]),
@@ -32,36 +33,20 @@ const PRESETS = {
 };
 
 // --- Category filters: subtypes grouped under user-facing categories ---
-// Restaurants (Food Service) --> 605:11
-// Daycares --> 605:31
-// Hospitals / Nursing --> 605:32
-// Schools --> 605:33
-// Charity --> 605:36
-// Concessions --> 603:51, 603:53
-// Temporary & Mobile --> 604:16, 605:52, 610:73
-// Retail --> All 610 (61,62,63,64,65,73,212) + 607:(54,55) + 605:54
-// Caterers & Commissaries --> 605:(42,43)
-// Unknown / Unfiltered --> anything not matching above
 const CATEGORY_SPECS = {
   restaurants: { label: "Restaurants", subs: [{ ft: 605, st: 11 }] },
   daycare: { label: "Daycares", subs: [{ ft: 605, st: 31 }] },
   hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
   schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
-  charity: { label: "Charity", subs: [{ ft: 605, st: 36 }] },
-  concessions: {
-    label: "Concessions",
-    subs: [
-      { ft: 603, st: 51 },
-      { ft: 603, st: 53 },
-    ],
-  },
   temp_mobile: {
-    label: "Temporary & Mobile",
+    label: "Concessions & Mobile",
     subs: [
-      { ft: 604, st: 16 },
-      { ft: 605, st: 52 },
-      { ft: 610, st: 73 },
-    ],
+        { ft: 603, st: 51 },
+        { ft: 603, st: 53 },
+        { ft: 604, st: 16 },
+        { ft: 605, st: 52 },
+        { ft: 610, st: 73 },
+        ],
   },
   retail: {
     label: "Retail",
@@ -85,20 +70,7 @@ const CATEGORY_SPECS = {
       { ft: 605, st: 43 },
     ],
   },
-  unknown: { label: "Unknown / Unfiltered", subs: [] },
-};
-
-const CAT_COLORS = {
-  restaurants: "#ff9f43",
-  daycare: "#ff7eb3",
-  hospitals: "#4db0ff",
-  schools: "#c792ea",
-  charity: "#2ed5a2",
-  concessions: "#ffcd4d",
-  temp_mobile: "#5ad0ff",
-  retail: "#a3e635",
-  caterers_commissary: "#ff85a1",
-  unknown: "#94a3b8",
+  unknown: { label: "Other / Unknown", subs: [{ ft: 605, st: 36 }] },
 };
 
 function classifyCategory(ft, st) {
@@ -114,19 +86,13 @@ function buildInitialCatToggles() {
   for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
     const subs = {};
     for (const p of spec.subs) subs[`${p.ft}:${p.st}`] = true;
-    obj[key] = { enabled: true, subs }; // start checked
+    obj[key] = { enabled: true, subs };
   }
   return obj;
 }
 
 const EDGE_ZONE = 24;
 const SPURT_PX = 60;
-
-function clampPins([r, y]) {
-  r = Math.max(SCORE_MIN, Math.min(RED_CAP, Math.round(r)));
-  y = Math.max(r + 1, Math.min(YEL_CAP, Math.round(y)));
-  return [r, y];
-}
 
 function bandExprs([rMax, yMax]) {
   const GET = ["get", "score"];
@@ -155,278 +121,6 @@ function formatDateSafe(val) {
   } catch {
     return String(val);
   }
-}
-const displayField = (v) =>
-  v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
-
-function CurrentInspectionCard({ data, details }) {
-  if (!data) return null;
-  const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
-  const gradeDisplay =
-    grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
-  const scoreNum = typeof score === "number" ? score : null;
-  const badgeClass =
-    scoreNum != null && scoreNum >= 95
-      ? "ok"
-      : scoreNum != null && scoreNum >= 85
-        ? "warn"
-        : "bad";
-  const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
-
-  const items = details
-    ? [
-        { label: "Opening date", value: displayField(details.opening_date) },
-        { label: "Facility type", value: displayField(details.facility_type) },
-        { label: "Subtype", value: displayField(details.subtype) },
-        { label: "Permit number", value: displayField(details.permit_number) },
-      ]
-    : [];
-
-  const hasDetails = items.some((i) => i.value && i.value !== "—");
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <div
-      className={`inspect-card ${open ? "open" : ""}`}
-      onClick={() => setOpen((v) => !v)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") setOpen((v) => !v);
-      }}
-    >
-      {meta && (
-        <div className="inspect-meta" title={metaTitle || ""}>
-          {meta}
-        </div>
-      )}
-
-      <div className="inspect-card_header">
-        <div className="inspect-card_title">{name}</div>
-        <div className="inspect-card_sub">{address}</div>
-      </div>
-
-      <div className="inspect-card_stats">
-        <div className="inspect-stat">
-          <div className={`inspect-badge ${badgeClass}`}>{scoreText}</div>
-          <div className="inspect-stat_label">Score</div>
-        </div>
-
-        <div className="inspect-stat">
-          <div className="inspect-date">{inspectionDate}</div>
-          <div className="inspect-stat_label">Date</div>
-        </div>
-
-        <div className="inspect-stat">
-          <div
-            className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}
-          >
-            {gradeDisplay}
-          </div>
-          <div className="inspect-stat_label">Grade</div>
-        </div>
-      </div>
-
-      {hasDetails && (
-        <>
-          <div className="inspect-more-inline">
-            <span>More info</span>
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              className="chev"
-              aria-hidden="true"
-            >
-              <path
-                d="M7 10l5 5 5-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-          </div>
-
-          {open && (
-            <div className="inspect-details">
-              <div className="inspect-details-grid">
-                {items.map((it) => (
-                  <div className="detail-item" key={it.label}>
-                    <div className="detail-label">{it.label}</div>
-                    <div className="detail-value">{it.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function ViolationRow({ v }) {
-  const yn = String(v.critical_yn || "")
-    .trim()
-    .toLowerCase();
-  const isCrit =
-    yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
-  const title = v.violation_desc || "Violation";
-  const body = (v.insp_viol_comments || "").trim();
-  const [open, setOpen] = React.useState(false);
-  const maxLen = 240;
-  const hasMore = body.length > maxLen;
-  const shown = open || !hasMore ? body : body.slice(0, maxLen) + "…";
-
-  return (
-    <li className={`viol-card ${isCrit ? "crit" : ""}`}>
-      <div className="viol-rail" />
-      <div className="viol-body">
-        <div className="viol-header">
-          {isCrit && <span className="viol-chip crit">Critical</span>}
-          <span className="viol-title">{title}</span>
-        </div>
-
-        {shown && <div className="viol-text">{shown}</div>}
-
-        {hasMore && (
-          <button
-            className="viol-toggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen((x) => !x);
-            }}
-          >
-            {open ? "Show less" : "Read more"}
-          </button>
-        )}
-      </div>
-    </li>
-  );
-}
-
-function PastInspection({ row }) {
-  const date = formatDateSafe(row.inspection_date);
-  const gradeDisplay =
-    row.grade && String(row.grade).trim().length > 0
-      ? String(row.grade).trim()
-      : "—";
-  const scoreNum = typeof row.score === "number" ? row.score : null;
-  const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
-  const badgeClass =
-    scoreNum != null && scoreNum >= 95
-      ? "ok"
-      : scoreNum != null && scoreNum >= 85
-        ? "warn"
-        : "bad";
-
-  const rawViols = Array.isArray(row.violations) ? row.violations : [];
-  const isCrit = (v) => {
-    const yn = String(v.critical_yn || "")
-      .trim()
-      .toLowerCase();
-    return (
-      yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1"
-    );
-  };
-  const viols = [...rawViols].sort(
-    (a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0),
-  );
-
-  const [open, setOpen] = React.useState(false);
-  const showToggle = viols.length > 0;
-  const list = viols;
-  const anyCrit = viols.some(isCrit);
-
-  const listRef = useRef(null);
-  const [maxH, setMaxH] = useState(0);
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    setMaxH(open ? el.scrollHeight : 0);
-  }, [open, viols.length]);
-
-  return (
-    <div className="hist-item">
-      <div className="hist-head">
-        <div className="hist-left">
-          <div className={`hist-score ${badgeClass}`}>{scoreText}</div>
-          <div className="hist-meta">
-            <div className="hist-date">{date}</div>
-            <div className="hist-type">{row.ins_type_desc || "Inspection"}</div>
-          </div>
-        </div>
-
-        {viols.length > 0 && (
-          <button
-            type="button"
-            className={`viol-count ${anyCrit ? "crit" : ""} ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
-            onClick={showToggle ? () => setOpen((x) => !x) : undefined}
-            aria-expanded={open}
-            title={
-              showToggle
-                ? open
-                  ? "Collapse"
-                  : `Show all ${viols.length}`
-                : `${viols.length} violations`
-            }
-          >
-            {viols.length} {viols.length === 1 ? "violation" : "violations"}
-            {showToggle && (
-              <span className="chev" aria-hidden="true">
-                ▾
-              </span>
-            )}
-          </button>
-        )}
-
-        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>
-          {gradeDisplay}
-        </div>
-      </div>
-
-      {viols.length > 0 && (
-        <div className="viol-group">
-          <div className="viol-group-header" />
-          <div
-            className={`viol-collapse ${open ? "open" : ""}`}
-            style={{ maxHeight: maxH }}
-          >
-            <ul ref={listRef} className="viol-list">
-              {list.map((v) => (
-                <ViolationRow
-                  key={
-                    v.violation_oid ??
-                    `${row.inspection_id}-${v.violation_desc}`
-                  }
-                  v={v}
-                />
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function History({ rows }) {
-  if (!rows || rows.length === 0) return null;
-  return (
-    <div className="hist-wrap">
-      <div className="hist-title">Inspection History</div>
-      <div className="hist-list">
-        {rows.map((r) => (
-          <PastInspection
-            key={
-              r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`
-            }
-            row={r}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default function Map() {
@@ -460,19 +154,16 @@ export default function Map() {
 
   const [pins, setPins] = useState(PRESETS.balanced);
   const [preset, setPreset] = useState("balanced");
-
   const applyPreset = (name) => {
     const next = PRESETS[name];
     if (!next) return;
     setPins(next);
     setPreset(name);
   };
-
   const pinsRef = useRef(pins);
   useEffect(() => {
     pinsRef.current = pins;
   }, [pins]);
-
   useEffect(() => {
     const match = Object.entries(PRESETS).find(
       ([, v]) => v[0] === pins[0] && v[1] === pins[1],
@@ -500,7 +191,7 @@ export default function Map() {
 
   const suppressDocCloseRef = useRef(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     (async () => {
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
@@ -546,7 +237,7 @@ export default function Map() {
             console.error("facilities meta fetch error", facErr);
             break;
           }
-          for (const f of facRows || [])
+          for (const f of (facRows || []))
             metaById.set(f.establishment_id, {
               ft: f.facility_type,
               st: f.subtype,
@@ -631,7 +322,7 @@ export default function Map() {
       });
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!geoData || mapRef.current) return;
 
     const map = new maplibregl.Map({
@@ -675,7 +366,7 @@ export default function Map() {
           id: `points-${key}`,
           type: "circle",
           source: "facilities",
-          paint: { ...basePaint, "circle-color": COLORS[key] ?? COLORS.green },
+          paint: { ...basePaint, "circle-color": PIN_COLORS[key] ?? PIN_COLORS.green },
           filter: exprs[key],
         });
       }
@@ -684,11 +375,11 @@ export default function Map() {
 
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
-        if (score == null) return COLORS.null;
-        if (score === 0) return COLORS.zero;
-        if (score <= rMax) return COLORS.red;
-        if (score <= yMax) return COLORS.yellow;
-        return COLORS.green;
+        if (score == null) return PIN_COLORS.null;
+        if (score === 0) return PIN_COLORS.zero;
+        if (score <= rMax) return PIN_COLORS.red;
+        if (score <= yMax) return PIN_COLORS.yellow;
+        return PIN_COLORS.green;
       };
 
       const renderHTML = (p) => {
@@ -777,8 +468,7 @@ export default function Map() {
           const seen = new Set();
           const violations = [];
           for (const x of [...viaId, ...viaDate]) {
-            const k =
-              x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
+            const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
             if (!seen.has(k)) {
               seen.add(k);
               violations.push(x);
@@ -849,16 +539,13 @@ export default function Map() {
               .eq("facility_type", fac.facility_type)
               .eq("subtype", fac.subtype)
               .maybeSingle();
-            if (catErr)
-              console.error("facility_categories fetch error", catErr);
+            if (catErr) console.error("facility_categories fetch error", catErr);
             typeLabel = cat?.facility_type_description ?? typeLabel;
             subtypeLabel = cat?.subtype_description ?? subtypeLabel;
           }
 
           details = {
-            opening_date: fac?.opening_date
-              ? formatDateSafe(fac.opening_date)
-              : null,
+            opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
             facility_type: typeLabel,
             subtype: subtypeLabel,
             permit_number: fac?.permit_number ?? null,
@@ -883,8 +570,7 @@ export default function Map() {
       const wirePopupInteractions = (popup, feature) => {
         const root = popup.getElement();
         const tip = root?.querySelector(".maplibregl-popup-tip");
-        if (tip)
-          tip.style.borderTopColor = colorForScore(feature.properties.score);
+        if (tip) tip.style.borderTopColor = colorForScore(feature.properties.score);
 
         const content = root?.querySelector(".popup-content");
         if (content) {
@@ -950,20 +636,12 @@ export default function Map() {
           suppressDocCloseRef.current = true;
         });
         map.on("click", id, onClick);
-        map.on(
-          "mouseenter",
-          id,
-          () => (map.getCanvas().style.cursor = "pointer"),
-        );
+        map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
       }
 
-      map.on("dragstart", () => {
-        isDraggingRef.current = true;
-      });
-      map.on("dragend", () => {
-        isDraggingRef.current = false;
-      });
+      map.on("dragstart", () => { isDraggingRef.current = true; });
+      map.on("dragend", () => { isDraggingRef.current = false; });
 
       map.on("click", (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
@@ -999,8 +677,7 @@ export default function Map() {
         if (isDraggingRef.current) return;
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
-        if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target)))
-          return;
+        if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
         pinnedPopupRef.current?.remove();
@@ -1037,7 +714,7 @@ export default function Map() {
     };
   }, [geoData]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (mapRef.current) applyFilterWhenReady();
   }, [
     pins,
@@ -1049,7 +726,7 @@ export default function Map() {
     catToggles,
   ]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
     m.resize();
@@ -1057,14 +734,12 @@ export default function Map() {
     return () => clearTimeout(t);
   }, [bandsOpen]);
 
-  const [activeHandle, setActiveHandle] = useState(null);
-
-  useEffect(() => {
+  const [draggingPins, setDraggingPins] = useState(false);
+  React.useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    const dragging = activeHandle != null;
     const stopWheel = (e) => e.preventDefault();
-    if (dragging) {
+    if (draggingPins) {
       m.dragPan.disable();
       m.scrollZoom.disable();
       m.boxZoom.disable();
@@ -1080,33 +755,51 @@ export default function Map() {
       m.boxZoom.enable();
       m.keyboard.enable();
     };
-  }, [activeHandle]);
+  }, [draggingPins]);
 
-  const M_TRACK = 25;
-  const valueToPct = (v) => (v / SCORE_MAX) * 100;
-  const pctToValue = (pct) =>
-    Math.max(SCORE_MIN, Math.min(YEL_CAP, Math.round((pct / 100) * SCORE_MAX)));
-
-  const pxToValue = (x, el) => {
-    const r = el.getBoundingClientRect();
-    const L = r.left + M_TRACK,
-      R = r.right - M_TRACK;
-    const ratio = (x - L) / Math.max(1, R - L);
-    return pctToValue(Math.max(0, Math.min(1, ratio)) * 100);
+  const isInDeadzone = (x, y) => {
+    const M = 8;
+    const els = [
+      document.querySelector(".fab-scores"),
+      document.querySelector(".control-card"),
+    ].filter(Boolean);
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (x >= r.left - M && x <= r.right + M && y >= r.top - M && y <= r.bottom + M) return true;
+    }
+    return false;
   };
-  const valueToPx = (v, el) => {
-    const r = el.getBoundingClientRect();
-    const L = r.left + M_TRACK,
-      R = r.right - M_TRACK;
-    return L + ((R - L) * valueToPct(v)) / 100;
-  };
+  const spurtDisabled = () => !mapRef.current || bandsOpen || draggingPins;
 
-  const [rMax, yMax] = pins;
-  const pR = valueToPct(rMax),
-    pY = valueToPct(yMax);
-  const wRed = valueToPct(rMax),
-    wYellow = Math.max(0, valueToPct(yMax) - valueToPct(rMax)),
-    wGreen = Math.max(0, 100 - valueToPct(yMax));
+  React.useEffect(() => {
+    const onMove = (e) => {
+      let dx = 0, dy = 0;
+      if (e.clientX <= EDGE_ZONE) dx = -1;
+      else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
+      if (e.clientY <= EDGE_ZONE) dy = -1;
+      else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
+      const nearEdge = dx !== 0 || dy !== 0;
+      const active =
+        nearEdge &&
+        !spurtDisabled() &&
+        e.buttons === 0 &&
+        !isInDeadzone(e.clientX, e.clientY);
+      if (active && !inEdgeRef.current) {
+        mapRef.current.panBy([dx * 60, dy * 60], { duration: 240 });
+        inEdgeRef.current = true;
+      }
+      if (!active) inEdgeRef.current = false;
+    };
+    const reset = () => { inEdgeRef.current = false; };
+    document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("mouseleave", reset);
+    window.addEventListener("blur", reset);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", reset);
+      window.removeEventListener("blur", reset);
+    };
+  }, [bandsOpen, draggingPins]);
 
   function applyFilter(map) {
     const exprs = bandExprs(pins);
@@ -1160,117 +853,9 @@ export default function Map() {
       const f = searchExpr ? ["all", exprs[key], catExpr, searchExpr] : base;
 
       map.setFilter(id, visible ? f : hidden);
-      if (key === "green") map.setPaintProperty(id, "circle-color", COLORS.green);
+      if (key === "green") map.setPaintProperty(id, "circle-color", PIN_COLORS.green);
     }
   }
-
-
-  function dragStart(which, el, clientX, dx) {
-    setPreset(null);
-    dragRef.current = { which, el, dx };
-    if (typeof clientX === "number") dragMove(clientX + dx);
-    const move = (ev) => dragMove(ev.clientX + dragRef.current.dx);
-    const up = () => {
-      dragRef.current = { which: null, el: null, dx: 0 };
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-      setActiveHandle(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up, { once: true });
-    window.addEventListener("pointercancel", up, { once: true });
-  }
-
-  const dragRef = useRef({ which: null, el: null, dx: 0 });
-  function dragMove(clientX) {
-    const { which, el } = dragRef.current;
-    if (!el || which == null) return;
-    const v = pxToValue(clientX, el);
-    setPins(([r, y]) =>
-      clampPins(
-        which === 0 ? [Math.min(v, y - 1), y] : [r, Math.max(r + 1, v)],
-      ),
-    );
-  }
-
-  // edge panning spurts
-  const isInDeadzone = (x, y) => {
-    const M = 8;
-    const els = [
-      document.querySelector(".fab-scores"),
-      document.querySelector(".control-card"),
-    ].filter(Boolean);
-    for (const el of els) {
-      const r = el.getBoundingClientRect();
-      if (
-        x >= r.left - M &&
-        x <= r.right + M &&
-        y >= r.top - M &&
-        y <= r.bottom + M
-      )
-        return true;
-    }
-    return false;
-  };
-  const spurtDisabled = () =>
-    !mapRef.current || bandsOpen || activeHandle !== null;
-
-  useEffect(() => {
-    const onMove = (e) => {
-      let dx = 0,
-        dy = 0;
-      if (e.clientX <= EDGE_ZONE) dx = -1;
-      else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
-      if (e.clientY <= EDGE_ZONE) dy = -1;
-      else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
-      const nearEdge = dx !== 0 || dy !== 0;
-      const active =
-        nearEdge &&
-        !spurtDisabled() &&
-        e.buttons === 0 &&
-        !isInDeadzone(e.clientX, e.clientY);
-      if (active && !inEdgeRef.current) {
-        mapRef.current.panBy([dx * SPURT_PX, dy * SPURT_PX], { duration: 240 });
-        inEdgeRef.current = true;
-      }
-      if (!active) inEdgeRef.current = false;
-    };
-    const reset = () => {
-      inEdgeRef.current = false;
-    };
-    document.addEventListener("mousemove", onMove, { passive: true });
-    document.addEventListener("mouseleave", reset);
-    window.addEventListener("blur", reset);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseleave", reset);
-      window.removeEventListener("blur", reset);
-    };
-  }, [bandsOpen, activeHandle]);
-
-  useEffect(() => {
-    if (!bandsOpen) return;
-    const closeOnTap = (ev) => {
-      if (isDraggingRef.current) return;
-      const sheet = document.querySelector(".bands-sheet");
-      if (sheet && !sheet.contains(ev.target)) {
-        setBandsOpen(false);
-      }
-    };
-    document.addEventListener("click", closeOnTap, true);
-    return () => document.removeEventListener("click", closeOnTap, true);
-  }, [bandsOpen]);
-
-  // helpers to start drag from a track click, without jumping the handle
-  const startFromTrack = (e, which) => {
-    const el = e.currentTarget;
-    setActiveHandle(which);
-    const currentVal = which === 0 ? pinsRef.current[0] : pinsRef.current[1];
-    const cx = valueToPx(currentVal, el); // center of handle
-    const dx = cx - e.clientX; // preserves no-jump
-    dragStart(which, el, e.clientX, dx);
-  };
 
   return (
     <>
@@ -1281,415 +866,53 @@ export default function Map() {
           <span className="brand-safe">SAFE</span>
         </div>
       </header>
+
       <div ref={mapContainerRef} className="map-container" />
-      <div className="controls">
-        <div className="control-card">
-          <div className="search-bar">
-            <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-              <path
-                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
-                fill="currentColor"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
 
-          <div className="rgb-toggles">
-            <div className="rgb-row">
-              <span className="label">Show Red</span>
-              <label className="switch sm red">
-                <input
-                  type="checkbox"
-                  checked={showRedPins}
-                  onChange={(e) => setShowRedPins(e.target.checked)}
-                />
-                <span />
-              </label>
-            </div>
-            <div className="rgb-row">
-              <span className="label">Show Yellow</span>
-              <label className="switch sm yellow">
-                <input
-                  type="checkbox"
-                  checked={showYellowPins}
-                  onChange={(e) => setShowYellowPins(e.target.checked)}
-                />
-                <span />
-              </label>
-            </div>
-            <div className="rgb-row">
-              <span className="label">Show Green</span>
-              <label className="switch sm green">
-                <input
-                  type="checkbox"
-                  checked={showGreenPins}
-                  onChange={(e) => setShowGreenPins(e.target.checked)}
-                />
-                <span />
-              </label>
-            </div>
-            <div className="rgb-row">
-              <span className="label">Show unscored</span>
-              <label className="switch sm">
-                <input
-                  type="checkbox"
-                  checked={showMissing}
-                  onChange={(e) => setShowMissing(e.target.checked)}
-                />
-                <span />
-              </label>
-            </div>
-          </div>
-
-          {/* Show more --> category filters */}
-          <div className="filters">
-            <button
-              type="button"
-              className={`filter-toggle ${filtersOpen ? "open" : ""}`}
-              aria-expanded={filtersOpen}
-              onClick={() => setFiltersOpen((v) => !v)}
-            >
-              Filter{" "}
-              <span className="chev" aria-hidden="true">
-                ▾
-              </span>
-            </button>
-
-            {filtersOpen && (
-              <div className="cat-filters">
-                <div className="filter-toolbar">
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setCatToggles(buildInitialCatToggles())}
-                  >
-                    All on
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => {
-                      const off = {};
-                      for (const [k, spec] of Object.entries(CATEGORY_SPECS)) {
-                        const subs = {};
-                        for (const p of spec.subs)
-                          subs[`${p.ft}:${p.st}`] = false;
-                        off[k] = { enabled: false, subs };
-                      }
-                      setCatToggles(off);
-                    }}
-                  >
-                    All off
-                  </button>
-                </div>
-                {Object.entries(CATEGORY_SPECS).map(([key, spec]) => (
-                  <div className="rgb-row" key={key}>
-                    <span className="label">
-                      <span
-                        className="cat-dot"
-                        style={{ background: CAT_COLORS[key] }}
-                      />
-                      {spec.label}
-                    </span>
-                    <label className="switch sm">
-                      <input
-                        type="checkbox"
-                        checked={!!catToggles[key]?.enabled}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setCatToggles((prev) => {
-                            const next = { ...prev };
-                            const subs = {};
-                            for (const p of spec.subs)
-                              subs[`${p.ft}:${p.st}`] = checked;
-                            next[key] = { enabled: checked, subs };
-                            return next;
-                          });
-                        }}
-                      />
-                      <span />
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>{" "}
-        {/* .control-card */}
-      </div>{" "}
-      {/* .controls */}
-      {fabHidden ? (
-        <button
-          className="fab-reopen"
-          aria-label="Show score thresholds"
-          onClick={() => setFabHidden(false)}
-        >
-          Adjust Score Thresholds
-        </button>
-      ) : (
-        <div className="fab-scores" id="score-thresholds">
-          <div className="fab-row head">
-            <span className="fab-title">Score Thresholds</span>
-
-            <div className="presets">
-              <button
-                className={preset === "loose" ? "active" : ""}
-                onClick={() => applyPreset("loose")}
-              >
-                Loose
-              </button>
-              <button
-                className={
-                  preset === null || preset === "balanced" ? "active" : ""
-                }
-                onClick={() => applyPreset("balanced")}
-              >
-                Balanced
-              </button>
-              <button
-                className={preset === "strict" ? "active" : ""}
-                onClick={() => applyPreset("strict")}
-              >
-                Strict
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="fab-hide"
-              aria-expanded={!fabHidden}
-              aria-controls="score-thresholds"
-              onClick={() => setFabHidden(true)}
-            >
-              Hide
-            </button>
-          </div>
-
-          <div
-            className={`track compact ${activeHandle != null ? "dragging" : ""}`}
-            onPointerDown={(e) => {
-              const el = e.currentTarget;
-              const v = pxToValue(e.clientX, el);
-              const [r, y] = pinsRef.current;
-              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
-              startFromTrack(e, which);
-            }}
-          >
-            <div className="seg red" style={{ width: `${wRed}%` }} />
-            <div className="seg yellow" style={{ width: `${wYellow}%` }} />
-            <div className="seg green" style={{ width: `${wGreen}%` }} />
-
-            <div className="ruler">
-              {Array.from({ length: 100 }, (_, i) => i + 1).map((v) => {
-                const left = `${Math.min(100, valueToPct(Math.min(v, SCORE_MAX)))}%`;
-                if (v % 10 === 0) {
-                  return (
-                    <div key={`M-${v}`} className="major-wrap" style={{ left }}>
-                      <div className="tick major" />
-                      <div className="tick-label">{v}</div>
-                    </div>
-                  );
-                }
-                if (v >= 50 && v % 5 === 0) {
-                  return (
-                    <div
-                      key={`m-${v}`}
-                      className="tick minor"
-                      style={{ left }}
-                    />
-                  );
-                }
-                return (
-                  <div key={`u-${v}`} className="tick micro" style={{ left }} />
-                );
-              })}
-            </div>
-
-            <div
-              className={`handle ${activeHandle === 0 ? "active" : ""}`}
-              style={{ "--pos": `${pR}%` }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setActiveHandle(0);
-                const rect = e.currentTarget.getBoundingClientRect();
-                const mid = (rect.left + rect.right) / 2;
-                const dx = mid - e.clientX; // no jump
-                dragStart(0, e.currentTarget.parentElement, e.clientX, dx);
-              }}
-            >
-              <span className="label">{pins[0]}</span>
-            </div>
-
-            <div
-              className={`handle ${activeHandle === 1 ? "active" : ""}`}
-              style={{ "--pos": `${pY}%` }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setActiveHandle(1);
-                const rect = e.currentTarget.getBoundingClientRect();
-                const mid = (rect.left + rect.right) / 2;
-                const dx = mid - e.clientX; // no jump
-                dragStart(1, e.currentTarget.parentElement, e.clientX, dx);
-              }}
-            >
-              <span className="label">{pins[1]}</span>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className={`bands ${bandsOpen ? "open" : ""}`}>
-        <div className="bands-backdrop" />
-        <div className="bands-sheet">
-          <button
-            className="bands-close"
-            aria-label="Close"
-            onClick={() => setBandsOpen(false)}
-          >
-            ×
-          </button>
-          <div className="bands-header">
-            <div className="grab" />
-            <div className="title">Score bands</div>
-          </div>
-
-          <div className="presets">
-            <button onClick={() => setPins(PRESETS.loose)}>Loose</button>
-            <button onClick={() => setPins(PRESETS.balanced)}>Balanced</button>
-            <button onClick={() => setPins(PRESETS.strict)}>Strict</button>
-          </div>
-
-          <div
-            className={`track ${activeHandle != null ? "dragging" : ""}`}
-            onPointerDown={(e) => {
-              const el = e.currentTarget;
-              const v = pxToValue(e.clientX, el);
-              const [r, y] = pinsRef.current;
-              const which = Math.abs(v - r) <= Math.abs(v - y) ? 0 : 1;
-              startFromTrack(e, which);
-            }}
-          >
-            <div className="seg red" style={{ width: `${wRed}%` }} />
-            <div className="seg yellow" style={{ width: `${wYellow}%` }} />
-            <div className="seg green" style={{ width: `${wGreen}%` }} />
-
-            <div className="ruler">
-              {[25, 50, 75].map((v) => (
-                <div
-                  key={`M-${v}`}
-                  className="major-wrap"
-                  style={{ left: `${valueToPct(v)}%` }}
-                >
-                  <div className="tick major" />
-                  <div className="tick-label">{v}</div>
-                </div>
-              ))}
-            </div>
-
-            <div
-              className={`handle ${activeHandle === 0 ? "active" : ""}`}
-              style={{ "--pos": `${pR}%` }}
-            >
-              <span className="label">{pins[0]}</span>
-            </div>
-            <div
-              className={`handle ${activeHandle === 1 ? "active" : ""}`}
-              style={{ "--pos": `${pY}%` }}
-            >
-              <span className="label">{pins[1]}</span>
-            </div>
-          </div>
-
-          <div className="legend">
-            <div>
-              <span className="sw" style={{ background: COLORS.red }} />
-              {`1–${pins[0]}`}
-            </div>
-            <div>
-              <span className="sw" style={{ background: COLORS.yellow }} />
-              {`${pins[0] + 1}–${pins[1]}`}
-            </div>
-            <div>
-              <span className="sw" style={{ background: "#0f9d58" }} />
-              {`${pins[1] + 1}–100`}
-            </div>
-          </div>
-
-          <div className="toggles">
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={showMissing}
-                onChange={(e) => setShowMissing(e.target.checked)}
-              />
-              <span />
-            </label>
-          </div>
-        </div>
-      </div>
-      {selected && (
-        <div
-          className="info-drawer"
-          style={{
-            position: "fixed",
-            right: 16,
-            top: "calc(var(--header-h) + 10px)",
-            bottom: 16,
-            width: "min(520px,92vw)",
-            background: "rgba(24,24,24,0.96)",
-            backdropFilter: "blur(6px)",
-            color: "#fff",
-            zIndex: 5,
-            borderRadius: 12,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
-          <button
-            className="info-close"
-            onClick={() => {
-              setSelected(null);
-              setHistory(null);
-              setHistoryFor(null);
-              setFacDetails(null);
-              setFacDetailsFor(null);
-              setDrawerLoading(false);
-              loadSeqRef.current++;
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
-          <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
-
-          <CurrentInspectionCard
-            data={
-              selected && {
-                name: selected.name,
-                address: selected.address,
-                inspectionDate: selected.inspectionDate,
-                score: selected.score,
-                grade: selected.grade,
-                meta: selected.meta,
-                metaTitle: selected.metaTitle,
-              }
-            }
-            details={facDetails}
+      <FilterSearch
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        showRedPins={showRedPins}
+        setShowRedPins={setShowRedPins}
+        showYellowPins={showYellowPins}
+        setShowYellowPins={setShowYellowPins}
+        showGreenPins={showGreenPins}
+        setShowGreenPins={setShowGreenPins}
+        showMissing={showMissing}
+        setShowMissing={setShowMissing}
+        filtersOpen={filtersOpen}
+        setFiltersOpen={setFiltersOpen}
+        catToggles={catToggles}
+        setCatToggles={setCatToggles}
+        CATEGORY_SPECS={CATEGORY_SPECS}
+        CAT_COLORS={CAT_COLORS}
+        buildInitialCatToggles={buildInitialCatToggles}
+        onAdjustClick={() => {}}
+        adjustContent={
+          <ScoreThresholdInline
+            pins={pins}
+            setPins={setPins}
+            preset={preset}
+            applyPreset={applyPreset}
           />
+        }
+      />
 
-          <div className="inspect-card_spacer" />
-
-          {history && <History rows={history} />}
-        </div>
-      )}
+      <InfoDrawer
+        selected={selected}
+        drawerLoading={drawerLoading}
+        history={history}
+        facDetails={facDetails}
+        onClose={() => {
+          setSelected(null);
+          setHistory(null);
+          setHistoryFor(null);
+          setFacDetails(null);
+          setFacDetailsFor(null);
+          setDrawerLoading(false);
+          loadSeqRef.current++;
+        }}
+      />
     </>
   );
 }
