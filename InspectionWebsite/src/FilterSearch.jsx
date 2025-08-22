@@ -24,56 +24,18 @@ function useMedia(query) {
   return match;
 }
 
-function CompactSwitch({ checked, onChange, color }) {
-  const W = 44, H = 24, PAD = 3, KNOB = H - PAD * 2;
-  const x = checked ? W - PAD - KNOB : PAD;
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      style={{
-        position: "relative",
-        width: W,
-        height: H,
-        borderRadius: H / 2,
-        background: checked ? color : "rgba(255,255,255,0.14)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        cursor: "pointer",
-        display: "inline-block",
-        padding: 0,
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          left: x,
-          top: PAD,
-          width: KNOB,
-          height: KNOB,
-          borderRadius: KNOB / 2,
-          background: "#0e0e10",
-          boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.6)",
-        }}
-      />
-    </button>
-  );
-}
-
 function Icon({ k, active }) {
   const stroke = active ? "var(--tile-accent, #5aa8ff)" : "rgba(255,255,255,.45)";
-  const fill   = active ? "var(--tile-accent, #5aa8ff)" : "rgba(255,255,255,.35)";
+  const fill = active ? "var(--tile-accent, #5aa8ff)" : "rgba(255,255,255,.35)";
   const common = { width: 26, height: 26, viewBox: "0 0 24 24", "aria-hidden": true };
-
   switch (k) {
     case "restaurants":
-    return (
+      return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 4v5M9 4v5M8 4v14" />
-        <path d="M16 4c0 2-2 3-2 5v9" />
+          <path d="M7 4v5M9 4v5M8 4v14" />
+          <path d="M16 4c0 2-2 3-2 5v9" />
         </svg>
-    );
+      );
     case "daycare":
       return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -98,15 +60,15 @@ function Icon({ k, active }) {
         </svg>
       );
     case "concessions":
-    return (
+      return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 9h8l-1.2 8H9.2z" />
-        <path d="M10 10v7M12 10v7M14 10v7" />
-        <circle cx="10" cy="8.4" r="1" fill={active ? fill : "transparent"} />
-        <circle cx="12.6" cy="7.9" r="1" fill={active ? fill : "transparent"} />
-        <circle cx="15" cy="8.6" r="1" fill={active ? fill : "transparent"} />
+          <path d="M8 9h8l-1.2 8H9.2z" />
+          <path d="M10 10v7M12 10v7M14 10v7" />
+          <circle cx="10" cy="8.4" r="1" fill={active ? fill : "transparent"} />
+          <circle cx="12.6" cy="7.9" r="1" fill={active ? fill : "transparent"} />
+          <circle cx="15" cy="8.6" r="1" fill={active ? fill : "transparent"} />
         </svg>
-    );
+      );
     case "retail":
       return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -123,7 +85,7 @@ function Icon({ k, active }) {
           <path d="M12 7v-2" />
         </svg>
       );
-    default: // unknown
+    default:
       return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="9" />
@@ -156,6 +118,7 @@ export default function FilterSearch({
   adjustContent,
 }) {
   const [tab, setTab] = React.useState("adjust");
+  const [collapsed, setCollapsed] = React.useState(false);
   const isDesktop = useMedia("(min-width: 900px)");
 
   React.useEffect(() => {
@@ -200,130 +163,148 @@ export default function FilterSearch({
   return (
     <div className="controls">
       <div
-        className="control-card"
+        className={`control-card ${collapsed ? "collapsed" : ""}`}
         style={
           isDesktop
-            ? { width: "clamp(320px, 32vw, 520px)", maxWidth: "calc(100vw - 32px)" }
+            ? { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
             : { maxWidth: "calc(100vw - 24px)" }
         }
       >
-        <div className="search-bar" style={{ width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-          <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-            <path
-              d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 A6.5 6.5 0 1 0 9.5 16 c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
-              fill="currentColor"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by name"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: "100%" }}
-          />
-        </div>
+        <div className="search-row">
+          <div className="search-bar">
+            <button
+              type="button"
+              className="menu-btn"
+              aria-label={collapsed ? "Expand controls" : "Collapse controls"}
+              onClick={() => setCollapsed((v) => !v)}
+              title={collapsed ? "Expand" : "Collapse"}
+            >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+            <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            </button>
 
-        <div className="rgb-toggles">
-          <div className="rgb-row">
-            <span className="label">Show Red</span>
-            <label className="switch sm red">
-              <input type="checkbox" checked={showRedPins} onChange={(e) => setShowRedPins(e.target.checked)} />
-              <span />
-            </label>
-          </div>
-          <div className="rgb-row">
-            <span className="label">Show Yellow</span>
-            <label className="switch sm yellow">
-              <input type="checkbox" checked={showYellowPins} onChange={(e) => setShowYellowPins(e.target.checked)} />
-              <span />
-            </label>
-          </div>
-          <div className="rgb-row">
-            <span className="label">Show Green</span>
-            <label className="switch sm green">
-              <input type="checkbox" checked={showGreenPins} onChange={(e) => setShowGreenPins(e.target.checked)} />
-              <span />
-            </label>
-          </div>
-          <div className="rgb-row">
-            <span className="label">Show unscored</span>
-            <label className="switch sm">
-              <input type="checkbox" checked={showMissing} onChange={(e) => setShowMissing(e.target.checked)} />
-              <span />
-            </label>
+            <div className="search-wrap">
+              <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                  fill="currentColor"
+                />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="filters">
-          <Tabs.Root
-            className="rx-tabs"
-            value={tab}
-            onValueChange={(v) => {
-              setTab(v);
-              if (v === "adjust") onAdjustClick?.();
-            }}
-          >
-            <Tabs.List className="rx-tabs-list" aria-label="Adjust or Filter">
-              <Tabs.Trigger className="rx-tab" value="adjust">Adjust</Tabs.Trigger>
-              <Tabs.Trigger className="rx-tab" value="filter">Filter</Tabs.Trigger>
-            </Tabs.List>
-
-            <Tabs.Content className="rx-tab-content" value="adjust">
-              {adjustContent ?? null}
-            </Tabs.Content>
-
-            <Tabs.Content className="rx-tab-content" value="filter">
-              <div className="cat-filters" aria-label="Filters">
-                <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
-                  <div className="seg-toggle" role="radiogroup" aria-label="Toggle all categories" style={{ margin: "0 auto" }}>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={allOff}
-                      className={`seg-option ${allOff ? "checked" : ""}`}
-                      onClick={handleAllOff}
-                    >
-                      All off
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={allOn}
-                      className={`seg-option ${allOn ? "checked" : ""}`}
-                      onClick={handleAllOn}
-                    >
-                      All on
-                    </button>
-                  </div>
-                </div>
-
-                {/* icon tile grid */}
-                <div className="cat-grid">
-                  {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
-                    const enabled = !!catToggles[key]?.enabled;
-                    const label = shortLabel(spec.label);
-                    const accent = "#BAA7FF";
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className="cat-tile"
-                        data-checked={enabled}
-                        aria-pressed={enabled}
-                        onClick={() => toggleCategory(key, spec, !enabled)}
-                        title={spec.label}
-                        style={{ ["--tile-accent"]: accent }}
-                      >
-                        <span className="cat-icon"><Icon k={key} active={enabled} /></span>
-                        <span className="cat-label">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+        {!collapsed && (
+          <>
+            <div className="rgb-toggles">
+              <div className="rgb-row">
+                <span className="label">Show Red</span>
+                <label className="switch sm red">
+                  <input type="checkbox" checked={showRedPins} onChange={(e) => setShowRedPins(e.target.checked)} />
+                  <span />
+                </label>
               </div>
-            </Tabs.Content>
-          </Tabs.Root>
-        </div>
+              <div className="rgb-row">
+                <span className="label">Show Yellow</span>
+                <label className="switch sm yellow">
+                  <input type="checkbox" checked={showYellowPins} onChange={(e) => setShowYellowPins(e.target.checked)} />
+                  <span />
+                </label>
+              </div>
+              <div className="rgb-row">
+                <span className="label">Show Green</span>
+                <label className="switch sm green">
+                  <input type="checkbox" checked={showGreenPins} onChange={(e) => setShowGreenPins(e.target.checked)} />
+                  <span />
+                </label>
+              </div>
+              <div className="rgb-row">
+                <span className="label">Show unscored</span>
+                <label className="switch sm">
+                  <input type="checkbox" checked={showMissing} onChange={(e) => setShowMissing(e.target.checked)} />
+                  <span />
+                </label>
+              </div>
+            </div>
+
+            <div className="filters">
+              <Tabs.Root
+                className="rx-tabs"
+                value={tab}
+                onValueChange={(v) => {
+                  setTab(v);
+                  if (v === "adjust") onAdjustClick?.();
+                }}
+              >
+                <Tabs.List className="rx-tabs-list" aria-label="Adjust or Filter">
+                  <Tabs.Trigger className="rx-tab" value="adjust">Adjust</Tabs.Trigger>
+                  <Tabs.Trigger className="rx-tab" value="filter">Filter</Tabs.Trigger>
+                </Tabs.List>
+
+                <Tabs.Content className="rx-tab-content" value="adjust">
+                  {adjustContent ?? null}
+                </Tabs.Content>
+
+                <Tabs.Content className="rx-tab-content" value="filter">
+                  <div className="cat-filters" aria-label="Filters">
+                    <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
+                      <div className="seg-toggle" role="radiogroup" aria-label="Toggle all categories" style={{ margin: "0 auto" }}>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={allOff}
+                          className={`seg-option ${allOff ? "checked" : ""}`}
+                          onClick={handleAllOff}
+                        >
+                          All off
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={allOn}
+                          className={`seg-option ${allOn ? "checked" : ""}`}
+                          onClick={handleAllOn}
+                        >
+                          All on
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="cat-grid">
+                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
+                        const enabled = !!catToggles[key]?.enabled;
+                        const label = shortLabel(spec.label);
+                        const accent = "#BAA7FF";
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className="cat-tile"
+                            data-checked={enabled}
+                            aria-pressed={enabled}
+                            onClick={() => toggleCategory(key, spec, !enabled)}
+                            title={spec.label}
+                            style={{ "--tile-accent": accent }}
+                          >
+                            <span className="cat-icon"><Icon k={key} active={enabled} /></span>
+                            <span className="cat-label">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Tabs.Content>
+              </Tabs.Root>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
