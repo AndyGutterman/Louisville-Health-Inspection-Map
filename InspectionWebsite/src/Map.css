@@ -1467,6 +1467,14 @@
   overflow: hidden;
 }
 
+.rx-tabs .rx-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+
 /* Top tab bar */
 .rx-tabs-list {
   display: flex;
@@ -1664,3 +1672,85 @@
 .wb2-track.red .wb2-handle { background: #eee; }
 .wb2-track.yellow .wb2-handle { background: #ffeaa8; }
 .wb2-track.green .wb2-handle { background: #d8ffd8; }
+
+/* Center labels inside Radix tab triggers */
+.rx-tabs .rx-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Filter panel – cleaner rows and right-aligned switches */
+.cat-filters { display: flex; flex-direction: column; gap: 10px; }
+.rgb-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.rgb-row .switch.sm { margin-left: auto; }
+
+/* (Optional) slightly tighten vertical rhythm inside the filter card */
+.cat-filters .rgb-row { min-height: 32px; }
+
+/* --- Compact category grid --- */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.cat-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 8px;
+  min-height: 72px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #e9eaee;
+  font-weight: 700;
+  line-height: 1.1;
+  user-select: none;
+}
+
+.cat-tile:hover { background: rgba(255,255,255,.09); }
+.cat-tile:focus-visible { outline: 2px solid rgba(255,255,255,.28); }
+
+.cat-tile[data-checked="true"] {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.22);
+}
+
+.cat-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+}
+
+.cat-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+}
+
+.cat-tile[data-checked="true"] .cat-check { opacity: 1; }
+
+.cat-label {
+  font-size: .86rem;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .cat-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+  .cat-tile { min-height: 64px; border-radius: 10px; }
+  .cat-label { font-size: .82rem; }
+}

@@ -190,11 +190,16 @@ function PastInspection({ row }) {
 
   const listRef = useRef(null);
   const [maxH, setMaxH] = useState(0);
-  useEffect(() => {
+    useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    setMaxH(open ? el.scrollHeight : 0);
-  }, [open, viols.length]);
+    const ro = new ResizeObserver(() => {
+        setMaxH(open ? el.scrollHeight : 0);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    }, [open]);
+
 
   return (
     <div className="hist-item">
