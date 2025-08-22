@@ -35,9 +35,9 @@ const PRESETS = {
 // --- Category filters: subtypes grouped under user-facing categories ---
 const CATEGORY_SPECS = {
   restaurants: { label: "Restaurants", subs: [{ ft: 605, st: 11 }] },
-  daycare: { label: "Daycares", subs: [{ ft: 605, st: 31 }] },
-  hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
   schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
+  daycare: { label: "Daycare", subs: [{ ft: 605, st: 31 }] },
+  hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
   concessions: {
     label: "Concessions",
     subs: [
@@ -46,13 +46,12 @@ const CATEGORY_SPECS = {
 
         ],
   },
-  mobile: {
-     label: "Mobile",
+  caterers_commissary: {
+    label: "Caterers & Commissaries",
     subs: [
-        { ft: 604, st: 16 },
-        { ft: 605, st: 52 },
-        { ft: 610, st: 73 },
-    ]
+      { ft: 605, st: 42 },
+      { ft: 605, st: 43 },
+    ],
   },
   retail: {
     label: "Retail",
@@ -69,14 +68,10 @@ const CATEGORY_SPECS = {
       { ft: 605, st: 54 },
     ],
   },
-  caterers_commissary: {
-    label: "Caterers & Commissaries",
-    subs: [
-      { ft: 605, st: 42 },
-      { ft: 605, st: 43 },
-    ],
-  },
-  unknown: { label: "Other / Unknown", subs: [{ ft: 605, st: 36 }] },
+  unknown: { label: "Other / Unknown", subs: [{ ft: 605, st: 36 },        
+        { ft: 604, st: 16 },
+        { ft: 605, st: 52 },
+        { ft: 610, st: 73 },] },
 };
 
 function classifyCategory(ft, st) {

@@ -74,9 +74,6 @@ function Icon({ k, active }) {
         <path d="M16 4c0 2-2 3-2 5v9" />
         </svg>
     );
-
-
-
     case "daycare":
       return (
         <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -108,21 +105,6 @@ function Icon({ k, active }) {
         <circle cx="10" cy="8.4" r="1" fill={active ? fill : "transparent"} />
         <circle cx="12.6" cy="7.9" r="1" fill={active ? fill : "transparent"} />
         <circle cx="15" cy="8.6" r="1" fill={active ? fill : "transparent"} />
-        </svg>
-    );
-    case "mobile":
-    return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        {/* body */}
-        <rect x="3" y="10" width="13" height="7" rx="2" />
-        {/* cab */}
-        <path d="M16 12h3v5h-4" />
-        {/* window + small awning */}
-        <rect x="6" y="11" width="6" height="3" rx="1" />
-        <path d="M6 11l1-2h6l1 2" />
-        {/* wheels */}
-        <circle cx="8" cy="18" r="2" fill={active ? fill : "transparent"} />
-        <circle cx="16" cy="18" r="2" fill={active ? fill : "transparent"} />
         </svg>
     );
     case "retail":
@@ -202,7 +184,7 @@ export default function FilterSearch({
 
   const shortLabel = (label) => {
     if (/Hospitals/i.test(label)) return "Healthcare";
-    if (/Caterers/i.test(label)) return "Caterers";
+    if (/Caterers/i.test(label)) return "Kitchens";
     if (/Other/i.test(label)) return "Other";
     return label;
   };
