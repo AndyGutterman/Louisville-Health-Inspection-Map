@@ -27,8 +27,8 @@ function clampPins([r, y]) {
   return [r, y];
 }
 const PRESETS = {
-  loose: clampPins([75, 90]),
-  balanced: clampPins([86, 94]),
+  loose: clampPins([75, 89]),
+  balanced: clampPins([85, 94]),
   strict: clampPins([90, 96]),
 };
 
@@ -38,15 +38,21 @@ const CATEGORY_SPECS = {
   daycare: { label: "Daycares", subs: [{ ft: 605, st: 31 }] },
   hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
   schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
-  temp_mobile: {
-    label: "Concessions & Mobile",
+  concessions: {
+    label: "Concessions",
     subs: [
         { ft: 603, st: 51 },
         { ft: 603, st: 53 },
+
+        ],
+  },
+  mobile: {
+     label: "Mobile",
+    subs: [
         { ft: 604, st: 16 },
         { ft: 605, st: 52 },
         { ft: 610, st: 73 },
-        ],
+    ]
   },
   retail: {
     label: "Retail",
@@ -762,6 +768,7 @@ export default function Map() {
     const els = [
       document.querySelector(".fab-scores"),
       document.querySelector(".control-card"),
+      document.querySelector(".app-header"),
     ].filter(Boolean);
     for (const el of els) {
       const r = el.getBoundingClientRect();
