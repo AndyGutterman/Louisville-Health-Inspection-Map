@@ -680,6 +680,7 @@ export default function Map() {
         const p2 = hoverPopupRef.current?.getElement();
         if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
         if (document.querySelector(".bands.open")) return;
+        if (document.querySelector(".control-card")?.contains(ev.target)) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
         pinnedPopupRef.current?.remove();
         pinnedPopupRef.current = null;
