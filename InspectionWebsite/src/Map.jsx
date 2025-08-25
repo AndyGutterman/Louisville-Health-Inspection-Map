@@ -134,6 +134,20 @@ export default function Map() {
   const pinnedFeatureRef = useRef(null);
   const docCloseHandlerRef = useRef(null);
   const isDraggingRef = useRef(false);
+  useEffect(() => {
+    const headerEl =
+      document.querySelector(".app-header, .site-header, header") || null;
+
+    const setVar = () => {
+      const h = headerEl ? Math.round(headerEl.getBoundingClientRect().height) : 72;
+    document.documentElement.style.setProperty("--mobile-header-h", `${h}px`);   
+    document.documentElement.style.setProperty("--header-h", `${h}px`);
+    };
+
+    setVar();
+    window.addEventListener("resize", setVar);
+    return () => window.removeEventListener("resize", setVar);
+  }, []);
 
   const [geoData, setGeoData] = useState(null);
 
@@ -863,12 +877,32 @@ export default function Map() {
   return (
     <>
       <header className="app-header">
+        <div className="header-inner">
+        <div className="header-search">
+          <div className="search-wrap">
+            <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+              <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="brand">
           <span className="brand-louisville">LOUISVILLE</span>
           <span className="brand-food">FOOD</span>
           <span className="brand-safe">SAFE</span>
         </div>
+
+        <div aria-hidden />
+      </div>
+
       </header>
+
 
       <div ref={mapContainerRef} className="map-container" />
 
