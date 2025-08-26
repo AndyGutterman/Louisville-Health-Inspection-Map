@@ -1,0 +1,357 @@
+/* Tabs shell */
+.rx-tabs {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.rx-tabs-list {
+  display: flex;
+  background: rgba(0, 0, 0, .18);
+  border-bottom: 1px solid rgba(255, 255, 255, .10);
+}
+
+.rx-tab {
+  all: unset;
+  padding: 10px 14px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: rgba(255, 255, 255, .9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1 1 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.rx-tab[data-state="active"] {
+  background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, .20);
+  color: #fff;
+}
+
+.rx-tab-content {
+  padding: 12px;
+}
+
+/* Adjust presets & sliders */
+.wb2-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.wb2-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  line-height: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+  font-weight: 800;
+  font-size: .86rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.wb2-pill.active {
+  background: rgba(255, 255, 255, .18);
+  border-color: rgba(255, 255, 255, .28);
+}
+
+.wb2-left,
+.wb2-right {
+  font-variant-numeric: tabular-nums;
+  font-size: .98rem;
+}
+
+.wb2-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb2-track {
+  position: relative;
+  height: 24px;
+  border-radius: 12px;
+}
+
+.wb2-rail {
+  position: absolute;
+  inset: 0;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .22);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.wb2-fill {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 10px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.wb2-fill.red {
+  background: #ea4335;
+  opacity: .6;
+}
+
+.wb2-fill.yellow {
+  background: #fbbc05;
+  opacity: .65;
+}
+
+.wb2-fill.green {
+  background: #34a853;
+  opacity: .6;
+}
+
+.wb2-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ddd;
+  border: 2px solid #000;
+  z-index: 2;
+  cursor: grab;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.wb2-handle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .28);
+}
+
+.wb2-handle.active {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .18);
+  cursor: grabbing;
+}
+
+.wb2-thumb {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.wb2-track.red .wb2-handle {
+  background: #eee;
+}
+
+.wb2-track.yellow .wb2-handle {
+  background: #ffeaa8;
+}
+
+.wb2-track.green .wb2-handle {
+  background: #d8ffd8;
+}
+
+/* Filter panel */
+.cat-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+.filter-panel-header {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-weight: 700;
+  color: #e9eaee;
+  margin-bottom: 8px;
+}
+
+.seg-toggle {
+  display: inline-flex;
+  justify-content: center;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 8px;
+  padding: 6px;
+}
+
+.seg-option {
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: #e8eaed;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.seg-option.checked {
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+}
+
+.seg-option:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .28);
+}
+
+.cat-dot {
+  display: none !important;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  margin-right: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35);
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.cat-tile {
+  position: relative;
+  text-align: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #e9eaee;
+  font-weight: 700;
+  line-height: 1.1;
+  user-select: none;
+  height: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.cat-tile:hover {
+  background: rgba(255, 255, 255, .09);
+}
+
+.cat-tile:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .28);
+}
+
+.cat-tile[data-checked="true"] {
+  background: rgba(255, 255, 255, .14);
+  border-color: rgba(255, 255, 255, .22);
+}
+
+.cat-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.cat-label {
+  font-size: .86rem;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* Responsive bits */
+@media (max-width:560px) {
+  .wb2-presets {
+    grid-template-columns: 1fr;
+  }
+
+  .wb2-pill {
+    width: 100%;
+    font-size: .94rem;
+    padding: 10px 12px;
+  }
+
+  .wb2-row {
+    grid-template-columns: 36px 1fr 42px;
+  }
+
+  .wb2-track {
+    height: 28px;
+  }
+
+  .wb2-rail,
+  .wb2-fill {
+    height: 12px;
+  }
+
+  .wb2-handle {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (max-width:600px) {
+  .cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .cat-tile {
+    min-height: 62px;
+    border-radius: 10px;
+    height: 76px;
+  }
+
+  .cat-label {
+    font-size: .82rem;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .cat-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (min-width: 601px) {
+  .cat-grid> :last-child:nth-child(3n+1) {
+    grid-column: 2;
+  }
+
+  .cat-grid> :nth-last-child(2):nth-child(3n+1) {
+    grid-column: 2;
+  }
+
+  .cat-grid> :last-child:nth-child(3n+2) {
+    grid-column: 3;
+  }
+}
+
+@media (min-width: 430px) and (max-width: 900px) {
+  .cat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

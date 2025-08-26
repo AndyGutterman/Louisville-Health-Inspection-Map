@@ -1,0 +1,52 @@
+.rgb-compact {
+  flex: 0 1 auto;
+  min-width: max-content;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(8px, 1.4vw, 14px);
+  padding-right: 6px;
+  white-space: nowrap;
+}
+.rgb-title { letter-spacing: .2px; opacity: .95; font-weight: 700; font-size: 16px; margin-right: clamp(6px, 1vw, 10px); }
+
+/* Radix switch skin used by the red/yellow/green/missing toggles */
+.rx-switch {
+  width: 38px; height: 22px;
+  transition: .18s ease, border-color .18s ease, box-shadow .18s ease; vertical-align: middle;
+  all: unset;
+  position: relative; display: inline-flex; align-items: center;
+  border-radius: 999px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.18);
+}
+.rx-switch.xs { width: clamp(32px, 3vw, 40px); height: clamp(18px, 2vw, 22px); }
+
+.rx-thumb {
+  display: block; width: 16px; height: 16px; border-radius: 50%;
+  background: #0b0b0b; box-shadow: 0 1px 2px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.12);
+  transform: translateX(3px); transition: transform .18s ease;
+}
+.rx-switch.xs .rx-thumb { width: clamp(14px, 1.6vw, 18px); height: clamp(14px, 1.6vw, 18px); transform: translateX(2px); }
+.rx-switch[data-state="checked"] .rx-thumb { transform: translateX(19px); }
+.rx-switch.xs[data-state="checked"] .rx-thumb { transform: translateX(clamp(14px, 1.8vw, 20px)); }
+.rx-switch:focus-visible { box-shadow: 0 0 0 2px rgba(255,255,255,.22); }
+
+/* color variants */
+.rx-switch.red[data-state="checked"]    { background: #ef4444; border-color: #ef4444; }
+.rx-switch.yellow[data-state="checked"] { background: #f59e0b; border-color: #f59e0b; }
+.rx-switch.green[data-state="checked"]  { background: #22c55e; border-color: #22c55e; }
+.rx-switch.purple[data-state="checked"] { background: #625F69; border-color: #625F69; }
+
+/* placement when the row lives inside the control card */
+.control-card .rgb-compact {
+  position: absolute; top: 10px; left: 64px; right: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 1rem;
+  margin: 0; padding-right: 2px; padding-top: 16px; white-space: nowrap; min-width: 0; transform: none;
+}
+@media (max-width: 480px) {
+  .control-card .rgb-compact { left: 56px; right: 8px; gap: 10px; }
+}
+@media (max-width: 640px) {
+  .rx-switch.xs { width: 44px; height: 26px; }
+  .rx-switch.xs .rx-thumb { width: 20px; height: 20px; transform: translateX(3px); }
+  .rx-switch.xs[data-state="checked"] .rx-thumb { transform: translateX(20px); }
+}

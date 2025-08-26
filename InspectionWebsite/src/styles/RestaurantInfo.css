@@ -1,0 +1,175 @@
+.inspect-card {
+    position: relative;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .25);
+    cursor: pointer;
+}
+
+.inspect-card_header {
+    margin-bottom: 10px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.inspect-card_title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.inspect-card_sub {
+    opacity: .8;
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.inspect-card_stats {
+    display: grid;
+    grid-template-columns: 112px 152px 112px;
+    gap: 12px;
+    align-items: end;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.inspect-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.inspect-badge {
+    width: 64px;
+    min-width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    background: #2a2a2a;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+    white-space: nowrap;
+}
+
+.inspect-badge.ok {
+    background: #34a853;
+}
+
+.inspect-badge.warn {
+    background: #fbbc05;
+    color: #111;
+}
+
+.inspect-badge.bad {
+    background: #ea4335;
+}
+
+.inspect-date {
+    min-width: 0;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #222;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.inspect-pill {
+    width: 44px;
+    min-width: 44px;
+    display: grid;
+    place-items: center;
+    padding: 8px 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .16);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.inspect-pill.muted {
+    background: rgba(255, 255, 255, .06);
+    color: #bbb;
+    border: 1px dashed rgba(255, 255, 255, .18);
+}
+
+.inspect-stat_label {
+    font-size: .78rem;
+    opacity: .8;
+}
+
+.inspect-card_spacer {
+    height: 12px;
+}
+
+.inspect-more-inline {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #fff;
+    font-weight: 700;
+    opacity: .9;
+    user-select: none;
+}
+
+.inspect-more-inline .chev {
+    transition: transform .15s ease;
+}
+
+.inspect-card.open .inspect-more-inline .chev {
+    transform: rotate(180deg);
+}
+
+.inspect-details {
+    margin-top: 10px;
+    background: rgba(0, 0, 0, .18);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.inspect-details-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.detail-item {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.detail-label {
+    opacity: .85;
+    font-size: .9rem;
+}
+
+.detail-value {
+    font-weight: 600;
+}
+
+/* mobile tweak copied over from Map.css */
+@media (max-width:600px) {
+    .inspect-card_stats {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
