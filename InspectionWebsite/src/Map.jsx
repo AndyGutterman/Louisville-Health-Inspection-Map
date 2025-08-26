@@ -138,16 +138,21 @@ export default function Map() {
     const headerEl =
       document.querySelector(".app-header, .site-header, header") || null;
 
-    const setVar = () => {
+    const setVars = () => {
       const h = headerEl ? Math.round(headerEl.getBoundingClientRect().height) : 72;
-    document.documentElement.style.setProperty("--mobile-header-h", `${h}px`);   
-    document.documentElement.style.setProperty("--header-h", `${h}px`);
+      document.documentElement.style.setProperty("--mobile-header-h", `${h}px`);
+      document.documentElement.style.setProperty("--header-h", `${h}px`);
+
+      const sw = document.querySelector(".header-search .search-wrap");
+      const left = sw ? Math.round(sw.getBoundingClientRect().left) : 16;
+      document.documentElement.style.setProperty("--controls-left", `${left}px`);
     };
 
-    setVar();
-    window.addEventListener("resize", setVar);
-    return () => window.removeEventListener("resize", setVar);
+    setVars();
+    window.addEventListener("resize", setVars);
+    return () => window.removeEventListener("resize", setVars);
   }, []);
+
 
   const [geoData, setGeoData] = useState(null);
 
@@ -878,30 +883,30 @@ export default function Map() {
     <>
       <header className="app-header">
         <div className="header-inner">
-        <div className="header-search">
-          <div className="search-wrap">
-            <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-              <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="header-search">
+            <div className="search-wrap">
+              <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+                <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
+
+          <div className="brand">
+            <span className="brand-louisville">LOUISVILLE</span>
+            <span className="brand-food">FOOD</span>
+            <span className="brand-safe">SAFE</span>
+          </div>
+
+          <div aria-hidden />
         </div>
-
-        <div className="brand">
-          <span className="brand-louisville">LOUISVILLE</span>
-          <span className="brand-food">FOOD</span>
-          <span className="brand-safe">SAFE</span>
-        </div>
-
-        <div aria-hidden />
-      </div>
-
       </header>
+
 
 
       <div ref={mapContainerRef} className="map-container" />
