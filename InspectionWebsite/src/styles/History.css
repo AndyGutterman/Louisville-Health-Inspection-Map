@@ -50,9 +50,18 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
 }
 
-.hist-score.ok   { background: #34a853; }
-.hist-score.warn { background: #fbbc05; color: #111; }
-.hist-score.bad  { background: #ea4335; }
+.hist-score.ok {
+  background: #34a853;
+}
+
+.hist-score.warn {
+  background: #fbbc05;
+  color: #111;
+}
+
+.hist-score.bad {
+  background: #ea4335;
+}
 
 .hist-meta {
   display: flex;
