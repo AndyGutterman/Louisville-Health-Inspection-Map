@@ -167,7 +167,6 @@
     font-weight: 600;
 }
 
-/* mobile tweak copied over from Map.css */
 @media (max-width:600px) {
     .inspect-card_stats {
         grid-template-columns: 1fr 1fr 1fr;
