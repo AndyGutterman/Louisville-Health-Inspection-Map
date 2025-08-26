@@ -1,3 +1,4 @@
+import * as Switch from "@radix-ui/react-switch";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 
@@ -180,7 +181,7 @@ export default function FilterSearch({
               type="button"
               className="menu-btn"
               aria-label={collapsed ? "Expand controls" : "Collapse controls"}
-              onClick={() => setCollapsed(v => !v)}
+              onClick={() => setCollapsed((v) => !v)}
             >
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -188,55 +189,135 @@ export default function FilterSearch({
             </button>
           </div>
 
-          <div className="rgb-compact" role="group" aria-label="Show scores">
+          <div className="rgb-compact" role="group" aria-label="Show">
             <span className="rgb-title">Show</span>
 
-            <label className="switch xs red" aria-label="Red">
-              <input type="checkbox" checked={showRedPins} onChange={e => setShowRedPins(e.target.checked)} />
-              <span />
-            </label>
+            <Switch.Root
+              className="rx-switch xs red"
+              checked={showRedPins}
+              onCheckedChange={setShowRedPins}
+              aria-label="Show red pins"
+            >
+              <Switch.Thumb className="rx-thumb" />
+            </Switch.Root>
 
-            <label className="switch xs yellow" aria-label="Yellow">
-              <input type="checkbox" checked={showYellowPins} onChange={e => setShowYellowPins(e.target.checked)} />
-              <span />
-            </label>
+            <Switch.Root
+              className="rx-switch xs yellow"
+              checked={showYellowPins}
+              onCheckedChange={setShowYellowPins}
+              aria-label="Show yellow pins"
+            >
+              <Switch.Thumb className="rx-thumb" />
+            </Switch.Root>
 
-            <label className="switch xs green" aria-label="Green">
-              <input type="checkbox" checked={showGreenPins} onChange={e => setShowGreenPins(e.target.checked)} />
-              <span />
-            </label>
+            <Switch.Root
+              className="rx-switch xs green"
+              checked={showGreenPins}
+              onCheckedChange={setShowGreenPins}
+              aria-label="Show green pins"
+            >
+              <Switch.Thumb className="rx-thumb" />
+            </Switch.Root>
+              
+              <Switch.Root
+              className="rx-switch xs purple"
+              checked={showMissing}
+              onCheckedChange={setShowMissing}
+              aria-label="Show missing pins"
+            >
+              <Switch.Thumb className="rx-thumb" />
+            </Switch.Root>
           </div>
         </div>
-
 
         {!collapsed && (
           <>
             <div className="rgb-toggles">
               {isDesktop ? (
                 <>
-                  <div className="rgb-row"><span className="label">Show Red</span>
-                    <label className="switch sm red"><input type="checkbox" checked={showRedPins} onChange={e=>setShowRedPins(e.target.checked)}/><span/></label>
+                  <div className="rgb-row">
+                    <span className="label">Show Red</span>
+                    <label className="switch sm red">
+                      <input
+                        type="checkbox"
+                        checked={showRedPins}
+                        onChange={(e) => setShowRedPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
-                  <div className="rgb-row"><span className="label">Show Yellow</span>
-                    <label className="switch sm yellow"><input type="checkbox" checked={showYellowPins} onChange={e=>setShowYellowPins(e.target.checked)}/><span/></label>
+                  <div className="rgb-row">
+                    <span className="label">Show Yellow</span>
+                    <label className="switch sm yellow">
+                      <input
+                        type="checkbox"
+                        checked={showYellowPins}
+                        onChange={(e) => setShowYellowPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
-                  <div className="rgb-row"><span className="label">Show Green</span>
-                    <label className="switch sm green"><input type="checkbox" checked={showGreenPins} onChange={e=>setShowGreenPins(e.target.checked)}/><span/></label>
+                  <div className="rgb-row">
+                    <span className="label">Show Green</span>
+                    <label className="switch sm green">
+                      <input
+                        type="checkbox"
+                        checked={showGreenPins}
+                        onChange={(e) => setShowGreenPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
-                  <div className="rgb-row"><span className="label">Show unscored</span>
-                    <label className="switch sm"><input type="checkbox" checked={showMissing} onChange={e=>setShowMissing(e.target.checked)}/><span/></label>
+                  <div className="rgb-row">
+                    <span className="label">Show unscored</span>
+                    <label className="switch sm missing">
+                      <input
+                        type="checkbox"
+                        checked={showMissing}
+                        onChange={(e) => setShowMissing(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="rgb-inline">
-                    <label className="switch sm red" aria-label="Red"><input type="checkbox" checked={showRedPins} onChange={e=>setShowRedPins(e.target.checked)}/><span/></label>
-                    <label className="switch sm yellow" aria-label="Yellow"><input type="checkbox" checked={showYellowPins} onChange={e=>setShowYellowPins(e.target.checked)}/><span/></label>
-                    <label className="switch sm green" aria-label="Green"><input type="checkbox" checked={showGreenPins} onChange={e=>setShowGreenPins(e.target.checked)}/><span/></label>
+                    <label className="switch sm red" aria-label="Red">
+                      <input
+                        type="checkbox"
+                        checked={showRedPins}
+                        onChange={(e) => setShowRedPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
+                    <label className="switch sm yellow" aria-label="Yellow">
+                      <input
+                        type="checkbox"
+                        checked={showYellowPins}
+                        onChange={(e) => setShowYellowPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
+                    <label className="switch sm green" aria-label="Green">
+                      <input
+                        type="checkbox"
+                        checked={showGreenPins}
+                        onChange={(e) => setShowGreenPins(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
                   <div className="rgb-row">
                     <span className="label">Unscored</span>
-                    <label className="switch sm"><input type="checkbox" checked={showMissing} onChange={e=>setShowMissing(e.target.checked)}/><span/></label>
+                    <label className="switch sm">
+                      <input
+                        type="checkbox"
+                        checked={showMissing}
+                        onChange={(e) => setShowMissing(e.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
                 </>
               )}
@@ -252,8 +333,12 @@ export default function FilterSearch({
                 }}
               >
                 <Tabs.List className="rx-tabs-list" aria-label="Adjust or Filter">
-                  <Tabs.Trigger className="rx-tab" value="adjust">Adjust</Tabs.Trigger>
-                  <Tabs.Trigger className="rx-tab" value="filter">Filter</Tabs.Trigger>
+                  <Tabs.Trigger className="rx-tab" value="adjust">
+                    Adjust
+                  </Tabs.Trigger>
+                  <Tabs.Trigger className="rx-tab" value="filter">
+                    Filter
+                  </Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content className="rx-tab-content" value="adjust">
@@ -263,7 +348,12 @@ export default function FilterSearch({
                 <Tabs.Content className="rx-tab-content" value="filter">
                   <div className="cat-filters" aria-label="Filters">
                     <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
-                      <div className="seg-toggle" role="radiogroup" aria-label="Toggle all categories" style={{ margin: "0 auto" }}>
+                      <div
+                        className="seg-toggle"
+                        role="radiogroup"
+                        aria-label="Toggle all categories"
+                        style={{ margin: "0 auto" }}
+                      >
                         <button
                           type="button"
                           role="radio"
@@ -301,7 +391,9 @@ export default function FilterSearch({
                             title={spec.label}
                             style={{ "--tile-accent": accent }}
                           >
-                            <span className="cat-icon"><Icon k={key} active={enabled} /></span>
+                            <span className="cat-icon">
+                              <Icon k={key} active={enabled} />
+                            </span>
                             <span className="cat-label">{label}</span>
                           </button>
                         );
