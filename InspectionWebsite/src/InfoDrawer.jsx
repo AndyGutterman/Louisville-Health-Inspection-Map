@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import "./styles/Violations.css";
+import "./styles/History.css";
+import './styles/RestaurantInfo.css';
 
 function formatDateSafe(val) {
   if (!val) return "n/a";

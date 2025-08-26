@@ -1,4 +1,5 @@
 import React from "react";
+import "./styles/AdjustFilter.css";
 
 const LO = 70;
 const HI = 100;

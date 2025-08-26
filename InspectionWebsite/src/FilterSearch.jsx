@@ -1,6 +1,8 @@
 import * as Switch from "@radix-ui/react-switch";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
+import "./styles/AdjustFilter.css";
+import './styles/ToggleRow.css';
 
 function useMedia(query) {
   const get = () =>
