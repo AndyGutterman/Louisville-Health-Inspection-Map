@@ -1664,7 +1664,7 @@
 
 @media (max-width: 900px) {
   .header-inner { grid-template-columns:1fr; grid-auto-rows:auto; justify-items:center; }
-  .header-search { order:2; width:calc(100vw - 32px); }
+  .header-search { order: 2; width: 100%; justify-self: stretch; }
 }
 
 @media (max-width: 900px) {
@@ -1783,8 +1783,21 @@
 }
 
 @media (max-width:900px){
-  .app-header .header-inner{ justify-items:center; grid-template-columns:1fr; row-gap:10px; }
-  .app-header .brand{ order:1; }
+  .app-header .header-inner{
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    row-gap: 12px;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box; padding: 12px 14px; }
+  .app-header .brand{
+    grid-column: auto !important;
+    order: 1; 
+    justify-self: center; 
+    width: 100%; 
+    text-align: center; 
+    min-width: 0; }
 }
 
 .switch.xs span{ width:34px; height:18px; border-radius:999px; display:inline-block; background:rgba(255,255,255,.18); position:relative; }
@@ -1875,4 +1888,74 @@
 }
 
 @media (max-width:900px){
+}
+
+@media (max-width: 900px) {
+  .header-search .search-wrap { width: 100%; }
+}
+
+@media (max-width: 900px) {
+  .header-search input { width: 100%; }
+}
+
+@media (max-width: 900px) {
+}
+
+@media (max-width: 900px) {
+
+  .app-header .header-search {
+    grid-column: auto !important;
+    justify-self: stretch;
+    order: 2;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .app-header .header-search .search-wrap,
+  .app-header .header-search input {
+    width: 100% !important;
+  }
+}
+
+
+@media (max-width: 900px) {
+  html, body { overflow-x: hidden; }
+
+  .app-header .brand,
+  .app-header .header-search { min-width: 0; }
+  .app-header .brand > span {
+    padding: 0 4px;
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    font-size: clamp(28px, 8vw, 44px);
+  }
+  .app-header .header-search .search-wrap { width: 100%; max-width: 100%; }
+  .app-header .header-search input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+}
+
+
+@media (max-width: 900px) {
+
+  .app-header .brand,
+  .app-header .brand > span {
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-header .header-inner { padding: 10px 12px; }
+  .app-header .brand,
+  .app-header .brand > span { overflow: visible; min-width: 0; }
+
+  .app-header .brand > span {
+    display: inline-block;
+    white-space: nowrap;
+    font-size: clamp(24px, 7.2vw, 38px);
+  }
 }
