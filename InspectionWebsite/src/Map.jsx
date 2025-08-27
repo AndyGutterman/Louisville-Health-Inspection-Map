@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
@@ -6,7 +7,9 @@ import { createClient } from "@supabase/supabase-js";
 import InfoDrawer from "./InfoDrawer.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
-import { PIN_COLORS, CAT_COLORS} from "./Colors.jsx";
+import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
+import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
+import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -17,7 +20,7 @@ const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
 const MIN_ZOOM = 11;
 
 const SCORE_MIN = 1;
-const SCORE_MAX = 99; // slider max (green runs to 100; handle range is 1..99)
+const SCORE_MAX = 99;
 const RED_CAP = 98;
 const YEL_CAP = 99;
 
@@ -32,7 +35,6 @@ const PRESETS = {
   strict: clampPins([90, 96]),
 };
 
-// --- Category filters: subtypes grouped under user-facing categories ---
 const CATEGORY_SPECS = {
   restaurants: { label: "Restaurants", subs: [{ ft: 605, st: 11 }] },
   schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
@@ -41,10 +43,9 @@ const CATEGORY_SPECS = {
   concessions: {
     label: "Concessions",
     subs: [
-        { ft: 603, st: 51 },
-        { ft: 603, st: 53 },
-
-        ],
+      { ft: 603, st: 51 },
+      { ft: 603, st: 53 },
+    ],
   },
   caterers_commissary: {
     label: "Caterers & Commissaries",
@@ -68,10 +69,15 @@ const CATEGORY_SPECS = {
       { ft: 605, st: 54 },
     ],
   },
-  unknown: { label: "Other / Unknown", subs: [{ ft: 605, st: 36 },        
-        { ft: 604, st: 16 },
-        { ft: 605, st: 52 },
-        { ft: 610, st: 73 },] },
+  unknown: {
+    label: "Other / Unknown",
+    subs: [
+      { ft: 605, st: 36 },
+      { ft: 604, st: 16 },
+      { ft: 605, st: 52 },
+      { ft: 610, st: 73 },
+    ],
+  },
 };
 
 function classifyCategory(ft, st) {
@@ -124,16 +130,58 @@ function formatDateSafe(val) {
   }
 }
 
+function coordKey([lon, lat]) {
+  return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
+}
+
+function buildCoordIndex(features) {
+  const m = new globalThis.Map();
+  for (const f of features) {
+    const k = coordKey(f.geometry.coordinates);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(f);
+  }
+  return m;
+}
+
+function OverlapNav({ index, total, onPrev, onNext }) {
+  return (
+    <div
+      className="multi-nav"
+      role="group"
+      aria-label={`Overlapping locations, item ${index + 1} of ${total}`}
+    >
+      <button type="button" className="iconbtn" onClick={onPrev}>
+        <AccessibleIcon.Root label="Previous location">
+          <ChevronLeftIcon aria-hidden />
+        </AccessibleIcon.Root>
+      </button>
+      <span aria-live="polite" className="multi-count">
+        {index + 1} / {total}
+      </span>
+      <button type="button" className="iconbtn" onClick={onNext}>
+        <AccessibleIcon.Root label="Next location">
+          <ChevronRightIcon aria-hidden />
+        </AccessibleIcon.Root>
+      </button>
+    </div>
+  );
+}
+
 export default function Map() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
 
   const hoverPopupRef = useRef(null);
   const pinnedPopupRef = useRef(null);
+  const pinnedReactRootRef = useRef(null);
   const lastHoverId = useRef(null);
   const pinnedFeatureRef = useRef(null);
+  const multiHitsRef = useRef(null);
   const docCloseHandlerRef = useRef(null);
   const isDraggingRef = useRef(false);
+  const coordIndexRef = useRef(new globalThis.Map());
+
   useEffect(() => {
     const headerEl =
       document.querySelector(".app-header, .site-header, header") || null;
@@ -152,7 +200,6 @@ export default function Map() {
     window.addEventListener("resize", setVars);
     return () => window.removeEventListener("resize", setVars);
   }, []);
-
 
   const [geoData, setGeoData] = useState(null);
 
@@ -238,7 +285,6 @@ export default function Map() {
         allRows = allRows.concat(data);
       }
 
-      // Build (establishment_id -> { ft, st }) lookup for category filtering
       let metaById = new globalThis.Map();
       try {
         const { count: facCount } = await supabase
@@ -320,9 +366,11 @@ export default function Map() {
           acc[eid] = feat;
         return acc;
       }, {});
+      const featureList = Object.values(latestMap);
+      coordIndexRef.current = buildCoordIndex(featureList);
       setGeoData({
         type: "FeatureCollection",
-        features: Object.values(latestMap),
+        features: featureList,
       });
     })();
   }, []);
@@ -393,6 +441,57 @@ export default function Map() {
 
       const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
 
+      const featuresAtPixel = (point) =>
+      map.queryRenderedFeatures(
+        [
+          [point.x, point.y],
+          [point.x, point.y],
+        ],
+        { layers: layerIds },
+      );
+
+    const nearestOf = (point, feats) => {
+      let best = null, bestd = Infinity;
+      for (const f of feats) {
+        const p = map.project(f.geometry.coordinates);
+        const d = (p.x - point.x) ** 2 + (p.y - point.y) ** 2;
+        if (d < bestd) { bestd = d; best = f; }
+      }
+      return best;
+    };
+
+    const screenKey = (feature) => {
+      const p = map.project(feature.geometry.coordinates);
+      return `${Math.round(p.x)}|${Math.round(p.y)}`;
+    };
+
+    const groupAtPixel = (point) => {
+      const hits = featuresAtPixel(point);
+      if (!hits.length) return { feature: null, group: [] };
+      const f = nearestOf(point, hits);
+      const k = screenKey(f);
+      const group = hits.filter((h) => screenKey(h) === k);
+      return { feature: f, group };
+    };
+
+
+      const nearestFeature = (point, px = 14) => {
+      const box = [
+        [point.x - px, point.y - px],
+        [point.x + px, point.y + px],
+      ];
+      const hits = map.queryRenderedFeatures(box, { layers: layerIds });
+      if (!hits.length) return null;
+      let best = hits[0], bestd = Infinity;
+      for (const h of hits) {
+        const p = map.project(h.geometry.coordinates);
+        const d = (p.x - point.x) ** 2 + (p.y - point.y) ** 2;
+        if (d < bestd) { bestd = d; best = h; }
+      }
+      return best;
+    };
+
+
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
         if (score == null) return PIN_COLORS.null;
@@ -402,14 +501,19 @@ export default function Map() {
         return PIN_COLORS.green;
       };
 
-      const renderHTML = (p) => {
+      const renderHTML = (p, overlapCount) => {
         const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
         const addr = p.address_full || p.address || "";
+        const overlap =
+          overlapCount && overlapCount > 1
+            ? `<div class="overlap-badge" aria-live="polite">${overlapCount} locations here</div>`
+            : "";
         return `<div class="popup-content" style="font-size:14px;max-width:220px">
      <strong>${p.name}</strong><br/>
     <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
           Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
+          ${overlap}
         </div>`;
       };
 
@@ -427,9 +531,7 @@ export default function Map() {
             .setHTML(html)
             .addTo(mapRef.current);
         } else {
-          pinnedPopupRef.current
-            .setLngLat(feature.geometry.coordinates)
-            .setHTML(html);
+          pinnedPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
         }
         pinnedFeatureRef.current = feature;
         wirePopupInteractions(pinnedPopupRef.current, feature);
@@ -477,8 +579,7 @@ export default function Map() {
             byId.get(v.inspection_id).push(v);
           }
           if (v.inspection_date) {
-            if (!byDate.has(v.inspection_date))
-              byDate.set(v.inspection_date, []);
+            if (!byDate.has(v.inspection_date)) byDate.set(v.inspection_date, []);
             byDate.get(v.inspection_date).push(v);
           }
         }
@@ -602,8 +703,93 @@ export default function Map() {
         }
       };
 
-      const showHoverPopup = (feature) => {
-        const html = renderHTML(feature.properties);
+      const showGroupPopup = (features, idx) => {
+        if (!features?.length) return;
+        const f = features[idx];
+
+        const html =
+          renderHTML(f.properties, features.length) + `<div id="overlap-nav-root"></div>`;
+
+        if (!pinnedPopupRef.current) {
+          pinnedPopupRef.current = new maplibregl.Popup({
+            anchor: "bottom",
+            offset: [0, -14],
+            closeButton: false,
+            closeOnMove: false,
+            closeOnClick: false,
+          })
+            .setLngLat(f.geometry.coordinates)
+            .setHTML(html)
+            .addTo(mapRef.current);
+        } else {
+          pinnedPopupRef.current.setLngLat(f.geometry.coordinates).setHTML(html);
+        }
+
+        pinnedFeatureRef.current = f;
+        multiHitsRef.current = { features, i: idx, anchor: f.geometry.coordinates };
+
+        const rootEl = pinnedPopupRef.current.getElement();
+        rootEl.tabIndex = 0;
+
+        const navHost = rootEl.querySelector("#overlap-nav-root");
+        if (pinnedReactRootRef.current) {
+          pinnedReactRootRef.current.unmount();
+          pinnedReactRootRef.current = null;
+        }
+        pinnedReactRootRef.current = ReactDOM.createRoot(navHost);
+        const go = (dir) => {
+          const cur = multiHitsRef.current;
+          if (!cur) return;
+          const n = cur.features.length;
+          cur.i = (cur.i + (dir === "next" ? 1 : -1) + n) % n;
+          showGroupPopup(cur.features, cur.i);
+        };
+
+        pinnedReactRootRef.current.render(
+          <OverlapNav
+            index={idx}
+            total={features.length}
+            onPrev={() => go("prev")}
+            onNext={() => go("next")}
+          />
+        );
+
+        if (!rootEl.dataset.navBound) {
+          rootEl.addEventListener(
+            "wheel",
+            (ev) => {
+              ev.stopPropagation();
+              const cur = multiHitsRef.current;
+              if (!cur) return;
+              const n = cur.features.length;
+              cur.i = (cur.i + (ev.deltaY > 0 ? 1 : -1) + n) % n;
+              showGroupPopup(cur.features, cur.i);
+            },
+            { passive: true },
+          );
+          rootEl.addEventListener("keydown", (ev) => {
+            const cur = multiHitsRef.current;
+            if (!cur) return;
+            if (ev.key === "ArrowRight") {
+              ev.preventDefault();
+              cur.i = (cur.i + 1) % cur.features.length;
+              showGroupPopup(cur.features, cur.i);
+            }
+            if (ev.key === "ArrowLeft") {
+              ev.preventDefault();
+              cur.i = (cur.i - 1 + cur.features.length) % cur.features.length;
+              showGroupPopup(cur.features, cur.i);
+            }
+          });
+          rootEl.dataset.navBound = "1";
+        }
+
+        rootEl.focus({ preventScroll: true });
+        wirePopupInteractions(pinnedPopupRef.current, f);
+      };
+
+      const showHoverPopup = (feature, overlapCount) => {
+        const html = renderHTML(feature.properties, overlapCount);
         if (!hoverPopupRef.current) {
           hoverPopupRef.current = new maplibregl.Popup({
             anchor: "bottom",
@@ -616,20 +802,19 @@ export default function Map() {
             .setHTML(html)
             .addTo(mapRef.current);
         } else {
-          hoverPopupRef.current
-            .setLngLat(feature.geometry.coordinates)
-            .setHTML(html);
+          hoverPopupRef.current.setLngLat(feature.geometry.coordinates).setHTML(html);
         }
         wirePopupInteractions(hoverPopupRef.current, feature);
       };
+    const onHover = (e) => {
+      const { feature: f, group } = groupAtPixel(e.point);
+      if (!f) return;
+      if (f.id === lastHoverId.current) return;
+      lastHoverId.current = f.id;
+      showHoverPopup(f, group.length || 1);
+    };
 
-      const onHover = (e) => {
-        if (!e.features.length) return;
-        const f = e.features[0];
-        if (f.id === lastHoverId.current) return;
-        lastHoverId.current = f.id;
-        showHoverPopup(f);
-      };
+
 
       const onLeave = () => {
         lastHoverId.current = null;
@@ -638,10 +823,19 @@ export default function Map() {
       };
 
       const onClick = (e) => {
-        const f = e.features[0];
         hoverPopupRef.current?.remove();
         hoverPopupRef.current = null;
         lastHoverId.current = null;
+
+        const { feature: f, group } = groupAtPixel(e.point);
+        if (!f) return;
+
+        if (group.length > 1) {
+          const ordered = group.slice().sort((a, b) => a.id - b.id);
+          showGroupPopup(ordered, 0);
+          return;
+        }
+
         showPinnedPopup(f);
         if (selectedRef.current && isHoverCapableRef.current) {
           const p = f.properties;
@@ -660,8 +854,12 @@ export default function Map() {
         map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
       }
 
-      map.on("dragstart", () => { isDraggingRef.current = true; });
-      map.on("dragend", () => { isDraggingRef.current = false; });
+      map.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
+      map.on("dragend", () => {
+        isDraggingRef.current = false;
+      });
 
       map.on("click", (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: layerIds });
@@ -673,6 +871,9 @@ export default function Map() {
           hoverPopupRef.current.getElement()?.contains(e.originalEvent.target);
 
         if (!hits.length && !insidePinned && !insideHover) {
+          pinnedReactRootRef.current?.unmount();
+          pinnedReactRootRef.current = null;
+
           pinnedPopupRef.current?.remove();
           pinnedPopupRef.current = null;
           pinnedFeatureRef.current = null;
@@ -701,6 +902,10 @@ export default function Map() {
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".control-card")?.contains(ev.target)) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
+
+        pinnedReactRootRef.current?.unmount();
+        pinnedReactRootRef.current = null;
+
         pinnedPopupRef.current?.remove();
         pinnedPopupRef.current = null;
         pinnedFeatureRef.current = null;
@@ -728,6 +933,10 @@ export default function Map() {
       }
       hoverPopupRef.current?.remove();
       hoverPopupRef.current = null;
+
+      pinnedReactRootRef.current?.unmount();
+      pinnedReactRootRef.current = null;
+
       pinnedPopupRef.current?.remove();
       pinnedPopupRef.current = null;
       mapRef.current?.remove();
@@ -795,24 +1004,24 @@ export default function Map() {
 
   React.useEffect(() => {
     const onMove = (e) => {
-      let dx = 0, dy = 0;
+      let dx = 0,
+        dy = 0;
       if (e.clientX <= EDGE_ZONE) dx = -1;
       else if (e.clientX >= window.innerWidth - EDGE_ZONE) dx = 1;
       if (e.clientY <= EDGE_ZONE) dy = -1;
       else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
       const nearEdge = dx !== 0 || dy !== 0;
       const active =
-        nearEdge &&
-        !spurtDisabled() &&
-        e.buttons === 0 &&
-        !isInDeadzone(e.clientX, e.clientY);
+        nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
       if (active && !inEdgeRef.current) {
         mapRef.current.panBy([dx * 60, dy * 60], { duration: 240 });
         inEdgeRef.current = true;
       }
       if (!active) inEdgeRef.current = false;
     };
-    const reset = () => { inEdgeRef.current = false; };
+    const reset = () => {
+      inEdgeRef.current = false;
+    };
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseleave", reset);
     window.addEventListener("blur", reset);
@@ -831,10 +1040,12 @@ export default function Map() {
       "downcase",
       [
         "concat",
-        ["coalesce", ["get", "name"], ""], " ",
-        ["coalesce", ["get", "address_full"], ""], " ",
-        ["coalesce", ["get", "address"], ""]
-      ]
+        ["coalesce", ["get", "name"], ""],
+        " ",
+        ["coalesce", ["get", "address_full"], ""],
+        " ",
+        ["coalesce", ["get", "address"], ""],
+      ],
     ];
     const searchExpr = term ? [">=", ["index-of", term, haystack], 0] : null;
 
@@ -859,8 +1070,12 @@ export default function Map() {
     const unknownExpr = ["==", ["get", "cat"], "unknown"];
     const catExpr =
       selectedPairs.length > 0
-        ? (unknownOn ? ["any", pairExpr, unknownExpr] : pairExpr)
-        : (unknownOn ? unknownExpr : ["boolean", false]);
+        ? unknownOn
+          ? ["any", pairExpr, unknownExpr]
+          : pairExpr
+        : unknownOn
+        ? unknownExpr
+        : ["boolean", false];
 
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
@@ -886,7 +1101,10 @@ export default function Map() {
           <div className="header-search">
             <div className="search-wrap">
               <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-                <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                  fill="currentColor"
+                />
               </svg>
               <input
                 type="text"
@@ -906,8 +1124,6 @@ export default function Map() {
           <div aria-hidden />
         </div>
       </header>
-
-
 
       <div ref={mapContainerRef} className="map-container" />
 
