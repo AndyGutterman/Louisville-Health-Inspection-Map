@@ -281,6 +281,15 @@
   text-align: center;
 }
 
+.wb2-track,
+.wb2-handle,
+.wb2-row {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Responsive bits */
 @media (max-width:560px) {
   .wb2-presets {
@@ -311,6 +320,7 @@
     height: 22px;
   }
 }
+
 
 @media (max-width:600px) {
   .cat-grid {
