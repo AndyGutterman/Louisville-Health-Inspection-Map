@@ -440,6 +440,46 @@ export default function Map() {
       }
 
       const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
+      const styleZ = (() => {
+        let idx = null;
+        return (layerId) => {
+          if (!idx) {
+            const layers = (map.getStyle()?.layers) || [];
+            idx = new globalThis.Map(layers.map((l, i) => [l.id, i]));
+          }
+          return idx.get(layerId) ?? -1;
+        };
+      })();
+
+      const nearestOf = (point, feats) => {
+        let best = null, bestd = Infinity, bestz = -Infinity;
+        const EPS = 0.9; // ~1px in screen distance
+        for (const f of feats) {
+          const p = map.project(f.geometry.coordinates);
+          const d = Math.hypot(p.x - point.x, p.y - point.y);
+          const z = styleZ(f.layer?.id);
+          if (d + 1e-6 < bestd || (Math.abs(d - bestd) <= EPS && z > bestz)) {
+            best = f; bestd = d; bestz = z;
+          }
+        }
+        return best;
+      };
+
+      const groupAtPixel = (point) => {
+        const hits = featuresAtPixel(point);
+        if (!hits.length) return { feature: null, group: [] };
+        const f = nearestOf(point, hits);
+        const p0 = map.project(f.geometry.coordinates);
+        const group = hits.filter((h) => {
+          const p = map.project(h.geometry.coordinates);
+          return Math.hypot(p.x - p0.x, p.y - p0.y) < 0.9; // cluster same-screen overlaps
+        });
+        return { feature: f, group };
+      };
+
+
+      
+
 
       const featuresAtPixel = (point) =>
       map.queryRenderedFeatures(
@@ -450,29 +490,13 @@ export default function Map() {
         { layers: layerIds },
       );
 
-    const nearestOf = (point, feats) => {
-      let best = null, bestd = Infinity;
-      for (const f of feats) {
-        const p = map.project(f.geometry.coordinates);
-        const d = (p.x - point.x) ** 2 + (p.y - point.y) ** 2;
-        if (d < bestd) { bestd = d; best = f; }
-      }
-      return best;
-    };
+   
 
     const screenKey = (feature) => {
       const p = map.project(feature.geometry.coordinates);
       return `${Math.round(p.x)}|${Math.round(p.y)}`;
     };
 
-    const groupAtPixel = (point) => {
-      const hits = featuresAtPixel(point);
-      if (!hits.length) return { feature: null, group: [] };
-      const f = nearestOf(point, hits);
-      const k = screenKey(f);
-      const group = hits.filter((h) => screenKey(h) === k);
-      return { feature: f, group };
-    };
 
 
       const nearestFeature = (point, px = 14) => {

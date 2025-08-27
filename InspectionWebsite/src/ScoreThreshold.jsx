@@ -154,14 +154,21 @@ function RowSingle({
   const start = (e) => {
     e.preventDefault();
     setDrag(true);
+    const id = e.pointerId;
+    e.currentTarget.setPointerCapture?.(id);
+
     const mv = (ev) => onChange(Math.round(toValue(ev.clientX)));
     const up = () => {
       setDrag(false);
+      try { e.currentTarget.releasePointerCapture?.(id); } catch {}
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
-    window.addEventListener("pointermove", mv);
+
+    window.addEventListener("pointermove", mv, { passive: false });
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
 
   const key = (e) => {
@@ -234,6 +241,9 @@ function RowDual({
   const start = (which, e) => {
     e.preventDefault();
     setActive(which);
+    const id = e.pointerId;
+    e.currentTarget.setPointerCapture?.(id);
+
     const mv = (ev) => {
       const v = Math.round(toValue(ev.clientX));
       if (which === "L") onLeft(v);
@@ -241,11 +251,15 @@ function RowDual({
     };
     const up = () => {
       setActive(null);
+      try { e.currentTarget.releasePointerCapture?.(id); } catch {}
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
-    window.addEventListener("pointermove", mv);
+
+    window.addEventListener("pointermove", mv, { passive: false });
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
 
   const keyL = (e) => {
