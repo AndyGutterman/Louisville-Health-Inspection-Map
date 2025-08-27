@@ -1053,6 +1053,39 @@
 	overflow: visible;
 }
 
+.overlap-badge {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: .9;
+}
+
+.multi-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.iconbtn {
+  border: none;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px;
+  line-height: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.iconbtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.24);
+}
+
+.multi-count { font-size: 12px; opacity: .9; }
+
+
 @media (max-width: 480px) {}
 
 
