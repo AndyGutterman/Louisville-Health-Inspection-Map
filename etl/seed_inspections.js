@@ -78,7 +78,7 @@ async function fetchPageDESC(offset, size = 1000) {
         const placeholders = missingEids.map(eid => ({
           establishment_id: eid,
           permit_number: eid,
-          loc_source: 'FoodServiceData'
+          loc_source: 'legacy'
         }));
         const { error: fke } = await supa
           .from('facilities')
