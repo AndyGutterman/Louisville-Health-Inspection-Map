@@ -5,17 +5,14 @@ import { createClient } from '@supabase/supabase-js';
 const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const FS   = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0';
 
-// normalize numbers that sometimes come with commas
 const normId = v => {
   if (v == null) return null;
   const s = String(v).replace(/,/g, '').trim();
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? String(n) : null;
 };
-
 const toISODate = ms => (ms ? new Date(ms).toISOString().slice(0, 10) : null);
 
-// fetch one page, get newest first
 async function fetchPageDESC(offset, size = 1000) {
   const p = new URLSearchParams({
     where: '1=1',
@@ -32,7 +29,6 @@ async function fetchPageDESC(offset, size = 1000) {
 }
 
 (async function run() {
-  // newest date we already have stored
   const { data: maxRow, error: e1 } = await supa
     .from('inspections')
     .select('inspection_date')
@@ -44,15 +40,20 @@ async function fetchPageDESC(offset, size = 1000) {
   const cutoff = maxRow?.inspection_date || '1900-01-01';
   console.log('Cutoff date in DB:', cutoff);
 
+  const { data: facRows, error: e2 } = await supa
+    .from('facilities')
+    .select('establishment_id');
+  if (e2) throw e2;
+  const haveFacility = new Set((facRows || []).map(r => r.establishment_id));
+
   let offset = 0;
   let page = 0;
   let totalNew = 0;
 
-  while (true) {
+  for (;;) {
     const attrs = await fetchPageDESC(offset);
     if (!attrs.length) break;
 
-    // map everything in the page
     const rows = attrs.map(a => {
       const eid = normId(a.EstablishmentID);
       if (!eid) return null;
@@ -67,10 +68,25 @@ async function fetchPageDESC(offset, size = 1000) {
       };
     }).filter(Boolean);
 
-    // keep only items newer than the cutoff
     const fresh = rows.filter(r => r.inspection_date && r.inspection_date > cutoff);
 
     if (fresh.length) {
+      const missingEids = Array.from(new Set(fresh.map(r => r.establishment_id)))
+        .filter(eid => !haveFacility.has(eid));
+
+      if (missingEids.length) {
+        const placeholders = missingEids.map(eid => ({
+          establishment_id: eid,
+          permit_number: eid,
+          loc_source: 'FoodServiceData'
+        }));
+        const { error: fke } = await supa
+          .from('facilities')
+          .upsert(placeholders, { onConflict: 'establishment_id' });
+        if (fke) throw fke;
+        missingEids.forEach(eid => haveFacility.add(eid));
+      }
+
       const { data, error } = await supa
         .from('inspections')
         .upsert(fresh, { onConflict: 'inspection_id', count: 'exact' });
@@ -83,8 +99,6 @@ async function fetchPageDESC(offset, size = 1000) {
       console.log(`Page ${++page} @${offset}: 0 new (all <= cutoff)`);
     }
 
-	// Since pages DESC by date, if the last row on this page is at or before the cutoff,
-	// then all later pages will also be older, so we stop.
     const lastDate = rows[rows.length - 1]?.inspection_date || '1900-01-01';
     if (lastDate <= cutoff) break;
 
