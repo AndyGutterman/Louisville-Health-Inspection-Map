@@ -13,7 +13,7 @@ const normId = v => {
 };
 const toISODate = ms => (ms ? new Date(ms).toISOString().slice(0, 10) : null);
 
-async function fetchPageDESC(offset, size = 1000) {
+async function fetchPageDESC(offset, size = 1000, attempt = 1) {
   const p = new URLSearchParams({
     where: '1=1',
     outFields: 'EstablishmentID,InspectionID,Ins_TypeDesc,InspectionDate,score,Grade',
@@ -23,9 +23,30 @@ async function fetchPageDESC(offset, size = 1000) {
     returnGeometry: 'false',
     f: 'json',
   });
-  const j = await fetch(`${FS}/query?${p}`).then(r => r.json());
-  if (j.error) throw new Error(JSON.stringify(j.error));
-  return (j.features || []).map(f => f.attributes);
+
+  const res = await fetch(`${FS}/query?${p}`);
+  const text = await res.text();
+
+  if (!res.ok) {
+    console.error(`HTTP ${res.status} at offset ${offset}`);
+  }
+
+  try {
+    const j = JSON.parse(text);
+    if (j.error) throw new Error(JSON.stringify(j.error));
+    return (j.features || []).map(f => f.attributes);
+  } catch (err) {
+    console.error(`ArcGIS returned non-JSON at offset ${offset}`);
+    console.error(text.slice(0, 300));
+
+    if (attempt < 3) {
+      console.log(`Retrying offset ${offset} (attempt ${attempt + 1})`);
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+      return fetchPageDESC(offset, size, attempt + 1);
+    }
+
+    throw err;
+  }
 }
 
 (async function run() {
