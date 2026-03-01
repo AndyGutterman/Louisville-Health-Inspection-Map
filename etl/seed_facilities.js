@@ -15,34 +15,73 @@ const normId = v => {
   return Number.isFinite(n) ? String(n) : null;
 };
 const normText = s =>
-  s
-    ? String(s)
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-    : '';
+  s ? String(s).toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// ── import_runs helpers ───────────────────────────────────────────────────────
+
+async function startRun(windowStart, windowEnd) {
+  const { data, error } = await supa
+    .from('import_runs')
+    .insert({
+      source:     'seed_facilities',
+      started_at: new Date().toISOString(),
+      notes:      { window_start: windowStart, window_end: windowEnd },
+    })
+    .select('run_id')
+    .single();
+  if (error) { console.warn('import_runs insert failed (non-fatal):', error.message); return null; }
+  return data.run_id;
+}
+
+async function finishRun(runId, rowsRead, rowsUpserted) {
+  if (!runId) return;
+  const { error } = await supa
+    .from('import_runs')
+    .update({
+      finished_at:   new Date().toISOString(),
+      rows_read:     rowsRead,
+      rows_upserted: rowsUpserted,
+    })
+    .eq('run_id', runId);
+  if (error) console.warn('import_runs finish failed (non-fatal):', error.message);
+}
+
+async function failRun(runId, err) {
+  if (!runId) return;
+  const { error } = await supa
+    .from('import_runs')
+    .update({
+      finished_at: new Date().toISOString(),
+      notes:       { error: String(err?.message || err) },
+    })
+    .eq('run_id', runId);
+  if (error) console.warn('import_runs fail update failed (non-fatal):', error.message);
+}
+
+// ── main ──────────────────────────────────────────────────────────────────────
+
 (async function run() {
+  const today = new Date().toISOString().slice(0, 10);
+  const runId = await startRun(today, today);
+
   try {
-    // fetch existing IDs so we only insert new ones
     const { data: existingRows } = await supa
       .from('facilities')
       .select('establishment_id');
     const existing = new Set(existingRows.map(r => r.establishment_id));
 
-    // page through FS
     const pageSize = 1000;
-    let offset = 0;
-    let pageCount = 0;
-    let totalNew = 0;
+    let offset     = 0;
+    let pageCount  = 0;
+    let totalRead  = 0;
+    let totalNew   = 0;
 
     while (true) {
       pageCount++;
       const params = new URLSearchParams({
         where:             '1=1',
-		outFields:         'EstablishmentID,EstablishmentName,Address,City,State,Zip,NameSearch,EstType,Subtype',
+        outFields:         'EstablishmentID,EstablishmentName,Address,City,State,Zip,NameSearch,EstType,Subtype',
         orderByFields:     'EstablishmentID ASC',
         resultRecordCount: String(pageSize),
         resultOffset:      String(offset),
@@ -54,9 +93,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       const feats = js.features || [];
       if (!feats.length) break;
 
+      totalRead += feats.length;
+
       const batch = [];
       for (const f of feats) {
-        const a  = f.attributes;
+        const a   = f.attributes;
         const eid = normId(a.EstablishmentID);
         if (!eid || existing.has(eid)) continue;
         existing.add(eid);
@@ -72,8 +113,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
           name_search:      normText(a.NameSearch || a.EstablishmentName),
           addr_search:      normText(a.Address),
           loc_source:       'legacy',
-		  facility_type:    Number.isFinite(+a.EstType) ? +a.EstType : null,
-		  subtype:          Number.isFinite(+a.Subtype) ? +a.Subtype : null
+          facility_type:    Number.isFinite(+a.EstType) ? +a.EstType : null,
+          subtype:          Number.isFinite(+a.Subtype) ? +a.Subtype : null,
         });
       }
 
@@ -86,7 +127,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         if (error) {
           console.error(`Page ${pageCount}: upsert error`, error);
         } else {
-          console.log(`Page ${pageCount}: upserted ${data.length} new facilities`);
+          console.log(`Page ${pageCount}: upserted ${data.length} facilities`);
           totalNew += data.length;
         }
       } else {
@@ -98,8 +139,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }
 
     console.log(`seed_facilities complete — ${totalNew} rows added.`);
+    await finishRun(runId, totalRead, totalNew);
+
   } catch (err) {
     console.error('seed_facilities.js failed:', err);
+    await failRun(runId, err);
     process.exit(1);
   }
 })();
