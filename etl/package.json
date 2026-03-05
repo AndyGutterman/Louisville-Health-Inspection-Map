@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test"         : "node --test tests/*.test.js",
     "migrate"      : "psql < migrations.sql",
     "seed:categories": "node seed_categories.js",
     "seed:facilities": "node seed_facilities.js",
