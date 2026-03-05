@@ -63,6 +63,10 @@
   background: #ea4335;
 }
 
+.hist-score.na {
+  background: #2a2a2a;
+}
+
 .hist-meta {
   display: flex;
   flex-direction: column;
