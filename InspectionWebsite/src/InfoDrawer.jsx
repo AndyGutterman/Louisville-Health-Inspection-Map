@@ -30,11 +30,14 @@ function CurrentInspectionCard({ data, details }) {
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum = typeof score === "number" ? score : null;
   const badgeClass =
-    scoreNum != null && scoreNum >= 95
-      ? "ok"
-      : scoreNum != null && scoreNum >= 85
-        ? "warn"
-        : "bad";
+    scoreNum == null
+      ? "na"
+      : scoreNum >= 95
+        ? "ok"
+        : scoreNum >= 85
+          ? "warn"
+          : "bad";
+          
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
   const items = details
