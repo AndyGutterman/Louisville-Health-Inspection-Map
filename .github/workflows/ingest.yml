@@ -1,15 +1,15 @@
 name: Ingest ArcGIS -> Supabase
-
 on:
   workflow_dispatch: {}
   schedule:
     - cron: "30 8 * * *"
-
 concurrency: ingest
-
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     defaults:
       run:
         working-directory: etl
@@ -19,38 +19,23 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-
+      - name: Test
+        run: npm test
       # ── Recovery pass (always runs first) ────────────────────────────────────
       # Checks import_runs for any crashed/errored runs from the last 30 days
       # and replays those date windows before doing today's sync.
       # Exit code is always 0 so a recovery failure never blocks the daily run.
       - name: Recover failed runs
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node recover.js
 
       # ── Daily sync ────────────────────────────────────────────────────────────
       - name: Seed facilities (FoodServiceData)
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node seed_facilities.js
-
       - name: Overlay geometry (FoodMapping)
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node overlay_geometry.js
-
       - name: Seed inspections
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node seed_inspections.js
-
+      - name: Seed violations
+        run: node seed_violations.js
       - name: Seed categories
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node seed_categories.js
