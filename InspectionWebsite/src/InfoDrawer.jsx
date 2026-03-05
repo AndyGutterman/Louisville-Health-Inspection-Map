@@ -28,7 +28,9 @@ function CurrentInspectionCard({ data, details }) {
   const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
-  const scoreNum = typeof score === "number" ? score : null;
+  const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
+  ? Number(score)
+  : null;
   const badgeClass =
     scoreNum == null
       ? "na"
@@ -174,11 +176,9 @@ function PastInspection({ row }) {
   const scoreNum = typeof row.score === "number" ? row.score : null;
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
   const badgeClass =
-    scoreNum != null && scoreNum >= 95
-      ? "ok"
-      : scoreNum != null && scoreNum >= 85
-        ? "warn"
-        : "bad";
+    const scoreNum = row.score != null && Number.isFinite(Number(row.score)) && Number(row.score) > 0
+  ? Number(row.score)
+  : null;
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
   const isCrit = (v) => {
