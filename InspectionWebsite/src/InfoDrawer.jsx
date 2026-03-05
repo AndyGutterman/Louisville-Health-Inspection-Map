@@ -37,7 +37,7 @@ function CurrentInspectionCard({ data, details }) {
         : scoreNum >= 85
           ? "warn"
           : "bad";
-          
+
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
   const items = details
