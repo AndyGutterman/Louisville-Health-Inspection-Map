@@ -173,12 +173,21 @@ function PastInspection({ row }) {
     row.grade && String(row.grade).trim().length > 0
       ? String(row.grade).trim()
       : "—";
-  const scoreNum = typeof row.score === "number" ? row.score : null;
-  const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
+
+  const scoreNum = row.score != null && Number.isFinite(Number(row.score)) && Number(row.score) > 0
+    ? Number(row.score)
+    : null;
+
+  const scoreText = scoreNum == null ? "N/A" : scoreNum;
+
   const badgeClass =
-    const scoreNum = row.score != null && Number.isFinite(Number(row.score)) && Number(row.score) > 0
-  ? Number(row.score)
-  : null;
+    scoreNum == null
+      ? "na"
+      : scoreNum >= 95
+        ? "ok"
+        : scoreNum >= 85
+          ? "warn"
+          : "bad";
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
   const isCrit = (v) => {
