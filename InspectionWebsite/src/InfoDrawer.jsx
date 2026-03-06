@@ -28,7 +28,9 @@ function CurrentInspectionCard({ data, details }) {
   const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
-  const scoreNum = typeof score === "number" ? score : null;
+  const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
+  ? Number(score)
+  : null;
   const badgeClass =
     scoreNum == null
       ? "na"
