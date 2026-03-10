@@ -297,36 +297,69 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         right: 16,
         top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
         bottom: 16,
-        width: "min(520px,92vw)",
+        width: "min(520px, 92vw)",
         background: "rgba(24,24,24,0.96)",
         backdropFilter: "blur(6px)",
         color: "#fff",
         zIndex: 3000,
         borderRadius: 12,
         boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
+        /* key: flex column + no overflow on outer shell */
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
       }}
     >
+      {/* Close — always above scroll */}
       <button className="info-close" onClick={onClose} aria-label="Close">×</button>
+
+      {/* Loading veil */}
       <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
 
-      <CurrentInspectionCard
-        data={{
-          name: selected.name,
-          address: selected.address,
-          inspectionDate: selected.inspectionDate,
-          score: selected.score,
-          grade: selected.grade,
-          meta: selected.meta,
-          metaTitle: selected.metaTitle,
+      {/* Scrollable inner body */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+          padding: "24px",
+          paddingBottom: 60,
         }}
-        details={facDetails}
+      >
+        <CurrentInspectionCard
+          data={{
+            name: selected.name,
+            address: selected.address,
+            inspectionDate: selected.inspectionDate,
+            score: selected.score,
+            grade: selected.grade,
+            meta: selected.meta,
+            metaTitle: selected.metaTitle,
+          }}
+          details={facDetails}
+        />
+
+        <div className="inspect-card_spacer" />
+
+        {history && <History rows={history} />}
+      </div>
+
+      {/* Bottom fade — signals more content below */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 72,
+          background: "linear-gradient(to bottom, transparent, rgba(24,24,24,0.97))",
+          borderRadius: "0 0 12px 12px",
+          pointerEvents: "none",
+          zIndex: 4,
+        }}
       />
-
-      <div className="inspect-card_spacer" />
-
-      {history && <History rows={history} />}
     </div>
   );
 }

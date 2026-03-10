@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
 import InfoDrawer from "./InfoDrawer.jsx";
+import TableView from "./TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
@@ -246,6 +247,7 @@ export default function Map() {
   const [catToggles, setCatToggles] = useState(buildInitialCatToggles());
 
   const [fabHidden, setFabHidden] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   const [bandsOpen, setBandsOpen] = useState(false);
 
   const inEdgeRef = useRef(false);
@@ -1195,6 +1197,33 @@ export default function Map() {
           loadSeqRef.current++;
         }}
       />
+
+      {/* Table view toggle button */}
+      {!tableOpen && (
+        <button
+          className="table-toggle-btn"
+          onClick={() => setTableOpen(true)}
+          aria-label="Open table view"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M3 15h18M9 3v18"/>
+          </svg>
+          Table View
+        </button>
+      )}
+
+      {/* Table view panel */}
+      {tableOpen && (
+        <TableView
+          supabase={supabase}
+          onClose={() => setTableOpen(false)}
+          onRowClick={(row) => {
+            beginDrawerLoad(row.establishment_id, row);
+            setTableOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
