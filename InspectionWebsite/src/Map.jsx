@@ -460,7 +460,7 @@ export default function Map() {
 
       // Red/yellow pins get a pixel "bonus" subtracted from their effective
       // distance so they win ties — and even beat nearby green pins by up to
-      // the bonus amount. Red > yellow > everything else. Yep.
+      // the bonus amount. Red > yellow > everything else.
       const colorBonus = (f) => {
         const layerId = f.layer?.id || "";
         if (layerId === "points-red")    return 10;
@@ -1032,6 +1032,9 @@ export default function Map() {
       document.querySelector(".fab-scores"),
       document.querySelector(".control-card"),
       document.querySelector(".app-header"),
+      document.querySelector(".info-drawer"),
+      document.querySelector(".table-panel"),
+      document.querySelector(".wb2"),
     ].filter(Boolean);
     for (const el of els) {
       const r = el.getBoundingClientRect();
@@ -1235,7 +1238,6 @@ export default function Map() {
           onClose={() => setTableOpen(false)}
           onRowClick={(row) => {
             beginDrawerLoad(row.establishment_id, row);
-            setTableOpen(false);
           }}
         />
       )}
