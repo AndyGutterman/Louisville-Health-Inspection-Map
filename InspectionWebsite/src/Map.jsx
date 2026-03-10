@@ -1152,7 +1152,7 @@ export default function Map() {
               </svg>
               <input
                 type="text"
-                placeholder="Search by name or zip"
+                placeholder="Search by name or address"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
