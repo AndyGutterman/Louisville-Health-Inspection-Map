@@ -640,7 +640,11 @@
 
 @media (max-width:600px) {
 	.info-drawer {
-		/* height/padding set via inline styles */
+		/* All layout handled by inline styles in InfoDrawer.jsx */
+	}
+	/* On mobile the close is inside the sheet; nudge it down past the drag pill */
+	.info-drawer .info-close {
+		top: 20px;
 	}
 }
 
@@ -1654,3 +1658,264 @@
   .table-sort-group { gap: 4px; }
   .table-sort-pill  { padding: 4px 10px; font-size: .76rem; }
 }
+/* ═══════════════════════════════════════════════
+   PATCH: Narrower search in table toolbar + header order fix
+   ═══════════════════════════════════════════════ */
+
+/* Shrink the table toolbar search so Latest/Hide N/A fit */
+.table-search {
+  position: relative;
+  flex: 0 1 180px;
+  min-width: 100px;
+}
+
+/* On mobile, let it grow a bit more */
+@media (max-width: 480px) {
+  .table-search {
+    flex: 1 1 120px;
+  }
+}
+
+/* Header: on small screens put search ABOVE brand */
+@media (max-width: 900px) {
+  .app-header .header-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .app-header .brand {
+    order: 2;
+    justify-content: center;
+  }
+
+  .app-header .header-search {
+    order: 1;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ── Responsive: shrink ScoreThreshold on small containers ── */
+@media (max-width: 560px) {
+  .wb2-presets {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px;
+    margin: 4px 0 6px;
+  }
+  .wb2-pill {
+    font-size: .78rem;
+    padding: 6px 4px;
+  }
+  .wb2-row {
+    grid-template-columns: 26px 1fr 32px;
+    gap: 6px;
+  }
+  .wb2-track {
+    height: 20px;
+  }
+  .wb2-rail, .wb2-fill {
+    height: 8px;
+  }
+  .wb2-handle {
+    width: 16px;
+    height: 16px;
+  }
+  .wb2-left, .wb2-right {
+    font-size: .82rem;
+  }
+  .rx-tab-content {
+    padding: 8px;
+  }
+}
+
+/* ── Shrink InfoDrawer on small containers ── */
+@media (max-width: 480px) {
+  .info-drawer [style] {
+    padding: 10px 10px 36px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .inspect-card_stats {
+    grid-template-columns: 80px 1fr 80px !important;
+    gap: 6px;
+  }
+  .inspect-badge {
+    width: 52px !important;
+    min-width: 52px !important;
+    height: 52px !important;
+    font-size: 1rem !important;
+  }
+}
+
+/* ── Smooth preset transitions on score threshold sliders ── */
+.wb2-handle {
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wb2-handle.active {
+  transition: none; /* disable during drag for immediate response */
+}
+.wb2-fill {
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wb2-pill {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* ═══════════════════════════════════════════════
+   TABLE v2 PATCHES — sort pills, filter rows, corner drag
+   ═══════════════════════════════════════════════ */
+
+/* Search: flex:1 so it fills remaining space evenly */
+.table-search {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 80px;
+  max-width: 260px;
+}
+@media (max-width: 600px) {
+  .table-search { max-width: none; }
+}
+
+/* ── Toggle pills (Unique / Hide N/A) ── */
+.tbl-pill-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  height: 30px;
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .15px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.65);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.tbl-pill-btn:hover { background: rgba(255,255,255,.10); color: #fff; }
+.tbl-pill-btn.active {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.30);
+  color: #fff;
+}
+
+/* ── Sort switch: two linked pills ── */
+.tbl-sort-switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.04);
+  overflow: hidden;
+}
+.tbl-sort-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 30px;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .1px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.55);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s;
+  border-left: 1px solid rgba(255,255,255,.10);
+}
+.tbl-sort-pill:first-child { border-left: none; }
+.tbl-sort-pill:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.9); }
+.tbl-sort-pill.active {
+  background: rgba(255,255,255,.15);
+  color: #fff;
+}
+
+/* ── Filter rows (Type / Facility) ── */
+.table-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  min-height: 36px;
+}
+.table-filter-row::-webkit-scrollbar { display: none; }
+
+.table-filter-label {
+  flex-shrink: 0;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  min-width: 42px;
+}
+
+/* ── Corner resize handle ── */
+.table-drag-corner {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  z-index: 20;
+  /* subtle visual cue — three diagonal lines */
+  background:
+    linear-gradient(
+      -45deg,
+      transparent 30%,
+      rgba(255,255,255,.18) 30%, rgba(255,255,255,.18) 34%,
+      transparent 34%,
+      transparent 50%,
+      rgba(255,255,255,.18) 50%, rgba(255,255,255,.18) 54%,
+      transparent 54%,
+      transparent 68%,
+      rgba(255,255,255,.18) 68%, rgba(255,255,255,.18) 72%,
+      transparent 72%
+    );
+  border-radius: 0 0 0 0;
+  touch-action: none;
+  user-select: none;
+}
+.table-drag-corner:hover {
+  background:
+    linear-gradient(
+      -45deg,
+      transparent 30%,
+      rgba(255,255,255,.38) 30%, rgba(255,255,255,.38) 34%,
+      transparent 34%,
+      transparent 50%,
+      rgba(255,255,255,.38) 50%, rgba(255,255,255,.38) 54%,
+      transparent 54%,
+      transparent 68%,
+      rgba(255,255,255,.38) 68%, rgba(255,255,255,.38) 72%,
+      transparent 72%
+    );
+}
+
+/* On mobile hide corner + right drag; use full-width */
+@media (max-width: 560px) {
+  .table-drag-corner { display: none; }
+}
+
+/* Toolbar wrapping on narrow panels */
+@media (max-width: 420px) {
+  .table-toolbar { flex-wrap: wrap; gap: 4px; }
+  .tbl-sort-switch { order: 10; }
+}
+
+/* Remove old sort-select rules (kept for safety, now hidden by specificity) */
+.table-sort-select-wrap { display: none !important; }

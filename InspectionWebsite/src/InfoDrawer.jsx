@@ -287,44 +287,85 @@ function History({ rows }) {
   );
 }
 
+function useIsMobile() {
+  const get = () => typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches;
+  const [mobile, setMobile] = React.useState(get);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 600px)");
+    const onChange = () => setMobile(mq.matches);
+    try { mq.addEventListener("change", onChange); } catch { mq.addListener(onChange); }
+    return () => { try { mq.removeEventListener("change", onChange); } catch { mq.removeListener(onChange); } };
+  }, []);
+  return mobile;
+}
+
 export default function InfoDrawer({ selected, drawerLoading, history, facDetails, onClose }) {
+  const isMobile = useIsMobile();
   if (!selected) return null;
+
+  // Mobile: bottom sheet, auto-heights to content (up to 82dvh), slides up from bottom.
+  // Desktop: full-height column between header and screen bottom, always scrollable.
+  const outerStyle = isMobile ? {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: "82dvh",
+    width: "100%",
+    borderRadius: "14px 14px 0 0",
+  } : {
+    position: "fixed",
+    right: 16,
+    top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
+    bottom: 16,
+    width: "min(520px, 92vw)",
+    borderRadius: 12,
+  };
+
   return (
     <div
       className="info-drawer"
       style={{
-        position: "fixed",
-        right: 16,
-        top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
-        bottom: 16,
-        width: "min(520px, 92vw)",
+        ...outerStyle,
         background: "rgba(24,24,24,0.96)",
         backdropFilter: "blur(6px)",
         color: "#fff",
         zIndex: 3000,
-        borderRadius: 12,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-        /* key: flex column + no overflow on outer shell */
+        boxShadow: isMobile
+          ? "0 -8px 32px rgba(0,0,0,0.55)"
+          : "0 10px 30px rgba(0,0,0,0.4)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }}
     >
+      {/* Drag pill on mobile */}
+      {isMobile && (
+        <div aria-hidden="true" style={{
+          width: 36, height: 4, borderRadius: 999,
+          background: "rgba(255,255,255,.28)",
+          margin: "10px auto 2px",
+          flexShrink: 0,
+        }} />
+      )}
+
       {/* Close — always above scroll */}
       <button className="info-close" onClick={onClose} aria-label="Close">×</button>
 
       {/* Loading veil */}
       <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
 
-      {/* Scrollable inner body */}
+      {/* Scrollable inner body.
+          flex:1 + minHeight:0 lets it grow to fill on desktop (bounded by top+bottom),
+          and on mobile sizes to content while still being scrollable if tall. */}
       <div
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
-          padding: "24px",
-          paddingBottom: 60,
+          padding: isMobile ? "16px 16px 48px" : "24px 24px 60px",
         }}
       >
         <CurrentInspectionCard
@@ -345,7 +386,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         {history && <History rows={history} />}
       </div>
 
-      {/* Bottom fade — signals more content below */}
+      {/* Bottom fade — signals scrollable content below */}
       <div
         aria-hidden="true"
         style={{
@@ -353,9 +394,9 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
           bottom: 0,
           left: 0,
           right: 0,
-          height: 72,
-          background: "linear-gradient(to bottom, transparent, rgba(24,24,24,0.97))",
-          borderRadius: "0 0 12px 12px",
+          height: 52,
+          background: `linear-gradient(to bottom, transparent, rgba(24,24,24,0.97))`,
+          borderRadius: isMobile ? 0 : "0 0 12px 12px",
           pointerEvents: "none",
           zIndex: 4,
         }}
