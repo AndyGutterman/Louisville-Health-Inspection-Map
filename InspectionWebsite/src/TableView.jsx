@@ -23,10 +23,9 @@ function fmt(val) {
     .toLocaleDateString(undefined, { timeZone: "UTC" });
 }
 
-/* ── drag-to-resize ─────────────────────────────────────── */
-const MIN_H = 200, MAX_FRAC = 0.88;
-
-function useDragH(frac = 0.52) {
+/* vertical drag (height) */
+const MIN_H = 180, MAX_H_FRAC = 0.88;
+function useDragH(frac = 0.50) {
   const [h, setH] = useState(() => Math.round(window.innerHeight * frac));
   const d = useRef({});
   const down = useCallback(e => {
@@ -35,16 +34,31 @@ function useDragH(frac = 0.52) {
   }, [h]);
   const move = useCallback(e => {
     if (!d.current.on) return;
-    setH(Math.max(MIN_H, Math.min(
-      window.innerHeight * MAX_FRAC,
-      d.current.h0 + d.current.y0 - e.clientY
-    )));
+    setH(Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_FRAC,
+      d.current.h0 + d.current.y0 - e.clientY)));
   }, []);
   const up = useCallback(() => { d.current.on = false; }, []);
-  return { h, down, move, up };
+  return { h, downH: down, moveH: move, upH: up };
 }
 
-/* ── main ───────────────────────────────────────────────── */
+/* horizontal drag (width) */
+const MIN_W = 320;
+function useDragW(defaultFrac = 0.58) {
+  const [w, setW] = useState(() => Math.round(window.innerWidth * defaultFrac));
+  const d = useRef({});
+  const down = useCallback(e => {
+    d.current = { on: true, x0: e.clientX, w0: w };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [w]);
+  const move = useCallback(e => {
+    if (!d.current.on) return;
+    setW(Math.max(MIN_W, Math.min(window.innerWidth - 16,
+      d.current.w0 + (e.clientX - d.current.x0))));
+  }, []);
+  const up = useCallback(() => { d.current.on = false; }, []);
+  return { w, downW: down, moveW: move, upW: up };
+}
+
 export default function TableView({ supabase, onRowClick, onClose }) {
   const [rows,       setRows]       = useState([]);
   const [total,      setTotal]      = useState(0);
@@ -53,48 +67,43 @@ export default function TableView({ supabase, onRowClick, onClose }) {
 
   const [page,       setPage]       = useState(1);
   const [pageSize,   setPageSize]   = useState(25);
-  const [sort,       setSort]       = useState("date_desc");       // default: most recent
+  const [sort,       setSort]       = useState("date_desc");
 
   const [search,     setSearch]     = useState("");
   const [dbSearch,   setDbSearch]   = useState("");
 
   const [types,      setTypes]      = useState([]);
-  const [selType,    setSelType]    = useState("REGULAR");         // default: Regular
+  const [selType,    setSelType]    = useState("REGULAR");
   const [latestOnly, setLatestOnly] = useState(true);
   const [hideNA,     setHideNA]     = useState(false);
 
-
-
-  const { h, down, move, up } = useDragH();
+  const { h, downH, moveH, upH } = useDragH();
+  const { w, downW, moveW, upW } = useDragW();
   const bodyRef = useRef(null);
 
-  /* debounce search */
+  const onPanelMove   = useCallback(e => { moveH(e); moveW(e); }, [moveH, moveW]);
+  const onPanelUp     = useCallback(e => { upH(e);   upW(e);   }, [upH, upW]);
+
   useEffect(() => {
     const t = setTimeout(() => setDbSearch(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  /* reset page on filter/sort changes */
   useEffect(() => { setPage(1); }, [sort, dbSearch, selType, latestOnly, pageSize, hideNA]);
 
-  /* scroll to top on page change */
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [page]);
 
-  /* load inspection types */
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("v_inspection_types")
-      .select("ins_type_desc, cnt")
+    supabase.from("v_inspection_types").select("ins_type_desc, cnt")
       .then(({ data, error }) => {
-        if (error) { console.warn("v_inspection_types missing:", error.message); return; }
+        if (error) { console.warn("v_inspection_types:", error.message); return; }
         setTypes((data || []).map(r => ({ type: r.ins_type_desc, count: Number(r.cnt) })));
       });
   }, [supabase]);
 
-  /* fetch rows */
   useEffect(() => {
     if (!supabase) return;
     let cancelled = false;
@@ -113,8 +122,7 @@ export default function TableView({ supabase, onRowClick, onClose }) {
       .order(col, { ascending: asc, nullsFirst: false })
       .range(from, to);
 
-    if (hideNA) q = q.gt("score", 0);
-
+    if (hideNA)   q = q.gt("score", 0);
     if (selType)  q = q.eq("ins_type_desc", selType);
     if (dbSearch) q = q.or(`name.ilike.%${dbSearch}%,address.ilike.%${dbSearch}%,zip.ilike.%${dbSearch}%`);
 
@@ -125,11 +133,9 @@ export default function TableView({ supabase, onRowClick, onClose }) {
       setTotal(count ?? 0);
       setLoading(false);
     });
-
     return () => { cancelled = true; };
   }, [supabase, page, pageSize, sort, dbSearch, selType, latestOnly, hideNA]);
 
-  /* pagination */
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage   = Math.min(page, totalPages);
   const startRow   = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
@@ -151,34 +157,39 @@ export default function TableView({ supabase, onRowClick, onClose }) {
     sort === asc ? "↑" : sort === desc ? "↓" : "↕";
 
   return (
-    <div className="table-panel" style={{ height: h }}
-         onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-
-      {/* drag handle */}
-      <div className="table-drag-zone" onPointerDown={down}>
+    <div
+      className="table-panel"
+      style={{ height: h, width: w }}
+      onPointerMove={onPanelMove}
+      onPointerUp={onPanelUp}
+      onPointerCancel={onPanelUp}
+    >
+      {/* top drag (height) */}
+      <div className="table-drag-zone" onPointerDown={downH}>
         <div className="table-drag-handle" />
       </div>
 
+      {/* right drag (width) */}
+      <div className="table-drag-right" onPointerDown={downW} />
+
       {/* header */}
       <div className="table-panel-header">
-        <span className="table-panel-title"> Inspection Scores</span>
-        <button className="table-panel-close" onClick={onClose}>Close ✕</button>
+        <span className="table-panel-title">Inspection Scores</span>
+        <button className="table-panel-close" onClick={onClose}>✕</button>
       </div>
 
-      {/* toolbar: search + sort + zip */}
+      {/* toolbar */}
       <div className="table-toolbar">
         <div className="table-search">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" strokeWidth="2.5">
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
           </svg>
           <input type="text" placeholder="Search name, address, or zip…"
                  value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-
-        {/* sort dropdown */}
         <div className="table-sort-select-wrap">
-          <svg className="table-sort-icon" width="13" height="13" viewBox="0 0 24 24"
+          <svg className="table-sort-icon" width="12" height="12" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M3 6h18M7 12h10M11 18h2"/>
           </svg>
@@ -188,21 +199,19 @@ export default function TableView({ supabase, onRowClick, onClose }) {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <svg className="table-sort-caret" width="10" height="10" viewBox="0 0 24 24"
+          <svg className="table-sort-caret" width="9" height="9" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M6 9l6 6 6-6"/>
           </svg>
         </div>
       </div>
 
-      {/* type filter row */}
+      {/* type chips */}
       {types.length > 0 && (
         <div className="table-type-row">
           <div className="table-type-chips">
             <button className={`table-chip ${!selType ? "active" : ""}`}
-                    onClick={() => setSelType(null)}>
-              All types
-            </button>
+                    onClick={() => setSelType(null)}>All</button>
             {types.map(t => (
               <button key={t.type}
                       className={`table-chip ${selType === t.type ? "active" : ""}`}
@@ -212,12 +221,12 @@ export default function TableView({ supabase, onRowClick, onClose }) {
               </button>
             ))}
           </div>
-          <label className="table-latest-toggle" title="Show only the most recent inspection per type per facility">
+          <label className="table-latest-toggle" title="Most recent inspection per type per facility">
             <input type="checkbox" checked={latestOnly}
                    onChange={e => setLatestOnly(e.target.checked)} />
-            <span>Latest only</span>
+            <span>Latest</span>
           </label>
-          <label className="table-latest-toggle" title="Hide inspections with no numerical score (e.g. complaints, surveys)">
+          <label className="table-latest-toggle" title="Hide rows with no numerical score">
             <input type="checkbox" checked={hideNA}
                    onChange={e => setHideNA(e.target.checked)} />
             <span>Hide N/A</span>
@@ -230,7 +239,7 @@ export default function TableView({ supabase, onRowClick, onClose }) {
         {error && (
           <div className="tbl-error">
             ⚠ {error}
-            <br/><small>Make sure you've run the latest SQL — re-run supabase_table_views.sql.</small>
+            <br/><small>Re-run supabase_table_views.sql to create missing views.</small>
           </div>
         )}
         <table className="table-grid">
@@ -294,7 +303,7 @@ export default function TableView({ supabase, onRowClick, onClose }) {
           {total === 0 ? "No results" : `${startRow}–${endRow} of ${total.toLocaleString()}`}
         </span>
         <div className="table-page-size">
-          <span>Show</span>
+          <span>Per page</span>
           {PAGE_SIZES.map(n => (
             <button key={n} className={`tbl-size-btn ${pageSize === n ? "active" : ""}`}
                     onClick={() => setPageSize(n)}>{n}</button>

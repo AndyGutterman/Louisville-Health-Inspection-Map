@@ -1210,45 +1210,65 @@
 .table-panel {
   position: fixed;
   left: 0;
-  right: 0;
   bottom: 0;
+  /* width is set inline via drag hook; right side stays free for InfoDrawer */
   z-index: 1300;
   background: rgba(18, 18, 22, .97);
   backdrop-filter: blur(14px);
   border-top: 1px solid rgba(255,255,255,.1);
-  border-radius: 16px 16px 0 0;
+  border-right: 1px solid rgba(255,255,255,.08);
+  border-radius: 0 16px 0 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 -12px 40px rgba(0,0,0,.55);
+  box-shadow: 0 -12px 40px rgba(0,0,0,.55), 4px 0 18px rgba(0,0,0,.3);
   overflow: hidden;
+  /* don't let pointer events on the panel bleed to map behind it */
+  touch-action: none;
 }
 
-/* ── drag handle zone ── */
+/* ── top drag handle (height) ── */
 .table-drag-zone {
   flex-shrink: 0;
-  padding: 10px 0 4px;
+  padding: 8px 0 2px;
   cursor: ns-resize;
 }
 .table-drag-handle {
-  width: 40px;
-  height: 4px;
+  width: 36px;
+  height: 3px;
   border-radius: 999px;
   background: rgba(255,255,255,.22);
   margin: 0 auto;
+}
+
+/* ── right drag handle (width) ── */
+.table-drag-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 10;
+  /* subtle visual hint */
+  background: linear-gradient(to right, transparent, rgba(255,255,255,.04));
+}
+.table-drag-right:hover,
+.table-drag-right:active {
+  background: linear-gradient(to right, transparent, rgba(255,255,255,.10));
 }
 
 /* ── header ── */
 .table-panel-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 18px 10px;
+  gap: 10px;
+  padding: 6px 14px 6px;
   border-bottom: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0;
 }
 .table-panel-title {
   font-weight: 800;
-  font-size: 1rem;
+  font-size: .94rem;
   color: #fff;
   flex: 1;
 }
@@ -1257,73 +1277,80 @@
   background: rgba(255,255,255,.08);
   color: #fff;
   border-radius: 999px;
-  padding: 6px 14px;
-  font-size: .86rem;
+  width: 28px;
+  height: 28px;
+  font-size: .9rem;
   font-weight: 700;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex-shrink: 0;
 }
-.table-panel-close:hover { background: rgba(255,255,255,.14); }
+.table-panel-close:hover { background: rgba(255,255,255,.16); }
 
 /* ── toolbar ── */
 .table-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  flex-wrap: nowrap;
   border-bottom: 1px solid rgba(255,255,255,.06);
   flex-shrink: 0;
+  min-width: 0;
 }
 .table-search {
   position: relative;
   flex: 1;
-  min-width: 160px;
+  min-width: 0;
 }
 .table-search svg {
   position: absolute;
-  left: 10px;
+  left: 9px;
   top: 50%;
   transform: translateY(-50%);
   opacity: .6;
   pointer-events: none;
+  flex-shrink: 0;
 }
 .table-search input {
   width: 100%;
-  height: 34px;
-  padding: 0 12px 0 34px;
+  height: 30px;
+  padding: 0 10px 0 30px;
   border-radius: 999px;
   background: rgba(255,255,255,.07);
   border: 1px solid rgba(255,255,255,.12);
   color: #fff;
-  font-size: .88rem;
+  font-size: .82rem;
   font-weight: 600;
   box-sizing: border-box;
 }
-.table-search input::placeholder { color: rgba(255,255,255,.5); }
+.table-search input::placeholder { color: rgba(255,255,255,.45); }
 
 .table-chips {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .table-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
+  gap: 4px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: .8rem;
+  font-size: .74rem;
   font-weight: 700;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.7);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  color: rgba(255,255,255,.65);
   cursor: pointer;
   white-space: nowrap;
   transition: background .12s, border-color .12s;
 }
-.table-chip:hover  { background: rgba(255,255,255,.1); }
-.table-chip.active { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.28); color: #fff; }
-.table-chip-dot    { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.table-chip:hover  { background: rgba(255,255,255,.09); }
+.table-chip.active { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.26); color: #fff; }
+.table-chip-dot    { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── scrollable table body ── */
 .table-body {
@@ -1345,13 +1372,13 @@
   background: rgba(22,22,26,.98);
 }
 .table-grid th {
-  padding: 9px 14px;
+  padding: 7px 10px;
   text-align: left;
-  font-size: .76rem;
+  font-size: .72rem;
   font-weight: 700;
-  letter-spacing: .5px;
+  letter-spacing: .4px;
   text-transform: uppercase;
-  color: rgba(255,255,255,.5);
+  color: rgba(255,255,255,.45);
   border-bottom: 1px solid rgba(255,255,255,.08);
   white-space: nowrap;
   cursor: pointer;
@@ -1362,10 +1389,10 @@
 .table-grid th .sort-icon      { opacity: .6; margin-left: 4px; }
 .table-grid th.sorted .sort-icon { opacity: 1; }
 .table-grid td {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.05);
-  font-size: .88rem;
-  color: rgba(255,255,255,.88);
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .84rem;
+  color: rgba(255,255,255,.86);
   vertical-align: middle;
 }
 .tbl-row { cursor: pointer; transition: background .1s; }
@@ -1377,11 +1404,11 @@
 .tbl-score-badge {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 32px;
-  border-radius: 8px;
+  width: 36px;
+  height: 28px;
+  border-radius: 7px;
   font-weight: 800;
-  font-size: .9rem;
+  font-size: .84rem;
 }
 .tbl-score-badge.ok   { background: #34a853; color: #fff; }
 .tbl-score-badge.warn { background: #fbbc05; color: #111; }
@@ -1412,11 +1439,12 @@
 .table-footer {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
+  gap: 8px;
+  padding: 7px 12px;
   border-top: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0;
   flex-wrap: wrap;
+  min-height: 0;
 }
 .table-result-count {
   font-size: .78rem;
@@ -1479,8 +1507,10 @@
   .tbl-col-addr  { display: none; }
   .tbl-col-grade { display: none; }
   .tbl-col-date  { display: none; }
-  .table-panel   { border-radius: 12px 12px 0 0; }
-  .table-footer  { gap: 8px; padding: 8px 12px; }
+  /* on mobile, table goes full width again */
+  .table-panel   { width: 100% !important; border-radius: 12px 12px 0 0; border-right: none; }
+  .table-drag-right { display: none; }
+  .table-footer  { gap: 6px; padding: 6px 10px; }
   .table-pagination { margin-left: 0; }
 }
 
@@ -1491,17 +1521,17 @@
   align-items: center;
   flex-shrink: 0;
   background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.12);
   border-radius: 999px;
-  padding: 0 10px 0 10px;
-  height: 34px;
-  gap: 6px;
+  padding: 0 8px;
+  height: 30px;
+  gap: 5px;
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
 .table-sort-select-wrap:hover {
   background: rgba(255,255,255,.11);
-  border-color: rgba(255,255,255,.22);
+  border-color: rgba(255,255,255,.20);
 }
 .table-sort-icon  { opacity: .55; flex-shrink: 0; }
 .table-sort-caret { opacity: .45; flex-shrink: 0; pointer-events: none; }
@@ -1512,12 +1542,12 @@
   border: none;
   outline: none;
   color: #fff;
-  font-size: .86rem;
+  font-size: .80rem;
   font-weight: 700;
   cursor: pointer;
   padding: 0;
   padding-right: 2px;
-  min-width: 96px;
+  min-width: 80px;
 }
 .table-sort-select option {
   background: #1a1a1e;
@@ -1528,8 +1558,8 @@
 .table-type-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 18px;
+  gap: 6px;
+  padding: 5px 12px;
   border-bottom: 1px solid rgba(255,255,255,.06);
   flex-shrink: 0;
   overflow-x: auto;
@@ -1540,7 +1570,7 @@
 .table-type-label { display: none; }
 .table-type-chips {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -1548,26 +1578,26 @@
 .table-latest-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-left: auto;
   flex-shrink: 0;
-  font-size: .8rem;
+  font-size: .74rem;
   font-weight: 700;
-  color: rgba(255,255,255,.7);
+  color: rgba(255,255,255,.65);
   cursor: pointer;
   white-space: nowrap;
 }
 .table-latest-toggle input { display: none; }
 .table-latest-toggle span {
-  padding: 5px 12px;
+  padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
   transition: background .12s, border-color .12s, color .12s;
 }
 .table-latest-toggle input:checked + span {
-  background: rgba(255,255,255,.18);
-  border-color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.28);
   color: #fff;
 }
 
