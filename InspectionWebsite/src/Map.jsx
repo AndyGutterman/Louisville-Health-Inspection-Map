@@ -309,6 +309,10 @@ export default function Map() {
             metaById.set(f.establishment_id, {
               ft: f.facility_type,
               st: f.subtype,
+              zip: f.zip || null,
+              address: f.address || null,
+              city: f.city || null,
+              state: f.state || null,
             });
         }
       } catch (e) {
@@ -348,6 +352,7 @@ export default function Map() {
               name: r.premise_name,
               address: r.address,
               address_full: fullAddr,
+              zip: meta?.zip || null,
               date: r.inspection_date_recent,
               score: r.score_recent,
               grade: r.grade_recent,
@@ -453,16 +458,23 @@ export default function Map() {
         };
       })();
 
+      // Red/yellow pins get a pixel "bonus" subtracted from their effective
+      // distance so they win ties — and even beat nearby green pins by up to
+      // the bonus amount. Red > yellow > everything else. Yep.
+      const colorBonus = (f) => {
+        const layerId = f.layer?.id || "";
+        if (layerId === "points-red")    return 10;
+        if (layerId === "points-yellow") return 5;
+        return 0;
+      };
+
       const nearestOf = (point, feats) => {
-        let best = null, bestd = Infinity, bestz = -Infinity;
-        const EPS = 0.9; // ~1px in screen distance
+        let best = null, bestEff = Infinity;
         for (const f of feats) {
           const p = map.project(f.geometry.coordinates);
           const d = Math.hypot(p.x - point.x, p.y - point.y);
-          const z = styleZ(f.layer?.id);
-          if (d + 1e-6 < bestd || (Math.abs(d - bestd) <= EPS && z > bestz)) {
-            best = f; bestd = d; bestz = z;
-          }
+          const eff = d - colorBonus(f);
+          if (eff < bestEff) { best = f; bestEff = eff; }
         }
         return best;
       };
@@ -502,20 +514,21 @@ export default function Map() {
 
 
       const nearestFeature = (point, px = 14) => {
-      const box = [
-        [point.x - px, point.y - px],
-        [point.x + px, point.y + px],
-      ];
-      const hits = map.queryRenderedFeatures(box, { layers: layerIds });
-      if (!hits.length) return null;
-      let best = hits[0], bestd = Infinity;
-      for (const h of hits) {
-        const p = map.project(h.geometry.coordinates);
-        const d = (p.x - point.x) ** 2 + (p.y - point.y) ** 2;
-        if (d < bestd) { bestd = d; best = h; }
-      }
-      return best;
-    };
+        const box = [
+          [point.x - px, point.y - px],
+          [point.x + px, point.y + px],
+        ];
+        const hits = map.queryRenderedFeatures(box, { layers: layerIds });
+        if (!hits.length) return null;
+        let best = hits[0], bestEff = Infinity;
+        for (const h of hits) {
+          const p = map.project(h.geometry.coordinates);
+          const d = Math.hypot(p.x - point.x, p.y - point.y);
+          const eff = d - colorBonus(h);
+          if (eff < bestEff) { bestEff = eff; best = h; }
+        }
+        return best;
+      };
 
 
       const colorForScore = (score) => {
@@ -1071,6 +1084,8 @@ export default function Map() {
         ["coalesce", ["get", "address_full"], ""],
         " ",
         ["coalesce", ["get", "address"], ""],
+        " ",
+        ["coalesce", ["get", "zip"], ""],
       ],
     ];
     const searchExpr = term ? [">=", ["index-of", term, haystack], 0] : null;
@@ -1134,7 +1149,7 @@ export default function Map() {
               </svg>
               <input
                 type="text"
-                placeholder="Search by name"
+                placeholder="Search by name or zip"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

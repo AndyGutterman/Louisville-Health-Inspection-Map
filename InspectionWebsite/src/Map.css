@@ -534,6 +534,7 @@
 	font-size: 24px;
 	color: #ccc;
 	cursor: pointer;
+	z-index: 10;
 }
 
 .info-close:hover {
