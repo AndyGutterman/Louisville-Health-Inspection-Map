@@ -100,7 +100,7 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
   const [page,     setPage]     = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Sort: axis = "date"|"score", dir = "desc"|"asc"
+  // Sort: axis = "date"|"score"|"name", dir = "desc"|"asc"
   const [sortAxis, setSortAxis] = useState("date");
   const [sortDir,  setSortDir]  = useState("desc");
 
@@ -192,7 +192,7 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
     const view = latestOnly ? "v_latest_insp_per_type" : "v_inspection_table";
     const from = (page - 1) * pageSize;
     const to   = from + pageSize - 1;
-    const col  = sortAxis === "score" ? "score" : "inspection_date";
+    const col  = sortAxis === "score" ? "score" : sortAxis === "name" ? "name" : "inspection_date";
     const asc  = sortDir === "asc";
 
     let q = supabase
@@ -255,6 +255,10 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
   };
   const handleScoreSort = () => {
     if (sortAxis !== "score") { setSortAxis("score"); setSortDir("asc"); }
+    else setSortDir(d => d === "asc" ? "desc" : "asc");
+  };
+  const handleNameSort = () => {
+    if (sortAxis !== "name") { setSortAxis("name"); setSortDir("asc"); }
     else setSortDir(d => d === "asc" ? "desc" : "asc");
   };
 
@@ -406,7 +410,9 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
                 Score <span className="sort-icon">{sortAxis === "score" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>
               </th>
               <th className="tbl-col-type">Type</th>
-              <th>Place</th>
+              <th className={sortAxis === "name" ? "sorted" : ""} onClick={handleNameSort} style={{ cursor: "pointer" }}>
+                Place <span className="sort-icon">{sortAxis === "name" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>
+              </th>
               <th className="tbl-col-addr">Address</th>
               <th className="tbl-col-zip">Zip</th>
               <th className={sortAxis === "date" ? "sorted" : ""} onClick={handleDateSort}>
