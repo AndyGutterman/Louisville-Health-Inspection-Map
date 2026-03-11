@@ -176,6 +176,9 @@ export default function Map() {
   const hoverPopupRef = useRef(null);
   const pinnedPopupRef = useRef(null);
   const pinnedReactRootRef = useRef(null);
+  // Exposed so TableView can drive map popups from row hover/click
+  const tableHoverPopupRef  = useRef(null); // tracks table-driven hover popup
+  const featureByEidRef     = useRef({});   // establishment_id → feature, built after geoData loads
   const lastHoverId = useRef(null);
   const pinnedFeatureRef = useRef(null);
   const multiHitsRef = useRef(null);
@@ -375,6 +378,10 @@ export default function Map() {
       }, {});
       const featureList = Object.values(latestMap);
       coordIndexRef.current = buildCoordIndex(featureList);
+      // Build establishment_id lookup for table row hover
+      const byEid = {};
+      for (const f of featureList) byEid[f.properties.establishment_id] = f;
+      featureByEidRef.current = byEid;
       setGeoData({
         type: "FeatureCollection",
         features: featureList,
@@ -396,6 +403,159 @@ export default function Map() {
         if (isMapReady()) applyFilter(m);
       });
   }
+
+
+  // Hoisted from map.on('load') so table rows can trigger drawer
+  const beginDrawerLoad = async (eid, p) => {
+    const seq = ++loadSeqRef.current;
+    setDrawerLoading(true);
+    setHistory(null);
+    setHistoryFor(null);
+    setFacDetails(null);
+    setFacDetailsFor(null);
+
+    const { data: insp, error } = await supabase
+      .from("inspections")
+      .select(
+        "inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id",
+      )
+      .eq("establishment_id", eid)
+      .order("inspection_date", { ascending: false })
+      .order("inspection_id", { ascending: false });
+
+    if (error) {
+      console.error("history fetch error", error);
+      if (seq !== loadSeqRef.current) return;
+      setDrawerLoading(false);
+      return;
+    }
+
+    const { data: viols, error: vErr } = await supabase
+      .from("inspection_violations")
+      .select(
+        "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
+      )
+      .eq("establishment_id", eid);
+
+    if (vErr) console.error("violations fetch error", vErr);
+    if (seq !== loadSeqRef.current) return;
+
+    const byId = new globalThis.Map();
+    const byDate = new globalThis.Map();
+    for (const v of viols || []) {
+      if (v.inspection_id != null) {
+        if (!byId.has(v.inspection_id)) byId.set(v.inspection_id, []);
+        byId.get(v.inspection_id).push(v);
+      }
+      if (v.inspection_date) {
+        if (!byDate.has(v.inspection_date)) byDate.set(v.inspection_date, []);
+        byDate.get(v.inspection_date).push(v);
+      }
+    }
+    const mergedDesc = (insp || []).map((r) => {
+      const viaId = byId.get(r.inspection_id) || [];
+      const viaDate = byDate.get(r.inspection_date) || [];
+      const seen = new Set();
+      const violations = [];
+      for (const x of [...viaId, ...viaDate]) {
+        const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
+        if (!seen.has(k)) {
+          seen.add(k);
+          violations.push(x);
+        }
+      }
+      return { ...r, violations };
+    });
+
+    const headerRow = (() => {
+      const byExact = mergedDesc.find(
+        (r) =>
+          r.inspection_date === p.date &&
+          (r.score ?? null) === (p.score ?? null) &&
+          (r.grade ?? null) === (p.grade ?? null),
+      );
+      if (byExact) return byExact;
+      const byDate = mergedDesc.find((r) => r.inspection_date === p.date);
+      if (byDate) return byDate;
+      const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
+      return latestNonZero || mergedDesc[0] || null;
+    })();
+
+    const selectedData = headerRow
+      ? {
+          establishment_id: eid,
+          name: p.name,
+          address: p.address,
+          inspectionDate: formatDateSafe(headerRow.inspection_date),
+          score: headerRow.score ?? null,
+          grade: headerRow.grade ?? null,
+          _displayedInspectionId: headerRow.inspection_id,
+          metaTitle:
+            (headerRow.score ?? 0) > 0
+              ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
+              : "",
+        }
+      : {
+          establishment_id: eid,
+          name: p.name,
+          address: p.address,
+          inspectionDate: formatDateSafe(p.date),
+          score: p.score ?? null,
+          grade: p.grade ?? null,
+          _displayedInspectionId: null,
+          meta: null,
+        };
+
+    let details = null;
+    let fullAddress = null;
+    {
+      const { data: fac, error: facErr } = await supabase
+        .from("facilities")
+        .select(
+          "opening_date, facility_type, subtype, address, city, state, zip, permit_number",
+        )
+        .eq("establishment_id", eid)
+        .maybeSingle();
+
+      if (facErr) console.error("facilities fetch error", facErr);
+
+      let typeLabel = fac?.facility_type ?? null;
+      let subtypeLabel = fac?.subtype ?? null;
+
+      if (fac?.facility_type != null && fac?.subtype != null) {
+        const { data: cat, error: catErr } = await supabase
+          .from("facility_categories")
+          .select("facility_type_description, subtype_description")
+          .eq("facility_type", fac.facility_type)
+          .eq("subtype", fac.subtype)
+          .maybeSingle();
+        if (catErr) console.error("facility_categories fetch error", catErr);
+        typeLabel = cat?.facility_type_description ?? typeLabel;
+        subtypeLabel = cat?.subtype_description ?? subtypeLabel;
+      }
+
+      details = {
+        opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
+        facility_type: typeLabel,
+        subtype: subtypeLabel,
+        permit_number: fac?.permit_number ?? null,
+      };
+      fullAddress =
+        [fac?.address || p.address, fac?.city, fac?.state]
+          .filter(Boolean)
+          .join(", ") + (fac?.zip ? ` ${fac.zip}` : "");
+    }
+
+    setSelected({
+      ...selectedData,
+      address: fullAddress || selectedData.address,
+    });
+    setHistory(mergedDesc);
+    setHistoryFor(eid);
+    setFacDetails(details);
+    setFacDetailsFor(eid);
+    setDrawerLoading(false);
+  };
 
   React.useEffect(() => {
     if (!geoData || mapRef.current) return;
@@ -495,14 +655,16 @@ export default function Map() {
       
 
 
-      const featuresAtPixel = (point) =>
-      map.queryRenderedFeatures(
-        [
-          [point.x, point.y],
-          [point.x, point.y],
-        ],
-        { layers: layerIds },
-      );
+      // Use a small box so overlapping/nearby pins are all found,
+      // then nearestOf() applies red>yellow>green priority correctly.
+      const featuresAtPixel = (point, px = 12) =>
+        map.queryRenderedFeatures(
+          [
+            [point.x - px, point.y - px],
+            [point.x + px, point.y + px],
+          ],
+          { layers: layerIds },
+        );
 
    
 
@@ -576,156 +738,6 @@ export default function Map() {
         wirePopupInteractions(pinnedPopupRef.current, feature);
       };
 
-      const beginDrawerLoad = async (eid, p) => {
-        const seq = ++loadSeqRef.current;
-        setDrawerLoading(true);
-        setHistory(null);
-        setHistoryFor(null);
-        setFacDetails(null);
-        setFacDetailsFor(null);
-
-        const { data: insp, error } = await supabase
-          .from("inspections")
-          .select(
-            "inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id",
-          )
-          .eq("establishment_id", eid)
-          .order("inspection_date", { ascending: false })
-          .order("inspection_id", { ascending: false });
-
-        if (error) {
-          console.error("history fetch error", error);
-          if (seq !== loadSeqRef.current) return;
-          setDrawerLoading(false);
-          return;
-        }
-
-        const { data: viols, error: vErr } = await supabase
-          .from("inspection_violations")
-          .select(
-            "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
-          )
-          .eq("establishment_id", eid);
-
-        if (vErr) console.error("violations fetch error", vErr);
-        if (seq !== loadSeqRef.current) return;
-
-        const byId = new globalThis.Map();
-        const byDate = new globalThis.Map();
-        for (const v of viols || []) {
-          if (v.inspection_id != null) {
-            if (!byId.has(v.inspection_id)) byId.set(v.inspection_id, []);
-            byId.get(v.inspection_id).push(v);
-          }
-          if (v.inspection_date) {
-            if (!byDate.has(v.inspection_date)) byDate.set(v.inspection_date, []);
-            byDate.get(v.inspection_date).push(v);
-          }
-        }
-        const mergedDesc = (insp || []).map((r) => {
-          const viaId = byId.get(r.inspection_id) || [];
-          const viaDate = byDate.get(r.inspection_date) || [];
-          const seen = new Set();
-          const violations = [];
-          for (const x of [...viaId, ...viaDate]) {
-            const k = x.violation_oid || `${x.inspection_id}-${x.violation_desc}`;
-            if (!seen.has(k)) {
-              seen.add(k);
-              violations.push(x);
-            }
-          }
-          return { ...r, violations };
-        });
-
-        const headerRow = (() => {
-          const byExact = mergedDesc.find(
-            (r) =>
-              r.inspection_date === p.date &&
-              (r.score ?? null) === (p.score ?? null) &&
-              (r.grade ?? null) === (p.grade ?? null),
-          );
-          if (byExact) return byExact;
-          const byDate = mergedDesc.find((r) => r.inspection_date === p.date);
-          if (byDate) return byDate;
-          const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
-          return latestNonZero || mergedDesc[0] || null;
-        })();
-
-        const selectedData = headerRow
-          ? {
-              establishment_id: eid,
-              name: p.name,
-              address: p.address,
-              inspectionDate: formatDateSafe(headerRow.inspection_date),
-              score: headerRow.score ?? null,
-              grade: headerRow.grade ?? null,
-              _displayedInspectionId: headerRow.inspection_id,
-              metaTitle:
-                (headerRow.score ?? 0) > 0
-                  ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
-                  : "",
-            }
-          : {
-              establishment_id: eid,
-              name: p.name,
-              address: p.address,
-              inspectionDate: formatDateSafe(p.date),
-              score: p.score ?? null,
-              grade: p.grade ?? null,
-              _displayedInspectionId: null,
-              meta: null,
-            };
-
-        let details = null;
-        let fullAddress = null;
-        {
-          const { data: fac, error: facErr } = await supabase
-            .from("facilities")
-            .select(
-              "opening_date, facility_type, subtype, address, city, state, zip, permit_number",
-            )
-            .eq("establishment_id", eid)
-            .maybeSingle();
-
-          if (facErr) console.error("facilities fetch error", facErr);
-
-          let typeLabel = fac?.facility_type ?? null;
-          let subtypeLabel = fac?.subtype ?? null;
-
-          if (fac?.facility_type != null && fac?.subtype != null) {
-            const { data: cat, error: catErr } = await supabase
-              .from("facility_categories")
-              .select("facility_type_description, subtype_description")
-              .eq("facility_type", fac.facility_type)
-              .eq("subtype", fac.subtype)
-              .maybeSingle();
-            if (catErr) console.error("facility_categories fetch error", catErr);
-            typeLabel = cat?.facility_type_description ?? typeLabel;
-            subtypeLabel = cat?.subtype_description ?? subtypeLabel;
-          }
-
-          details = {
-            opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
-            facility_type: typeLabel,
-            subtype: subtypeLabel,
-            permit_number: fac?.permit_number ?? null,
-          };
-          fullAddress =
-            [fac?.address || p.address, fac?.city, fac?.state]
-              .filter(Boolean)
-              .join(", ") + (fac?.zip ? ` ${fac.zip}` : "");
-        }
-
-        setSelected({
-          ...selectedData,
-          address: fullAddress || selectedData.address,
-        });
-        setHistory(mergedDesc);
-        setHistoryFor(eid);
-        setFacDetails(details);
-        setFacDetailsFor(eid);
-        setDrawerLoading(false);
-      };
 
       const wirePopupInteractions = (popup, feature) => {
         const root = popup.getElement();
@@ -1138,6 +1150,95 @@ export default function Map() {
     }
   }
 
+  // ── Table row hover: show hover popup on map ──────────────────────────────
+  const onTableRowHover = React.useCallback((establishmentId, rowData) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const feature = featureByEidRef.current[establishmentId];
+    if (!feature) return;
+
+    // Clear any previous table-driven hover popup
+    if (tableHoverPopupRef.current) {
+      tableHoverPopupRef.current.remove();
+      tableHoverPopupRef.current = null;
+    }
+
+    const p = feature.properties;
+    const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
+    const addr = p.address_full || p.address || "";
+    const html = `<div class="popup-content" style="font-size:14px;max-width:220px">
+      <strong>${p.name}</strong><br/>
+      <small>${addr}</small><br/>
+      Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
+    </div>`;
+
+    tableHoverPopupRef.current = new maplibregl.Popup({
+      anchor: "bottom",
+      offset: [0, -14],
+      closeButton: false,
+      closeOnMove: false,
+      closeOnClick: false,
+    })
+      .setLngLat(feature.geometry.coordinates)
+      .setHTML(html)
+      .addTo(map);
+
+    // Pan map to show the pin (softly, don't snap)
+    const bounds = map.getBounds();
+    const [lon, lat] = feature.geometry.coordinates;
+    if (!bounds.contains([lon, lat])) {
+      map.easeTo({ center: [lon, lat], duration: 400 });
+    }
+  }, []);
+
+  const onTableRowHoverEnd = React.useCallback(() => {
+    if (tableHoverPopupRef.current) {
+      tableHoverPopupRef.current.remove();
+      tableHoverPopupRef.current = null;
+    }
+  }, []);
+
+  const onTableRowClick = React.useCallback((row) => {
+    // Clear table hover popup
+    if (tableHoverPopupRef.current) {
+      tableHoverPopupRef.current.remove();
+      tableHoverPopupRef.current = null;
+    }
+    // Find the feature and show a pinned popup on the map
+    const map = mapRef.current;
+    const feature = featureByEidRef.current[row.establishment_id];
+    if (map && feature) {
+      // Clear any existing pinned popup
+      if (pinnedPopupRef.current) {
+        pinnedPopupRef.current.remove();
+        pinnedPopupRef.current = null;
+      }
+      const p = feature.properties;
+      const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
+      const addr = p.address_full || p.address || "";
+      const html = `<div class="popup-content" style="font-size:14px;max-width:220px">
+        <strong>${p.name}</strong><br/>
+        <small>${addr}</small><br/>
+        Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
+      </div>`;
+      pinnedPopupRef.current = new maplibregl.Popup({
+        anchor: "bottom",
+        offset: [0, -14],
+        closeButton: false,
+        closeOnMove: false,
+        closeOnClick: false,
+      })
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(html)
+        .addTo(map);
+      // Pan to pin
+      map.easeTo({ center: feature.geometry.coordinates, duration: 400 });
+    }
+    // Load the info drawer
+    beginDrawerLoad(row.establishment_id, row);
+  }, [beginDrawerLoad]);
+
+
   return (
     <>
       <header className="app-header">
@@ -1152,7 +1253,7 @@ export default function Map() {
               </svg>
               <input
                 type="text"
-                placeholder="Search by name or address"
+                placeholder="Search map by name or location"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -1236,9 +1337,9 @@ export default function Map() {
         <TableView
           supabase={supabase}
           onClose={() => setTableOpen(false)}
-          onRowClick={(row) => {
-            beginDrawerLoad(row.establishment_id, row);
-          }}
+          onRowClick={onTableRowClick}
+          onRowHover={onTableRowHover}
+          onRowHoverEnd={onTableRowHoverEnd}
         />
       )}
     </>

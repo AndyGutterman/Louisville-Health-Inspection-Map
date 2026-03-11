@@ -1767,155 +1767,172 @@
 }
 
 /* ═══════════════════════════════════════════════
-   TABLE v2 PATCHES — sort pills, filter rows, corner drag
+   TABLE v3 — toolbar, sort switch, filter rows, corner drag
    ═══════════════════════════════════════════════ */
 
-/* Search: flex:1 so it fills remaining space evenly */
+/* ── Toolbar layout ── */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Search grows to fill left side */
 .table-search {
   position: relative;
   flex: 1 1 0;
   min-width: 80px;
-  max-width: 260px;
 }
-@media (max-width: 600px) {
-  .table-search { max-width: none; }
+.table-search svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .6;
+  pointer-events: none;
+}
+.table-search input {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 28px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.table-search input::placeholder { color: rgba(255,255,255,.38); }
+
+/* Right-side controls cluster */
+.tbl-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
-/* ── Toggle pills (Unique / Hide N/A) ── */
+/* ── Shared pill base (Unique / Hide N/A) ── */
 .tbl-pill-btn {
-  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 0 11px;
-  height: 30px;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: .76rem;
+  font-size: .74rem;
   font-weight: 700;
-  letter-spacing: .15px;
+  letter-spacing: .1px;
   border: 1px solid rgba(255,255,255,.14);
   background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.65);
+  color: rgba(255,255,255,.55);
   cursor: pointer;
   white-space: nowrap;
   transition: background .12s, border-color .12s, color .12s;
-}
-.tbl-pill-btn:hover { background: rgba(255,255,255,.10); color: #fff; }
-.tbl-pill-btn.active {
-  background: rgba(255,255,255,.16);
-  border-color: rgba(255,255,255,.30);
-  color: #fff;
-}
-
-/* ── Sort switch: two linked pills ── */
-.tbl-sort-switch {
-  display: inline-flex;
   flex-shrink: 0;
+}
+.tbl-pill-btn:hover  { background: rgba(255,255,255,.10); color: rgba(255,255,255,.9); }
+.tbl-pill-btn.active { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.28); color: #fff; }
+
+/* ── Sort switch: two equal pills in a single bordered container ── */
+.tbl-sort-switch {
+  display: inline-grid;
+  /* Both pills share equal width so the container never jumps */
+  grid-template-columns: 1fr 1fr;
+  height: 28px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.16);
   background: rgba(255,255,255,.04);
   overflow: hidden;
+  flex-shrink: 0;
+  /* Reserve enough space for the longest label "Highest ↓" */
+  min-width: 170px;
 }
 .tbl-sort-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0 10px;
-  height: 30px;
-  font-size: .76rem;
+  justify-content: center;
+  height: 100%;
+  padding: 0 8px;
+  font-size: .74rem;
   font-weight: 700;
-  letter-spacing: .1px;
+  letter-spacing: .05px;
   border: none;
   background: transparent;
-  color: rgba(255,255,255,.55);
+  color: rgba(255,255,255,.45);
   cursor: pointer;
   white-space: nowrap;
-  transition: background .12s, color .12s;
+  transition: background .15s, color .15s;
+  /* Divider between pills */
   border-left: 1px solid rgba(255,255,255,.10);
 }
 .tbl-sort-pill:first-child { border-left: none; }
-.tbl-sort-pill:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.9); }
-.tbl-sort-pill.active {
-  background: rgba(255,255,255,.15);
-  color: #fff;
-}
+.tbl-sort-pill:hover  { background: rgba(255,255,255,.08); color: rgba(255,255,255,.85); }
+.tbl-sort-pill.active { background: rgba(255,255,255,.14); color: #fff; }
 
 /* ── Filter rows (Type / Facility) ── */
 .table-filter-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px 4px;
+  padding: 4px 10px;
   border-bottom: 1px solid rgba(255,255,255,.05);
   flex-shrink: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  min-height: 36px;
+  min-height: 34px;
 }
 .table-filter-row::-webkit-scrollbar { display: none; }
 
 .table-filter-label {
   flex-shrink: 0;
-  font-size: .68rem;
+  font-size: .65rem;
   font-weight: 800;
-  letter-spacing: .5px;
+  letter-spacing: .55px;
   text-transform: uppercase;
-  color: rgba(255,255,255,.35);
-  min-width: 42px;
+  color: rgba(255,255,255,.3);
+  min-width: 44px;
+  user-select: none;
 }
 
-/* ── Corner resize handle ── */
+/* ── Corner drag handle ── */
 .table-drag-corner {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   cursor: nwse-resize;
   z-index: 20;
-  /* subtle visual cue — three diagonal lines */
-  background:
-    linear-gradient(
-      -45deg,
-      transparent 30%,
-      rgba(255,255,255,.18) 30%, rgba(255,255,255,.18) 34%,
-      transparent 34%,
-      transparent 50%,
-      rgba(255,255,255,.18) 50%, rgba(255,255,255,.18) 54%,
-      transparent 54%,
-      transparent 68%,
-      rgba(255,255,255,.18) 68%, rgba(255,255,255,.18) 72%,
-      transparent 72%
-    );
-  border-radius: 0 0 0 0;
   touch-action: none;
   user-select: none;
+  background: linear-gradient(
+    -45deg,
+    transparent 28%, rgba(255,255,255,.20) 28%, rgba(255,255,255,.20) 33%, transparent 33%,
+    transparent 46%, rgba(255,255,255,.20) 46%, rgba(255,255,255,.20) 51%, transparent 51%,
+    transparent 64%, rgba(255,255,255,.20) 64%, rgba(255,255,255,.20) 69%, transparent 69%
+  );
 }
 .table-drag-corner:hover {
-  background:
-    linear-gradient(
-      -45deg,
-      transparent 30%,
-      rgba(255,255,255,.38) 30%, rgba(255,255,255,.38) 34%,
-      transparent 34%,
-      transparent 50%,
-      rgba(255,255,255,.38) 50%, rgba(255,255,255,.38) 54%,
-      transparent 54%,
-      transparent 68%,
-      rgba(255,255,255,.38) 68%, rgba(255,255,255,.38) 72%,
-      transparent 72%
-    );
+  background: linear-gradient(
+    -45deg,
+    transparent 28%, rgba(255,255,255,.42) 28%, rgba(255,255,255,.42) 33%, transparent 33%,
+    transparent 46%, rgba(255,255,255,.42) 46%, rgba(255,255,255,.42) 51%, transparent 51%,
+    transparent 64%, rgba(255,255,255,.42) 64%, rgba(255,255,255,.42) 69%, transparent 69%
+  );
 }
 
-/* On mobile hide corner + right drag; use full-width */
 @media (max-width: 560px) {
   .table-drag-corner { display: none; }
+  .tbl-sort-switch   { min-width: 140px; }
+  .tbl-toolbar-right { gap: 4px; }
 }
 
-/* Toolbar wrapping on narrow panels */
-@media (max-width: 420px) {
-  .table-toolbar { flex-wrap: wrap; gap: 4px; }
-  .tbl-sort-switch { order: 10; }
-}
-
-/* Remove old sort-select rules (kept for safety, now hidden by specificity) */
+/* Hide the old sort dropdown if it somehow still renders */
 .table-sort-select-wrap { display: none !important; }

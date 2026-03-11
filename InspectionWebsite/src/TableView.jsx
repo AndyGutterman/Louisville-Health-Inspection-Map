@@ -2,11 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 
 const PAGE_SIZES = [10, 25, 50, 100, 500];
 
-// The two sort axes, each togglable
-// dateSort: "desc" = newest first, "asc" = oldest first
-// scoreSort: "asc" = lowest first, "desc" = highest first
-// activeAxis: "date" | "score"
-
 function scoreClass(s) {
   if (s == null || s === 0) return "na";
   if (s >= 95) return "ok";
@@ -64,7 +59,7 @@ function useDragW() {
   return { w, setW, downW: down, moveW: move, upW: up };
 }
 
-/* ── diagonal corner drag ── */
+/* ── drag: corner (diagonal) ── */
 function useCornerDrag(setH, setW) {
   const d = useRef({});
   const down = useCallback((e, curH, curW) => {
@@ -75,27 +70,28 @@ function useCornerDrag(setH, setW) {
   const move = useCallback(e => {
     if (!d.current.on) return;
     const dx = e.clientX - d.current.x0;
-    const dy = e.clientY - d.current.y0; // positive = dragging down = shrink height
-    setW(w => Math.max(MIN_W, Math.min(window.innerWidth - 16, d.current.w0 + dx)));
-    setH(h => Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_FRAC, d.current.h0 - dy)));
+    const dy = e.clientY - d.current.y0;
+    setW(() => Math.max(MIN_W, Math.min(window.innerWidth - 16, d.current.w0 + dx)));
+    setH(() => Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_FRAC, d.current.h0 - dy)));
   }, [setH, setW]);
   const up = useCallback(() => { d.current.on = false; }, []);
   return { downCorner: down, moveCorner: move, upCorner: up };
 }
 
-// Facility category definitions (mirrors Map.jsx CATEGORY_SPECS)
+// Facility category definitions — ft/st pairs matching Map.jsx CATEGORY_SPECS
 const FACILITY_CATS = {
-  restaurants:         { label: "Restaurants",        pairs: [[605, 11]] },
-  schools:             { label: "Schools",             pairs: [[605, 33]] },
-  daycare:             { label: "Daycare",             pairs: [[605, 31]] },
-  hospitals:           { label: "Healthcare",          pairs: [[605, 32]] },
-  concessions:         { label: "Concessions",         pairs: [[603, 51],[603, 53]] },
-  caterers_commissary: { label: "Kitchens",            pairs: [[605, 42],[605, 43]] },
-  retail:              { label: "Retail",              pairs: [[610, 61],[610, 62],[610, 63],[610, 64],[610, 65],[610, 73],[610, 212],[607, 54],[607, 55],[605, 54]] },
-  unknown:             { label: "Other",               pairs: [[605, 36],[604, 16],[605, 52]] },
+  restaurants:         { label: "Restaurants", pairs: [[605, 11]] },
+  schools:             { label: "Schools",     pairs: [[605, 33]] },
+  daycare:             { label: "Daycare",     pairs: [[605, 31]] },
+  hospitals:           { label: "Healthcare",  pairs: [[605, 32]] },
+  concessions:         { label: "Concessions", pairs: [[603, 51],[603, 53]] },
+  caterers_commissary: { label: "Kitchens",    pairs: [[605, 42],[605, 43]] },
+  retail:              { label: "Retail",      pairs: [[610, 61],[610, 62],[610, 63],[610, 64],[610, 65],[610, 73],[610, 212],[607, 54],[607, 55],[605, 54]] },
+  unknown:             { label: "Other",       pairs: [[605, 36],[604, 16],[605, 52]] },
 };
+const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
 
-export default function TableView({ supabase, onRowClick, onClose }) {
+export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose }) {
   const [rows,    setRows]    = useState([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(false);
@@ -104,44 +100,47 @@ export default function TableView({ supabase, onRowClick, onClose }) {
   const [page,     setPage]     = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Sort state: axis = "date"|"score", dir = "desc"|"asc"
+  // Sort: axis = "date"|"score", dir = "desc"|"asc"
   const [sortAxis, setSortAxis] = useState("date");
   const [sortDir,  setSortDir]  = useState("desc");
 
   const [search,   setSearch]   = useState("");
   const [dbSearch, setDbSearch] = useState("");
 
-  // Inspection type chips (multiselect)
+  // Inspection type multiselect (null = All)
   const [types,    setTypes]    = useState([]);
-  const [selTypes, setSelTypes] = useState(null); // null = All
+  const [selTypes, setSelTypes] = useState(null);
 
-  // Facility category chips (multiselect)
-  const [selCats, setSelCats] = useState(null); // null = All
+  // Facility category multiselect (null = All)
+  const [selCats,  setSelCats]  = useState(null);
+  // Resolved establishment_ids for the current cat selection
+  const [catEids,  setCatEids]  = useState(null); // null = no filter
 
   const [latestOnly, setLatestOnly] = useState(true);
   const [hideNA,     setHideNA]     = useState(false);
 
-  const { h, setH, downH, moveH, upH } = useDragH();
-  const { w, setW, downW, moveW, upW } = useDragW();
+  const { h, setH, downH, moveH, upH }   = useDragH();
+  const { w, setW, downW, moveW, upW }   = useDragW();
   const { downCorner, moveCorner, upCorner } = useCornerDrag(setH, setW);
   const bodyRef = useRef(null);
-  const cornerRef = useRef(null);
 
-  // Unified pointer move/up for all drag handles
   const onPanelMove = useCallback(e => { moveH(e); moveW(e); moveCorner(e); }, [moveH, moveW, moveCorner]);
-  const onPanelUp   = useCallback(e => { upH(e); upW(e); upCorner(e); }, [upH, upW, upCorner]);
+  const onPanelUp   = useCallback(e => { upH(e); upW(e); upCorner(e); },     [upH, upW, upCorner]);
 
+  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDbSearch(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [sortAxis, sortDir, dbSearch, selTypes, selCats, latestOnly, pageSize, hideNA]);
+  // Reset page on filter/sort change
+  useEffect(() => { setPage(1); }, [sortAxis, sortDir, dbSearch, selTypes, catEids, latestOnly, pageSize, hideNA]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [page]);
 
+  // Fetch inspection type list once
   useEffect(() => {
     if (!supabase) return;
     supabase.from("v_inspection_types").select("ins_type_desc, cnt")
@@ -151,18 +150,41 @@ export default function TableView({ supabase, onRowClick, onClose }) {
       });
   }, [supabase]);
 
-  // Derive active inspection types for query
-  const activeTypes = selTypes === null ? null
-    : selTypes.size === 0 ? null
-    : [...selTypes];
+  // Resolve facility category → establishment_ids via facilities table
+  // The inspection views don't carry facility_type/subtype, so we pre-fetch
+  // the matching establishment_ids and then filter by them.
+  useEffect(() => {
+    if (!supabase || selCats === null) {
+      setCatEids(null);
+      return;
+    }
+    const pairs = [...selCats].flatMap(k => FACILITY_CATS[k]?.pairs ?? []);
+    if (pairs.length === 0) { setCatEids(null); return; }
 
-  // Derive facility ft:st pairs for category filter
-  const activeCatPairs = selCats === null ? null
-    : selCats.size === 0 ? null
-    : [...selCats].flatMap(k => FACILITY_CATS[k]?.pairs ?? []);
+    // Build OR filter: (facility_type=X AND subtype=Y) OR ...
+    const orParts = pairs.map(([ft, st]) => `and(facility_type.eq.${ft},subtype.eq.${st})`).join(",");
 
+    supabase
+      .from("facilities")
+      .select("establishment_id")
+      .or(orParts)
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("facility cat filter:", error.message);
+          setCatEids(null);
+          return;
+        }
+        const ids = (data || []).map(r => r.establishment_id);
+        setCatEids(ids.length > 0 ? ids : []);
+      });
+  }, [supabase, selCats]);
+
+  // Main data fetch
   useEffect(() => {
     if (!supabase) return;
+    // If a category filter is active but IDs haven't resolved yet, wait
+    if (selCats !== null && catEids === undefined) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -173,27 +195,26 @@ export default function TableView({ supabase, onRowClick, onClose }) {
     const col  = sortAxis === "score" ? "score" : "inspection_date";
     const asc  = sortDir === "asc";
 
-    // We need facility_type + subtype if category filter is active
-    const selectCols = activeCatPairs
-      ? "inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, zip, facility_type, subtype"
-      : "inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, zip";
-
     let q = supabase
       .from(view)
-      .select(selectCols, { count: "exact" })
+      .select(
+        "inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, zip",
+        { count: "exact" }
+      )
       .order(col, { ascending: asc, nullsFirst: false })
       .range(from, to);
 
-    if (hideNA)      q = q.gt("score", 0);
-    if (activeTypes) q = q.in("ins_type_desc", activeTypes);
-    if (dbSearch)    q = q.or(`name.ilike.%${dbSearch}%,address.ilike.%${dbSearch}%,zip.ilike.%${dbSearch}%`);
-
-    // Category filter: filter by facility_type+subtype pairs
-    if (activeCatPairs && activeCatPairs.length > 0) {
-      const orClauses = activeCatPairs
-        .map(([ft, st]) => `and(facility_type.eq.${ft},subtype.eq.${st})`)
-        .join(",");
-      q = q.or(orClauses);
+    if (hideNA)    q = q.gt("score", 0);
+    if (selTypes)  q = q.in("ins_type_desc", [...selTypes]);
+    if (dbSearch)  q = q.or(`name.ilike.%${dbSearch}%,address.ilike.%${dbSearch}%,zip.ilike.%${dbSearch}%`);
+    // Category filter: restrict to resolved establishment_ids
+    if (catEids !== null) {
+      if (catEids.length === 0) {
+        // No facilities match — return empty result immediately
+        setRows([]); setTotal(0); setLoading(false);
+        return;
+      }
+      q = q.in("establishment_id", catEids);
     }
 
     q.then(({ data, error, count }) => {
@@ -204,33 +225,30 @@ export default function TableView({ supabase, onRowClick, onClose }) {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [supabase, page, pageSize, sortAxis, sortDir, dbSearch, selTypes, selCats, latestOnly, hideNA]);
+  }, [supabase, page, pageSize, sortAxis, sortDir, dbSearch, selTypes, catEids, latestOnly, hideNA]);
 
-  /* ── type chip toggle ── */
+  /* ── chip toggle helpers ── */
   const toggleType = (name) => {
     setSelTypes(prev => {
       if (prev === null) return new Set([name]);
       const next = new Set(prev);
       next.has(name) ? next.delete(name) : next.add(name);
-      if (next.size === 0) return null;
-      if (types.length > 0 && next.size === types.length) return null;
+      if (next.size === 0 || (types.length > 0 && next.size === types.length)) return null;
       return next;
     });
   };
 
-  /* ── facility cat toggle ── */
   const toggleCat = (key) => {
     setSelCats(prev => {
       if (prev === null) return new Set([key]);
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
-      if (next.size === 0) return null;
-      if (next.size === Object.keys(FACILITY_CATS).length) return null;
+      if (next.size === 0 || next.size === FACILITY_CAT_KEYS.length) return null;
       return next;
     });
   };
 
-  /* ── sort toggle buttons ── */
+  /* ── sort toggle handlers ── */
   const handleDateSort = () => {
     if (sortAxis !== "date") { setSortAxis("date"); setSortDir("desc"); }
     else setSortDir(d => d === "desc" ? "asc" : "desc");
@@ -240,13 +258,13 @@ export default function TableView({ supabase, onRowClick, onClose }) {
     else setSortDir(d => d === "asc" ? "desc" : "asc");
   };
 
+  // Label always same width — use fixed strings with arrow suffix
   const dateSortLabel  = sortAxis === "date"
-    ? (sortDir === "desc" ? "Newest ↓" : "Oldest ↑")
-    : "Date";
+    ? (sortDir === "desc" ? "Newest ↓" : "Oldest ↑") : "Newest ↓";
   const scoreSortLabel = sortAxis === "score"
-    ? (sortDir === "asc" ? "Lowest ↑" : "Highest ↓")
-    : "Score";
+    ? (sortDir === "asc"  ? "Lowest ↑" : "Highest ↓") : "Lowest ↑";
 
+  /* ── pagination ── */
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage   = Math.min(page, totalPages);
   const startRow   = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
@@ -265,9 +283,6 @@ export default function TableView({ supabase, onRowClick, onClose }) {
     return out;
   })();
 
-  const isAllTypes = selTypes === null;
-  const isAllCats  = selCats === null;
-
   return (
     <div
       className="table-panel"
@@ -276,29 +291,25 @@ export default function TableView({ supabase, onRowClick, onClose }) {
       onPointerUp={onPanelUp}
       onPointerCancel={onPanelUp}
     >
-      {/* ── top drag handle (height) ── */}
+      {/* top drag (height) */}
       <div className="table-drag-zone" onPointerDown={downH}>
         <div className="table-drag-handle" />
       </div>
 
-      {/* ── right drag handle (width) ── */}
+      {/* right drag (width) */}
       <div className="table-drag-right" onPointerDown={downW} />
 
-      {/* ── corner drag handle (diagonal) ── */}
-      <div
-        className="table-drag-corner"
-        onPointerDown={e => downCorner(e, h, w)}
-      />
+      {/* corner drag (diagonal) */}
+      <div className="table-drag-corner" onPointerDown={e => downCorner(e, h, w)} />
 
-      {/* ── header ── */}
+      {/* header */}
       <div className="table-panel-header">
         <span className="table-panel-title">Inspection Scores</span>
         <button className="table-panel-close" onClick={onClose}>✕</button>
       </div>
 
-      {/* ── toolbar: search + toggles + sort pills ── */}
+      {/* toolbar */}
       <div className="table-toolbar">
-        {/* Search — grows to fill available space */}
         <div className="table-search">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" strokeWidth="2.5">
@@ -306,60 +317,54 @@ export default function TableView({ supabase, onRowClick, onClose }) {
           </svg>
           <input
             type="text"
-            placeholder="Search name, address, zip…"
+            placeholder="Search all current records"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
 
-        {/* Toggle pills — same visual style */}
-        <button
-          className={`tbl-pill-btn ${latestOnly ? "active" : ""}`}
-          title="Show only the most recent inspection per inspection type per facility"
-          onClick={() => setLatestOnly(v => !v)}
-        >
-          Unique
-        </button>
-        <button
-          className={`tbl-pill-btn ${hideNA ? "active" : ""}`}
-          title="Hide rows with no numerical score"
-          onClick={() => setHideNA(v => !v)}
-        >
-          Hide N/A
-        </button>
+        <div className="tbl-toolbar-right">
+          <button
+            className={`tbl-pill-btn ${latestOnly ? "active" : ""}`}
+            title="Show only the most recent inspection per type per facility"
+            onClick={() => setLatestOnly(v => !v)}
+          >Unique</button>
 
-        {/* Sort switch — two linked pills */}
-        <div className="tbl-sort-switch" role="group" aria-label="Sort">
           <button
-            className={`tbl-sort-pill ${sortAxis === "date" ? "active" : ""}`}
-            onClick={handleDateSort}
-            title="Sort by date — click again to flip"
-          >
-            {dateSortLabel}
-          </button>
-          <button
-            className={`tbl-sort-pill ${sortAxis === "score" ? "active" : ""}`}
-            onClick={handleScoreSort}
-            title="Sort by score — click again to flip"
-          >
-            {scoreSortLabel}
-          </button>
+            className={`tbl-pill-btn ${hideNA ? "active" : ""}`}
+            title="Hide rows with no numerical score"
+            onClick={() => setHideNA(v => !v)}
+          >Hide N/A</button>
+
+          {/* Sort switch */}
+          <div className="tbl-sort-switch" role="group" aria-label="Sort by">
+            <button
+              className={`tbl-sort-pill ${sortAxis === "date" ? "active" : ""}`}
+              onClick={handleDateSort}
+              title="Sort by date — click again to reverse"
+            >{dateSortLabel}</button>
+            <button
+              className={`tbl-sort-pill ${sortAxis === "score" ? "active" : ""}`}
+              onClick={handleScoreSort}
+              title="Sort by score — click again to reverse"
+            >{scoreSortLabel}</button>
+          </div>
         </div>
       </div>
 
-      {/* ── Inspection type chips ── */}
+      {/* Inspection type chips */}
       {types.length > 0 && (
         <div className="table-filter-row">
           <span className="table-filter-label">Type</span>
           <div className="table-type-chips">
             <button
-              className={`table-chip ${isAllTypes ? "active" : ""}`}
+              className={`table-chip ${selTypes === null ? "active" : ""}`}
               onClick={() => setSelTypes(null)}
             >All</button>
             {types.map(t => (
               <button
                 key={t.type}
-                className={`table-chip ${selTypes !== null && selTypes.has(t.type) ? "active" : ""}`}
+                className={`table-chip ${selTypes?.has(t.type) ? "active" : ""}`}
                 onClick={() => toggleType(t.type)}
                 title={`${t.count.toLocaleString()} inspections`}
               >{t.type}</button>
@@ -368,25 +373,25 @@ export default function TableView({ supabase, onRowClick, onClose }) {
         </div>
       )}
 
-      {/* ── Facility category chips ── */}
+      {/* Facility category chips */}
       <div className="table-filter-row">
         <span className="table-filter-label">Facility</span>
         <div className="table-type-chips">
           <button
-            className={`table-chip ${isAllCats ? "active" : ""}`}
+            className={`table-chip ${selCats === null ? "active" : ""}`}
             onClick={() => setSelCats(null)}
           >All</button>
           {Object.entries(FACILITY_CATS).map(([key, spec]) => (
             <button
               key={key}
-              className={`table-chip ${selCats !== null && selCats.has(key) ? "active" : ""}`}
+              className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
               onClick={() => toggleCat(key)}
             >{spec.label}</button>
           ))}
         </div>
       </div>
 
-      {/* ── Table body ── */}
+      {/* table */}
       <div className="table-body" ref={bodyRef}>
         {error && (
           <div className="tbl-error">
@@ -397,20 +402,14 @@ export default function TableView({ supabase, onRowClick, onClose }) {
         <table className="table-grid">
           <thead>
             <tr>
-              <th
-                className={sortAxis === "score" ? "sorted" : ""}
-                onClick={handleScoreSort}
-              >
+              <th className={sortAxis === "score" ? "sorted" : ""} onClick={handleScoreSort}>
                 Score <span className="sort-icon">{sortAxis === "score" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>
               </th>
               <th className="tbl-col-type">Type</th>
               <th>Place</th>
               <th className="tbl-col-addr">Address</th>
               <th className="tbl-col-zip">Zip</th>
-              <th
-                className={sortAxis === "date" ? "sorted" : ""}
-                onClick={handleDateSort}
-              >
+              <th className={sortAxis === "date" ? "sorted" : ""} onClick={handleDateSort}>
                 Date <span className="sort-icon">{sortAxis === "date" ? (sortDir === "desc" ? "↓" : "↑") : "↕"}</span>
               </th>
               <th className="tbl-col-grade">Grade</th>
@@ -428,6 +427,8 @@ export default function TableView({ supabase, onRowClick, onClose }) {
               const gradeDisp = row.grade?.trim() || "—";
               return (
                 <tr key={row.inspection_id} className="tbl-row"
+                    onPointerEnter={() => onRowHover?.(row.establishment_id, row)}
+                    onPointerLeave={() => onRowHoverEnd?.()}
                     onClick={() => onRowClick?.({
                       establishment_id: row.establishment_id,
                       name:    row.name,
@@ -455,7 +456,7 @@ export default function TableView({ supabase, onRowClick, onClose }) {
         </table>
       </div>
 
-      {/* ── footer ── */}
+      {/* footer */}
       <div className="table-footer">
         <span className="table-result-count">
           {total === 0 ? "No results" : `${startRow}–${endRow} of ${total.toLocaleString()}`}
@@ -463,8 +464,7 @@ export default function TableView({ supabase, onRowClick, onClose }) {
         <div className="table-page-size">
           <span>Per page</span>
           {PAGE_SIZES.map(n => (
-            <button
-              key={n}
+            <button key={n}
               className={`tbl-size-btn ${pageSize === n ? "active" : ""}`}
               onClick={() => setPageSize(n)}
             >{n}</button>
