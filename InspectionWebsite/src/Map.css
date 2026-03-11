@@ -14,6 +14,11 @@
 	border-top-color: #1b1b1f;
 }
 
+/* Keep hover/pinned popups behind the table panel (1300) and info drawer (3000) */
+.maplibregl-popup {
+	z-index: 1200;
+}
+
 .popup-content {
 	cursor: pointer;
 }
@@ -839,7 +844,7 @@
 	}
 
 	.maplibregl-popup {
-		z-index: 2600;
+		z-index: 1200;
 	}
 }
 
