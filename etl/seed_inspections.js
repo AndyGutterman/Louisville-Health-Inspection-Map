@@ -5,10 +5,10 @@
  *   node seed_inspections.js --since=2026-01-15       # from a specific date
  *   node seed_inspections.js --since=2026-01-15 --until=2026-01-20
  */
-import { supa }                     from './lib/db.js';
+import { supa }                        from './lib/db.js';
 import { startRun, finishRun, failRun } from './lib/import_runs.js';
-import { normId, toISODate }         from './lib/utils.js';
-import { paginateArcGIS }            from './lib/arcgis.js';
+import { normId, toISODate }            from './lib/utils.js';
+import { paginateArcGIS }               from './lib/arcgis.js';
 
 const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0';
 
@@ -40,7 +40,7 @@ const IS_RECOVERY  = !!FORCED_SINCE;
 
     const dbMax = maxRow?.inspection_date || '1900-01-01';
     const d = new Date(dbMax);
-    d.setDate(d.getDate() - 2);          // 2-day buffer for late-arriving records, may not be needed
+    d.setDate(d.getDate() - 2);
     since = d.toISOString().slice(0, 10);
     until = new Date().toISOString().slice(0, 10);
     console.log(`Mode: INCREMENTAL  DB max: ${dbMax}  fetching from: ${since}`);
@@ -54,13 +54,14 @@ const IS_RECOVERY  = !!FORCED_SINCE;
     if (e2) throw e2;
     const haveFacility = new Set((facRows || []).map(r => r.establishment_id));
 
-    let totalRead = 0, totalNew = 0;
+    let totalRead = 0, totalNew = 0, totalStubs = 0;
     const whereParts = [`InspectionDate >= DATE '${since}'`];
     if (until) whereParts.push(`InspectionDate <= DATE '${until}'`);
 
     for await (const { attrs, page } of paginateArcGIS(FS_BASE, {
       where:         whereParts.join(' AND '),
-      outFields:     'EstablishmentID,InspectionID,Ins_TypeDesc,InspectionDate,score,Grade',
+      // Include EstablishmentName and Address so stubs are never nameless
+      outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip,InspectionID,Ins_TypeDesc,InspectionDate,score,Grade',
       orderByFields: 'InspectionDate ASC, InspectionID ASC',
     })) {
       totalRead += attrs.length;
@@ -73,7 +74,22 @@ const IS_RECOVERY  = !!FORCED_SINCE;
                   score: a.score ?? null, grade: a.Grade || null, raw: a }];
       });
 
-      // Stub-insert any facilities missing from the FK set
+      // Build a lookup of eid → name/address from this page's data
+      const metaByEid = new Map();
+      for (const a of attrs) {
+        const eid = normId(a.EstablishmentID);
+        if (eid && !metaByEid.has(eid)) {
+          metaByEid.set(eid, {
+            name:    a.EstablishmentName || null,
+            address: a.Address           || null,
+            city:    a.City              || null,
+            state:   a.State             || null,
+            zip:     a.Zip != null ? String(a.Zip) : null,
+          });
+        }
+      }
+
+      // Stub-insert any facilities missing from the FK set — now WITH name/address
       const missingEids = [...new Set(rows.map(r => r.establishment_id))].filter(eid => !haveFacility.has(eid));
       if (missingEids.length) {
         const placeholders = missingEids.map(eid => ({
@@ -89,6 +105,8 @@ const IS_RECOVERY  = !!FORCED_SINCE;
           )
         if (fke) throw fke;
         missingEids.forEach(eid => haveFacility.add(eid));
+        totalStubs += missingEids.length;
+        console.log(`  → stubbed ${missingEids.length} new facilities with name/address`);
       }
 
       const { error } = await supa.from('inspections').upsert(rows, { onConflict: 'inspection_id' });
@@ -98,7 +116,7 @@ const IS_RECOVERY  = !!FORCED_SINCE;
       console.log(`Page ${page}: ${rows.length} rows  latest: ${rows.at(-1)?.inspection_date}`);
     }
 
-    console.log(`seed_inspections complete — ${totalNew} rows upserted  (window: ${since} → ${until})`);
+    console.log(`seed_inspections complete — ${totalNew} rows upserted, ${totalStubs} new facility stubs  (window: ${since} → ${until})`);
     await finishRun(runId, totalRead, totalNew);
 
   } catch (err) {

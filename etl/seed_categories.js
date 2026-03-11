@@ -1,36 +1,25 @@
-import 'dotenv/config';
-import fetch from 'node-fetch';
-import { createClient } from '@supabase/supabase-js';
+import { supa }            from './lib/db.js';
+import { fetchArcGISPage } from './lib/arcgis.js';
 
-const supa = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0';
 
-async function seedCategories() {
-  console.log("Fetching categories from ArcGIS…");
-  const url = [
-    `https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/`,
-    `Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0/query`,
-    `?where=1=1`,
-    `&outFields=facility_type,facility_type_description,subtype,subtype_description`,
-    `&returnGeometry=false&f=json`
-  ].join('');
-  const { features } = await fetch(url).then(r => r.json());
-  const records = features.map(f => ({
-    facility_type:             f.attributes.facility_type,
-    facility_type_description: f.attributes.facility_type_description,
-    subtype:                   f.attributes.subtype,
-    subtype_description:       f.attributes.subtype_description
+(async function run() {
+  const attrs = await fetchArcGISPage(FS_BASE, {
+    where:     '1=1',
+    outFields: 'facility_type,facility_type_description,subtype,subtype_description',
+  });
+
+  const records = attrs.map(a => ({
+    facility_type:             a.facility_type,
+    facility_type_description: a.facility_type_description,
+    subtype:                   a.subtype,
+    subtype_description:       a.subtype_description,
   }));
 
-  console.log(`Inserting ${records.length} category rows…`);
   const { data, error } = await supa
-    .from("facility_categories")
+    .from('facility_categories')
     .upsert(records, { onConflict: 'facility_type,subtype' })
     .select();
   if (error) throw error;
-  console.log(`Inserted ${data.length} categories.`);
-}
-
-seedCategories().catch(err => console.error("seed_categories failed:", err));
+  console.log(`seed_categories complete — ${data.length} categories upserted.`);
+})().catch(err => { console.error('seed_categories failed:', err); process.exit(1); });

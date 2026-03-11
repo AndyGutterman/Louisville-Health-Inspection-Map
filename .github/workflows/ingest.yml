@@ -21,22 +21,24 @@ jobs:
       - run: npm ci
       - name: Test
         run: npm test
-      # ── Recovery pass (always runs first) ────────────────────────────────────
+
       - name: Recover failed runs
         run: node recover.js
 
-      # ── Daily sync ────────────────────────────────────────────────────────────
-      - name: Seed facilities (FoodServiceData)
+      - name: Seed facilities
         run: node seed_facilities.js
-      - name: Overlay geometry (FoodMapping)
+
+      - name: Overlay geometry — pass 1
         run: node overlay_geometry.js
-      # Fills in coordinates for any facilities still missing after FoodMapping.
-      # Covers new permits that haven't propagated to FoodMapping yet.
-      - name: Geocode missing facilities
-        run: node geocode_missing.js
+
       - name: Seed inspections
         run: node seed_inspections.js
+
+      - name: Overlay geometry — pass 2
+        run: node overlay_geometry.js
+
       - name: Seed violations
         run: node seed_violations.js
+
       - name: Seed categories
         run: node seed_categories.js

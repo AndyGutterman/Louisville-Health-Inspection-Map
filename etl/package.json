@@ -3,13 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test"         : "node --test tests/*.test.js",
-    "migrate"      : "psql < migrations.sql",
-    "seed:categories": "node seed_categories.js",
-    "seed:facilities": "node seed_facilities.js",
-    "overlay:fm"   : "node overlay_geometry.js",
-    "geocode:missing": "node geocode_missing.js",
-    "seed:inspections": "node seed_inspections.js"
+    "test":              "node --test tests/*.test.js",
+    "seed:facilities":   "node seed_facilities.js",
+    "seed:inspections":  "node seed_inspections.js",
+    "seed:violations":   "node seed_violations.js",
+    "seed:categories":   "node seed_categories.js",
+    "overlay":           "node overlay_geometry.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -1,18 +1,21 @@
-Below are the external data sources used 
-===================================================================
+ArcGIS data sources used by Louisville Food Safe
+=================================================
 
-FoodServiceData (FeatureServer)
-- Used for: inspections and base facility metadata
-https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0
+FoodServiceData (FeatureServer/0)
+  Used for: inspections, facility metadata (name/address), AND point geometry (lon/lat)
+  Geometry: returnGeometry=true, outSR=4326 — works freely, no auth required
+  Note: contains duplicate EstablishmentID rows; always deduplicate before upsert
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0
 
 FoodMapping (FeatureServer/0)
-- Used for: facility point geometry (lon/lat) and occasional name/address refresh
-https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0
+  STATUS: BLOCKED — returns 499 Token Required on ALL requests (GET and POST,
+  with or without geometry). Do not use for anything.
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0
 
-Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants (FeatureServer)
-- Used for: violations tied to failed inspections
-https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants/FeatureServer/0
+Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants (FeatureServer/0)
+  Used for: violations tied to failed inspections
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants/FeatureServer/0
 
-Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes (FeatureServer)
-- Used for: facility categories (type + subtype descriptions)
-https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0
+Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes (FeatureServer/0)
+  Used for: facility_categories table (type + subtype descriptions)
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0
