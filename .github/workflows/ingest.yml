@@ -22,9 +22,6 @@ jobs:
       - name: Test
         run: npm test
       # ── Recovery pass (always runs first) ────────────────────────────────────
-      # Checks import_runs for any crashed/errored runs from the last 30 days
-      # and replays those date windows before doing today's sync.
-      # Exit code is always 0 so a recovery failure never blocks the daily run.
       - name: Recover failed runs
         run: node recover.js
 
@@ -33,6 +30,10 @@ jobs:
         run: node seed_facilities.js
       - name: Overlay geometry (FoodMapping)
         run: node overlay_geometry.js
+      # Fills in coordinates for any facilities still missing after FoodMapping.
+      # Covers new permits that haven't propagated to FoodMapping yet.
+      - name: Geocode missing facilities
+        run: node geocode_missing.js
       - name: Seed inspections
         run: node seed_inspections.js
       - name: Seed violations
