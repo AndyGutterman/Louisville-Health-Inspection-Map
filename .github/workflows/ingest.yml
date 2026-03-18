@@ -23,7 +23,7 @@ jobs:
         run: npm test
 
       - name: Recover failed runs
-        run: node recover.js
+        run: node Recover.js
 
       - name: Seed facilities
         run: node seed_facilities.js
