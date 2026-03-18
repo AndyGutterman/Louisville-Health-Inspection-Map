@@ -21,7 +21,8 @@ const STRICT = process.argv.includes('--strict');
 
 // Thresholds for --strict mode
 const THRESHOLDS = {
-  pctHasCoords:    85,   // % of facilities that should have lon/lat
+  pctHasCoords:    97,   // % of addressable facilities (has address) that should have lon/lat
+                         // mobile/temp permits with no address are excluded from this denominator
   pctHasType:      70,   // % of facilities that should have facility_type+subtype
   pctMappable:     65,   // % of facilities that are both geocoded AND typed (appear on map with correct filter)
   maxStaleDays:    90,   // facilities with no inspection in this many days are flagged
@@ -66,31 +67,40 @@ async function section(title, fn) {
 
   // ── 1. Top-line counts ───────────────────────────────────────────────────────
   await section('1. Facility counts', async () => {
-    const { count: total } = await supa.from('facilities').select('*', { head: true, count: 'exact' });
-    const { count: withCoords } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('lon', 'is', null);
-    const { count: withType } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('facility_type', 'is', null);
-    const { count: withBoth } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('lon', 'is', null).not('facility_type', 'is', null);
-    const { count: nullType } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('facility_type', null);
-    const { count: nullCoords } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('lon', null);
-    const { count: nullName } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('name', null);
+    const { count: total }           = await supa.from('facilities').select('*', { head: true, count: 'exact' });
+    const { count: withCoords }      = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('lon', 'is', null);
+    const { count: withType }        = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('facility_type', 'is', null);
+    const { count: withBoth }        = await supa.from('facilities').select('*', { head: true, count: 'exact' }).not('lon', 'is', null).not('facility_type', 'is', null);
+    const { count: nullType }        = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('facility_type', null);
+    const { count: nullCoords }      = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('lon', null);
+    const { count: nullName }        = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('name', null);
+    // Split missing-coords: no address = structural ceiling (mobile/temp permits, unfixable)
+    //                        has address = geocoding gap (run geocode_missing.js)
+    const { count: noAddrNoCoords }  = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('lon', null).is('address', null);
+    const { count: hasAddrNoCoords } = await supa.from('facilities').select('*', { head: true, count: 'exact' }).is('lon', null).not('address', 'is', null);
+    const addressable = total - noAddrNoCoords;  // facilities where a coordinate is theoretically possible
 
     console.log(`  Total facilities:          ${total}`);
-    console.log(`  With coordinates:          ${withCoords}  (${pct(withCoords, total)})`);
+    console.log(`  With coordinates:          ${withCoords}  (${pct(withCoords, total)} of all)`);
     console.log(`  With type+subtype:         ${withType}  (${pct(withType, total)})`);
     console.log(`  Fully mappable (both):     ${withBoth}  (${pct(withBoth, total)})`);
     console.log(`  Missing coordinates:       ${nullCoords}`);
+    console.log(`    ↳ no address on file:    ${noAddrNoCoords}  (mobile/temp permits — structural ceiling)`);
+    console.log(`    ↳ has address, no coord: ${hasAddrNoCoords}  (geocoding gap — run geocode_missing.js)`);
     console.log(`  Missing type/subtype:      ${nullType}`);
     console.log(`  Missing name (stubs):      ${nullName}`);
 
-    const pctCoords   = withCoords  / total * 100;
-    const pctTyped    = withType    / total * 100;
-    const pctMappable = withBoth    / total * 100;
-
-    const c1 = check(`Coordinate coverage ${pct(withCoords, total)}`, pctCoords,   THRESHOLDS.pctHasCoords);
-    const c2 = check(`Type coverage ${pct(withType, total)}`,         pctTyped,    THRESHOLDS.pctHasType);
-    const c3 = check(`Mappable coverage ${pct(withBoth, total)}`,     pctMappable, THRESHOLDS.pctMappable);
+    // Coordinate threshold is checked against addressable facilities only —
+    // mobile/no-address permits can never have a pin and shouldn't penalise the score.
+    const pctCoords   = withCoords / addressable * 100;
+    const pctTyped    = withType   / total * 100;
+    const pctMappable = withBoth   / total * 100;
 
     console.log('\n  Threshold checks:');
+    console.log(`  (coordinate % is of addressable facilities: ${addressable})`);
+    const c1 = check(`Coordinate coverage of addressable ${pct(withCoords, addressable)}`, pctCoords,   THRESHOLDS.pctHasCoords);
+    const c2 = check(`Type coverage ${pct(withType, total)}`,                              pctTyped,    THRESHOLDS.pctHasType);
+    const c3 = check(`Mappable coverage ${pct(withBoth, total)}`,                          pctMappable, THRESHOLDS.pctMappable);
     [c1, c2, c3].forEach(c => { console.log(c.line); if (!c.pass) failures.push(c.line); });
   });
 
@@ -144,21 +154,12 @@ async function section(title, fn) {
 
   // ── 3. Category/type coverage breakdown ─────────────────────────────────────
   await section('3. Category coverage (frontend filter impact)', async () => {
-    // Paginate — bare .select() without .range() silently caps at 1000 rows.
-    const PAGE = 1000;
-    let typeCounts = [];
-    for (let off = 0; ; off += PAGE) {
-      const { data, error } = await supa
-        .from('facilities')
-        .select('facility_type, subtype')
-        .not('lon', 'is', null)
-        .range(off, off + PAGE - 1);
-      if (error || !data?.length) break;
-      typeCounts = typeCounts.concat(data);
-      if (data.length < PAGE) break;
-    }
+    const { data: typeCounts } = await supa
+      .from('facilities')
+      .select('facility_type, subtype')
+      .not('lon', 'is', null);   // only care about map-visible facilities
 
-    if (!typeCounts.length) { console.log('  Could not fetch (view may differ)'); return; }
+    if (!typeCounts) { console.log('  Could not fetch (view may differ)'); return; }
 
     const byPair = new Map();
     let knownCount = 0, unknownCount = 0, nullCount = 0;
@@ -189,36 +190,16 @@ async function section(title, fn) {
 
   // ── 4. Geocode source breakdown ──────────────────────────────────────────────
   await section('4. Geocode source breakdown', async () => {
-    // Paginate — bare .select() without .range() silently caps at 1000 rows.
-    const PAGE = 1000;
-    let rows = [];
-    for (let off = 0; ; off += PAGE) {
-      const { data, error } = await supa
-        .from('facilities')
-        .select('loc_source')
-        .not('lon', 'is', null)
-        .range(off, off + PAGE - 1);
-      if (error || !data?.length) break;
-      rows = rows.concat(data);
-      if (data.length < PAGE) break;
-    }
+    const { data: rows } = await supa
+      .from('facilities')
+      .select('loc_source')
+      .not('lon', 'is', null);
 
-    if (!rows.length) return;
+    if (!rows) return;
     const counts = rows.reduce((m, r) => { m.set(r.loc_source, (m.get(r.loc_source) ?? 0) + 1); return m; }, new Map());
     [...counts.entries()].sort((a,b) => b[1]-a[1]).forEach(([src, n]) => {
       console.log(`  ${(src ?? 'null').padEnd(20)} ${n}`);
     });
-
-    // Geocode cache health — shows how many prior attempts returned null vs a real coordinate.
-    const { count: cacheTotal } = await supa.from('geocode_cache').select('*', { head: true, count: 'exact' });
-    const { count: cacheMisses } = await supa.from('geocode_cache').select('*', { head: true, count: 'exact' }).is('lon', null);
-    if (cacheTotal != null) {
-      const cacheHits = cacheTotal - (cacheMisses ?? 0);
-      console.log(`\n  geocode_cache: ${cacheTotal} entries  (${cacheHits} hits, ${cacheMisses ?? '?'} misses)`);
-      if ((cacheMisses ?? 0) > 0) {
-        console.log(`  → Run: node geocode_missing.js --retry-failures  to re-attempt cached misses`);
-      }
-    }
   });
 
   // ── 5. Recent import_runs ────────────────────────────────────────────────────
