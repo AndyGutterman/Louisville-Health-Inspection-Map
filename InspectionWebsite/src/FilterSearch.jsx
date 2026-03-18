@@ -121,7 +121,7 @@ export default function FilterSearch({
   adjustContent,
 }) {
   const [tab, setTab] = React.useState("adjust");
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMedia("(min-width: 900px)");
 
   React.useEffect(() => {
