@@ -14,9 +14,18 @@ const PAGE_SIZE  = 1000;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Strip suite/unit qualifiers that confuse Nominatim
+// e.g. "123 MAIN ST STE 104" → "123 MAIN ST"
+function stripSuite(addr) {
+  return addr
+    .replace(/\s+(STE|SUITE|APT|UNIT|#|BLDG|FL|FLOOR|RM|ROOM|BOX|PMB|NUM|NO\.?)[\s#\w&-]*/gi, '')
+    .trim();
+}
+
 // Build the query string we'll send to Nominatim
 function buildQuery(row) {
-  const parts = [row.address];
+  const street = stripSuite(row.address || '');
+  const parts = [street];
   if (row.city)  parts.push(row.city);
   if (row.state) parts.push(row.state);
   if (row.zip)   parts.push(row.zip);
@@ -63,7 +72,7 @@ async function geocode(query) {
     const { data, error } = await supa
       .from('facilities')
       .select('establishment_id, name, address, city, state, zip')
-      .is('lat', null)
+      .is('geom', null)
       .not('address', 'is', null)
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -125,17 +134,16 @@ async function geocode(query) {
     }
 
     // Write geometry back to facilities
+    // lat/lon are generated columns — only write geom, Postgres computes the rest
     const { error: updErr } = await supa
       .from('facilities')
       .update({
-        lat:          result.lat,
-        lon:          result.lon,
-        geom:         `SRID=4326;POINT(${result.lon} ${result.lat})`,
+        geom:                `SRID=4326;POINT(${result.lon} ${result.lat})`,
         loc_source:          'nominatim',
         geocode_provider:    'nominatim',
         geocode_confidence:  result.confidence,
         geocode_meta:        result.raw,
-        is_approximate:      true,   // Nominatim hits are address-level, flag them
+        is_approximate:      true,
       })
       .eq('establishment_id', row.establishment_id);
 
