@@ -1236,17 +1236,43 @@
 }
 
 /* ── top drag handle (height) ── */
-.table-drag-zone {
-  flex-shrink: 0;
-  padding: 8px 0 2px;
+/* ── top edge resize handle (InfoDrawer-style) ── */
+.table-drag-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
   cursor: ns-resize;
+  z-index: 20;
+  touch-action: none;
+  user-select: none;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,.10), transparent);
+  transition: background .15s;
+  flex-shrink: 0;
 }
-.table-drag-handle {
-  width: 36px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.22);
-  margin: 0 auto;
+.table-drag-top:hover {
+  background: linear-gradient(to bottom, rgba(255,255,255,.32), transparent);
+}
+
+/* ── bottom edge resize handle (mirrors top) ── */
+.table-drag-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 20;
+  touch-action: none;
+  user-select: none;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(to top, rgba(255,255,255,.10), transparent);
+  transition: background .15s;
+}
+.table-drag-bottom:hover {
+  background: linear-gradient(to top, rgba(255,255,255,.32), transparent);
 }
 
 /* ── right drag handle (width) ── */
@@ -1258,12 +1284,12 @@
   height: 100%;
   cursor: ew-resize;
   z-index: 10;
-  /* subtle visual hint */
-  background: linear-gradient(to right, transparent, rgba(255,255,255,.04));
+  background: linear-gradient(to right, transparent, rgba(255,255,255,.08));
+  transition: background .15s;
 }
 .table-drag-right:hover,
 .table-drag-right:active {
-  background: linear-gradient(to right, transparent, rgba(255,255,255,.10));
+  background: linear-gradient(to right, transparent, rgba(255,255,255,.28));
 }
 
 /* ── header ── */
@@ -1295,6 +1321,8 @@
   place-items: center;
   padding: 0;
   flex-shrink: 0;
+  /* Keep the × clear of the top-right corner drag stripes (32px wide) */
+  margin-right: 26px;
 }
 .table-panel-close:hover { background: rgba(255,255,255,.16); }
 
@@ -1911,30 +1939,58 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 18px;
-  height: 18px;
+  width: 32px;
+  height: 32px;
   cursor: nwse-resize;
   z-index: 20;
   touch-action: none;
   user-select: none;
   background: linear-gradient(
     -45deg,
-    transparent 28%, rgba(255,255,255,.20) 28%, rgba(255,255,255,.20) 33%, transparent 33%,
-    transparent 46%, rgba(255,255,255,.20) 46%, rgba(255,255,255,.20) 51%, transparent 51%,
-    transparent 64%, rgba(255,255,255,.20) 64%, rgba(255,255,255,.20) 69%, transparent 69%
+    transparent 22%, rgba(255,255,255,.22) 22%, rgba(255,255,255,.22) 28%, transparent 28%,
+    transparent 40%, rgba(255,255,255,.22) 40%, rgba(255,255,255,.22) 46%, transparent 46%,
+    transparent 58%, rgba(255,255,255,.22) 58%, rgba(255,255,255,.22) 64%, transparent 64%
   );
 }
 .table-drag-corner:hover {
   background: linear-gradient(
     -45deg,
-    transparent 28%, rgba(255,255,255,.42) 28%, rgba(255,255,255,.42) 33%, transparent 33%,
-    transparent 46%, rgba(255,255,255,.42) 46%, rgba(255,255,255,.42) 51%, transparent 51%,
-    transparent 64%, rgba(255,255,255,.42) 64%, rgba(255,255,255,.42) 69%, transparent 69%
+    transparent 22%, rgba(255,255,255,.48) 22%, rgba(255,255,255,.48) 28%, transparent 28%,
+    transparent 40%, rgba(255,255,255,.48) 40%, rgba(255,255,255,.48) 46%, transparent 46%,
+    transparent 58%, rgba(255,255,255,.48) 58%, rgba(255,255,255,.48) 64%, transparent 64%
+  );
+}
+
+/* Top-right corner handle */
+.table-drag-corner-tr {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  cursor: nesw-resize;
+  z-index: 20;
+  touch-action: none;
+  user-select: none;
+  background: linear-gradient(
+    45deg,
+    transparent 22%, rgba(255,255,255,.22) 22%, rgba(255,255,255,.22) 28%, transparent 28%,
+    transparent 40%, rgba(255,255,255,.22) 40%, rgba(255,255,255,.22) 46%, transparent 46%,
+    transparent 58%, rgba(255,255,255,.22) 58%, rgba(255,255,255,.22) 64%, transparent 64%
+  );
+}
+.table-drag-corner-tr:hover {
+  background: linear-gradient(
+    45deg,
+    transparent 22%, rgba(255,255,255,.48) 22%, rgba(255,255,255,.48) 28%, transparent 28%,
+    transparent 40%, rgba(255,255,255,.48) 40%, rgba(255,255,255,.48) 46%, transparent 46%,
+    transparent 58%, rgba(255,255,255,.48) 58%, rgba(255,255,255,.48) 64%, transparent 64%
   );
 }
 
 @media (max-width: 560px) {
-  .table-drag-corner { display: none; }
+  .table-drag-corner    { display: none; }
+  .table-drag-corner-tr { display: none; }
   .tbl-sort-switch   { min-width: 140px; }
   .tbl-toolbar-right { gap: 4px; }
 }

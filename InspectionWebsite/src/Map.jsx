@@ -253,6 +253,10 @@ export default function Map() {
   const [tableOpen, setTableOpen] = useState(false);
   const [bandsOpen, setBandsOpen] = useState(false);
 
+  // Persist table dimensions across open/close so reopening remembers last size
+  const [tableH, setTableH] = useState(null); // null = use TableView default
+  const [tableW, setTableW] = useState(null);
+
   const inEdgeRef = useRef(false);
 
   const isHoverCapableRef = useRef(
@@ -1332,16 +1336,20 @@ export default function Map() {
         </button>
       )}
 
-      {/* Table view panel */}
-      {tableOpen && (
+      {/* Table view panel — always mounted so filters/sort/data survive close */}
+      <div style={{ display: tableOpen ? "contents" : "none" }}>
         <TableView
           supabase={supabase}
           onClose={() => setTableOpen(false)}
           onRowClick={onTableRowClick}
           onRowHover={onTableRowHover}
           onRowHoverEnd={onTableRowHoverEnd}
+          savedH={tableH}
+          savedW={tableW}
+          onResize={(h, w) => { setTableH(h); setTableW(w); }}
+          pins={pins}
         />
-      )}
+      </div>
     </>
   );
 }

@@ -19,27 +19,37 @@ function fmt(val) {
 
 /* ── drag: height ── */
 const MIN_H = 180, MAX_H_FRAC = 0.88;
-function useDragH() {
-  const defaultH = () => Math.round(window.innerHeight * (window.innerWidth <= 600 ? 0.42 : 0.50));
+function useDragH(savedH) {
+  const defaultH = () => savedH != null ? savedH : Math.round(window.innerHeight * (window.innerWidth <= 600 ? 0.42 : 0.50));
   const [h, setH] = useState(defaultH);
   const d = useRef({});
+  // Top edge: drag up = taller (y decreases)
   const down = useCallback(e => {
-    d.current = { on: true, y0: e.clientY, h0: h };
+    d.current = { on: true, dir: 'top', y0: e.clientY, h0: h };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [h]);
+  // Bottom edge: drag down = taller (y increases)
+  const downBottom = useCallback(e => {
+    d.current = { on: true, dir: 'bottom', y0: e.clientY, h0: h };
     e.currentTarget.setPointerCapture(e.pointerId);
   }, [h]);
   const move = useCallback(e => {
     if (!d.current.on) return;
+    const delta = d.current.dir === 'bottom'
+      ? e.clientY - d.current.y0   // drag down = bigger
+      : d.current.y0 - e.clientY;  // drag up   = bigger
     setH(Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_FRAC,
-      d.current.h0 + d.current.y0 - e.clientY)));
+      d.current.h0 + delta)));
   }, []);
   const up = useCallback(() => { d.current.on = false; }, []);
-  return { h, setH, downH: down, moveH: move, upH: up };
+  return { h, setH, downH: down, downHBottom: downBottom, moveH: move, upH: up };
 }
 
 /* ── drag: width ── */
 const MIN_W = 320;
-function useDragW() {
+function useDragW(savedW) {
   const defaultW = () => {
+    if (savedW != null) return savedW;
     const vw = window.innerWidth;
     if (vw <= 600) return vw;
     return Math.max(MIN_W, Math.min(vw * 0.54, vw - 556));
@@ -91,7 +101,7 @@ const FACILITY_CATS = {
 };
 const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
 
-export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose }) {
+export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose, savedH, savedW, onResize }) {
   const [rows,    setRows]    = useState([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(false);
@@ -119,10 +129,13 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
   const [latestOnly, setLatestOnly] = useState(true);
   const [hideNA,     setHideNA]     = useState(false);
 
-  const { h, setH, downH, moveH, upH }   = useDragH();
-  const { w, setW, downW, moveW, upW }   = useDragW();
+  const { h, setH, downH, downHBottom, moveH, upH }   = useDragH(savedH);
+  const { w, setW, downW, moveW, upW }   = useDragW(savedW);
   const { downCorner, moveCorner, upCorner } = useCornerDrag(setH, setW);
   const bodyRef = useRef(null);
+
+  // Notify parent of dimension changes so they survive close/reopen
+  useEffect(() => { onResize?.(h, w); }, [h, w]);
 
   const onPanelMove = useCallback(e => { moveH(e); moveW(e); moveCorner(e); }, [moveH, moveW, moveCorner]);
   const onPanelUp   = useCallback(e => { upH(e); upW(e); upCorner(e); },     [upH, upW, upCorner]);
@@ -295,16 +308,20 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
       onPointerUp={onPanelUp}
       onPointerCancel={onPanelUp}
     >
-      {/* top drag (height) */}
-      <div className="table-drag-zone" onPointerDown={downH}>
-        <div className="table-drag-handle" />
-      </div>
+      {/* top edge resize handle — InfoDrawer-style gradient bar */}
+      <div className="table-drag-top" onPointerDown={downH} />
 
       {/* right drag (width) */}
       <div className="table-drag-right" onPointerDown={downW} />
 
-      {/* corner drag (diagonal) */}
+      {/* bottom edge resize handle — mirrors top */}
+      <div className="table-drag-bottom" onPointerDown={downHBottom} />
+
+      {/* corner drag bottom-right (diagonal) */}
       <div className="table-drag-corner" onPointerDown={e => downCorner(e, h, w)} />
+
+      {/* corner drag top-right (diagonal) — more visible for new users */}
+      <div className="table-drag-corner-tr" onPointerDown={e => downCorner(e, h, w)} />
 
       {/* header */}
       <div className="table-panel-header">

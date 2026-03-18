@@ -34,8 +34,8 @@
 
 .inspect-card_stats {
     display: grid;
-    grid-template-columns: 112px 152px 112px;
-    gap: 12px;
+    grid-template-columns: minmax(72px, 112px) minmax(100px, 1fr) minmax(56px, 112px);
+    gap: 10px;
     align-items: end;
     justify-content: space-between;
     overflow: hidden;

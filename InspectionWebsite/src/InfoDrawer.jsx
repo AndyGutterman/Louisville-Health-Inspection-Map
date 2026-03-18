@@ -270,7 +270,7 @@ function PastInspection({ row }) {
   );
 }
 
-function History({ rows }) {
+function History({ rows, pins }) {
   if (!rows || rows.length === 0) return null;
   return (
     <div className="hist-wrap">
@@ -280,6 +280,7 @@ function History({ rows }) {
           <PastInspection
             key={r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`}
             row={r}
+            pins={pins}
           />
         ))}
       </div>
@@ -299,8 +300,32 @@ function useIsMobile() {
   return mobile;
 }
 
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, onClose }) {
+const DRAWER_MIN_W = 360;
+const DRAWER_MAX_W = 1100;
+
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, onClose }) {
   const isMobile = useIsMobile();
+
+  // Horizontal resize — desktop only
+  const defaultW = () => Math.min(520, Math.round(window.innerWidth * 0.92));
+  const [drawerW, setDrawerW] = React.useState(defaultW);
+  const dragRef = React.useRef({ on: false });
+
+  const onLeftEdgeDown = React.useCallback((e) => {
+    e.preventDefault();
+    dragRef.current = { on: true, x0: e.clientX, w0: drawerW };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [drawerW]);
+
+  const onLeftEdgeMove = React.useCallback((e) => {
+    if (!dragRef.current.on) return;
+    const dx = dragRef.current.x0 - e.clientX; // drag left = wider
+    setDrawerW(Math.max(DRAWER_MIN_W, Math.min(DRAWER_MAX_W,
+      dragRef.current.w0 + dx)));
+  }, []);
+
+  const onLeftEdgeUp = React.useCallback(() => { dragRef.current.on = false; }, []);
+
   if (!selected) return null;
 
   // Mobile: bottom sheet, auto-heights to content (up to 82dvh), slides up from bottom.
@@ -318,7 +343,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
     right: 16,
     top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
     bottom: 16,
-    width: "min(520px, 92vw)",
+    width: drawerW,
     borderRadius: 12,
   };
 
@@ -338,7 +363,34 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         flexDirection: "column",
         overflow: "hidden",
       }}
+      onPointerMove={!isMobile ? onLeftEdgeMove : undefined}
+      onPointerUp={!isMobile ? onLeftEdgeUp : undefined}
+      onPointerCancel={!isMobile ? onLeftEdgeUp : undefined}
     >
+      {/* Left-edge resize handle — desktop only */}
+      {!isMobile && (
+        <div
+          aria-hidden="true"
+          onPointerDown={onLeftEdgeDown}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 8,
+            cursor: "ew-resize",
+            zIndex: 10,
+            touchAction: "none",
+            userSelect: "none",
+            borderRadius: "12px 0 0 12px",
+            background: "linear-gradient(to right, rgba(255,255,255,.10), transparent)",
+            transition: "background .15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(to right, rgba(255,255,255,.28), transparent)"}
+          onMouseLeave={e => e.currentTarget.style.background = "linear-gradient(to right, rgba(255,255,255,.10), transparent)"}
+        />
+      )}
+
       {/* Drag pill on mobile */}
       {isMobile && (
         <div aria-hidden="true" style={{
@@ -379,28 +431,13 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             metaTitle: selected.metaTitle,
           }}
           details={facDetails}
+          pins={pins}
         />
 
         <div className="inspect-card_spacer" />
 
-        {history && <History rows={history} />}
+        {history && <History rows={history} pins={pins} />}
       </div>
-
-      {/* Bottom fade — signals scrollable content below */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 52,
-          background: `linear-gradient(to bottom, transparent, rgba(24,24,24,0.97))`,
-          borderRadius: isMobile ? 0 : "0 0 12px 12px",
-          pointerEvents: "none",
-          zIndex: 4,
-        }}
-      />
     </div>
   );
 }
