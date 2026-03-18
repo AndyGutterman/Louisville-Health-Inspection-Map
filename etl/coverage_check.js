@@ -144,12 +144,21 @@ async function section(title, fn) {
 
   // ── 3. Category/type coverage breakdown ─────────────────────────────────────
   await section('3. Category coverage (frontend filter impact)', async () => {
-    const { data: typeCounts } = await supa
-      .from('facilities')
-      .select('facility_type, subtype')
-      .not('lon', 'is', null);   // only care about map-visible facilities
+    // Paginate — bare .select() without .range() silently caps at 1000 rows.
+    const PAGE = 1000;
+    let typeCounts = [];
+    for (let off = 0; ; off += PAGE) {
+      const { data, error } = await supa
+        .from('facilities')
+        .select('facility_type, subtype')
+        .not('lon', 'is', null)
+        .range(off, off + PAGE - 1);
+      if (error || !data?.length) break;
+      typeCounts = typeCounts.concat(data);
+      if (data.length < PAGE) break;
+    }
 
-    if (!typeCounts) { console.log('  Could not fetch (view may differ)'); return; }
+    if (!typeCounts.length) { console.log('  Could not fetch (view may differ)'); return; }
 
     const byPair = new Map();
     let knownCount = 0, unknownCount = 0, nullCount = 0;
@@ -180,16 +189,36 @@ async function section(title, fn) {
 
   // ── 4. Geocode source breakdown ──────────────────────────────────────────────
   await section('4. Geocode source breakdown', async () => {
-    const { data: rows } = await supa
-      .from('facilities')
-      .select('loc_source')
-      .not('lon', 'is', null);
+    // Paginate — bare .select() without .range() silently caps at 1000 rows.
+    const PAGE = 1000;
+    let rows = [];
+    for (let off = 0; ; off += PAGE) {
+      const { data, error } = await supa
+        .from('facilities')
+        .select('loc_source')
+        .not('lon', 'is', null)
+        .range(off, off + PAGE - 1);
+      if (error || !data?.length) break;
+      rows = rows.concat(data);
+      if (data.length < PAGE) break;
+    }
 
-    if (!rows) return;
+    if (!rows.length) return;
     const counts = rows.reduce((m, r) => { m.set(r.loc_source, (m.get(r.loc_source) ?? 0) + 1); return m; }, new Map());
     [...counts.entries()].sort((a,b) => b[1]-a[1]).forEach(([src, n]) => {
       console.log(`  ${(src ?? 'null').padEnd(20)} ${n}`);
     });
+
+    // Geocode cache health — shows how many prior attempts returned null vs a real coordinate.
+    const { count: cacheTotal } = await supa.from('geocode_cache').select('*', { head: true, count: 'exact' });
+    const { count: cacheMisses } = await supa.from('geocode_cache').select('*', { head: true, count: 'exact' }).is('lon', null);
+    if (cacheTotal != null) {
+      const cacheHits = cacheTotal - (cacheMisses ?? 0);
+      console.log(`\n  geocode_cache: ${cacheTotal} entries  (${cacheHits} hits, ${cacheMisses ?? '?'} misses)`);
+      if ((cacheMisses ?? 0) > 0) {
+        console.log(`  → Run: node geocode_missing.js --retry-failures  to re-attempt cached misses`);
+      }
+    }
   });
 
   // ── 5. Recent import_runs ────────────────────────────────────────────────────
