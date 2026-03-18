@@ -20,7 +20,7 @@ const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/servi
 
   for await (const { attrs, page, offset } of paginateArcGIS(FS_BASE, {
     where:         'EstablishmentID IS NOT NULL',
-    outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip',
+    outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip,EstType,Subtype',
     orderByFields: 'EstablishmentID ASC',
   }, { pageSize: 1000, delayMs: 50 })) {
     const batch = [];
@@ -36,6 +36,8 @@ const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/servi
         city:             a.City              || null,
         state:            a.State             || null,
         zip:              a.Zip != null ? String(a.Zip) : null,
+        facility_type: Number.isFinite(+a.EstType) ? +a.EstType : null,
+        subtype:       Number.isFinite(+a.Subtype) ? +a.Subtype : null,
         name_search:      normText(a.EstablishmentName),
         addr_search:      normText(a.Address),
         loc_source:       'legacy',
