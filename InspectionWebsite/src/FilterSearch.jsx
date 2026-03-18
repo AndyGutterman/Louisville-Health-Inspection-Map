@@ -124,9 +124,6 @@ export default function FilterSearch({
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMedia("(min-width: 900px)");
 
-  React.useEffect(() => {
-    if (!isDesktop) setCollapsed(true);
-  }, [isDesktop]);
 
   React.useEffect(() => {
     setFiltersOpen(tab === "filter");
