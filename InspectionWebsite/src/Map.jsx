@@ -257,6 +257,9 @@ export default function Map() {
   const [tableH, setTableH] = useState(null); // null = use TableView default
   const [tableW, setTableW] = useState(null);
 
+  // Which panel sits on top when both are open ('drawer' | 'table')
+  const [frontPanel, setFrontPanel] = useState("drawer");
+
   const inEdgeRef = useRef(false);
 
   const isHoverCapableRef = useRef(
@@ -957,6 +960,8 @@ export default function Map() {
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".control-card")?.contains(ev.target)) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
+        if (document.querySelector(".table-panel")?.contains(ev.target)) return;
+        if (document.querySelector(".table-toggle-btn")?.contains(ev.target)) return;
 
         pinnedReactRootRef.current?.unmount();
         pinnedReactRootRef.current = null;
@@ -1310,6 +1315,9 @@ export default function Map() {
         drawerLoading={drawerLoading}
         history={history}
         facDetails={facDetails}
+        pins={pins}
+        zIndex={frontPanel === "drawer" ? 3100 : 2900}
+        onBringToFront={() => setFrontPanel("drawer")}
         onClose={() => {
           setSelected(null);
           setHistory(null);
@@ -1337,19 +1345,20 @@ export default function Map() {
       )}
 
       {/* Table view panel — always mounted so filters/sort/data survive close */}
-      <div style={{ display: tableOpen ? "contents" : "none" }}>
-        <TableView
-          supabase={supabase}
-          onClose={() => setTableOpen(false)}
-          onRowClick={onTableRowClick}
-          onRowHover={onTableRowHover}
-          onRowHoverEnd={onTableRowHoverEnd}
-          savedH={tableH}
-          savedW={tableW}
-          onResize={(h, w) => { setTableH(h); setTableW(w); }}
-          pins={pins}
-        />
-      </div>
+      <TableView
+        supabase={supabase}
+        onClose={() => setTableOpen(false)}
+        onRowClick={onTableRowClick}
+        onRowHover={onTableRowHover}
+        onRowHoverEnd={onTableRowHoverEnd}
+        savedH={tableH}
+        savedW={tableW}
+        onResize={(h, w) => { setTableH(h); setTableW(w); }}
+        pins={pins}
+        hidden={!tableOpen}
+        zIndex={frontPanel === "table" ? 3100 : 2900}
+        onBringToFront={() => setFrontPanel("table")}
+      />
     </>
   );
 }

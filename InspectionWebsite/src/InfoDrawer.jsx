@@ -303,7 +303,7 @@ function useIsMobile() {
 const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, onClose }) {
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onClose }) {
   const isMobile = useIsMobile();
 
   // Horizontal resize — desktop only
@@ -350,12 +350,13 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
   return (
     <div
       className="info-drawer"
+      onPointerDown={onBringToFront}
       style={{
         ...outerStyle,
         background: "rgba(24,24,24,0.96)",
         backdropFilter: "blur(6px)",
         color: "#fff",
-        zIndex: 3000,
+        zIndex: zIndex ?? 3000,
         boxShadow: isMobile
           ? "0 -8px 32px rgba(0,0,0,0.55)"
           : "0 10px 30px rgba(0,0,0,0.4)",

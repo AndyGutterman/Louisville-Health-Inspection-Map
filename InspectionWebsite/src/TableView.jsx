@@ -101,7 +101,7 @@ const FACILITY_CATS = {
 };
 const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
 
-export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose, savedH, savedW, onResize }) {
+export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose, savedH, savedW, onResize, hidden, pins, zIndex, onBringToFront }) {
   const [rows,    setRows]    = useState([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(false);
@@ -303,7 +303,8 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
   return (
     <div
       className="table-panel"
-      style={{ height: h, width: w }}
+      style={{ height: h, width: w, display: hidden ? "none" : undefined, zIndex: zIndex ?? 2900 }}
+      onPointerDown={onBringToFront}
       onPointerMove={onPanelMove}
       onPointerUp={onPanelUp}
       onPointerCancel={onPanelUp}
