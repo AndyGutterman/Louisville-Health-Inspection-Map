@@ -1,3 +1,18 @@
+/**
+ * geocode_missing.js
+ *
+ * Geocodes facilities that have an address but no geometry.
+ * Falls back: Nominatim → US Census Bureau (no API key needed for either).
+ *
+ * Usage:
+ *   node geocode_missing.js                   # skip anything already in geocode_cache
+ *   node geocode_missing.js --retry-failures  # also retry cached null-result entries
+ *   node geocode_missing.js --dry-run         # print what would be attempted, no writes
+ *
+ * The cache stores both hits AND misses. Without --retry-failures, misses are
+ * permanently skipped. Use --retry-failures after improving address data or
+ * after overlay_geometry fills in missing city/state.
+ */
 import 'dotenv/config';
 import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
@@ -7,32 +22,47 @@ const supa = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM  = 'https://nominatim.openstreetmap.org/search';
 const USER_AGENT = 'LouisvilleFoodSafe/1.0 (louisvillefoodsafe.netlify.app)';
 const DELAY_MS   = 1100;  // Nominatim ToS: max 1 req/sec
 const PAGE_SIZE  = 1000;
 
+// Default city/state for Louisville Metro facilities when the DB row is missing them.
+// All facilities in this dataset are Jefferson County, KY.
+const DEFAULT_CITY  = 'Louisville';
+const DEFAULT_STATE = 'KY';
+
+const RETRY_FAILURES = process.argv.includes('--retry-failures');
+const DRY_RUN        = process.argv.includes('--dry-run');
+
+if (RETRY_FAILURES) console.log('Mode: --retry-failures  (will retry cached null-result entries)');
+if (DRY_RUN)        console.log('Mode: --dry-run  (no writes)');
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Strip suite/unit qualifiers that confuse Nominatim
-// e.g. "123 MAIN ST STE 104" → "123 MAIN ST"
+// Strip suite/unit qualifiers that confuse geocoders
+// "123 MAIN ST STE 104" → "123 MAIN ST"
 function stripSuite(addr) {
   return addr
     .replace(/\s+(STE|SUITE|APT|UNIT|#|BLDG|FL|FLOOR|RM|ROOM|BOX|PMB|NUM|NO\.?)[\s#\w&-]*/gi, '')
     .trim();
 }
 
-// Build the query string we'll send to Nominatim
+// Build the normalised cache key and Nominatim query string.
+// Falls back to Louisville, KY when city/state are absent.
 function buildQuery(row) {
   const street = stripSuite(row.address || '');
-  const parts = [street];
-  if (row.city)  parts.push(row.city);
-  if (row.state) parts.push(row.state);
-  if (row.zip)   parts.push(row.zip);
-  return parts.filter(Boolean).join(', ');
+  const city   = row.city  || DEFAULT_CITY;
+  const state  = row.state || DEFAULT_STATE;
+  const zip    = row.zip   || '';
+  return [street, city, state, zip].filter(Boolean).join(', ');
 }
 
-// Nominatim geocode — returns { lon, lat, confidence, provider, raw } or null
+function cacheKey(query) {
+  return query.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// Nominatim geocode
 async function geocodeNominatim(query) {
   const url = `${NOMINATIM}?` + new URLSearchParams({
     q:              query,
@@ -45,11 +75,7 @@ async function geocodeNominatim(query) {
   const res = await fetch(url, {
     headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en' }
   });
-
-  if (!res.ok) {
-    console.error(`Nominatim HTTP ${res.status} for "${query}"`);
-    return null;
-  }
+  if (!res.ok) { console.error(`Nominatim HTTP ${res.status}`); return null; }
 
   const json = await res.json();
   if (!Array.isArray(json) || !json.length) return null;
@@ -64,25 +90,21 @@ async function geocodeNominatim(query) {
   };
 }
 
-// US Census Bureau geocoder — returns { lon, lat, confidence, provider, raw } or null
-// No API key needed. Uses official TIGER/Line data — covers every addressed US street.
+// US Census Bureau geocoder — structured address, no API key, excellent for US streets
 async function geocodeCensus(row) {
   const url = 'https://geocoding.geo.census.gov/geocoder/locations/address?' + new URLSearchParams({
     street:    stripSuite(row.address || ''),
-    city:      row.city  || '',
-    state:     row.state || '',
+    city:      row.city  || DEFAULT_CITY,
+    state:     row.state || DEFAULT_STATE,
     zip:       row.zip   || '',
     benchmark: 'Public_AR_Current',
     format:    'json',
   });
 
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-  if (!res.ok) {
-    console.error(`Census HTTP ${res.status} for "${row.address}"`);
-    return null;
-  }
+  if (!res.ok) { console.error(`Census HTTP ${res.status} for "${row.address}"`); return null; }
 
-  const json = await res.json();
+  const json  = await res.json();
   const match = json?.result?.addressMatches?.[0];
   if (!match) return null;
 
@@ -96,10 +118,9 @@ async function geocodeCensus(row) {
 }
 
 (async function run() {
-  // 1. Find all facilities with address but no geometry
+  // ── 1. Facilities needing a geocode ─────────────────────────────────────────
   let allRows = [];
   let offset  = 0;
-
   for (;;) {
     const { data, error } = await supa
       .from('facilities')
@@ -107,7 +128,6 @@ async function geocodeCensus(row) {
       .is('geom', null)
       .not('address', 'is', null)
       .range(offset, offset + PAGE_SIZE - 1);
-
     if (error) throw error;
     if (!data?.length) break;
     allRows = allRows.concat(data);
@@ -115,27 +135,54 @@ async function geocodeCensus(row) {
     offset += PAGE_SIZE;
   }
 
-  console.log(`Found ${allRows.length} facilities with address but no geometry.`);
+  console.log(`Facilities with address but no geometry: ${allRows.length}`);
   if (!allRows.length) { console.log('Nothing to do.'); return; }
 
-  // 2. Load cache keys so we skip already-attempted queries
+  // ── 2. Load cache — distinguish hits from misses ─────────────────────────────
+  // We load key + lon so we can tell a cached success from a cached failure.
   const { data: cacheRows, error: cErr } = await supa
     .from('geocode_cache')
-    .select('key');
+    .select('key, lon');
   if (cErr) throw cErr;
-  const cachedKeys = new Set((cacheRows || []).map(r => r.key));
 
-  let geocoded = 0, skipped = 0, failed = 0;
+  const cachedHits   = new Set();  // key with a real coordinate
+  const cachedMisses = new Set();  // key that previously returned null
+
+  for (const r of (cacheRows || [])) {
+    if (r.lon != null) cachedHits.add(r.key);
+    else               cachedMisses.add(r.key);
+  }
+
+  console.log(`Cache: ${cachedHits.size} hits, ${cachedMisses.size} misses`);
+  if (RETRY_FAILURES) {
+    console.log(`--retry-failures: will re-attempt all ${cachedMisses.size} cached misses`);
+  }
+
+  // ── 3. Geocode loop ──────────────────────────────────────────────────────────
+  let geocoded = 0, skipped = 0, retried = 0, failed = 0;
 
   for (const row of allRows) {
     const query = buildQuery(row);
     if (!query.trim()) { skipped++; continue; }
 
-    const cacheKey = query.toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = cacheKey(query);
 
-    // Check cache first (hit means we already tried and failed — skip again)
-    if (cachedKeys.has(cacheKey)) {
+    if (cachedHits.has(key)) {
+      // Already geocoded — the DB row should already have geom; skip quietly.
       skipped++;
+      continue;
+    }
+
+    if (cachedMisses.has(key) && !RETRY_FAILURES) {
+      // Previously failed and we're not retrying.
+      skipped++;
+      continue;
+    }
+
+    if (cachedMisses.has(key)) retried++;
+
+    if (DRY_RUN) {
+      console.log(`  [dry-run] would attempt: "${query}"`);
       continue;
     }
 
@@ -145,56 +192,63 @@ async function geocodeCensus(row) {
     try {
       result = await geocodeNominatim(query);
       if (!result) {
-        console.log(`  → Nominatim miss, trying Census...`);
         result = await geocodeCensus(row);
+        if (result) console.log(`  → Census hit for "${query}"`);
       }
     } catch (e) {
       console.error(`Geocode error for "${query}":`, e.message);
     }
 
-    const provider = result?.provider ?? 'nominatim';
-
-    // Write to geocode_cache regardless (cache misses too, so we don't retry forever)
+    // Write cache entry regardless of success/failure.
     await supa.from('geocode_cache').upsert({
-      key:        cacheKey,
+      key,
       lon:        result?.lon  ?? null,
       lat:        result?.lat  ?? null,
-      provider,
+      provider:   result?.provider ?? null,
       confidence: result?.confidence ?? null,
-      meta:       result?.raw ? result.raw : null,
+      meta:       result?.raw ?? null,
     }, { onConflict: 'key' });
-    cachedKeys.add(cacheKey);
+
+    if (result) cachedHits.add(key); else cachedMisses.add(key);
 
     if (!result) {
-      console.warn(`  ✗ no result  [${row.establishment_id}] "${query}"`);
+      console.warn(`  ✗ no result  [${row.establishment_id}] "${row.name || '(no name)'}"  query: "${query}"`);
       failed++;
       continue;
     }
 
-    // Write geometry back to facilities
-    // lat/lon are generated columns — only write geom, Postgres computes the rest
+    // lat/lon are generated columns — write only geom
     const { error: updErr } = await supa
       .from('facilities')
       .update({
-        geom:                `SRID=4326;POINT(${result.lon} ${result.lat})`,
-        loc_source:          'nominatim',
-        geocode_provider:    provider,
-        geocode_confidence:  result.confidence,
-        geocode_meta:        result.raw,
-        is_approximate:      true,
+        geom:               `SRID=4326;POINT(${result.lon} ${result.lat})`,
+        loc_source:         'geocoded',
+        geocode_provider:   result.provider,
+        geocode_confidence: result.confidence,
+        geocode_meta:       result.raw,
+        is_approximate:     true,
       })
       .eq('establishment_id', row.establishment_id);
 
     if (updErr) {
-      console.error(`  DB update error for ${row.establishment_id}:`, updErr.message);
+      console.error(`  DB error [${row.establishment_id}]:`, updErr.message);
       failed++;
     } else {
-      console.log(`  ✓  [${row.establishment_id}] "${row.name}" → ${result.lat.toFixed(5)}, ${result.lon.toFixed(5)}`);
+      console.log(`  ✓  [${row.establishment_id}] "${row.name || '?'}"  (${result.provider}) → ${result.lat.toFixed(5)}, ${result.lon.toFixed(5)}`);
       geocoded++;
     }
   }
 
-  console.log(`\nDone. Geocoded: ${geocoded}  Already cached/skipped: ${skipped}  Failed: ${failed}`);
+  console.log(`\nDone.`);
+  console.log(`  Geocoded:      ${geocoded}`);
+  console.log(`  Retried misses: ${retried}`);
+  console.log(`  Skipped:        ${skipped}`);
+  console.log(`  Failed:         ${failed}`);
+  if (failed > 0) {
+    console.log(`\n  Tip: ${failed} addresses returned no result from either Nominatim or Census.`);
+    console.log(`  These are likely: closed/demolished locations, incomplete addresses,`);
+    console.log(`  or rural routes. They won't appear on the map.`);
+  }
 })().catch(err => {
   console.error('geocode_missing failed:', err);
   process.exit(1);
