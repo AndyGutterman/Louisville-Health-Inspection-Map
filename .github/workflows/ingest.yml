@@ -37,6 +37,9 @@ jobs:
       - name: Overlay geometry — pass 2
         run: node overlay_geometry.js
 
+      - name: Backfill facility types
+        run: node backfill_types.js
+
       - name: Geocode missing geometry
         run: node geocode_missing.js
 
