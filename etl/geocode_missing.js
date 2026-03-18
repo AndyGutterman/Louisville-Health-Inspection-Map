@@ -32,8 +32,8 @@ function buildQuery(row) {
   return parts.filter(Boolean).join(', ');
 }
 
-// Nominatim geocode — returns { lon, lat, confidence, raw } or null
-async function geocode(query) {
+// Nominatim geocode — returns { lon, lat, confidence, provider, raw } or null
+async function geocodeNominatim(query) {
   const url = `${NOMINATIM}?` + new URLSearchParams({
     q:              query,
     format:         'json',
@@ -59,7 +59,39 @@ async function geocode(query) {
     lon:        parseFloat(hit.lon),
     lat:        parseFloat(hit.lat),
     confidence: parseFloat(hit.importance ?? 0),
+    provider:   'nominatim',
     raw:        hit,
+  };
+}
+
+// US Census Bureau geocoder — returns { lon, lat, confidence, provider, raw } or null
+// No API key needed. Uses official TIGER/Line data — covers every addressed US street.
+async function geocodeCensus(row) {
+  const url = 'https://geocoding.geo.census.gov/geocoder/locations/address?' + new URLSearchParams({
+    street:    stripSuite(row.address || ''),
+    city:      row.city  || '',
+    state:     row.state || '',
+    zip:       row.zip   || '',
+    benchmark: 'Public_AR_Current',
+    format:    'json',
+  });
+
+  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  if (!res.ok) {
+    console.error(`Census HTTP ${res.status} for "${row.address}"`);
+    return null;
+  }
+
+  const json = await res.json();
+  const match = json?.result?.addressMatches?.[0];
+  if (!match) return null;
+
+  return {
+    lon:        match.coordinates.x,
+    lat:        match.coordinates.y,
+    confidence: 1.0,
+    provider:   'census',
+    raw:        match,
   };
 }
 
@@ -111,17 +143,23 @@ async function geocode(query) {
 
     let result = null;
     try {
-      result = await geocode(query);
+      result = await geocodeNominatim(query);
+      if (!result) {
+        console.log(`  → Nominatim miss, trying Census...`);
+        result = await geocodeCensus(row);
+      }
     } catch (e) {
       console.error(`Geocode error for "${query}":`, e.message);
     }
+
+    const provider = result?.provider ?? 'nominatim';
 
     // Write to geocode_cache regardless (cache misses too, so we don't retry forever)
     await supa.from('geocode_cache').upsert({
       key:        cacheKey,
       lon:        result?.lon  ?? null,
       lat:        result?.lat  ?? null,
-      provider:   'nominatim',
+      provider,
       confidence: result?.confidence ?? null,
       meta:       result?.raw ? result.raw : null,
     }, { onConflict: 'key' });
@@ -140,7 +178,7 @@ async function geocode(query) {
       .update({
         geom:                `SRID=4326;POINT(${result.lon} ${result.lat})`,
         loc_source:          'nominatim',
-        geocode_provider:    'nominatim',
+        geocode_provider:    provider,
         geocode_confidence:  result.confidence,
         geocode_meta:        result.raw,
         is_approximate:      true,
