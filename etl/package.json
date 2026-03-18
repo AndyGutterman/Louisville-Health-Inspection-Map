@@ -8,7 +8,8 @@
     "seed:inspections":  "node seed_inspections.js",
     "seed:violations":   "node seed_violations.js",
     "seed:categories":   "node seed_categories.js",
-    "overlay":           "node overlay_geometry.js"
+    "overlay":           "node overlay_geometry.js",
+    "geo":              "node geocode_missing.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
