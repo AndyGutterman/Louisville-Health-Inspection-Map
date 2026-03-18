@@ -5,17 +5,37 @@ FoodServiceData (FeatureServer/0)
   Used for: inspections, facility metadata (name/address), AND point geometry (lon/lat)
   Geometry: returnGeometry=true, outSR=4326 — works freely, no auth required
   Note: contains duplicate EstablishmentID rows; always deduplicate before upsert
+  Note: does NOT have EstType or Subtype fields — do not request them here
   https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0
 
-FoodMapping (FeatureServer/0)
-  STATUS: BLOCKED — returns 499 Token Required on ALL requests (GET and POST,
-  with or without geometry). Do not use for anything.
-  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0
+Louisville_Metro_KY_Permitted_Food_Service_Establishments (FeatureServer/0)
+  Used for: facility_type and subtype (keyed by permit_number = establishment_id)
+  This is the ONLY source for type/subtype. FoodServiceData does not have these fields.
+  Also has: premise_name, premise_address, opening_date
+  Queried by: backfill_types.js (runs after seed_inspections in workflow)
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Establishments/FeatureServer/0
+
+Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes (FeatureServer/0)
+  Used for: facility_categories table (human-readable type + subtype descriptions)
+  Queried by: seed_categories.js
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0
 
 Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants (FeatureServer/0)
   Used for: violations tied to failed inspections
+  Queried by: seed_violations.js
   https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Inspection_Violations_of_Failed_Restaurants/FeatureServer/0
 
-Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes (FeatureServer/0)
-  Used for: facility_categories table (type + subtype descriptions)
-  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Types_with_Subtypes/FeatureServer/0
+FoodMapping (FeatureServer/0)
+  STATUS: BLOCKED — returns 499 Token Required on ALL requests (GET and POST,
+  with or without geometry, with or without auth). Do not use for anything.
+  https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodMapping/FeatureServer/0
+
+=================================================
+ArcGIS query string encoding rules (learned the hard way)
+=================================================
+- Use encodeURIComponent for values, then un-encode commas: .replace(/%2C/g, ',')
+- Spaces MUST be %20, NOT + (URLSearchParams produces + which ArcGIS rejects with 400)
+- = signs in WHERE values (e.g. "1=1") must NOT be encoded as %3D
+- orderByFields with spaces (e.g. "EstablishmentID ASC") must use %20
+- The paginateArcGIS helper in lib/arcgis.js handles all of this correctly
+- Do NOT use URLSearchParams for ArcGIS query strings

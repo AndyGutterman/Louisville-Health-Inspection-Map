@@ -4,6 +4,10 @@
  *   node seed_inspections.js                          # normal incremental
  *   node seed_inspections.js --since=2026-01-15       # from a specific date
  *   node seed_inspections.js --since=2026-01-15 --until=2026-01-20
+ *
+ * Note: FoodServiceData does NOT have EstType/Subtype fields.
+ * facility_type and subtype come from Louisville_Metro_KY_Permitted_Food_Service_Establishments
+ * and are backfilled by backfill_types.js which runs after this in the workflow.
  */
 import { supa }                        from './lib/db.js';
 import { startRun, finishRun, failRun } from './lib/import_runs.js';
@@ -60,8 +64,7 @@ const IS_RECOVERY  = !!FORCED_SINCE;
 
     for await (const { attrs, page } of paginateArcGIS(FS_BASE, {
       where:         whereParts.join(' AND '),
-      // Include EstablishmentName and Address so stubs are never nameless
-      outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip,InspectionID,Ins_TypeDesc,InspectionDate,score,Grade',
+      outFields:     'EstablishmentID,InspectionID,Ins_TypeDesc,InspectionDate,score,Grade',
       orderByFields: 'InspectionDate ASC, InspectionID ASC',
     })) {
       totalRead += attrs.length;
@@ -69,44 +72,33 @@ const IS_RECOVERY  = !!FORCED_SINCE;
       const rows = attrs.flatMap(a => {
         const eid = normId(a.EstablishmentID);
         if (!eid) return [];
-        return [{ inspection_id: a.InspectionID, establishment_id: eid,
-                  ins_type_desc: a.Ins_TypeDesc || null, inspection_date: toISODate(a.InspectionDate),
-                  score: a.score ?? null, grade: a.Grade || null, raw: a }];
+        return [{
+          inspection_id:   a.InspectionID,
+          establishment_id: eid,
+          ins_type_desc:   a.Ins_TypeDesc || null,
+          inspection_date: toISODate(a.InspectionDate),
+          score:           a.score ?? null,
+          grade:           a.Grade || null,
+          raw:             a,
+        }];
       });
 
-      // Build a lookup of eid → name/address from this page's data
-      const metaByEid = new Map();
-      for (const a of attrs) {
-        const eid = normId(a.EstablishmentID);
-        if (eid && !metaByEid.has(eid)) {
-          metaByEid.set(eid, {
-            name:    a.EstablishmentName || null,
-            address: a.Address           || null,
-            city:    a.City              || null,
-            state:   a.State             || null,
-            zip:     a.Zip != null ? String(a.Zip) : null,
-          });
-        }
-      }
+      // Stub-insert any facilities not yet in the FK set.
+      // facility_type/subtype will be filled by backfill_types.js which runs next.
+      const missingEids = [...new Set(rows.map(r => r.establishment_id))]
+        .filter(eid => !haveFacility.has(eid));
 
-      // Stub-insert any facilities missing from the FK set — now WITH name/address
-      const missingEids = [...new Set(rows.map(r => r.establishment_id))].filter(eid => !haveFacility.has(eid));
       if (missingEids.length) {
-        const placeholders = missingEids.map(eid => ({
-          establishment_id: eid,
-          permit_number: eid,
-          loc_source: 'FoodServiceData'
-        }));
         const { error: fke } = await supa
           .from('facilities')
           .upsert(
             missingEids.map(eid => ({ establishment_id: eid, permit_number: eid, loc_source: 'legacy' })),
             { onConflict: 'establishment_id' }
-          )
+          );
         if (fke) throw fke;
         missingEids.forEach(eid => haveFacility.add(eid));
         totalStubs += missingEids.length;
-        console.log(`  → stubbed ${missingEids.length} new facilities with name/address`);
+        console.log(`  → stubbed ${missingEids.length} new facilities (types backfilled separately)`);
       }
 
       const { error } = await supa.from('inspections').upsert(rows, { onConflict: 'inspection_id' });
