@@ -139,17 +139,17 @@ async function geocodeCensus(row) {
   if (!allRows.length) { console.log('Nothing to do.'); return; }
 
   // ── 2. Load cache — distinguish hits from misses ─────────────────────────────
-  // We load key + lon so we can tell a cached success from a cached failure.
+  // We load key + lon + lat so we can replay DB writes for cache hits that never landed.
   const { data: cacheRows, error: cErr } = await supa
     .from('geocode_cache')
-    .select('key, lon');
+    .select('key, lon, lat, provider, confidence, meta');
   if (cErr) throw cErr;
 
-  const cachedHits   = new Set();  // key with a real coordinate
+  const cachedHits   = new Map();  // key → { lon, lat, provider, confidence, meta }
   const cachedMisses = new Set();  // key that previously returned null
 
   for (const r of (cacheRows || [])) {
-    if (r.lon != null) cachedHits.add(r.key);
+    if (r.lon != null) cachedHits.set(r.key, r);
     else               cachedMisses.add(r.key);
   }
 
@@ -168,8 +168,26 @@ async function geocodeCensus(row) {
     const key = cacheKey(query);
 
     if (cachedHits.has(key)) {
-      // Already geocoded — the DB row should already have geom; skip quietly.
-      skipped++;
+      // Cache has coordinates but DB still has no geom — replay the write.
+      const cached = cachedHits.get(key);
+      const { error: replayErr } = await supa
+        .from('facilities')
+        .update({
+          geom:               `SRID=4326;POINT(${cached.lon} ${cached.lat})`,
+          loc_source:         cached.provider ?? 'nominatim',
+          geocode_provider:   cached.provider,
+          geocode_confidence: cached.confidence,
+          geocode_meta:       cached.meta,
+          is_approximate:     true,
+        })
+        .eq('establishment_id', row.establishment_id);
+      if (replayErr) {
+        console.error(`  Cache-replay DB error [${row.establishment_id}]:`, replayErr.message);
+        failed++;
+      } else {
+        console.log(`  ↺  [${row.establishment_id}] "${row.name || '?'}"  (cache replay) → ${cached.lat.toFixed(5)}, ${cached.lon.toFixed(5)}`);
+        geocoded++;
+      }
       continue;
     }
 
@@ -209,7 +227,8 @@ async function geocodeCensus(row) {
       meta:       result?.raw ?? null,
     }, { onConflict: 'key' });
 
-    if (result) cachedHits.add(key); else cachedMisses.add(key);
+    if (result) cachedHits.set(key, { lon: result.lon, lat: result.lat, provider: result.provider, confidence: result.confidence, meta: result.raw });
+    else        cachedMisses.add(key);
 
     if (!result) {
       console.warn(`  ✗ no result  [${row.establishment_id}] "${row.name || '(no name)'}"  query: "${query}"`);
@@ -222,7 +241,7 @@ async function geocodeCensus(row) {
       .from('facilities')
       .update({
         geom:               `SRID=4326;POINT(${result.lon} ${result.lat})`,
-        loc_source:         'geocoded',
+        loc_source:         result.provider,
         geocode_provider:   result.provider,
         geocode_confidence: result.confidence,
         geocode_meta:       result.raw,
