@@ -3,6 +3,12 @@
  *
  * fetchArcGISPage   — single page, with exponential-backoff retry.
  * paginateArcGIS    — async generator; yields { attrs, offset, page } until exhausted.
+ *
+ * Encoding rules (learned the hard way):
+ *   - Spaces must be %20, NOT + (URLSearchParams produces + → ArcGIS 400)
+ *   - = in where values encodes to %3D — ArcGIS accepts this fine
+ *   - Commas in outFields must stay raw (we un-encode %2C after encodeURIComponent)
+ *   - Do NOT use URLSearchParams for ArcGIS query strings
  */
 import { sleep } from './utils.js';
 
