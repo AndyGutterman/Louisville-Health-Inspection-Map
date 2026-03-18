@@ -2,6 +2,10 @@ import { supa }           from './lib/db.js';
 import { normText }       from './lib/utils.js';
 import { paginateArcGIS } from './lib/arcgis.js';
 
+// Note: FoodServiceData does NOT have EstType or Subtype fields.
+// facility_type and subtype are backfilled separately by backfill_types.js
+// which queries Louisville_Metro_KY_Permitted_Food_Service_Establishments.
+
 const normId = v => {
   if (v == null) return null;
   const n = parseInt(String(v).replace(/,/g, '').trim(), 10);
@@ -19,8 +23,8 @@ const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/servi
   let totalNew = 0;
 
   for await (const { attrs, page, offset } of paginateArcGIS(FS_BASE, {
-    where:         'EstablishmentID IS NOT NULL',
-    outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip,EstType,Subtype',
+    where:         '1=1',
+    outFields:     'EstablishmentID,EstablishmentName,Address,City,State,Zip',
     orderByFields: 'EstablishmentID ASC',
   }, { pageSize: 1000, delayMs: 50 })) {
     const batch = [];
@@ -36,13 +40,11 @@ const FS_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/servi
         city:             a.City              || null,
         state:            a.State             || null,
         zip:              a.Zip != null ? String(a.Zip) : null,
-        facility_type: Number.isFinite(+a.EstType) ? +a.EstType : null,
-        subtype:       Number.isFinite(+a.Subtype) ? +a.Subtype : null,
         name_search:      normText(a.EstablishmentName),
         addr_search:      normText(a.Address),
         loc_source:       'legacy',
-        // facility_type + subtype filled by seed_categories / backfill_facility_types
-        // lon/lat/geom filled by overlay_geometry.js (runs next)
+        // facility_type + subtype filled by backfill_types.js (runs after overlay_geometry)
+        // lon/lat/geom filled by overlay_geometry.js
       });
     }
 
