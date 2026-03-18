@@ -17,10 +17,13 @@ export function _setFetch(fn) { _fetch = fn; }
 export function _resetFetch() { _fetch = null; }
 
 export async function fetchArcGISPage(baseUrl, params, attempt = 1, maxAttempts = 4) {
-const qs  = new URLSearchParams({ returnGeometry: 'false', f: 'json', ...params });
-const url = `${baseUrl}/query?${qs}`;
-console.log('DEBUG URL:', url);  // ← add this
-const res = await doFetch(url);
+  const fixed = { returnGeometry: 'false', f: 'json', ...params };
+  const qs = Object.entries(fixed)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v)).replace(/%2C/g, ',')}`)
+    .join('&');
+  const url = `${baseUrl}/query?${qs}`;
+  console.log('DEBUG URL:', url);
+  const res = await doFetch(url);
   const text = await res.text();
 
   let j;
