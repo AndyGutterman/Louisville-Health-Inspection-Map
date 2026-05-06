@@ -169,9 +169,11 @@ function OverlapNav({ index, total, onPrev, onNext }) {
   );
 }
 
-export default function Map() {
+export default function Map(props) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const onMapReadyRef = useRef(props.onMapReady);
+  useEffect(() => { onMapReadyRef.current = props.onMapReady; }, [props.onMapReady]);
 
   const hoverPopupRef = useRef(null);
   const pinnedPopupRef = useRef(null);
@@ -984,6 +986,9 @@ export default function Map() {
       docCloseHandlerRef.current = outsideClose;
 
       applyFilter(map);
+
+      // Signal the splash screen that the map is ready
+      onMapReadyRef.current?.();
     });
 
     return () => {
