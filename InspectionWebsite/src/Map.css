@@ -44,8 +44,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	min-width: 176px;
-	width: clamp(192px, 17.6vw, 256px);
+	min-width: 280px;
+	width: clamp(280px, 22vw, 340px);
 	max-width: 92vw;
 	box-shadow: 0 14px 26px rgba(0, 0, 0, .35);
 	box-sizing: border-box;
@@ -718,12 +718,7 @@
 
 
 .menu-btn {
-	position: relative;
 	color: #fff;
-	left: 0;
-	top: 0;
-	transform: none;
-	z-index: 1;
 	padding: 0;
 	display: inline-grid;
 	place-items: center;
@@ -733,6 +728,7 @@
 	border-radius: 12px;
 	border: 1px solid rgba(255, 255, 255, .16);
 	background: rgba(255, 255, 255, .08);
+	flex-shrink: 0;
 }
 
 .menu-btn svg {
@@ -901,8 +897,7 @@
 
 
 .switch.xs {
-	transform: scale(.92);
-	transform-origin: right center;
+	/* no scale — avoids thumb misalignment */
 }
 
 .switch.red input:checked+span {
@@ -918,12 +913,7 @@
 }
 
 
-@media (max-width: 480px) {
-	.switch.xs {
-		transform-origin: right center;
-		transform: scale(.85);
-	}
-}
+
 
 .control-card .search-row {
 	padding: 8px 12px;
@@ -1991,3 +1981,48 @@
 
 /* Hide the old sort dropdown if it somehow still renders */
 .table-sort-select-wrap { display: none !important; }
+/* ─────────────────────────────────────────────
+   RADIX SWITCH — standard Radix pattern
+   Track 36x20, thumb 16x16, inset 2px
+   Radix sets translateX(0) / translateX(16px)
+───────────────────────────────────────────── */
+button.rx-switch {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  min-width: 36px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative;
+  transition: background .2s;
+  box-sizing: border-box;
+}
+button.rx-switch:focus-visible {
+  outline: 2px solid rgba(255,255,255,.4);
+  outline-offset: 2px;
+}
+button.rx-switch[data-state="checked"].red    { background: #ea4335; }
+button.rx-switch[data-state="checked"].yellow { background: #fbbc05; }
+button.rx-switch[data-state="checked"].green  { background: #34a853; }
+button.rx-switch[data-state="checked"].purple { background: #625F69; }
+
+.rx-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  transition: transform .2s;
+  will-change: transform;
+  flex-shrink: 0;
+  /* Radix sets translateX via inline style — we override unchecked position only */
+  transform: translateX(2px) !important;
+}
+button.rx-switch[data-state="checked"] .rx-thumb {
+  transform: translateX(18px) !important;
+}
