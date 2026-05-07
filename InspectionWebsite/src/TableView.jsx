@@ -421,7 +421,7 @@ export default function TableView({ supabase, onRowClick, onRowHover, onRowHover
             <br/><small>Re-run supabase_table_views.sql to create missing views.</small>
           </div>
         )}
-        <table className="table-grid">
+        <table className="table-grid" style={{ minWidth: 560 }}>
           <thead>
             <tr>
               <th className={sortAxis === "score" ? "sorted" : ""} onClick={handleScoreSort}>
