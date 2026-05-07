@@ -189,7 +189,7 @@ export default function FilterSearch({
           </div>
 
           <div className="rgb-compact" role="group" aria-label="Show">
-            <span className="rgb-title">Show</span>
+            <span className="rgb-title"></span> {/*none for now*/}
 
             <Switch.Root
               className="rx-switch xs red"

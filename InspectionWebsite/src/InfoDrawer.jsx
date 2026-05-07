@@ -392,15 +392,6 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-      {/* Drag pill on mobile */}
-      {isMobile && (
-        <div aria-hidden="true" style={{
-          width: 36, height: 4, borderRadius: 999,
-          background: "rgba(255,255,255,.28)",
-          margin: "10px auto 2px",
-          flexShrink: 0,
-        }} />
-      )}
 
       {/* Close — always above scroll */}
       <button className="info-close" onClick={onClose} aria-label="Close">×</button>
