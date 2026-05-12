@@ -12,7 +12,7 @@ Features
 
 - Interactive map powered by **MapLibre GL** with location-based browsing
 - Filterable table view with adjustable score thresholds
-- Detailed inspection drawer showing current and past inspection records
+- Detailed inspection drawer showing current and past inspection records plus specific violations and any comments left on the inspection
 
 ---
 
