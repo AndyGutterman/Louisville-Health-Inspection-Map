@@ -20,11 +20,11 @@ Features
 
 ```
 ArcGIS Open Data (Louisville Metro)
-ETL Pipeline (Node.js)
-Supabase (PostgreSQL)
-React frontend
-Map view (MapLibre GL)
-TableView
+-> ETL Pipeline (Node.js)
+ -> Supabase (PostgreSQL)->
+     React frontend
+      Map view (MapLibre GL)
+      TableView
 ```
 
 ---
