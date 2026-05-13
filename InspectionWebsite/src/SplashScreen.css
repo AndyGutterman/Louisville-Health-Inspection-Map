@@ -182,6 +182,18 @@
   animation: loader-fade 0.8s ease-out 0.5s backwards;
 }
 
+.splash-timeout {
+  margin-top: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.splash-timeout p {
+  margin: 4px 0;
+}
+
 @keyframes loader-fade {
   from {
     opacity: 0;
