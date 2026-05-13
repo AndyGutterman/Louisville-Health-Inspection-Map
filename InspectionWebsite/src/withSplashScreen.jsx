@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import SplashScreen from './SplashScreen';
 
-const MIN_DURATION = 555;
+const MIN_DURATION = 400;
 const MAX_DURATION = 8000;
 /**
  * withSplashScreen HOC
@@ -35,12 +35,13 @@ export default function withSplashScreen(WrappedComponent) {
     }, []);
 
     useEffect(() => {
+      // Minimum duration to prevent flash on fast connections
       const minTimer = setTimeout(() => {
         minElapsedRef.current = true;
         if (mapReadyRef.current) dismiss();
       }, MIN_DURATION);
 
-      // Hard ceiling — never spin forever
+      // Hard ceiling so no spin forever
       const maxTimer = setTimeout(() => {
         dismiss(true);
       }, MAX_DURATION);

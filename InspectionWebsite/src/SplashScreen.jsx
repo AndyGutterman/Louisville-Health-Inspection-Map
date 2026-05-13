@@ -3,7 +3,6 @@ import './SplashScreen.css';
 
 const FADE_DURATION = 600; // must match splash-out animation duration in CSS
 
-// SplashScreen.jsx — add timedOut prop
 export default function SplashScreen({ isLoading, timedOut }) {
   const [fadeOut, setFadeOut] = useState(false);
   const [unmounted, setUnmounted] = useState(false);
