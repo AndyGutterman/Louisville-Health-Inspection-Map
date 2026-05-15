@@ -170,8 +170,12 @@ export default function FilterSearch({
         className={`control-card ${collapsed ? "collapsed" : ""}`}
         style={
           isDesktop
-            ? { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
-            : { maxWidth: "calc(100vw - 24px)" }
+            ? collapsed
+              ? {}  /* collapsed: let CSS (max-content) control width, no override */
+              : { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
+            : collapsed
+              ? { maxWidth: "calc(100vw - 24px)" }
+              : { width: "clamp(280px, calc(100vw - 24px), 420px)", maxWidth: "calc(100vw - 24px)" }
         }
       >
         <div className="search-row">
@@ -188,49 +192,36 @@ export default function FilterSearch({
             </button>
           </div>
 
-          <div className="rgb-compact" role="group" aria-label="Show">
-            <span className="rgb-title"></span> {/*none for now*/}
-
-            <Switch.Root
-              className="rx-switch xs red"
-              checked={showRedPins}
-              onCheckedChange={setShowRedPins}
-              aria-label="Show red pins"
-            >
-              <Switch.Thumb className="rx-thumb" />
-            </Switch.Root>
-
-            <Switch.Root
-              className="rx-switch xs yellow"
-              checked={showYellowPins}
-              onCheckedChange={setShowYellowPins}
-              aria-label="Show yellow pins"
-            >
-              <Switch.Thumb className="rx-thumb" />
-            </Switch.Root>
-
-            <Switch.Root
-              className="rx-switch xs green"
-              checked={showGreenPins}
-              onCheckedChange={setShowGreenPins}
-              aria-label="Show green pins"
-            >
-              <Switch.Thumb className="rx-thumb" />
-            </Switch.Root>
-              
-              <Switch.Root
-              className="rx-switch xs purple"
-              checked={showMissing}
-              onCheckedChange={setShowMissing}
-              aria-label="Show missing pins"
-            >
-              <Switch.Thumb className="rx-thumb" />
-            </Switch.Root>
+          <div className="rgb-compact" role="group" aria-label="Show pins">
+            <div className="tog-item">
+              <Switch.Root className="rx-switch xs red" checked={showRedPins} onCheckedChange={setShowRedPins} aria-label="Show red pins">
+                <Switch.Thumb className="rx-thumb" />
+              </Switch.Root>
+              <span className="tog-lbl" style={{ color: "#ef4444" }}>Red</span>
+            </div>
+            <div className="tog-item">
+              <Switch.Root className="rx-switch xs yellow" checked={showYellowPins} onCheckedChange={setShowYellowPins} aria-label="Show yellow pins">
+                <Switch.Thumb className="rx-thumb" />
+              </Switch.Root>
+              <span className="tog-lbl" style={{ color: "#f59e0b" }}>Yellow</span>
+            </div>
+            <div className="tog-item">
+              <Switch.Root className="rx-switch xs green" checked={showGreenPins} onCheckedChange={setShowGreenPins} aria-label="Show green pins">
+                <Switch.Thumb className="rx-thumb" />
+              </Switch.Root>
+              <span className="tog-lbl" style={{ color: "#22c55e" }}>Green</span>
+            </div>
+            <div className="tog-item">
+              <Switch.Root className="rx-switch xs purple" checked={showMissing} onCheckedChange={setShowMissing} aria-label="Show unscored pins">
+                <Switch.Thumb className="rx-thumb" />
+              </Switch.Root>
+              <span className="tog-lbl" style={{ color: "#888" }}>N/A</span>
+            </div>
           </div>
         </div>
 
         {!collapsed && (
-          <>
+          <div className="control-content">
             <div className="rgb-toggles">
               {isDesktop ? (
                 <>
@@ -402,7 +393,7 @@ export default function FilterSearch({
                 </Tabs.Content>
               </Tabs.Root>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
