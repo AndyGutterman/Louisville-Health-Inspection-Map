@@ -1346,7 +1346,7 @@ return (
           supabase={supabase}
         />
       )}
-
+    
       {/* Login modal on map page (learn page renders its own copy) */}
       {page === "map" && loginOpen && (
         <LoginModal onClose={() => setLoginOpen(false)} />
