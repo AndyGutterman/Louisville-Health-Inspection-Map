@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
+import LearnPage, { LoginModal } from "./LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { createClient } from "@supabase/supabase-js";
@@ -261,6 +262,9 @@ export default function Map(props) {
 
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
+    // Page routing ──────────────────────────────────────
+  const [page, setPage] = useState("map");
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const inEdgeRef = useRef(false);
 
@@ -1164,7 +1168,7 @@ export default function Map(props) {
     }
   }
 
-  // ── Table row hover: show hover popup on map ──────────────────────────────
+  // Table row hover: show hover popup on map ──────────────────────────────
   const onTableRowHover = React.useCallback((establishmentId, rowData) => {
     const map = mapRef.current;
     if (!map) return;
@@ -1197,7 +1201,7 @@ export default function Map(props) {
       .setHTML(html)
       .addTo(map);
 
-    // Pan map to show the pin (softly, don't snap)
+    // Pan map to show the pin (softly)
     const bounds = map.getBounds();
     const [lon, lat] = feature.geometry.coordinates;
     if (!bounds.contains([lon, lat])) {
@@ -1253,117 +1257,191 @@ export default function Map(props) {
   }, [beginDrawerLoad]);
 
 
-  return (
+return (
     <>
       <header className="app-header">
         <div className="header-inner">
+ 
+          {/* Left slot: search (map) or back-to-map link (learn) */}
           <div className="header-search">
-            <div className="search-wrap">
-              <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
-                <path
-                  d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
-                  fill="currentColor"
+            {page === "map" ? (
+              <div className="search-wrap">
+                <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+                  <path
+                    d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search map"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search map"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+              </div>
+            ) : (
+              <button
+                className="header-nav-btn"
+                onClick={() => setPage("map")}
+                style={{ gap: 5 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 12H5M12 5l-7 7 7 7"/>
+                </svg>
+                <span className="nav-btn-label">Map</span>
+              </button>
+            )}
           </div>
 
-          <div className="brand">
+          {/* Centre: brand — clicking returns to map */}
+          <div
+            className="brand"
+            style={{ cursor: "pointer" }}
+            onClick={() => setPage("map")}
+            title="Louisville Food Safe — back to map"
+          >
             <span className="brand-louisville">LOUISVILLE</span>
             <span className="brand-food">FOOD</span>
             <span className="brand-safe">SAFE</span>
           </div>
 
-          <div aria-hidden />
+          {/* Right slot: Learn + Log in — always visible on both pages */}
+          <div className="header-actions">
+            <button
+              className={`header-nav-btn${page === "learn" ? " active" : ""}`}
+              onClick={() => setPage("learn")}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              <span className="nav-btn-label">Learn</span>
+            </button>
+            <button
+              className="header-nav-btn header-nav-btn--login"
+              onClick={() => setLoginOpen(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span className="nav-btn-label">Log in</span>
+            </button>
+          </div>
+ 
         </div>
       </header>
-
-      <div ref={mapContainerRef} className="map-container" />
-
-      <FilterSearch
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        showRedPins={showRedPins}
-        setShowRedPins={setShowRedPins}
-        showYellowPins={showYellowPins}
-        setShowYellowPins={setShowYellowPins}
-        showGreenPins={showGreenPins}
-        setShowGreenPins={setShowGreenPins}
-        showMissing={showMissing}
-        setShowMissing={setShowMissing}
-        filtersOpen={filtersOpen}
-        setFiltersOpen={setFiltersOpen}
-        catToggles={catToggles}
-        setCatToggles={setCatToggles}
-        CATEGORY_SPECS={CATEGORY_SPECS}
-        CAT_COLORS={CAT_COLORS}
-        buildInitialCatToggles={buildInitialCatToggles}
-        onAdjustClick={() => {}}
-        adjustContent={
-          <ScoreThresholdInline
-            pins={pins}
-            setPins={setPins}
-            preset={preset}
-            applyPreset={applyPreset}
-          />
-        }
-      />
-
-      <InfoDrawer
-        selected={selected}
-        drawerLoading={drawerLoading}
-        history={history}
-        facDetails={facDetails}
-        pins={pins}
-        zIndex={frontPanel === "drawer" ? 3100 : 2900}
-        onBringToFront={() => setFrontPanel("drawer")}
-        onClose={() => {
-          setSelected(null);
-          setHistory(null);
-          setHistoryFor(null);
-          setFacDetails(null);
-          setFacDetailsFor(null);
-          setDrawerLoading(false);
-          loadSeqRef.current++;
-        }}
-      />
-
-      {/* Table view toggle button */}
-      {!tableOpen && (
-        <button
-          className="table-toggle-btn"
-          onClick={() => setTableOpen(true)}
-          aria-label="Open table view"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <path d="M3 9h18M3 15h18M9 3v18"/>
-          </svg>
-          Table View
-        </button>
+ 
+      {/* Learn page overlay (rendered above the map) */}
+      {page === "learn" && (
+        <LearnPage
+          loginOpen={loginOpen}
+          onCloseLogin={() => setLoginOpen(false)}
+          supabase={supabase}
+        />
       )}
 
-      {/* Table view panel — always mounted so filters/sort/data survive close */}
-      <TableView
-        supabase={supabase}
-        onClose={() => setTableOpen(false)}
-        onRowClick={onTableRowClick}
-        onRowHover={onTableRowHover}
-        onRowHoverEnd={onTableRowHoverEnd}
-        savedH={tableH}
-        savedW={tableW}
-        onResize={(h, w) => { setTableH(h); setTableW(w); }}
-        pins={pins}
-        hidden={!tableOpen}
-        zIndex={frontPanel === "table" ? 3100 : 2900}
-        onBringToFront={() => setFrontPanel("table")}
+      {/* Login modal on map page (learn page renders its own copy) */}
+      {page === "map" && loginOpen && (
+        <LoginModal onClose={() => setLoginOpen(false)} />
+      )}
+ 
+      {/* Map and all map UI (hidden via CSS when on learn page) */}
+      <div
+        ref={mapContainerRef}
+        className="map-container"
+        style={page !== "map" ? { visibility: "hidden", pointerEvents: "none" } : undefined}
       />
+ 
+      {page === "map" && (
+        <>
+          <FilterSearch
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            showRedPins={showRedPins}
+            setShowRedPins={setShowRedPins}
+            showYellowPins={showYellowPins}
+            setShowYellowPins={setShowYellowPins}
+            showGreenPins={showGreenPins}
+            setShowGreenPins={setShowGreenPins}
+            showMissing={showMissing}
+            setShowMissing={setShowMissing}
+            filtersOpen={filtersOpen}
+            setFiltersOpen={setFiltersOpen}
+            catToggles={catToggles}
+            setCatToggles={setCatToggles}
+            CATEGORY_SPECS={CATEGORY_SPECS}
+            CAT_COLORS={CAT_COLORS}
+            buildInitialCatToggles={buildInitialCatToggles}
+            onAdjustClick={() => {}}
+            adjustContent={
+              <ScoreThresholdInline
+                pins={pins}
+                setPins={setPins}
+                preset={preset}
+                applyPreset={applyPreset}
+              />
+            }
+          />
+ 
+          <InfoDrawer
+            selected={selected}
+            drawerLoading={drawerLoading}
+            history={history}
+            facDetails={facDetails}
+            pins={pins}
+            zIndex={frontPanel === "drawer" ? 3100 : 2900}
+            onBringToFront={() => setFrontPanel("drawer")}
+            onClose={() => {
+              setSelected(null);
+              setHistory(null);
+              setHistoryFor(null);
+              setFacDetails(null);
+              setFacDetailsFor(null);
+              setDrawerLoading(false);
+              loadSeqRef.current++;
+            }}
+          />
+ 
+          {!tableOpen && (
+            <button
+              className="table-toggle-btn"
+              onClick={() => setTableOpen(true)}
+              aria-label="Open table view"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18M3 15h18M9 3v18"/>
+              </svg>
+              Table View
+            </button>
+          )}
+ 
+          <TableView
+            supabase={supabase}
+            onClose={() => setTableOpen(false)}
+            onRowClick={onTableRowClick}
+            onRowHover={onTableRowHover}
+            onRowHoverEnd={onTableRowHoverEnd}
+            savedH={tableH}
+            savedW={tableW}
+            onResize={(h, w) => { setTableH(h); setTableW(w); }}
+            pins={pins}
+            hidden={!tableOpen}
+            zIndex={frontPanel === "table" ? 3100 : 2900}
+            onBringToFront={() => setFrontPanel("table")}
+          />
+        </>
+      )}
     </>
   );
+ 
+
 }

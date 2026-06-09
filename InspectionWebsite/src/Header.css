@@ -1,0 +1,291 @@
+/* ══════════════════════════════════════════════════════════════
+   Header.css
+   Scope: app header bar, brand, search input, nav buttons,
+          all header-specific responsive breakpoints.
+   Imported by: Map.css
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── CSS custom properties ── */
+:root {
+	--header-h: clamp(60px, 7vw, 80px);
+}
+
+/* ── App header ── */
+.app-header {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 1100;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 16px;
+	background: rgba(16, 16, 20, .92);
+	backdrop-filter: blur(8px);
+	border-bottom: 1px solid rgba(255, 255, 255, .08);
+	height: auto;
+	min-height: var(--header-h);
+}
+
+.app-header .header-inner {
+	display: grid;
+	grid-template-columns: minmax(200px, 1fr) auto minmax(200px, 1fr);
+	align-items: center;
+	gap: 16px;
+	width: 100%;
+	max-width: none;
+	margin: 0;
+	padding: 0 16px;
+}
+
+/* ── Brand ── */
+.app-header .brand {
+	grid-column: 2;
+	justify-self: center;
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	gap: clamp(10px, 1.5vw, 16px);
+	line-height: 1;
+}
+
+.brand > span {
+	font-family: "Tilt Neon", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+	font-optical-sizing: auto;
+	font-weight: 600;
+	letter-spacing: .04em;
+	font-size: clamp(28px, 2.8vw, 52px);
+	text-rendering: optimizeLegibility;
+	color: var(--c);
+	text-shadow: 0 0 .5px #fff, 0 0 6px var(--c), 0 0 14px var(--c), 0 0 26px var(--c);
+	filter: drop-shadow(0 0 2px rgba(0, 0, 0, .35));
+}
+
+.brand-louisville { --c: #ea4335; }
+.brand-food       { --c: #fbbc05; }
+.brand-safe       { --c: #34a853; }
+
+/* ── Header search ── */
+.header-search {
+	grid-column: 1;
+	justify-self: start;
+	width: clamp(200px, 28vw, 420px);
+	min-width: 200px;
+}
+
+.header-search .search-wrap {
+	position: relative;
+	width: 100%;
+}
+
+.header-search .icon {
+	position: absolute;
+	left: 14px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 18px;
+	height: 18px;
+	opacity: .9;
+	pointer-events: none;
+}
+
+.header-search input {
+	width: 100%;
+	height: 40px;
+	padding: 0 12px 0 40px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, .06);
+	border: 1px solid rgba(255, 255, 255, .12);
+	color: #fff;
+	font-size: .94rem;
+	font-weight: 600;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
+/* ── Shared search-wrap (icon + input) ── */
+.search-wrap {
+	position: relative;
+	flex: 1;
+	z-index: 2;
+}
+
+.search-wrap .icon {
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 18px;
+	height: 18px;
+	opacity: .9;
+	pointer-events: none;
+}
+
+.search-wrap input {
+	width: 100%;
+	height: 40px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, .06);
+	border: 1px solid rgba(255, 255, 255, .12);
+	color: #fff;
+	padding: 0 12px 0 40px;
+	font-weight: 600;
+}
+
+.search-wrap input::placeholder {
+	color: rgba(255, 255, 255, .8);
+}
+
+/* ── Right-side actions slot ── */
+.header-actions {
+	grid-column: 3;
+	justify-self: end;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+/* ── Nav buttons ── */
+.header-nav-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 6px 13px;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 255, 255, 0.11);
+	background: transparent;
+	color: rgba(255, 255, 255, 0.55);
+	font-size: 0.80rem;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	cursor: pointer;
+	line-height: 1;
+	white-space: nowrap;
+	transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.header-nav-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.18);
+	color: rgba(255, 255, 255, 0.90);
+}
+
+.header-nav-btn.active {
+	background: rgba(255, 255, 255, 0.10);
+	border-color: rgba(255, 255, 255, 0.20);
+	color: #fff;
+}
+
+.header-nav-btn--login {
+	border-color: rgba(255, 255, 255, 0.14);
+	color: rgba(255, 255, 255, 0.60);
+}
+
+.header-nav-btn--login:hover {
+	background: rgba(255, 255, 255, 0.09);
+	color: #fff;
+}
+
+/* Search dims when not on map page */
+.header-search--dim {
+	opacity: 0.28;
+	pointer-events: none;
+	user-select: none;
+}
+
+/* ══════════════════════════════════════════════════
+   HEADER RESPONSIVE
+   ══════════════════════════════════════════════════ */
+
+/* ── Tablet/desktop mid (≤1280px) ── */
+@media (max-width: 1280px) {
+	:root { --mobile-header-h: clamp(64px, 12vh, 104px); }
+
+	.app-header .header-inner {
+		padding: 0 14px;
+		gap: 10px;
+	}
+
+	.app-header .brand,
+	.app-header .header-search { min-width: 0; }
+
+	.app-header .brand,
+	.app-header .brand > span { overflow: visible !important; }
+
+	.app-header .brand > span {
+		padding: 0 4px;
+		display: inline-block;
+		max-width: 100%;
+		white-space: nowrap;
+		font-size: clamp(28px, 3.2vw, 44px);
+	}
+
+	.header-search .search-wrap,
+	.header-search input,
+	.app-header .header-search .search-wrap,
+	.app-header .header-search input {
+		width: 100% !important;
+		max-width: 100%;
+		box-sizing: border-box;
+		margin: 0;
+	}
+}
+
+/* ── Mobile (≤640px): 2-row layout ── */
+@media (max-width: 640px) {
+	:root { --header-h: clamp(56px, 10vw, 68px); }
+
+	.app-header .header-inner {
+		display: grid !important;
+		grid-template-columns: 1fr auto !important;
+		grid-template-rows: auto auto;
+		row-gap: 8px;
+		column-gap: 10px;
+		padding: 10px 14px !important;
+		align-items: center;
+	}
+
+	/* Row 1: brand spans full width */
+	.app-header .brand {
+		grid-column: 1 / -1 !important;
+		grid-row: 1;
+		justify-self: center;
+		order: unset;
+	}
+
+	.brand > span { font-size: clamp(24px, 6.2vw, 36px); }
+
+	/* Row 2 left: search */
+	.app-header .header-search {
+		grid-column: 1 !important;
+		grid-row: 2;
+		justify-self: stretch;
+		order: unset;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	/* Row 2 right: actions */
+	.header-actions {
+		grid-column: 2 !important;
+		grid-row: 2;
+		justify-self: end;
+		gap: 4px;
+	}
+
+	.header-nav-btn {
+		padding: 6px 10px;
+		font-size: 0.74rem;
+	}
+}
+
+/* ── Very small (≤380px): drop "Log in" label ── */
+@media (max-width: 380px) {
+	.nav-btn-label        { display: none; }
+	.header-nav-btn--login { padding: 6px 8px; }
+	.header-nav-btn        { padding: 5px 8px; font-size: 0.70rem; }
+}
