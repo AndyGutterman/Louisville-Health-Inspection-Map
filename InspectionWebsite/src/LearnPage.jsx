@@ -288,6 +288,32 @@ const STYLES = `
   background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.82);
 }
 
+/* ── Timeline controls ── */
+.ln-vdb-timeline {
+  display: flex; gap: 6px; align-items: center;
+  margin-bottom: 10px; flex-wrap: wrap;
+}
+.ln-vdb-tl-label {
+  font-size: .64rem; font-weight: 800; letter-spacing: .10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.38);
+  white-space: nowrap;
+}
+.ln-vdb-tl-btn {
+  padding: 4px 11px; border-radius: 999px; font-size: .70rem; font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: transparent; color: rgba(255,255,255,0.42);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.ln-vdb-tl-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.70); }
+.ln-vdb-tl-btn.tl-active {
+  background: rgba(52,168,83,0.12);
+  border-color: rgba(52,168,83,0.30); color: #6fcf8a;
+}
+.ln-vdb-scope-note {
+  font-size: .70rem; color: rgba(255,255,255,0.32);
+  margin-bottom: 12px; margin-top: -4px; line-height: 1.5;
+}
+
 /* ── Login modal ── */
 .ln-mback {
   position: fixed; inset: 0;
@@ -393,68 +419,84 @@ export function LoginModal({ onClose }) {
   }, [onClose]);
 
   return (
-    <div
-      className="ln-mback"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      role="dialog" aria-modal="true" aria-label="Log in"
-    >
-      <div className="ln-modal">
+    <div className="ln-mback" onClick={onClose}>
+      <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
         <button className="ln-modal-x" onClick={onClose} aria-label="Close">×</button>
-        <div className="ln-modal-title">Food Safe</div>
-        <p className="ln-modal-sub">
-          Sign in to save favorites and get grade-change alerts.
-        </p>
+        <div className="ln-modal-title">Sign in</div>
+        <div className="ln-modal-sub">
+          Create a free account to save your favorite restaurants and get placard alerts.
+        </div>
         <div className="ln-modal-box">
           <div className="ln-modal-icon">🔒</div>
-          <div className="ln-modal-bt">Accounts coming soon</div>
-          <p className="ln-modal-bd">
-            Login is under development using Supabase Auth. Check back soon.
-          </p>
+          <div className="ln-modal-bt">Accounts<ComingSoonBadge /></div>
+          <div className="ln-modal-bd">
+            Sign-in isn't available yet — we're working on it. Check back soon!
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+// ─── Timeline options ────────────────────────────────────────────────────────
+const TIMELINE_OPTS = [
+  { key: "all",  label: "All time",  days: null, note: "Every recorded citation since data collection began." },
+  { key: "12mo", label: "12 months", days: 365,  note: "Citations from the past 12 months only." },
+  { key: "6mo",  label: "6 months",  days: 182,  note: "Citations from the past 6 months only." },
+  { key: "3mo",  label: "3 months",  days: 91,   note: "Citations from the past 3 months only." },
+];
+
 // ─── Violations database section ─────────────────────────────────────────────
 const PAGE_SIZE = 40;
 
 function ViolationDatabase({ supabase }) {
-  const [rows, setRows]         = useState([]);   // { desc, critical, count }
+  const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [search, setSearch]     = useState("");
-  const [tab, setTab]           = useState("all"); // "all" | "crit" | "non"
+  const [tab, setTab]           = useState("all");   // "all" | "crit" | "non"
+  const [timeline, setTimeline] = useState("all");   // TIMELINE_OPTS key
   const [showAll, setShowAll]   = useState(false);
+
+  // ISO cutoff date for the selected window, or null for all-time
+  const cutoffDate = useMemo(() => {
+    const opt = TIMELINE_OPTS.find(o => o.key === timeline);
+    if (!opt || !opt.days) return null;
+    const d = new Date();
+    d.setDate(d.getDate() - opt.days);
+    return d.toISOString().slice(0, 10);
+  }, [timeline]);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
+    setLoading(true);
+    setRows([]);
+    setShowAll(false);
 
     (async () => {
       try {
-        // Pull every distinct (violation_desc, critical_yn) pair with a count.
-        // We paginate since the violations table can be large.
-        const PAGE = 1000;
-        const acc = new Map(); // "desc||crit" → { desc, critical, count }
+        const BATCH = 1000;
+        const acc   = new Map(); // "desc||Y/N" → { desc, critical, count }
+        let offset  = 0;
 
-        let offset = 0;
-        // eslint-disable-next-line no-constant-condition
         while (true) {
-          const { data, error: err } = await supabase
+          let q = supabase
             .from("inspection_violations")
             .select("violation_desc, critical_yn")
-            .not("violation_desc", "is", null)
-            .range(offset, offset + PAGE - 1);
+            .not("violation_desc", "is", null);
 
+          if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
+          q = q.range(offset, offset + BATCH - 1);
+
+          const { data, error: err } = await q;
           if (err) throw err;
           if (!data || data.length === 0) break;
 
           for (const r of data) {
-            // Handle all observed DB variants: "Y", "y", "Yes", "yes", "1", 1, true
-            const raw    = r.critical_yn;
-            const isCrit = raw === true || raw === 1
-                        || (typeof raw === "string" && raw.trim().toUpperCase().startsWith("Y"));
-            const key    = `${r.violation_desc}||${isCrit ? "Y" : "N"}`;
+            // critical_yn is TEXT "Yes"/"No" in this schema
+            const raw    = r.critical_yn ?? "";
+            const isCrit = raw.toLowerCase().startsWith("y");
+            const key    = r.violation_desc + "||" + (isCrit ? "Y" : "N");
             if (acc.has(key)) {
               acc.get(key).count++;
             } else {
@@ -462,155 +504,153 @@ function ViolationDatabase({ supabase }) {
             }
           }
 
-          if (data.length < PAGE) break;
-          offset += PAGE;
+          if (data.length < BATCH) break;
+          offset += BATCH;
         }
 
-        // Sort by count desc
-        const sorted = [...acc.values()].sort((a, b) => b.count - a.count);
-        setRows(sorted);
+        setRows([...acc.values()].sort((a, b) => b.count - a.count));
+        setError(null);
       } catch (e) {
         setError(e.message || "Failed to load violations");
       } finally {
         setLoading(false);
       }
     })();
-  }, [supabase]);
+  }, [supabase, cutoffDate]);
 
-  // Word-boundary regex so "rat" doesn't match "tempe-rat-ure" etc.
+  // Word-boundary regex — "rat" won't match inside "temperature"
   const searchRegex = useMemo(() => {
     const q = search.trim();
     if (!q) return null;
-    try {
-      return new RegExp('\\b' + q.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'i');
-    } catch { return null; }
+    try { return new RegExp("\\b" + q.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i"); }
+    catch { return null; }
   }, [search]);
 
-  const filtered = useMemo(() => {
-    return rows.filter(r => {
-      if (tab === "crit" && !r.critical)  return false;
-      if (tab === "non"  && r.critical)   return false;
-      if (searchRegex && !searchRegex.test(r.desc)) return false;
-      return true;
-    });
-  }, [rows, searchRegex, tab]);
+  const filtered = useMemo(() => rows.filter(r => {
+    if (tab === "crit" && !r.critical) return false;
+    if (tab === "non"  &&  r.critical) return false;
+    if (searchRegex && !searchRegex.test(r.desc)) return false;
+    return true;
+  }), [rows, searchRegex, tab]);
 
-  const visible   = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
-  const critCount = rows.filter(r => r.critical).length;
-  const nonCount  = rows.filter(r => !r.critical).length;
+  const visible        = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
+  const critCount      = rows.filter(r =>  r.critical).length;
+  const nonCount       = rows.filter(r => !r.critical).length;
   const totalCitations = rows.reduce((s, r) => s + r.count, 0);
+  const scopeNote      = TIMELINE_OPTS.find(o => o.key === timeline)?.note ?? "";
 
-  // Highlight matched term in description text
   function Highlighted({ text }) {
     if (!searchRegex) return <>{text}</>;
-    const parts = text.split(searchRegex);
+    const parts   = text.split(searchRegex);
     const matches = text.match(searchRegex) || [];
-    return <>{parts.map((p, i) => (
-      <React.Fragment key={i}>{p}{matches[i] && (
-        <mark style={{ background: 'rgba(251,188,5,0.30)', color: '#fbbc05', borderRadius: 2, padding: '0 1px' }}>{matches[i]}</mark>
-      )}</React.Fragment>
-    ))}</>;
-  }
-
-  if (!supabase) {
     return (
-      <div className="ln-vdb-loading">
-        Violation database unavailable — supabase prop not provided.
-      </div>
+      <>
+        {parts.map((p, i) => (
+          <React.Fragment key={i}>
+            {p}
+            {matches[i] && (
+              <mark style={{ background: "rgba(251,188,5,0.28)", color: "#fbbc05", borderRadius: 2, padding: "0 1px" }}>
+                {matches[i]}
+              </mark>
+            )}
+          </React.Fragment>
+        ))}
+      </>
     );
   }
 
-  if (loading) {
-    return <div className="ln-vdb-loading">Loading violations…</div>;
-  }
-
-  if (error) {
-    return <div className="ln-vdb-loading" style={{ color: "#ff9a9a" }}>Error: {error}</div>;
-  }
+  if (!supabase) return (
+    <div className="ln-vdb-loading">Violation database unavailable — supabase prop not provided.</div>
+  );
 
   return (
     <>
-      {/* Stats row */}
-      <div className="ln-vdb-stats">
-        <span className="ln-vdb-stat">
-          <strong>{rows.length.toLocaleString()}</strong> distinct violation types
-        </span>
-        <span className="ln-vdb-stat">
-          <strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical
-        </span>
-        <span className="ln-vdb-stat">
-          <strong>{nonCount}</strong> non-critical
-        </span>
-        <span className="ln-vdb-stat">
-          <strong>{totalCitations.toLocaleString()}</strong> total citations
-        </span>
+      {/* Timeline selector */}
+      <div className="ln-vdb-timeline">
+        <span className="ln-vdb-tl-label">Showing</span>
+        {TIMELINE_OPTS.map(opt => (
+          <button
+            key={opt.key}
+            className={"ln-vdb-tl-btn" + (timeline === opt.key ? " tl-active" : "")}
+            onClick={() => { setTimeline(opt.key); setSearch(""); setTab("all"); }}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
-      {/* Search + filter tabs */}
-      <div className="ln-vdb-header">
-        <div className="ln-vdb-search-wrap">
-          <svg className="ln-vdb-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor"/>
-          </svg>
-          <input
-            className="ln-vdb-search"
-            type="text"
-            placeholder="Search violations…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setShowAll(false); }}
-          />
-        </div>
-        <div className="ln-vdb-tabs">
-          <button
-            className={`ln-vdb-tab ${tab === "all"  ? "active-all"  : ""}`}
-            onClick={() => { setTab("all");  setShowAll(false); }}
-          >All</button>
-          <button
-            className={`ln-vdb-tab ${tab === "crit" ? "active-crit" : ""}`}
-            onClick={() => { setTab("crit"); setShowAll(false); }}
-          >⚠ Critical</button>
-          <button
-            className={`ln-vdb-tab ${tab === "non"  ? "active-non"  : ""}`}
-            onClick={() => { setTab("non");  setShowAll(false); }}
-          >Non-critical</button>
-        </div>
-      </div>
-
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="ln-vdb-loading">
-          No violations match "{search}"{tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.<br/>
-          <span style={{ fontSize: '.76rem', color: 'rgba(255,255,255,0.35)' }}>Try a broader term or switch to All.</span>
-        </div>
+      {loading ? (
+        <div className="ln-vdb-loading">Loading violations…</div>
+      ) : error ? (
+        <div className="ln-vdb-loading" style={{ color: "#ff9a9a" }}>Error: {error}</div>
       ) : (
-        <div className="ln-vdb-list">
-          {visible.map((r, i) => (
-            <div key={i} className={`ln-vdb-row${r.critical ? " is-crit" : ""}`}>
-              <div className={`ln-vdb-dot ${r.critical ? "crit" : "non"}`} title={r.critical ? "Critical" : "Non-critical"} />
-              <div className="ln-vdb-desc">
-                <Highlighted text={toTitleCase(r.desc)} />
-                {r.critical && (
-                  <span className="ln-vdb-crit-badge">critical</span>
-                )}
-              </div>
-              <div className={`ln-vdb-count ${r.critical ? "crit" : ""}`}>
-                {r.count.toLocaleString()}×
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        <>
+          <p className="ln-vdb-scope-note">{scopeNote}</p>
 
-      {/* Show more */}
-      {!showAll && filtered.length > PAGE_SIZE && (
-        <button className="ln-vdb-show-more" onClick={() => setShowAll(true)}>
-          Show all {filtered.length.toLocaleString()} results
-        </button>
-      )}
-      {showAll && filtered.length > PAGE_SIZE && (
-        <button className="ln-vdb-show-more" onClick={() => setShowAll(false)}>
-          Collapse
-        </button>
+          {/* Stats */}
+          <div className="ln-vdb-stats">
+            <span className="ln-vdb-stat"><strong>{rows.length.toLocaleString()}</strong> distinct violation types</span>
+            <span className="ln-vdb-stat"><strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical</span>
+            <span className="ln-vdb-stat"><strong>{nonCount}</strong> non-critical</span>
+            <span className="ln-vdb-stat">
+              <strong>{totalCitations.toLocaleString()}</strong> total citations
+              {timeline !== "all" && <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>}
+            </span>
+          </div>
+
+          {/* Search + severity tabs */}
+          <div className="ln-vdb-header">
+            <div className="ln-vdb-search-wrap">
+              <svg className="ln-vdb-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor" />
+              </svg>
+              <input
+                className="ln-vdb-search"
+                type="text"
+                placeholder="Search violations…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setShowAll(false); }}
+              />
+            </div>
+            <div className="ln-vdb-tabs">
+              <button className={"ln-vdb-tab " + (tab === "all"  ? "active-all"  : "")} onClick={() => { setTab("all");  setShowAll(false); }}>All</button>
+              <button className={"ln-vdb-tab " + (tab === "crit" ? "active-crit" : "")} onClick={() => { setTab("crit"); setShowAll(false); }}>⚠ Critical</button>
+              <button className={"ln-vdb-tab " + (tab === "non"  ? "active-non"  : "")} onClick={() => { setTab("non");  setShowAll(false); }}>Non-critical</button>
+            </div>
+          </div>
+
+          {/* List */}
+          {filtered.length === 0 ? (
+            <div className="ln-vdb-loading">
+              No violations match "{search}"{tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.<br />
+              <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>Try a broader term or switch to All.</span>
+            </div>
+          ) : (
+            <div className="ln-vdb-list">
+              {visible.map((r, i) => (
+                <div key={i} className={"ln-vdb-row" + (r.critical ? " is-crit" : "")}>
+                  <div className={"ln-vdb-dot " + (r.critical ? "crit" : "non")} title={r.critical ? "Critical violation" : "Non-critical"} />
+                  <div className="ln-vdb-desc">
+                    <Highlighted text={toTitleCase(r.desc)} />
+                    {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
+                  </div>
+                  <div className={"ln-vdb-count" + (r.critical ? " crit" : "")}>
+                    {r.count.toLocaleString()}×
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!showAll && filtered.length > PAGE_SIZE && (
+            <button className="ln-vdb-show-more" onClick={() => setShowAll(true)}>
+              Show all {filtered.length.toLocaleString()} results
+            </button>
+          )}
+          {showAll && filtered.length > PAGE_SIZE && (
+            <button className="ln-vdb-show-more" onClick={() => setShowAll(false)}>Collapse</button>
+          )}
+        </>
       )}
     </>
   );

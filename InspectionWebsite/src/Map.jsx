@@ -12,6 +12,7 @@ import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import FeedbackModal from "./FeedbackModal.jsx";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -146,6 +147,112 @@ function buildCoordIndex(features) {
   return m;
 }
 
+// ─── Same-place detection ─────────────────────────────────────────────────────
+// When the health dept has the same physical restaurant under two different
+// establishment_ids (e.g. a permit rename/renumber), both end up at the exact
+// same lat/lon with similar names. We detect these pairs, keep one canonical
+// pin (the most recently inspected), and store the alias info so:
+//   • the map shows only one pin (no duplicate confusion)
+//   • the drawer merges both inspection histories (no data hidden)
+//   • the popup shows a small "Also listed as:" note (transparent to the user)
+
+function normalizeName(name) {
+  if (!name) return [];
+  return name
+    .toLowerCase()
+    // strip location numbers like #234, #1, no. 5
+    .replace(/#\d+|no\.?\s*\d+|\bunit\s+\w+/gi, "")
+    // strip punctuation
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1); // drop single chars
+}
+
+function nameSimilarity(a, b) {
+  const ta = new Set(normalizeName(a));
+  const tb = new Set(normalizeName(b));
+  if (ta.size === 0 && tb.size === 0) return 1;
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let intersection = 0;
+  for (const w of ta) if (tb.has(w)) intersection++;
+  const union = ta.size + tb.size - intersection;
+  return intersection / union;
+}
+
+// Returns a new feature list where same-place aliases are merged onto one
+// canonical feature. Aliased features are removed from the list; their eids
+// are stored in `alias_eids` (JSON string) and their names in `alias_names`
+// (JSON string) on the canonical feature's properties.
+function mergeSamePlace(features) {
+  // Group by exact coordinate
+  const byCoord = new globalThis.Map();
+  for (const f of features) {
+    const k = coordKey(f.geometry.coordinates);
+    if (!byCoord.has(k)) byCoord.set(k, []);
+    byCoord.get(k).push(f);
+  }
+
+  const suppressedEids = new Set();
+  const extrasByCanon = new globalThis.Map(); // canonEid → [{eid, name}]
+
+  for (const group of byCoord.values()) {
+    if (group.length < 2) continue;
+
+    // Within each coord-group, find pairs that are likely the same physical place
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i];
+        const b = group[j];
+        if (suppressedEids.has(a.properties.establishment_id)) continue;
+        if (suppressedEids.has(b.properties.establishment_id)) continue;
+
+        const sim = nameSimilarity(a.properties.name, b.properties.name);
+        if (sim < 0.55) continue; // genuinely different businesses at same address
+
+        // Pick the canonical one: most recent inspection date wins;
+        // tie-break by higher score, then lower eid (stable).
+        const dateA = a.properties.date || "";
+        const dateB = b.properties.date || "";
+        let canon, alias;
+        if (dateA >= dateB) {
+          canon = a; alias = b;
+        } else {
+          canon = b; alias = a;
+        }
+
+        const canonEid = canon.properties.establishment_id;
+        const aliasEid = alias.properties.establishment_id;
+
+        suppressedEids.add(aliasEid);
+
+        if (!extrasByCanon.has(canonEid)) extrasByCanon.set(canonEid, []);
+        extrasByCanon.get(canonEid).push({
+          eid: aliasEid,
+          name: alias.properties.name,
+        });
+      }
+    }
+  }
+
+  // Annotate canonical features and drop suppressed ones
+  return features
+    .filter((f) => !suppressedEids.has(f.properties.establishment_id))
+    .map((f) => {
+      const eid = f.properties.establishment_id;
+      if (!extrasByCanon.has(eid)) return f;
+      const aliases = extrasByCanon.get(eid);
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          // Store as JSON strings so MapLibre can carry them in GeoJSON properties
+          alias_eids:   JSON.stringify(aliases.map((a) => a.eid)),
+          alias_names:  JSON.stringify(aliases.map((a) => a.name)),
+        },
+      };
+    });
+}
+
 function OverlapNav({ index, total, onPrev, onNext }) {
   return (
     <div
@@ -262,9 +369,11 @@ export default function Map(props) {
 
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
-    // Page routing ──────────────────────────────────────
+
+  // Page routing
   const [page, setPage] = useState("map");
   const [loginOpen, setLoginOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const inEdgeRef = useRef(false);
 
@@ -389,11 +498,20 @@ export default function Map(props) {
           acc[eid] = feat;
         return acc;
       }, {});
-      const featureList = Object.values(latestMap);
+      // Merge same-place aliases (same coords + similar name → one canonical pin)
+      const featureList = mergeSamePlace(Object.values(latestMap));
       coordIndexRef.current = buildCoordIndex(featureList);
-      // Build establishment_id lookup for table row hover
+      // Build establishment_id lookup for table row hover.
+      // Also map alias eids → canonical feature so table rows for merged
+      // records still pan the map to the right pin.
       const byEid = {};
-      for (const f of featureList) byEid[f.properties.establishment_id] = f;
+      for (const f of featureList) {
+        byEid[f.properties.establishment_id] = f;
+        try {
+          const aliases = JSON.parse(f.properties.alias_eids || "[]");
+          for (const aeid of aliases) byEid[aeid] = f;
+        } catch { /* ignore */ }
+      }
       featureByEidRef.current = byEid;
       setGeoData({
         type: "FeatureCollection",
@@ -417,7 +535,6 @@ export default function Map(props) {
       });
   }
 
-
   // Hoisted from map.on('load') so table rows can trigger drawer
   const beginDrawerLoad = async (eid, p) => {
     const seq = ++loadSeqRef.current;
@@ -427,30 +544,64 @@ export default function Map(props) {
     setFacDetails(null);
     setFacDetailsFor(null);
 
-    const { data: insp, error } = await supabase
-      .from("inspections")
-      .select(
-        "inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id",
-      )
-      .eq("establishment_id", eid)
-      .order("inspection_date", { ascending: false })
-      .order("inspection_id", { ascending: false });
+    // Gather all eids to fetch: primary + any same-place aliases
+    const aliasEids = (() => {
+      try { return JSON.parse(p.alias_eids || "[]"); }
+      catch { return []; }
+    })();
+    const allEids = [eid, ...aliasEids];
 
-    if (error) {
-      console.error("history fetch error", error);
+    // Fetch inspections for all eids in parallel
+    const inspResults = await Promise.all(
+      allEids.map((e) =>
+        supabase
+          .from("inspections")
+          .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
+          .eq("establishment_id", e)
+          .order("inspection_date", { ascending: false })
+          .order("inspection_id", { ascending: false })
+      )
+    );
+
+    const inspErrors = inspResults.filter((r) => r.error);
+    if (inspErrors.length === allEids.length) {
+      // All failed — nothing to show
+      console.error("history fetch error", inspErrors[0].error);
       if (seq !== loadSeqRef.current) return;
       setDrawerLoading(false);
       return;
     }
+    inspErrors.forEach((r) => console.error("history fetch error (alias)", r.error));
 
-    const { data: viols, error: vErr } = await supabase
-      .from("inspection_violations")
-      .select(
-        "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
+    // Merge all inspection rows, deduplicate by inspection_id
+    const seenInspIds = new Set();
+    const insp = inspResults
+      .flatMap((r) => r.data || [])
+      .filter((row) => {
+        if (seenInspIds.has(row.inspection_id)) return false;
+        seenInspIds.add(row.inspection_id);
+        return true;
+      })
+      .sort((a, b) => {
+        if (b.inspection_date !== a.inspection_date)
+          return b.inspection_date > a.inspection_date ? 1 : -1;
+        return b.inspection_id - a.inspection_id;
+      });
+
+    // Fetch violations for all eids in parallel
+    const violResults = await Promise.all(
+      allEids.map((e) =>
+        supabase
+          .from("inspection_violations")
+          .select("violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id")
+          .eq("establishment_id", e)
       )
-      .eq("establishment_id", eid);
+    );
 
-    if (vErr) console.error("violations fetch error", vErr);
+    const viols = violResults.flatMap((r) => {
+      if (r.error) console.error("violations fetch error", r.error);
+      return r.data || [];
+    });
     if (seq !== loadSeqRef.current) return;
 
     const byId = new globalThis.Map();
@@ -494,6 +645,12 @@ export default function Map(props) {
       return latestNonZero || mergedDesc[0] || null;
     })();
 
+    // Parse alias names to pass to the drawer for its "Also listed as" note
+    const aliasNames = (() => {
+      try { return JSON.parse(p.alias_names || "[]"); }
+      catch { return []; }
+    })();
+
     const selectedData = headerRow
       ? {
           establishment_id: eid,
@@ -503,6 +660,7 @@ export default function Map(props) {
           score: headerRow.score ?? null,
           grade: headerRow.grade ?? null,
           _displayedInspectionId: headerRow.inspection_id,
+          aliasNames,
           metaTitle:
             (headerRow.score ?? 0) > 0
               ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
@@ -516,6 +674,7 @@ export default function Map(props) {
           score: p.score ?? null,
           grade: p.grade ?? null,
           _displayedInspectionId: null,
+          aliasNames,
           meta: null,
         };
 
@@ -664,10 +823,6 @@ export default function Map(props) {
         return { feature: f, group };
       };
 
-
-      
-
-
       // Use a small box so overlapping/nearby pins are all found,
       // then nearestOf() applies red>yellow>green priority correctly.
       const featuresAtPixel = (point, px = 12) =>
@@ -679,14 +834,10 @@ export default function Map(props) {
           { layers: layerIds },
         );
 
-   
-
-    const screenKey = (feature) => {
-      const p = map.project(feature.geometry.coordinates);
-      return `${Math.round(p.x)}|${Math.round(p.y)}`;
-    };
-
-
+      const screenKey = (feature) => {
+        const p = map.project(feature.geometry.coordinates);
+        return `${Math.round(p.x)}|${Math.round(p.y)}`;
+      };
 
       const nearestFeature = (point, px = 14) => {
         const box = [
@@ -705,7 +856,6 @@ export default function Map(props) {
         return best;
       };
 
-
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
         if (score == null) return PIN_COLORS.null;
@@ -722,11 +872,21 @@ export default function Map(props) {
           overlapCount && overlapCount > 1
             ? `<div class="overlap-badge" aria-live="polite">${overlapCount} locations here</div>`
             : "";
-        return `<div class="popup-content" style="font-size:14px;max-width:220px">
-     <strong>${p.name}</strong><br/>
-    <small>${addr}</small><br/>
+        // Alias note: shown when this pin represents a merged same-place record
+        const aliasNote = (() => {
+          try {
+            const names = JSON.parse(p.alias_names || "[]");
+            if (!names.length) return "";
+            const list = names.map((n) => `<em>${n}</em>`).join(", ");
+            return `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.52);border-top:1px solid rgba(255,255,255,0.10);padding-top:4px">Also listed as: ${list}</div>`;
+          } catch { return ""; }
+        })();
+        return `<div class="popup-content" style="font-size:14px;max-width:240px">
+          <strong>${p.name}</strong><br/>
+          <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
           Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
+          ${aliasNote}
           ${overlap}
         </div>`;
       };
@@ -750,7 +910,6 @@ export default function Map(props) {
         pinnedFeatureRef.current = feature;
         wirePopupInteractions(pinnedPopupRef.current, feature);
       };
-
 
       const wirePopupInteractions = (popup, feature) => {
         const root = popup.getElement();
@@ -870,15 +1029,14 @@ export default function Map(props) {
         }
         wirePopupInteractions(hoverPopupRef.current, feature);
       };
-    const onHover = (e) => {
-      const { feature: f, group } = groupAtPixel(e.point);
-      if (!f) return;
-      if (f.id === lastHoverId.current) return;
-      lastHoverId.current = f.id;
-      showHoverPopup(f, group.length || 1);
-    };
 
-
+      const onHover = (e) => {
+        const { feature: f, group } = groupAtPixel(e.point);
+        if (!f) return;
+        if (f.id === lastHoverId.current) return;
+        lastHoverId.current = f.id;
+        showHoverPopup(f, group.length || 1);
+      };
 
       const onLeave = () => {
         lastHoverId.current = null;
@@ -1168,7 +1326,7 @@ export default function Map(props) {
     }
   }
 
-  // Table row hover: show hover popup on map ──────────────────────────────
+  // Table row hover: show hover popup on map
   const onTableRowHover = React.useCallback((establishmentId, rowData) => {
     const map = mapRef.current;
     if (!map) return;
@@ -1256,12 +1414,11 @@ export default function Map(props) {
     beginDrawerLoad(row.establishment_id, row);
   }, [beginDrawerLoad]);
 
-
-return (
+  return (
     <>
       <header className="app-header">
         <div className="header-inner">
- 
+
           {/* Left slot: search (map) or back-to-map link (learn) */}
           <div className="header-search">
             {page === "map" ? (
@@ -1307,7 +1464,7 @@ return (
             <span className="brand-safe">SAFE</span>
           </div>
 
-          {/* Right slot: Learn + Log in — always visible on both pages */}
+          {/* Right slot: Learn + Feedback + Log in — always visible on both pages */}
           <div className="header-actions">
             <button
               className={`header-nav-btn${page === "learn" ? " active" : ""}`}
@@ -1322,6 +1479,17 @@ return (
               <span className="nav-btn-label">Learn</span>
             </button>
             <button
+              className="header-nav-btn"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span className="nav-btn-label">Feedback</span>
+            </button>
+            <button
               className="header-nav-btn header-nav-btn--login"
               onClick={() => setLoginOpen(true)}
             >
@@ -1334,10 +1502,10 @@ return (
               <span className="nav-btn-label">Log in</span>
             </button>
           </div>
- 
+
         </div>
       </header>
- 
+
       {/* Learn page overlay (rendered above the map) */}
       {page === "learn" && (
         <LearnPage
@@ -1346,19 +1514,27 @@ return (
           supabase={supabase}
         />
       )}
-    
+
       {/* Login modal on map page (learn page renders its own copy) */}
       {page === "map" && loginOpen && (
         <LoginModal onClose={() => setLoginOpen(false)} />
       )}
- 
+
+      {/* Feedback modal — available on all pages */}
+      {feedbackOpen && (
+        <FeedbackModal
+          supabase={supabase}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      )}
+
       {/* Map and all map UI (hidden via CSS when on learn page) */}
       <div
         ref={mapContainerRef}
         className="map-container"
         style={page !== "map" ? { visibility: "hidden", pointerEvents: "none" } : undefined}
       />
- 
+
       {page === "map" && (
         <>
           <FilterSearch
@@ -1389,7 +1565,7 @@ return (
               />
             }
           />
- 
+
           <InfoDrawer
             selected={selected}
             drawerLoading={drawerLoading}
@@ -1408,7 +1584,7 @@ return (
               loadSeqRef.current++;
             }}
           />
- 
+
           {!tableOpen && (
             <button
               className="table-toggle-btn"
@@ -1423,7 +1599,7 @@ return (
               Table View
             </button>
           )}
- 
+
           <TableView
             supabase={supabase}
             onClose={() => setTableOpen(false)}
@@ -1442,6 +1618,4 @@ return (
       )}
     </>
   );
- 
-
 }

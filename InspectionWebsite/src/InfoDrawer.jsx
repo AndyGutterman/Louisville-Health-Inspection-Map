@@ -25,7 +25,7 @@ const displayField = (v) =>
 
 function CurrentInspectionCard({ data, details }) {
   if (!data) return null;
-  const { name, address, inspectionDate, score, grade, meta, metaTitle } = data;
+  const { name, address, inspectionDate, score, grade, meta, metaTitle, aliasNames } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
@@ -54,6 +54,9 @@ function CurrentInspectionCard({ data, details }) {
   const hasDetails = items.some((i) => i.value && i.value !== "—");
   const [open, setOpen] = React.useState(false);
 
+  // aliasNames: string[] — other permit names merged into this pin
+  const aliases = Array.isArray(aliasNames) ? aliasNames : [];
+
   return (
     <div
       className={`inspect-card ${open ? "open" : ""}`}
@@ -73,6 +76,25 @@ function CurrentInspectionCard({ data, details }) {
       <div className="inspect-card_header">
         <div className="inspect-card_title">{name}</div>
         <div className="inspect-card_sub">{address}</div>
+        {aliases.length > 0 && (
+          <div
+            style={{
+              marginTop: 5,
+              fontSize: "0.72rem",
+              color: "rgba(255,255,255,0.42)",
+              lineHeight: 1.4,
+            }}
+            title="This pin combines multiple permit records for the same physical location"
+          >
+            Also listed as:{" "}
+            {aliases.map((n, i) => (
+              <React.Fragment key={n}>
+                {i > 0 && ", "}
+                <span style={{ fontStyle: "italic" }}>{n}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="inspect-card_stats">
@@ -205,16 +227,15 @@ function PastInspection({ row }) {
 
   const listRef = useRef(null);
   const [maxH, setMaxH] = useState(0);
-    useEffect(() => {
+  useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-        setMaxH(open ? el.scrollHeight : 0);
+      setMaxH(open ? el.scrollHeight : 0);
     });
     ro.observe(el);
     return () => ro.disconnect();
-    }, [open]);
-
+  }, [open]);
 
   return (
     <div className="hist-item">
@@ -392,7 +413,6 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-
       {/* Close — always above scroll */}
       <button className="info-close" onClick={onClose} aria-label="Close">×</button>
 
@@ -421,6 +441,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             grade: selected.grade,
             meta: selected.meta,
             metaTitle: selected.metaTitle,
+            aliasNames: selected.aliasNames,
           }}
           details={facDetails}
           pins={pins}
