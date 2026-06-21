@@ -97,11 +97,15 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                   transition: "all .15s",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24"
-                  fill={watchlisted ? "currentColor" : "none"}
-                  stroke="currentColor" strokeWidth="2.5"
-                  strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: "block" }}>
+                  <path
+                    d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
+                    fill={watchlisted ? "#ffffff" : "none"}
+                    stroke={watchlisted ? "#ffffff" : "rgba(255,255,255,0.68)"}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             )}

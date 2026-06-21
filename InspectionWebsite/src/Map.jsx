@@ -1285,29 +1285,6 @@ export default function Map(props) {
       document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
 
-      // Watchlist highlight rings — empty on load, updated reactively below
-      map.addSource("watchlist-pins", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      // Ring matches pin size — just a thin white border on the pin itself
-      map.addLayer({
-        id: "points-watchlisted",
-        type: "circle",
-        source: "watchlist-pins",
-        paint: {
-          "circle-radius": [
-            "interpolate", ["linear"], ["zoom"],
-            8,  window.innerWidth <= 600 ? 4  : 6,
-            11, window.innerWidth <= 600 ? 8  : 10.5,
-            14, window.innerWidth <= 600 ? 12 : 14,
-            17, window.innerWidth <= 600 ? 16 : 18,
-          ],
-          "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-color": "rgba(255,255,255,0.90)",
-          "circle-stroke-width": 2,
-        },
-      });
 
       applyFilter(map);
 
@@ -1367,22 +1344,6 @@ export default function Map(props) {
     pinBtn.style.color = saved ? "#6fcf8a" : "rgba(255,255,255,0.50)";
     const svg = pinBtn.querySelector("svg");
     if (svg) svg.setAttribute("fill", saved ? "currentColor" : "none");
-  }, [watchlistEids]);
-
-  // Sync watchlist pin highlights whenever the watchlist changes
-  React.useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-    const apply = () => {
-      const src = m.getSource("watchlist-pins");
-      if (!src) return;
-      const features = [...watchlistEids]
-        .map(eid => featureByEidRef.current[eid])
-        .filter(Boolean);
-      src.setData({ type: "FeatureCollection", features });
-    };
-    if (m.isStyleLoaded()) apply();
-    else m.once("idle", apply);
   }, [watchlistEids]);
 
   // Sync watchlist area bubbles into MapLibre whenever they change
