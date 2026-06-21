@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── Matches info-drawer / header bg exactly ──────────────────────────────────
-const PANEL_BG     = "rgba(24,24,28,0.97)";
-const PANEL_BORDER = "rgba(255,255,255,0.09)";
-const PANEL_SHADOW = "0 10px 30px rgba(0,0,0,0.40)";
-
 const STYLES = `
 /* ── Collapsed trigger — aligns with Table View at bottom: 28px ── */
 .wn-trigger {
@@ -14,9 +9,9 @@ const STYLES = `
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: ${PANEL_BG};
-  border: 1px solid ${PANEL_BORDER};
-  box-shadow: ${PANEL_SHADOW};
+  background: rgba(18,18,22,0.96);
+  border: 1px solid rgba(249,115,22,0.22);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 0 12px rgba(249,115,22,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -26,33 +21,34 @@ const STYLES = `
   backdrop-filter: blur(8px);
 }
 .wn-trigger:hover {
-  border-color: rgba(249,115,22,0.35);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.50), 0 0 14px rgba(249,115,22,0.12);
+  border-color: rgba(249,115,22,0.45);
+  background: rgba(24,20,18,0.99);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 0 18px rgba(249,115,22,0.18);
 }
 .wn-trigger-icon {
   width: 30px; height: 30px;
   color: #f97316;
-  opacity: 0.78;
+  opacity: 0.80;
   transition: opacity .15s, filter .15s;
-  filter: drop-shadow(0 0 4px rgba(249,115,22,0.40));
+  filter: drop-shadow(0 0 3px rgba(249,115,22,0.35));
 }
 .wn-trigger:hover .wn-trigger-icon {
   opacity: 1;
-  filter: drop-shadow(0 0 7px rgba(249,115,22,0.65));
+  filter: drop-shadow(0 0 6px rgba(249,115,22,0.60));
 }
 
-/* ── Expanded panel — sits above trigger level ── */
+/* ── Expanded panel ── */
 .wn-panel {
   position: fixed;
   bottom: 88px;
   left: 16px;
   width: var(--wn-w, 320px);
-  background: ${PANEL_BG};
-  border: 1px solid ${PANEL_BORDER};
+  background: rgba(18,18,22,0.97);
+  border: 1px solid rgba(255,255,255,0.10);
   border-radius: 14px;
   color: #f0f0f3;
   font-family: "Helvetica Neue", Arial, sans-serif;
-  box-shadow: ${PANEL_SHADOW};
+  box-shadow: 0 10px 32px rgba(0,0,0,0.55);
   z-index: 2800;
   display: flex;
   flex-direction: column;
@@ -134,30 +130,30 @@ const STYLES = `
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 9px 13px;
+  padding: 10px 14px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.055);
   transition: background .12s;
 }
 .wn-card:last-child { border-bottom: none; }
-.wn-card:hover { background: rgba(255,255,255,0.035); }
+.wn-card:hover { background: rgba(255,255,255,0.04); }
 
 /* Score badges */
 .wn-badge {
   flex-shrink: 0;
-  width: 34px; height: 34px;
-  border-radius: 8px;
+  width: 36px; height: 36px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: .80rem;
+  font-size: .82rem;
   font-weight: 800;
 }
-.wn-badge.perfect { background: rgba(52,168,83,0.18); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.32); }
-.wn-badge.ok      { background: rgba(52,168,83,0.10); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.20); }
-.wn-badge.warn    { background: rgba(251,188,5,0.11);  color: #e8ae00; border: 1px solid rgba(251,188,5,0.22); }
-.wn-badge.bad     { background: rgba(234,67,53,0.12);  color: #ff9a9a; border: 1px solid rgba(234,67,53,0.22); }
-.wn-badge.na      { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.32); border: 1px solid rgba(255,255,255,0.09); }
+.wn-badge.perfect { background: rgba(52,168,83,0.22); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.38); box-shadow: 0 0 8px rgba(52,168,83,0.18); }
+.wn-badge.ok      { background: rgba(52,168,83,0.14); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.28); }
+.wn-badge.warn    { background: rgba(251,188,5,0.13); color: #e8ae00; border: 1px solid rgba(251,188,5,0.28); }
+.wn-badge.bad     { background: rgba(234,67,53,0.14); color: #ff9a9a; border: 1px solid rgba(234,67,53,0.28); }
+.wn-badge.na      { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.12); }
 
 .wn-info { flex: 1; min-width: 0; }
 .wn-name {
