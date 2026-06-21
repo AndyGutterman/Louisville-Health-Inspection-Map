@@ -6,31 +6,36 @@ const STYLES = `
   position: fixed;
   bottom: 58px;
   left: 16px;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(18,18,22,0.94);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.40);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(18,18,22,0.96);
+  border: 1px solid rgba(249,115,22,0.22);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 0 12px rgba(249,115,22,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 2800;
   transition: border-color .15s, background .15s, box-shadow .15s;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
 }
 .wn-trigger:hover {
-  border-color: rgba(255,255,255,0.20);
-  background: rgba(24,24,30,0.98);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.50);
+  border-color: rgba(249,115,22,0.45);
+  background: rgba(24,20,18,0.99);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 0 18px rgba(249,115,22,0.18);
 }
 .wn-trigger-icon {
-  width: 20px; height: 20px;
-  opacity: 0.50;
-  transition: opacity .15s;
+  width: 30px; height: 30px;
+  color: #f97316;
+  opacity: 0.80;
+  transition: opacity .15s, filter .15s;
+  filter: drop-shadow(0 0 3px rgba(249,115,22,0.35));
 }
-.wn-trigger:hover .wn-trigger-icon { opacity: 0.72; }
+.wn-trigger:hover .wn-trigger-icon {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(249,115,22,0.60));
+}
 
 /* ── Expanded panel ── */
 .wn-panel {

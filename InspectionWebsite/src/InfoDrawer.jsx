@@ -351,7 +351,7 @@ function useIsMobile() {
 const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose }) {
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist }) {
   const isMobile = useIsMobile();
 
   // Horizontal resize — desktop only
@@ -440,8 +440,33 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-      {/* Close — always above scroll */}
-      <button className="info-close" onClick={onClose} aria-label="Close">×</button>
+      {/* Save to watchlist + Close row */}
+      <div style={{
+        position: "absolute", top: 12, right: 12,
+        display: "flex", alignItems: "center", gap: 6, zIndex: 10,
+      }}>
+        {onSaveToWatchlist && (
+          <button
+            onClick={() => onSaveToWatchlist(selected?.establishment_id)}
+            aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
+            title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
+            style={{
+              background: watchlisted ? "rgba(52,168,83,0.18)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${watchlisted ? "rgba(52,168,83,0.45)" : "rgba(255,255,255,0.14)"}`,
+              borderRadius: 8, padding: "5px 7px", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background .15s, border-color .15s",
+              color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.45)",
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill={watchlisted ? "currentColor" : "none"}
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+        )}
+        <button className="info-close" style={{ position: "static" }} onClick={onClose} aria-label="Close">×</button>
+      </div>
 
       {/* Loading veil */}
       <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />

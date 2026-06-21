@@ -444,6 +444,14 @@ export default function Map(props) {
   // What's New panel — collapsed by default (shows flame icon trigger)
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
 
+  // Watchlist establishment IDs — loaded on login for bookmark button state
+  const [watchlistEids, setWatchlistEids] = useState(new Set());
+  useEffect(() => {
+    if (!user) { setWatchlistEids(new Set()); return; }
+    supabase.from("watchlist").select("establishment_id").eq("user_id", user.id)
+      .then(({ data }) => setWatchlistEids(new Set((data || []).map(r => r.establishment_id))));
+  }, [user]);
+
   // Watchlist areas (radius bubbles) — only loaded when user is signed in
   const [watchAreas, setWatchAreas] = useState([]);
   const watchAreasRef = useRef([]);
@@ -1795,6 +1803,19 @@ export default function Map(props) {
               setFacDetailsFor(null);
               setDrawerLoading(false);
               loadSeqRef.current++;
+            }}
+            watchlisted={selected ? watchlistEids.has(selected.establishment_id) : false}
+            onSaveToWatchlist={async (eid) => {
+              if (!eid) return;
+              if (!user) { setLoginOpen(true); return; }
+              if (watchlistEids.has(eid)) {
+                await supabase.from("watchlist").delete()
+                  .eq("user_id", user.id).eq("establishment_id", eid);
+                setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
+              } else {
+                await supabase.from("watchlist").insert([{ user_id: user.id, establishment_id: eid }]);
+                setWatchlistEids(prev => new Set([...prev, eid]));
+              }
             }}
           />
 
