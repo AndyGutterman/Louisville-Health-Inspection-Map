@@ -984,27 +984,28 @@ export default function Map(props) {
           } catch { return ""; }
         })();
         const saved = watchlistEidsRef.current.has(p.establishment_id);
+        // Pin button sits bottom-right — below all text, out of the way
         const pinBtn = `<button
           class="popup-pin-btn"
           data-eid="${p.establishment_id}"
           title="${saved ? "Remove from watchlist" : "Save to watchlist"}"
-          style="position:absolute;top:5px;right:5px;background:none;border:none;cursor:pointer;
-            padding:3px;line-height:0;color:${saved ? "#6fcf8a" : "rgba(255,255,255,0.32)"};
-            transition:color .12s;"
-        ><svg width="13" height="13" viewBox="0 0 24 24"
+          style="position:absolute;bottom:4px;right:4px;background:none;border:none;cursor:pointer;
+            padding:2px;line-height:0;color:${saved ? "#6fcf8a" : "rgba(255,255,255,0.45)"};
+            transition:color .12s;opacity:0.85;"
+        ><svg width="12" height="12" viewBox="0 0 24 24"
             fill="${saved ? "currentColor" : "none"}"
-            stroke="currentColor" stroke-width="2.2"
+            stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
         </svg></button>`;
-        return `<div class="popup-content" style="position:relative;font-size:14px;max-width:240px;padding-right:20px">
-          ${pinBtn}
+        return `<div class="popup-content" style="position:relative;font-size:14px;max-width:240px;padding-bottom:20px">
           <strong>${p.name}</strong><br/>
           <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
           Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
           ${aliasNote}
           ${overlap}
+          ${pinBtn}
         </div>`;
       };
 

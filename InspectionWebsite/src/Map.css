@@ -43,14 +43,14 @@
 	gap: 10px;
 	background: transparent;
 	position: absolute;
-	left: var(--controls-left, 16px);
+	left: 16px;
 	top: calc(var(--header-h, var(--mobile-header-h, 0px)) + 12px);
 }
 
 .control-card {
-	background: rgba(24, 24, 28, .78);
+	background: rgba(18, 18, 22, .94);
 	backdrop-filter: blur(10px);
-	border: 1px solid rgba(255, 255, 255, .08);
+	border: 1px solid rgba(255, 255, 255, .09);
 	color: #fff;
 	padding: 12px 10px 10px;
 	border-radius: 16px;
@@ -833,7 +833,7 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 	.controls {
 		position: absolute;
 		top: calc(env(safe-area-inset-top) + var(--mobile-header-h) + 8px);
-		left: 12px;
+		left: 16px;
 		right: auto;
 		width: auto;
 		z-index: 1050;

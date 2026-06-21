@@ -37,7 +37,7 @@ const STYLES = `
   filter: drop-shadow(0 0 6px rgba(249,115,22,0.60));
 }
 
-/* ── Expanded panel ── */
+/* ── Expanded panel — fixed height so switching tabs doesn't resize it ── */
 .wn-panel {
   position: fixed;
   bottom: 88px;
@@ -52,65 +52,44 @@ const STYLES = `
   z-index: 2800;
   display: flex;
   flex-direction: column;
-  max-height: 62dvh;
+  height: min(460px, 62dvh);
   overflow: hidden;
   backdrop-filter: blur(8px);
 }
 
-/* ── Header title row ── */
+/* ── Single-row tab header ── */
 .wn-header {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 11px 12px 8px;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   flex-shrink: 0;
 }
 .wn-header-flame {
   width: 14px; height: 14px;
   color: #f97316;
-  opacity: 0.75;
+  opacity: 0.78;
   flex-shrink: 0;
-}
-.wn-title {
-  font-size: .78rem;
-  font-weight: 800;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.60);
-  flex: 1;
-}
-
-/* ── Tab switcher row (below title) ── */
-.wn-tab-row {
-  display: flex;
-  padding: 0 10px;
-  gap: 4px;
-  flex-shrink: 0;
+  align-self: center;
+  margin: 0 6px 0 13px;
 }
 .wn-tab {
   flex: 1;
-  padding: 5px 0;
-  border-radius: 6px 6px 0 0;
-  background: transparent;
+  padding: 11px 6px 9px;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255,255,255,0.35);
+  background: transparent;
+  color: rgba(255,255,255,0.32);
   font-size: .68rem;
   font-weight: 800;
-  letter-spacing: .06em;
+  letter-spacing: .07em;
   text-transform: uppercase;
   cursor: pointer;
+  margin-bottom: -1px;
   transition: color .12s, border-color .12s;
 }
-.wn-tab:hover { color: rgba(255,255,255,0.60); }
+.wn-tab:hover { color: rgba(255,255,255,0.58); }
 .wn-tab.active-issues  { color: #f97316; border-bottom-color: #f97316; }
 .wn-tab.active-perfect { color: #6fcf8a; border-bottom-color: #6fcf8a; }
-.wn-tab-bar {
-  height: 1px;
-  background: rgba(255,255,255,0.08);
-  margin: 0;
-  flex-shrink: 0;
-}
 
 .wn-close {
   background: transparent;
@@ -203,10 +182,10 @@ const STYLES = `
 
 /* Mobile */
 @media (max-width: 599px) {
-  .wn-trigger { bottom: 28px; left: 12px; width: 48px; height: 48px; }
+  .wn-trigger { bottom: 28px; left: 16px; width: 48px; height: 48px; }
   .wn-panel {
-    left: 8px; right: 8px; width: auto !important;
-    bottom: 90px; max-height: 60dvh;
+    left: 16px; right: 16px; width: auto !important;
+    bottom: 90px; height: min(60dvh, 440px);
   }
 }
 `;
@@ -392,29 +371,23 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
       >
         {!isMobile && <div className="wn-resize-r" aria-hidden="true" onPointerDown={onResizeDown} />}
 
-        {/* Title row */}
+        {/* Single-row header: flame | tab | tab | close */}
         <div className="wn-header">
           <FlameIcon className="wn-header-flame" />
-          <div className="wn-title">What's New</div>
-          <button className="wn-close" onClick={onClose} aria-label="Close What's New">×</button>
-        </div>
-
-        {/* Tab switcher row */}
-        <div className="wn-tab-row">
           <button
             className={`wn-tab${tab === "issues" ? " active-issues" : ""}`}
             onClick={() => switchTab("issues")}
           >
-            Issues
+            Violations
           </button>
           <button
             className={`wn-tab${tab === "perfect" ? " active-perfect" : ""}`}
             onClick={() => switchTab("perfect")}
           >
-            Perfect
+            Top Scores
           </button>
+          <button className="wn-close" onClick={onClose} aria-label="Close What's New">×</button>
         </div>
-        <div className="wn-tab-bar" />
 
         {/* Swipeable body */}
         <div
