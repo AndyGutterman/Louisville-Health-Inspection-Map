@@ -57,49 +57,58 @@ const STYLES = `
   backdrop-filter: blur(8px);
 }
 
-/* ── Header ── */
+/* ── Header title row ── */
 .wn-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px 0;
+  gap: 7px;
+  padding: 11px 12px 8px;
   flex-shrink: 0;
 }
 .wn-header-flame {
-  width: 15px; height: 15px;
+  width: 14px; height: 14px;
   color: #f97316;
-  opacity: 0.70;
+  opacity: 0.75;
   flex-shrink: 0;
 }
-
-/* ── Tabs ── */
-.wn-tabs {
-  display: flex;
-  gap: 2px;
+.wn-title {
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.60);
   flex: 1;
+}
+
+/* ── Tab switcher row (below title) ── */
+.wn-tab-row {
+  display: flex;
+  padding: 0 10px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 .wn-tab {
   flex: 1;
-  padding: 6px 0;
-  border-radius: 8px 8px 0 0;
+  padding: 5px 0;
+  border-radius: 6px 6px 0 0;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255,255,255,0.38);
-  font-size: .72rem;
+  color: rgba(255,255,255,0.35);
+  font-size: .68rem;
   font-weight: 800;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
   text-transform: uppercase;
   cursor: pointer;
   transition: color .12s, border-color .12s;
 }
-.wn-tab:hover { color: rgba(255,255,255,0.65); }
-.wn-tab.active-issues { color: #f97316; border-bottom-color: #f97316; }
+.wn-tab:hover { color: rgba(255,255,255,0.60); }
+.wn-tab.active-issues  { color: #f97316; border-bottom-color: #f97316; }
 .wn-tab.active-perfect { color: #6fcf8a; border-bottom-color: #6fcf8a; }
 .wn-tab-bar {
   height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 0 12px;
+  background: rgba(255,255,255,0.08);
+  margin: 0;
   flex-shrink: 0;
 }
 
@@ -383,24 +392,27 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
       >
         {!isMobile && <div className="wn-resize-r" aria-hidden="true" onPointerDown={onResizeDown} />}
 
-        {/* Header: flame + tabs + close */}
+        {/* Title row */}
         <div className="wn-header">
           <FlameIcon className="wn-header-flame" />
-          <div className="wn-tabs">
-            <button
-              className={`wn-tab${tab === "issues" ? " active-issues" : ""}`}
-              onClick={() => switchTab("issues")}
-            >
-              Issues
-            </button>
-            <button
-              className={`wn-tab${tab === "perfect" ? " active-perfect" : ""}`}
-              onClick={() => switchTab("perfect")}
-            >
-              100s ✓
-            </button>
-          </div>
-          <button className="wn-close" onClick={onClose} aria-label="Close">×</button>
+          <div className="wn-title">What's New</div>
+          <button className="wn-close" onClick={onClose} aria-label="Close What's New">×</button>
+        </div>
+
+        {/* Tab switcher row */}
+        <div className="wn-tab-row">
+          <button
+            className={`wn-tab${tab === "issues" ? " active-issues" : ""}`}
+            onClick={() => switchTab("issues")}
+          >
+            Issues
+          </button>
+          <button
+            className={`wn-tab${tab === "perfect" ? " active-perfect" : ""}`}
+            onClick={() => switchTab("perfect")}
+          >
+            Perfect
+          </button>
         </div>
         <div className="wn-tab-bar" />
 

@@ -440,9 +440,9 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-      {/* Save to watchlist + Close row */}
+      {/* Action buttons — top-right, matched sizing */}
       <div style={{
-        position: "absolute", top: 12, right: 12,
+        position: "absolute", top: 14, right: 14,
         display: "flex", alignItems: "center", gap: 6, zIndex: 10,
       }}>
         {onSaveToWatchlist && (
@@ -451,21 +451,37 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
             title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
             style={{
-              background: watchlisted ? "rgba(52,168,83,0.18)" : "rgba(255,255,255,0.06)",
-              border: `1px solid ${watchlisted ? "rgba(52,168,83,0.45)" : "rgba(255,255,255,0.14)"}`,
-              borderRadius: 8, padding: "5px 7px", cursor: "pointer",
+              width: 30, height: 30,
               display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background .15s, border-color .15s",
-              color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.45)",
+              background: watchlisted ? "rgba(52,168,83,0.15)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${watchlisted ? "rgba(52,168,83,0.38)" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 8, cursor: "pointer",
+              color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.38)",
+              transition: "all .15s",
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill={watchlisted ? "currentColor" : "none"}
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24"
+              fill={watchlisted ? "currentColor" : "none"}
+              stroke="currentColor" strokeWidth="2.2"
+              strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
           </button>
         )}
-        <button className="info-close" style={{ position: "static" }} onClick={onClose} aria-label="Close">×</button>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            width: 30, height: 30,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 8, cursor: "pointer",
+            color: "rgba(255,255,255,0.45)",
+            fontSize: 17, lineHeight: 1,
+            transition: "all .15s",
+          }}
+        >×</button>
       </div>
 
       {/* Loading veil */}
