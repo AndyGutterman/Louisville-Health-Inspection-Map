@@ -446,11 +446,30 @@ export default function Map(props) {
 
   // Watchlist establishment IDs — loaded on login for bookmark button state
   const [watchlistEids, setWatchlistEids] = useState(new Set());
+  const watchlistEidsRef = useRef(new Set());
+  useEffect(() => { watchlistEidsRef.current = watchlistEids; }, [watchlistEids]);
+
   useEffect(() => {
     if (!user) { setWatchlistEids(new Set()); return; }
     supabase.from("watchlist").select("establishment_id").eq("user_id", user.id)
       .then(({ data }) => setWatchlistEids(new Set((data || []).map(r => r.establishment_id))));
   }, [user]);
+
+  // Stable ref to the save/remove function — used by popup HTML button handlers
+  const popupSaveRef = useRef(null);
+  useEffect(() => {
+    popupSaveRef.current = async (eid) => {
+      if (!eid) return;
+      if (!user) { setLoginOpen(true); return; }
+      if (watchlistEidsRef.current.has(eid)) {
+        await supabase.from("watchlist").delete().eq("user_id", user.id).eq("establishment_id", eid);
+        setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
+      } else {
+        await supabase.from("watchlist").insert([{ user_id: user.id, establishment_id: eid }]);
+        setWatchlistEids(prev => new Set([...prev, eid]));
+      }
+    };
+  }, [user, watchlistEids]);
 
   // Watchlist areas (radius bubbles) — only loaded when user is signed in
   const [watchAreas, setWatchAreas] = useState([]);
@@ -956,7 +975,6 @@ export default function Map(props) {
           overlapCount && overlapCount > 1
             ? `<div class="overlap-badge" aria-live="polite">${overlapCount} locations here</div>`
             : "";
-        // Similar-nearby note in popup
         const aliasNote = (() => {
           try {
             const nearby = JSON.parse(p.similar_nearby || "[]");
@@ -965,7 +983,22 @@ export default function Map(props) {
             return `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">⚠ May also be listed as: ${list}</div>`;
           } catch { return ""; }
         })();
-        return `<div class="popup-content" style="font-size:14px;max-width:240px">
+        const saved = watchlistEidsRef.current.has(p.establishment_id);
+        const pinBtn = `<button
+          class="popup-pin-btn"
+          data-eid="${p.establishment_id}"
+          title="${saved ? "Remove from watchlist" : "Save to watchlist"}"
+          style="position:absolute;top:5px;right:5px;background:none;border:none;cursor:pointer;
+            padding:3px;line-height:0;color:${saved ? "#6fcf8a" : "rgba(255,255,255,0.32)"};
+            transition:color .12s;"
+        ><svg width="13" height="13" viewBox="0 0 24 24"
+            fill="${saved ? "currentColor" : "none"}"
+            stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg></button>`;
+        return `<div class="popup-content" style="position:relative;font-size:14px;max-width:240px;padding-right:20px">
+          ${pinBtn}
           <strong>${p.name}</strong><br/>
           <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
@@ -1000,9 +1033,28 @@ export default function Map(props) {
         const tip = root?.querySelector(".maplibregl-popup-tip");
         if (tip) tip.style.borderTopColor = colorForScore(feature.properties.score);
 
+        // Pin button — save/remove from watchlist without opening drawer
+        const pinBtn = root?.querySelector(".popup-pin-btn");
+        if (pinBtn) {
+          pinBtn.onclick = async (ev) => {
+            ev.stopPropagation();
+            const eid = pinBtn.dataset.eid;
+            await popupSaveRef.current?.(eid);
+            // Update button appearance immediately
+            const nowSaved = watchlistEidsRef.current.has(eid);
+            pinBtn.style.color = nowSaved ? "#6fcf8a" : "rgba(255,255,255,0.32)";
+            pinBtn.title = nowSaved ? "Remove from watchlist" : "Save to watchlist";
+            const svg = pinBtn.querySelector("svg");
+            if (svg) svg.setAttribute("fill", nowSaved ? "currentColor" : "none");
+          };
+          pinBtn.onmouseenter = () => { pinBtn.style.opacity = "1"; };
+          pinBtn.onmouseleave = () => { pinBtn.style.opacity = ""; };
+        }
+
         const content = root?.querySelector(".popup-content");
         if (content) {
           content.onclick = (ev) => {
+            if (ev.target.closest(".popup-pin-btn")) return;
             ev.stopPropagation();
             const p = feature.properties;
             beginDrawerLoad(p.establishment_id, p);
