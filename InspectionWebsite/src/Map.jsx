@@ -455,6 +455,15 @@ export default function Map(props) {
       .then(({ data }) => setWatchlistEids(new Set((data || []).map(r => r.establishment_id))));
   }, [user]);
 
+  // Returns the eids of similar-nearby permits for a given eid (same physical place, different permit)
+  const getSimilarEids = (eid) => {
+    try {
+      const feature = featureByEidRef.current[eid];
+      const nearby = JSON.parse(feature?.properties?.similar_nearby || "[]");
+      return nearby.map(n => n.eid).filter(Boolean);
+    } catch { return []; }
+  };
+
   // Stable ref to the save/remove function — used by popup HTML button handlers
   const popupSaveRef = useRef(null);
   useEffect(() => {
@@ -462,11 +471,17 @@ export default function Map(props) {
       if (!eid) return;
       if (!user) { setLoginOpen(true); return; }
       if (watchlistEidsRef.current.has(eid)) {
+        // Remove only the one explicitly clicked — user can remove the other manually
         await supabase.from("watchlist").delete().eq("user_id", user.id).eq("establishment_id", eid);
         setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
       } else {
-        await supabase.from("watchlist").insert([{ user_id: user.id, establishment_id: eid }]);
-        setWatchlistEids(prev => new Set([...prev, eid]));
+        // Save this eid AND any similar-nearby permits (same place, different permit record)
+        const similarEids = getSimilarEids(eid);
+        const allNew = [eid, ...similarEids].filter(e => !watchlistEidsRef.current.has(e));
+        if (allNew.length > 0) {
+          await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
+          setWatchlistEids(prev => new Set([...prev, ...allNew]));
+        }
       }
     };
   }, [user, watchlistEids]);
@@ -1879,12 +1894,18 @@ export default function Map(props) {
               if (!eid) return;
               if (!user) { setLoginOpen(true); return; }
               if (watchlistEids.has(eid)) {
+                // Remove only the clicked permit — user removes the other themselves
                 await supabase.from("watchlist").delete()
                   .eq("user_id", user.id).eq("establishment_id", eid);
                 setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
               } else {
-                await supabase.from("watchlist").insert([{ user_id: user.id, establishment_id: eid }]);
-                setWatchlistEids(prev => new Set([...prev, eid]));
+                // Save this eid AND any similar-nearby permits (same place, different permit)
+                const similarEids = getSimilarEids(eid);
+                const allNew = [eid, ...similarEids].filter(e => !watchlistEids.has(e));
+                if (allNew.length > 0) {
+                  await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
+                  setWatchlistEids(prev => new Set([...prev, ...allNew]));
+                }
               }
             }}
           />
