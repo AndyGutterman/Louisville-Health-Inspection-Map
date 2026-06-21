@@ -23,7 +23,7 @@ function formatDateSafe(val) {
 const displayField = (v) =>
   v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
 
-function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveToWatchlist }) {
+function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveToWatchlist, onClose }) {
   if (!data) return null;
   const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby } = data;
   const gradeDisplay =
@@ -79,31 +79,49 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
             <div className="inspect-card_title">{name}</div>
             <div className="inspect-card_sub">{address}</div>
           </div>
-          {onSaveToWatchlist && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onSaveToWatchlist(data.establishment_id); }}
-              aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
-              title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
-              style={{
-                flexShrink: 0,
-                width: 30, height: 30, marginTop: 2,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: watchlisted ? "rgba(52,168,83,0.15)" : "rgba(255,255,255,0.07)",
-                border: `1px solid ${watchlisted ? "rgba(52,168,83,0.40)" : "rgba(255,255,255,0.14)"}`,
-                borderRadius: 8, cursor: "pointer",
-                color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.55)",
-                transition: "all .15s",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24"
-                fill={watchlisted ? "currentColor" : "none"}
-                stroke="currentColor" strokeWidth="2.2"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ display: "block" }}>
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-              </svg>
-            </button>
-          )}
+          {/* Bookmark + Close in one cluster, top-right of the card */}
+          <div style={{ display: "flex", gap: 5, flexShrink: 0, marginTop: 1 }}
+            onClick={e => e.stopPropagation()}>
+            {onSaveToWatchlist && (
+              <button
+                onClick={() => onSaveToWatchlist(data.establishment_id)}
+                aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
+                title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
+                style={{
+                  width: 28, height: 28,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: watchlisted ? "rgba(52,168,83,0.15)" : "rgba(255,255,255,0.07)",
+                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.38)" : "rgba(255,255,255,0.13)"}`,
+                  borderRadius: 7, cursor: "pointer",
+                  color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.55)",
+                  transition: "all .15s",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24"
+                  fill={watchlisted ? "currentColor" : "none"}
+                  stroke="currentColor" strokeWidth="2.2"
+                  strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  width: 28, height: 28,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.13)",
+                  borderRadius: 7, cursor: "pointer",
+                  color: "rgba(255,255,255,0.50)",
+                  fontSize: 16, lineHeight: 1,
+                  transition: "background .12s, color .12s",
+                }}
+              >×</button>
+            )}
+          </div>
         </div>
         {similar.length > 0 && (
           <div
@@ -469,23 +487,6 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-      {/* Close — top-right only, clean */}
-      <button
-        onClick={onClose}
-        aria-label="Close"
-        style={{
-          position: "absolute", top: 14, right: 14, zIndex: 10,
-          width: 28, height: 28,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(255,255,255,0.07)",
-          border: "1px solid rgba(255,255,255,0.13)",
-          borderRadius: 7, cursor: "pointer",
-          color: "rgba(255,255,255,0.55)",
-          fontSize: 16, lineHeight: 1,
-          transition: "background .12s, color .12s",
-        }}
-      >×</button>
-
       {/* Loading veil */}
       <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
 
@@ -519,6 +520,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
           onSwitchTo={onSwitchTo}
           watchlisted={watchlisted}
           onSaveToWatchlist={onSaveToWatchlist}
+          onClose={onClose}
         />
 
         <div className="inspect-card_spacer" />

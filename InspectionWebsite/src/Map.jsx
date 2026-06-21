@@ -984,28 +984,29 @@ export default function Map(props) {
           } catch { return ""; }
         })();
         const saved = watchlistEidsRef.current.has(p.establishment_id);
-        // Pin button sits bottom-right — below all text, out of the way
         const pinBtn = `<button
           class="popup-pin-btn"
           data-eid="${p.establishment_id}"
           title="${saved ? "Remove from watchlist" : "Save to watchlist"}"
-          style="position:absolute;bottom:4px;right:4px;background:none;border:none;cursor:pointer;
-            padding:2px;line-height:0;color:${saved ? "#6fcf8a" : "rgba(255,255,255,0.45)"};
-            transition:color .12s;opacity:0.85;"
-        ><svg width="12" height="12" viewBox="0 0 24 24"
+          style="background:none;border:none;cursor:pointer;padding:0;line-height:0;
+            color:${saved ? "#6fcf8a" : "rgba(255,255,255,0.50)"};
+            vertical-align:middle;flex-shrink:0;"
+        ><svg width="13" height="13" viewBox="0 0 24 24"
             fill="${saved ? "currentColor" : "none"}"
             stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
         </svg></button>`;
-        return `<div class="popup-content" style="position:relative;font-size:14px;max-width:240px;padding-bottom:20px">
+        return `<div class="popup-content" style="font-size:14px;max-width:240px">
           <strong>${p.name}</strong><br/>
           <small>${addr}</small><br/>
           <small>Inspected: ${formatDateSafe(p.date)}</small><br/>
-          Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:1px">
+            <span>Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}</span>
+            ${pinBtn}
+          </div>
           ${aliasNote}
           ${overlap}
-          ${pinBtn}
         </div>`;
       };
 
@@ -1289,6 +1290,7 @@ export default function Map(props) {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
+      // Ring matches pin size — just a thin white border on the pin itself
       map.addLayer({
         id: "points-watchlisted",
         type: "circle",
@@ -1296,15 +1298,14 @@ export default function Map(props) {
         paint: {
           "circle-radius": [
             "interpolate", ["linear"], ["zoom"],
-            8,  window.innerWidth <= 600 ? 7  : 9,
-            11, window.innerWidth <= 600 ? 11 : 14,
-            14, window.innerWidth <= 600 ? 15 : 18,
-            17, window.innerWidth <= 600 ? 19 : 22,
+            8,  window.innerWidth <= 600 ? 4  : 6,
+            11, window.innerWidth <= 600 ? 8  : 10.5,
+            14, window.innerWidth <= 600 ? 12 : 14,
+            17, window.innerWidth <= 600 ? 16 : 18,
           ],
           "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2.5,
-          "circle-stroke-opacity": 0.90,
+          "circle-stroke-color": "rgba(255,255,255,0.90)",
+          "circle-stroke-width": 2,
         },
       });
 

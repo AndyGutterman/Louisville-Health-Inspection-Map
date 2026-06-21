@@ -60,8 +60,10 @@ const STYLES = `
 /* ── Single-row tab header ── */
 .wn-header {
   display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
   flex-shrink: 0;
 }
 .wn-header-flame {
@@ -69,14 +71,13 @@ const STYLES = `
   color: #f97316;
   opacity: 0.78;
   flex-shrink: 0;
-  align-self: center;
-  margin: 0 6px 0 13px;
+  margin-right: 2px;
 }
 .wn-tab {
   flex: 1;
-  padding: 11px 6px 9px;
+  padding: 5px 8px;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 7px;
   background: transparent;
   color: rgba(255,255,255,0.32);
   font-size: .68rem;
@@ -84,12 +85,11 @@ const STYLES = `
   letter-spacing: .07em;
   text-transform: uppercase;
   cursor: pointer;
-  margin-bottom: -1px;
-  transition: color .12s, border-color .12s;
+  transition: color .12s, background .12s;
 }
-.wn-tab:hover { color: rgba(255,255,255,0.58); }
-.wn-tab.active-issues  { color: #f97316; border-bottom-color: #f97316; }
-.wn-tab.active-perfect { color: #6fcf8a; border-bottom-color: #6fcf8a; }
+.wn-tab:hover { color: rgba(255,255,255,0.58); background: rgba(255,255,255,0.04); }
+.wn-tab.active-issues  { color: #f97316; background: rgba(249,115,22,0.14); }
+.wn-tab.active-perfect { color: #6fcf8a; background: rgba(52,168,83,0.12); }
 
 .wn-close {
   background: transparent;
@@ -259,18 +259,15 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
     });
   }, [open, supabase]);
 
-  // Load perfect-100s data on demand
+  // Load perfect-100s on demand — no date cap, always shows the latest 100s
   useEffect(() => {
     if (!open || tab !== "perfect" || !supabase || loadedRef.current.perfect) return;
     loadedRef.current.perfect = true;
     setPerfectLoading(true);
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 60);
     supabase
       .from("v_facility_map_feed")
       .select("establishment_id, premise_name, address, score_recent, inspection_date_recent")
       .eq("score_recent", 100)
-      .gte("inspection_date_recent", cutoff.toISOString().slice(0, 10))
       .order("inspection_date_recent", { ascending: false })
       .limit(20)
       .then(({ data }) => {
@@ -388,6 +385,7 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
           </button>
           <button className="wn-close" onClick={onClose} aria-label="Close What's New">×</button>
         </div>
+        {/* no wn-tab-bar needed — pills don't use underline */}
 
         {/* Swipeable body */}
         <div
