@@ -131,37 +131,85 @@ const STYLES = `
 }
 .acct-signout:hover { background: rgba(234,67,53,0.20); color: #ff9a9a; }
 
-/* ── Neon violation chips ── */
+/* ── Violation selection ── */
+.acct-viol-section { margin-bottom: 22px; }
+.acct-viol-section-hd {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .64rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase;
+  padding-bottom: 8px; margin-bottom: 14px;
+  border-bottom: 1px solid;
+}
+.acct-viol-section-hd.crit { color: rgba(234,67,53,0.55); border-color: rgba(234,67,53,0.14); }
+.acct-viol-section-hd.non  { color: rgba(58,134,255,0.50); border-color: rgba(58,134,255,0.12); }
+.acct-viol-cat { margin-bottom: 14px; }
+.acct-viol-cat-lbl {
+  font-size: .58rem; font-weight: 800; letter-spacing: .10em; text-transform: uppercase;
+  color: rgba(255,255,255,0.22); margin-bottom: 7px;
+}
+.acct-viol-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* Ghost (unselected) */
 .acct-viol-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 11px; border-radius: 999px;
-  font-size: .71rem; font-weight: 700; letter-spacing: .03em;
-  cursor: pointer; transition: all .15s; line-height: 1.5;
-  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 5px 11px; border-radius: 7px; border: 1px solid;
+  font-size: .76rem; font-weight: 600; line-height: 1.3;
+  cursor: pointer; transition: color .12s, background .12s, border-color .12s, box-shadow .12s;
+  text-align: left;
 }
 .acct-viol-chip.crit {
-  color: #ff9a9a; border: 1px solid rgba(234,67,53,0.45);
-  background: rgba(234,67,53,0.07);
-  box-shadow: 0 0 7px rgba(234,67,53,0.14);
-}
-.acct-viol-chip.crit:hover:not(.added) {
-  background: rgba(234,67,53,0.16); border-color: rgba(234,67,53,0.65);
-  box-shadow: 0 0 12px rgba(234,67,53,0.30);
+  color: rgba(255,154,154,0.30); border-color: rgba(234,67,53,0.12); background: transparent;
 }
 .acct-viol-chip.non {
-  color: #82b4ff; border: 1px solid rgba(58,134,255,0.38);
-  background: rgba(58,134,255,0.06);
-  box-shadow: 0 0 7px rgba(58,134,255,0.10);
+  color: rgba(130,180,255,0.28); border-color: rgba(58,134,255,0.10); background: transparent;
 }
-.acct-viol-chip.non:hover:not(.added) {
-  background: rgba(58,134,255,0.14); border-color: rgba(58,134,255,0.60);
-  box-shadow: 0 0 12px rgba(58,134,255,0.22);
+/* Hover preview */
+.acct-viol-chip.crit:hover { color: rgba(255,154,154,0.70); border-color: rgba(234,67,53,0.38); background: rgba(234,67,53,0.06); }
+.acct-viol-chip.non:hover  { color: rgba(130,180,255,0.70); border-color: rgba(58,134,255,0.32); background: rgba(58,134,255,0.06); }
+/* Selected: lit up */
+.acct-viol-chip.on.crit {
+  color: #ff9a9a; border-color: rgba(234,67,53,0.60);
+  background: rgba(234,67,53,0.14); box-shadow: 0 0 10px rgba(234,67,53,0.22);
 }
-.acct-viol-chip.added { opacity: 0.38; cursor: default; }
+.acct-viol-chip.on.non {
+  color: #82b4ff; border-color: rgba(58,134,255,0.55);
+  background: rgba(58,134,255,0.13); box-shadow: 0 0 10px rgba(58,134,255,0.20);
+}
 `;
 
 const RADIUS_PRESETS = [5, 10, 15, 25];
+
+// ─── Violation categorisation ─────────────────────────────────────────────────
+const VIOL_CATS = [
+  { key: "temperature", label: "Temperature Control",   kws: ["temperature","cold hold","hot hold","cooling","reheat","thaw","time as a public","time/temp"] },
+  { key: "hygiene",     label: "Handwashing & Hygiene", kws: ["handwash","hand wash","bare hand","no bare","adequate hand","personal cleanliness","response procedure","vomit","illness","employee health"] },
+  { key: "pest",        label: "Pest & Rodents",        kws: ["pest","rodent","insect","roach","mice","rat ","fly ","flies","bird","vermin","animal"] },
+  { key: "food",        label: "Food Safety",           kws: ["approved source","approved food","food obtained","condition, safe","contamin","allergen","toxic","poisonous","variance","speciali"] },
+  { key: "sanitation",  label: "Sanitation & Equipment",kws: ["sanitiz","utensil","food-contact","surface","equipment","wipe","cloth","thermometer"] },
+  { key: "plumbing",    label: "Water & Plumbing",      kws: ["water","plumbing","sewage","wastewater","backflow","drain","toilet"] },
+  { key: "mgmt",        label: "Management & Training", kws: ["person in charge","demonstration","knowledge","certified","food handler","training","manager"] },
+  { key: "docs",        label: "Documentation",         kws: ["permit","license","certif","record","document","label","consumer advisory","compliance","posting"] },
+  { key: "facility",    label: "Facility & Structure",  kws: ["floor","wall","ceiling","light","ventilat","structure","repair","maintain","physical facilit","adequate","toilet facilit","dressing"] },
+];
+
+function categorizeViolations(viols) {
+  const groups = {};
+  for (const cat of VIOL_CATS) groups[cat.key] = { ...cat, viols: [] };
+  const other = { key: "other", label: "Other", viols: [] };
+  for (const v of viols) {
+    const lower = (v.violation_desc || "").toLowerCase();
+    let matched = false;
+    for (const cat of VIOL_CATS) {
+      if (cat.kws.some(kw => lower.includes(kw))) {
+        groups[cat.key].viols.push(v);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) other.viols.push(v);
+  }
+  const result = Object.values(groups).filter(g => g.viols.length > 0);
+  if (other.viols.length > 0) result.push(other);
+  return result;
+}
 
 function WatchlistTab({ supabase, user, onOpenEstablishment }) {
   const [items, setItems] = useState([]);
@@ -355,32 +403,47 @@ function AlertsTab({ supabase, user }) {
 
       {violsLoading ? (
         <div className="acct-empty">Loading violations…</div>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 28 }}>
-          {viols.map((v, i) => {
-            const isCrit   = (v.critical_yn ?? "").toLowerCase().startsWith("y");
-            const active   = activeMap.has(v.kw);
-            const existId  = activeMap.get(v.kw);
-            return (
-              <button
-                key={i}
-                className={`acct-viol-chip ${isCrit ? "crit" : "non"}${active ? " active-chip" : ""}`}
-                onClick={() => toggle(v.kw, existId)}
-                title={`${toTitleCase(v.violation_desc)} · keyword: "${v.kw}"`}
-                style={active ? {
-                  opacity: 1,
-                  background: isCrit ? "rgba(234,67,53,0.22)" : "rgba(58,134,255,0.20)",
-                  borderColor: isCrit ? "rgba(234,67,53,0.70)" : "rgba(58,134,255,0.65)",
-                  boxShadow: isCrit ? "0 0 14px rgba(234,67,53,0.35)" : "0 0 14px rgba(58,134,255,0.28)",
-                } : undefined}
-              >
-                {active && <span style={{ marginRight: 2 }}>✓</span>}
-                {isCrit ? "⚠ " : ""}{toTitleCase(v.violation_desc)}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      ) : (() => {
+        const critViols = viols.filter(v => (v.critical_yn ?? "").toLowerCase().startsWith("y"));
+        const nonViols  = viols.filter(v => !(v.critical_yn ?? "").toLowerCase().startsWith("y"));
+        const critCats  = categorizeViolations(critViols);
+        const nonCats   = categorizeViolations(nonViols);
+
+        const renderSection = (cats, type) => (
+          <div className="acct-viol-section">
+            <div className={`acct-viol-section-hd ${type}`}>
+              {type === "crit" ? "⚠ Critical violations" : "Routine violations"}
+            </div>
+            {cats.map(cat => (
+              <div key={cat.key} className="acct-viol-cat">
+                <div className="acct-viol-cat-lbl">{cat.label}</div>
+                <div className="acct-viol-chips">
+                  {cat.viols.map((v, i) => {
+                    const on = activeMap.has(v.kw);
+                    return (
+                      <button
+                        key={i}
+                        className={`acct-viol-chip ${type}${on ? " on" : ""}`}
+                        onClick={() => toggle(v.kw, activeMap.get(v.kw))}
+                        title={`keyword saved: "${v.kw}"`}
+                      >
+                        {on && "✓ "}{toTitleCase(v.violation_desc)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+        return (
+          <div style={{ marginBottom: 28 }}>
+            {critCats.length > 0 && renderSection(critCats, "crit")}
+            {nonCats.length  > 0 && renderSection(nonCats,  "non")}
+          </div>
+        );
+      })()}
 
       <div className="acct-sh">Alert settings</div>
       <div className="acct-field">
