@@ -65,3 +65,6 @@ backup.sql
 *.sql.gz
 etl/data-backup/
 tmp/
+
+# ─── Supabase CLI temp files ──────────────────────────────────────
+supabase/.temp/
