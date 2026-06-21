@@ -564,7 +564,7 @@
 
 .control-card .search-row .rgb-compact {
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
 	gap: clamp(6px, 1.2vw, 12px);
 	flex: 0 0 auto;
 	margin: 0;
