@@ -851,26 +851,33 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                         ) : (
                           <>
                             <div className="ln-vdb-drill-chips">
-                              {drillData.map((est) => (
-                                <button
-                                  key={est.establishment_id}
-                                  className="ln-vdb-chip"
-                                  title={est.address || ""}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenEstablishment?.(est.establishment_id);
-                                  }}
-                                >
-                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {est.premise_name || est.establishment_id}
-                                  </span>
-                                  {est.score_recent != null && (
-                                    <span className="ln-vdb-chip-score">
-                                      {est.score_recent}
+                              {drillData.map((est) => {
+                                const vDate = est.violation_date
+                                  ? new Date(est.violation_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit", timeZone: "UTC" })
+                                  : null;
+                                const vScore = est.violation_score ?? est.score_recent;
+                                return (
+                                  <button
+                                    key={est.establishment_id}
+                                    className="ln-vdb-chip"
+                                    title={est.address || ""}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenEstablishment?.(est.establishment_id);
+                                    }}
+                                  >
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {est.premise_name || est.establishment_id}
                                     </span>
-                                  )}
-                                </button>
-                              ))}
+                                    {(vDate || vScore != null) && (
+                                      <span className="ln-vdb-chip-score" title="Score · date when cited">
+                                        {vScore != null ? vScore : ""}
+                                        {vDate ? ` · ${vDate}` : ""}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                             {drillTotal >= 50 && (
                               <div className="ln-vdb-drill-more">Showing top 50 results — search to narrow down.</div>

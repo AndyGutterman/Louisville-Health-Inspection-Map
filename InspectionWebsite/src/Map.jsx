@@ -1354,6 +1354,21 @@ export default function Map(props) {
     return () => clearTimeout(t);
   }, [bandsOpen]);
 
+  // Sync the open pinned-popup's bookmark button whenever watchlistEids changes
+  // (covers: drawer bookmark clicked → popup updates, and vice versa)
+  React.useEffect(() => {
+    const popup = pinnedPopupRef.current;
+    if (!popup) return;
+    const pinBtn = popup.getElement()?.querySelector(".popup-pin-btn");
+    if (!pinBtn) return;
+    const eid = pinBtn.dataset.eid;
+    if (!eid) return;
+    const saved = watchlistEids.has(eid);
+    pinBtn.style.color = saved ? "#6fcf8a" : "rgba(255,255,255,0.50)";
+    const svg = pinBtn.querySelector("svg");
+    if (svg) svg.setAttribute("fill", saved ? "currentColor" : "none");
+  }, [watchlistEids]);
+
   // Sync watchlist pin highlights whenever the watchlist changes
   React.useEffect(() => {
     const m = mapRef.current;

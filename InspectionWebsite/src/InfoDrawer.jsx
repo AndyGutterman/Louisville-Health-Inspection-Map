@@ -79,8 +79,8 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
             <div className="inspect-card_title">{name}</div>
             <div className="inspect-card_sub">{address}</div>
           </div>
-          {/* Bookmark + Close in one cluster, top-right of the card */}
-          <div style={{ display: "flex", gap: 5, flexShrink: 0, marginTop: 1 }}
+          {/* Bookmark (rounded container) + plain × — top-right of card */}
+          <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, marginTop: 1 }}
             onClick={e => e.stopPropagation()}>
             {onSaveToWatchlist && (
               <button
@@ -90,16 +90,16 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 style={{
                   width: 28, height: 28,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: watchlisted ? "rgba(52,168,83,0.15)" : "rgba(255,255,255,0.07)",
-                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.38)" : "rgba(255,255,255,0.13)"}`,
-                  borderRadius: 7, cursor: "pointer",
-                  color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.55)",
+                  background: watchlisted ? "rgba(52,168,83,0.18)" : "rgba(255,255,255,0.08)",
+                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.42)" : "rgba(255,255,255,0.15)"}`,
+                  borderRadius: 8, cursor: "pointer",
+                  color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.72)",
                   transition: "all .15s",
                 }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24"
+                <svg width="14" height="14" viewBox="0 0 24 24"
                   fill={watchlisted ? "currentColor" : "none"}
-                  stroke="currentColor" strokeWidth="2.2"
+                  stroke="currentColor" strokeWidth="2.5"
                   strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                 </svg>
@@ -110,14 +110,10 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 onClick={onClose}
                 aria-label="Close"
                 style={{
-                  width: 28, height: 28,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.13)",
-                  borderRadius: 7, cursor: "pointer",
-                  color: "rgba(255,255,255,0.50)",
-                  fontSize: 16, lineHeight: 1,
-                  transition: "background .12s, color .12s",
+                  background: "none", border: "none",
+                  padding: "4px 6px", cursor: "pointer",
+                  color: "rgba(255,255,255,0.45)", fontSize: 20, lineHeight: 1,
+                  transition: "color .12s",
                 }}
               >×</button>
             )}
