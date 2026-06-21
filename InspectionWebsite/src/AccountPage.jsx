@@ -132,23 +132,7 @@ const STYLES = `
 .acct-signout:hover { background: rgba(234,67,53,0.20); color: #ff9a9a; }
 
 /* ── Neon violation chips ── */
-.acct-viol-picker {
-  margin-bottom: 20px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden;
-}
-.acct-viol-picker-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; cursor: pointer;
-  background: rgba(255,255,255,0.03);
-  font-size: .78rem; font-weight: 700; color: rgba(255,255,255,0.50);
-  user-select: none; transition: background .12s;
-}
-.acct-viol-picker-hd:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
-.acct-viol-picker-body {
-  padding: 12px 14px 14px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  display: flex; flex-wrap: wrap; gap: 7px;
-}
+
 .acct-viol-chip {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 11px; border-radius: 999px;
@@ -305,52 +289,48 @@ function WatchlistTab({ supabase, user, onOpenEstablishment }) {
 }
 
 function AlertsTab({ supabase, user }) {
-  const [keywords, setKeywords]       = useState([]);
-  const [alertEmail, setAlertEmail]   = useState("");
-  const [freq, setFreq]               = useState("instant");
-  const [newKw, setNewKw]             = useState("");
-  const [loading, setLoading]         = useState(true);
-  const [saved, setSaved]             = useState(false);
-  const [pickerOpen, setPickerOpen]   = useState(false);
-  const [topViols, setTopViols]       = useState([]);
-  const [violsLoading, setViolsLoading] = useState(false);
+  const [keywords, setKeywords]         = useState([]);
+  const [alertEmail, setAlertEmail]     = useState("");
+  const [freq, setFreq]                 = useState("instant");
+  const [loading, setLoading]           = useState(true);
+  const [saved, setSaved]               = useState(false);
+  const [viols, setViols]               = useState([]);
+  const [violsLoading, setViolsLoading] = useState(true);
 
   useEffect(() => {
     if (!supabase || !user) return;
     Promise.all([
-      supabase.from("violation_alerts").select("*").eq("user_id", user.id).order("created_at"),
+      supabase.from("violation_alerts").select("*").eq("user_id", user.id),
       supabase.from("profiles").select("alert_email, alert_frequency").eq("id", user.id).single(),
-    ]).then(([kRes, pRes]) => {
+      supabase.rpc("get_violation_summary", { since_date: null }),
+    ]).then(([kRes, pRes, vRes]) => {
       setKeywords(kRes.data || []);
       setAlertEmail(pRes.data?.alert_email || user.email || "");
       setFreq(pRes.data?.alert_frequency || "instant");
+      // Deduplicate violations by suggested keyword so chips don't repeat
+      const seen = new Set();
+      const deduped = [];
+      for (const v of (vRes.data || []).slice(0, 60)) {
+        const kw = suggestKeyword(v.violation_desc);
+        if (!kw || seen.has(kw)) continue;
+        seen.add(kw);
+        deduped.push({ ...v, kw });
+      }
+      setViols(deduped);
       setLoading(false);
+      setViolsLoading(false);
     });
   }, [supabase, user]);
 
-  // Load top violations the first time the picker opens
-  useEffect(() => {
-    if (!pickerOpen || !supabase || topViols.length > 0) return;
-    setViolsLoading(true);
-    supabase.rpc("get_violation_summary", { since_date: null })
-      .then(({ data }) => {
-        setTopViols((data || []).slice(0, 40));
-        setViolsLoading(false);
-      });
-  }, [pickerOpen, supabase]);
-
-  async function addKeyword(kw) {
-    const clean = (kw || newKw).trim().toLowerCase();
-    if (!clean || keywords.find(k => k.keyword === clean)) { setNewKw(""); return; }
-    const { data } = await supabase.from("violation_alerts")
-      .insert([{ user_id: user.id, keyword: clean }]).select().single();
-    if (data) setKeywords(prev => [...prev, data]);
-    setNewKw("");
-  }
-
-  async function removeKeyword(id) {
-    await supabase.from("violation_alerts").delete().eq("id", id);
-    setKeywords(prev => prev.filter(k => k.id !== id));
+  async function toggle(kw, existingId) {
+    if (existingId) {
+      await supabase.from("violation_alerts").delete().eq("id", existingId);
+      setKeywords(prev => prev.filter(k => k.id !== existingId));
+    } else {
+      const { data } = await supabase.from("violation_alerts")
+        .insert([{ user_id: user.id, keyword: kw }]).select().single();
+      if (data) setKeywords(prev => [...prev, data]);
+    }
   }
 
   async function saveSettings() {
@@ -362,79 +342,45 @@ function AlertsTab({ supabase, user }) {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  const activeKeywords = new Set(keywords.map(k => k.keyword));
+  const activeMap = new Map(keywords.map(k => [k.keyword, k.id]));
 
   if (loading) return <div className="acct-empty">Loading…</div>;
 
   return (
     <>
-      <div className="acct-sh">Active keyword alerts</div>
-      <div className="acct-empty" style={{ marginBottom: 10 }}>
-        Get notified when a new inspection cites a violation matching any of these terms.
+      <div className="acct-sh">Violation alerts</div>
+      <div className="acct-empty" style={{ marginBottom: 14 }}>
+        Select violations to watch. You'll be alerted when a restaurant you follow gets cited for one.
       </div>
 
-      {/* Active keywords list */}
-      {keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
-          {keywords.map(k => (
-            <span key={k.id} style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "4px 10px 4px 12px", borderRadius: 999,
-              background: "rgba(52,168,83,0.10)",
-              border: "1px solid rgba(52,168,83,0.30)",
-              color: "#6fcf8a", fontSize: ".76rem", fontWeight: 700,
-            }}>
-              {k.keyword}
+      {violsLoading ? (
+        <div className="acct-empty">Loading violations…</div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 28 }}>
+          {viols.map((v, i) => {
+            const isCrit   = (v.critical_yn ?? "").toLowerCase().startsWith("y");
+            const active   = activeMap.has(v.kw);
+            const existId  = activeMap.get(v.kw);
+            return (
               <button
-                onClick={() => removeKeyword(k.id)}
-                style={{ background: "none", border: "none", color: "rgba(52,168,83,0.55)", cursor: "pointer", fontSize: ".80rem", lineHeight: 1, padding: "0 0 0 2px" }}
-                aria-label={`Remove ${k.keyword}`}
-              >×</button>
-            </span>
-          ))}
+                key={i}
+                className={`acct-viol-chip ${isCrit ? "crit" : "non"}${active ? " active-chip" : ""}`}
+                onClick={() => toggle(v.kw, existId)}
+                title={`${toTitleCase(v.violation_desc)} · keyword: "${v.kw}"`}
+                style={active ? {
+                  opacity: 1,
+                  background: isCrit ? "rgba(234,67,53,0.22)" : "rgba(58,134,255,0.20)",
+                  borderColor: isCrit ? "rgba(234,67,53,0.70)" : "rgba(58,134,255,0.65)",
+                  boxShadow: isCrit ? "0 0 14px rgba(234,67,53,0.35)" : "0 0 14px rgba(58,134,255,0.28)",
+                } : undefined}
+              >
+                {active && <span style={{ marginRight: 2 }}>✓</span>}
+                {isCrit ? "⚠ " : ""}{toTitleCase(v.violation_desc)}
+              </button>
+            );
+          })}
         </div>
       )}
-
-      {/* Keyword text input */}
-      <div className="acct-add-row" style={{ marginBottom: 16 }}>
-        <input className="acct-input" placeholder="Type a keyword, e.g. rodent, handwash…"
-          value={newKw} onChange={e => setNewKw(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") addKeyword(); }} />
-        <button className="acct-btn" onClick={() => addKeyword()} disabled={!newKw.trim()}>Add</button>
-      </div>
-
-      {/* Common violations picker */}
-      <div className="acct-viol-picker">
-        <div className="acct-viol-picker-hd" onClick={() => setPickerOpen(v => !v)}>
-          <span>Choose from common violations</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            style={{ transform: pickerOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}>
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </div>
-        {pickerOpen && (
-          <div className="acct-viol-picker-body">
-            {violsLoading ? (
-              <span style={{ fontSize: ".78rem", color: "rgba(255,255,255,0.32)" }}>Loading violations…</span>
-            ) : topViols.map((v, i) => {
-              const isCrit = (v.critical_yn ?? "").toLowerCase().startsWith("y");
-              const kw = suggestKeyword(v.violation_desc);
-              const alreadyAdded = activeKeywords.has(kw);
-              return (
-                <button
-                  key={i}
-                  className={`acct-viol-chip ${isCrit ? "crit" : "non"}${alreadyAdded ? " added" : ""}`}
-                  onClick={() => { if (!alreadyAdded && kw) addKeyword(kw); }}
-                  title={toTitleCase(v.violation_desc) + (alreadyAdded ? " (already added)" : ` → adds "${kw}"`)}
-                  disabled={alreadyAdded}
-                >
-                  {isCrit ? "⚠ " : ""}{toTitleCase(v.violation_desc)}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       <div className="acct-sh">Alert settings</div>
       <div className="acct-field">
