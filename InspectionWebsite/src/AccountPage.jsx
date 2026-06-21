@@ -40,7 +40,7 @@ const STYLES = `
   overflow-y: auto; z-index: 1050;
   -webkit-overflow-scrolling: touch;
 }
-.acct-inner { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+.acct-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 80px; }
 .acct-hero { margin-bottom: 28px; }
 .acct-avatar {
   width: 48px; height: 48px; border-radius: 50%;
@@ -132,26 +132,26 @@ const STYLES = `
 .acct-signout:hover { background: rgba(234,67,53,0.20); color: #ff9a9a; }
 
 /* ── Violation selection ── */
-.acct-viol-section { margin-bottom: 22px; }
+.acct-viol-section { margin-bottom: 32px; }
 .acct-viol-section-hd {
   display: flex; align-items: center; gap: 8px;
-  font-size: .64rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase;
-  padding-bottom: 8px; margin-bottom: 14px;
+  font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  padding-bottom: 10px; margin-bottom: 18px;
   border-bottom: 1px solid;
 }
-.acct-viol-section-hd.crit { color: rgba(234,67,53,0.55); border-color: rgba(234,67,53,0.14); }
-.acct-viol-section-hd.non  { color: rgba(58,134,255,0.50); border-color: rgba(58,134,255,0.12); }
-.acct-viol-cat { margin-bottom: 14px; }
+.acct-viol-section-hd.crit { color: rgba(234,67,53,0.60); border-color: rgba(234,67,53,0.16); }
+.acct-viol-section-hd.non  { color: rgba(58,134,255,0.55); border-color: rgba(58,134,255,0.14); }
+.acct-viol-cat { margin-bottom: 18px; }
 .acct-viol-cat-lbl {
-  font-size: .58rem; font-weight: 800; letter-spacing: .10em; text-transform: uppercase;
-  color: rgba(255,255,255,0.22); margin-bottom: 7px;
+  font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  color: rgba(255,255,255,0.28); margin-bottom: 9px;
 }
-.acct-viol-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.acct-viol-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Ghost (unselected) */
 .acct-viol-chip {
-  padding: 5px 11px; border-radius: 7px; border: 1px solid;
-  font-size: .76rem; font-weight: 600; line-height: 1.3;
+  padding: 7px 14px; border-radius: 8px; border: 1px solid;
+  font-size: .80rem; font-weight: 600; line-height: 1.4;
   cursor: pointer; transition: color .12s, background .12s, border-color .12s, box-shadow .12s;
   text-align: left;
 }

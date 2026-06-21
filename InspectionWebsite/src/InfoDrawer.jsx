@@ -97,16 +97,14 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                   transition: "all .15s",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: "block" }}>
-                  <path
-                    d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
-                    fill={watchlisted ? "#ffffff" : "none"}
-                    stroke={watchlisted ? "#ffffff" : "rgba(255,255,255,0.68)"}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <span dangerouslySetInnerHTML={{ __html:
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
+                      fill="${watchlisted ? '#fff' : 'none'}"
+                      stroke="${watchlisted ? '#fff' : 'rgba(255,255,255,0.70)'}"
+                      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>`
+                }} />
               </button>
             )}
             {onClose && (
