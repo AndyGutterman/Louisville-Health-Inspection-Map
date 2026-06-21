@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useAuth } from "./AuthContext.jsx";
 
 // ─── Styles are scoped with ln- prefix so nothing collides with Map.css ──────
 const STYLES = `
@@ -174,6 +175,42 @@ const STYLES = `
   font-size: .74rem; color: rgba(255,255,255,0.52); line-height: 1.55;
 }
 .ln-src a { color: #3a86ff; }
+
+/* ── Violation drill-down panel ── */
+.ln-vdb-row { cursor: pointer; }
+.ln-vdb-row.expanded { background: rgba(58,134,255,0.06) !important; }
+.ln-vdb-drill {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 14px 16px 16px;
+  background: rgba(255,255,255,0.02);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ln-vdb-drill-title {
+  font-size: .68rem; font-weight: 800; letter-spacing: .10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.42); margin-bottom: 4px;
+}
+.ln-vdb-drill-loading {
+  font-size: .80rem; color: rgba(255,255,255,0.35);
+}
+.ln-vdb-drill-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.ln-vdb-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px; border-radius: 999px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.13);
+  color: rgba(255,255,255,0.80); font-size: .76rem; font-weight: 600;
+  cursor: pointer; transition: background .12s, color .12s;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ln-vdb-chip:hover { background: rgba(58,134,255,0.18); border-color: rgba(58,134,255,0.32); color: #82b4ff; }
+.ln-vdb-chip-score {
+  font-size: .66rem; opacity: .65; flex-shrink: 0;
+}
+.ln-vdb-drill-more {
+  font-size: .72rem; color: rgba(255,255,255,0.35); margin-top: 2px;
+}
 
 /* ── Violation database ── */
 .ln-vdb-header {
@@ -412,6 +449,12 @@ function ComingSoonBadge() {
 }
 
 export function LoginModal({ onClose }) {
+  const { user, sendMagicLink, signOut, loading } = useAuth();
+  const [authError, setAuthError] = useState(null);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", h);
@@ -426,13 +469,115 @@ export function LoginModal({ onClose }) {
         <div className="ln-modal-sub">
           Create a free account to save your favorite restaurants and get placard alerts.
         </div>
-        <div className="ln-modal-box">
-          <div className="ln-modal-icon">🔒</div>
-          <div className="ln-modal-bt">Accounts<ComingSoonBadge /></div>
-          <div className="ln-modal-bd">
-            Sign-in isn't available yet — we're working on it. Check back soon!
+
+        {loading ? (
+          <div style={{ textAlign: "center", color: "rgba(255,255,255,0.40)", fontSize: ".84rem", padding: "16px 0" }}>Loading…</div>
+        ) : user ? (
+          <div className="ln-modal-box" style={{ alignItems: "flex-start", textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(52,168,83,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "1rem", flexShrink: 0 }}>
+                {(user.email || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: ".88rem" }}>My Account</div>
+                <div style={{ fontSize: ".74rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => { signOut(); onClose(); }}
+              style={{ marginTop: 14, width: "100%", padding: "9px 0", borderRadius: 8, background: "rgba(234,67,53,0.10)", border: "1px solid rgba(234,67,53,0.22)", color: "rgba(234,67,53,0.80)", fontWeight: 700, fontSize: ".84rem", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Sign out
+            </button>
           </div>
-        </div>
+        ) : sent ? (
+          /* ── Sent confirmation ── */
+          <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+            <div style={{ fontSize: "2rem", marginBottom: 8 }}>✉️</div>
+            <div style={{ fontWeight: 700, fontSize: ".92rem", marginBottom: 6 }}>Check your email</div>
+            <div style={{ fontSize: ".80rem", color: "rgba(255,255,255,0.48)", lineHeight: 1.55, maxWidth: 240, margin: "0 auto 16px" }}>
+              We sent a sign-in link to <strong style={{ color: "rgba(255,255,255,0.70)" }}>{email}</strong>.
+              Click it to sign in — no password needed.
+            </div>
+            <button
+              onClick={() => { setSent(false); setEmail(""); setAuthError(null); }}
+              style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.38)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+            >
+              Use a different email
+            </button>
+          </div>
+        ) : (
+          /* ── Email input ── */
+          <>
+            <div style={{ fontSize: ".80rem", color: "rgba(255,255,255,0.48)", marginBottom: 14, lineHeight: 1.5 }}>
+              Enter your email and we'll send you a sign-in link. No password, no third-party account needed.
+            </div>
+
+            {authError && (
+              <div style={{ fontSize: ".74rem", color: "#ff9a9a", background: "rgba(234,67,53,0.09)", border: "1px solid rgba(234,67,53,0.20)", borderRadius: 8, padding: "8px 11px", marginBottom: 12 }}>
+                {authError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!email.trim() || sending) return;
+                setAuthError(null);
+                setSending(true);
+                const { error } = await sendMagicLink(email.trim());
+                setSending(false);
+                if (error) {
+                  setAuthError(error.message || "Couldn't send the link. Try again.");
+                } else {
+                  setSent(true);
+                }
+              }}
+            >
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setAuthError(null); }}
+                autoFocus
+                required
+                style={{
+                  display: "block", width: "100%", boxSizing: "border-box",
+                  height: 40, borderRadius: 8, padding: "0 12px",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  color: "#f0f0f3", fontSize: ".88rem", fontFamily: "inherit",
+                  marginBottom: 10, outline: "none",
+                }}
+                onFocus={e => { e.target.style.borderColor = "rgba(52,168,83,0.50)"; }}
+                onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.14)"; }}
+              />
+              <button
+                type="submit"
+                disabled={!email.trim() || sending}
+                style={{
+                  display: "block", width: "100%",
+                  padding: "10px 0", borderRadius: 8,
+                  background: "rgba(52,168,83,0.16)",
+                  border: "1px solid rgba(52,168,83,0.34)",
+                  color: "#6fcf8a", fontWeight: 700, fontSize: ".88rem",
+                  cursor: sending || !email.trim() ? "not-allowed" : "pointer",
+                  opacity: !email.trim() ? 0.45 : 1,
+                  transition: "background .15s, opacity .15s",
+                  fontFamily: "inherit",
+                }}
+                onMouseEnter={e => { if (email.trim() && !sending) e.target.style.background = "rgba(52,168,83,0.26)"; }}
+                onMouseLeave={e => { e.target.style.background = "rgba(52,168,83,0.16)"; }}
+              >
+                {sending ? "Sending…" : "Send sign-in link"}
+              </button>
+            </form>
+
+            <div style={{ marginTop: 12, fontSize: ".68rem", color: "rgba(255,255,255,0.22)", textAlign: "center", lineHeight: 1.5 }}>
+              Free account · No password · Unsubscribe anytime
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -449,7 +594,7 @@ const TIMELINE_OPTS = [
 // ─── Violations database section ─────────────────────────────────────────────
 const PAGE_SIZE = 40;
 
-function ViolationDatabase({ supabase }) {
+function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -458,14 +603,43 @@ function ViolationDatabase({ supabase }) {
   const [timeline, setTimeline] = useState("all");   // TIMELINE_OPTS key
   const [showAll, setShowAll]   = useState(false);
 
-  // ISO cutoff date for the selected window, or null for all-time
+  // Drill-down: which violation row is expanded + its establishments list
+  const [expandedDesc, setExpandedDesc]       = useState(null);
+  const [drillData, setDrillData]             = useState([]); // [{establishment_id, premise_name, address, score_recent}]
+  const [drillLoading, setDrillLoading]       = useState(false);
+  const [drillTotal, setDrillTotal]           = useState(0);
+
+  async function handleRowClick(desc) {
+    if (!supabase) return;
+    if (expandedDesc === desc) { setExpandedDesc(null); return; }
+    setExpandedDesc(desc);
+    setDrillLoading(true);
+    setDrillData([]);
+    setDrillTotal(0);
+    try {
+      const { data, error } = await supabase.rpc("get_establishments_for_violation", {
+        p_violation_desc: desc,
+        p_since_date: cutoffDate ?? null,
+      });
+      if (error) throw error;
+      setDrillData(data || []);
+      setDrillTotal((data || []).length);
+    } catch (e) {
+      console.error("drill-down fetch error", e);
+    } finally {
+      setDrillLoading(false);
+    }
+  }
+
+  // ISO cutoff date — use the more restrictive of map filter or local timeline
   const cutoffDate = useMemo(() => {
     const opt = TIMELINE_OPTS.find(o => o.key === timeline);
-    if (!opt || !opt.days) return null;
-    const d = new Date();
-    d.setDate(d.getDate() - opt.days);
-    return d.toISOString().slice(0, 10);
-  }, [timeline]);
+    const localCutoff = (opt && opt.days)
+      ? (() => { const d = new Date(); d.setDate(d.getDate() - opt.days); return d.toISOString().slice(0, 10); })()
+      : null;
+    if (localCutoff && initialCutoffDate) return localCutoff > initialCutoffDate ? localCutoff : initialCutoffDate;
+    return localCutoff ?? initialCutoffDate ?? null;
+  }, [timeline, initialCutoffDate]);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -475,43 +649,61 @@ function ViolationDatabase({ supabase }) {
 
     (async () => {
       try {
-        const BATCH = 1000;
-        const acc   = new Map(); // "desc||Y/N" → { desc, critical, count }
-        let offset  = 0;
+        const { data, error: err } = await supabase.rpc("get_violation_summary", {
+          since_date: cutoffDate ?? null,
+        });
 
-        while (true) {
-          let q = supabase
-            .from("inspection_violations")
-            .select("violation_desc, critical_yn")
-            .not("violation_desc", "is", null);
-
-          if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
-          q = q.range(offset, offset + BATCH - 1);
-
-          const { data, error: err } = await q;
-          if (err) throw err;
-          if (!data || data.length === 0) break;
-
-          for (const r of data) {
-            // critical_yn is TEXT "Yes"/"No" in this schema
-            const raw    = r.critical_yn ?? "";
-            const isCrit = raw.toLowerCase().startsWith("y");
-            const key    = r.violation_desc + "||" + (isCrit ? "Y" : "N");
-            if (acc.has(key)) {
-              acc.get(key).count++;
-            } else {
-              acc.set(key, { desc: r.violation_desc, critical: isCrit, count: 1 });
-            }
+        if (err) {
+          // Schema cache miss means the migration hasn't been applied yet.
+          // Fall back to the direct paginated query so the page still works.
+          if (err.message?.includes("schema cache") || err.message?.includes("Could not find")) {
+            throw new Error("MIGRATION_PENDING");
           }
-
-          if (data.length < BATCH) break;
-          offset += BATCH;
+          throw err;
         }
 
-        setRows([...acc.values()].sort((a, b) => b.count - a.count));
+        const mapped = (data || []).map((r) => ({
+          desc:     r.violation_desc,
+          critical: (r.critical_yn ?? "").toLowerCase().startsWith("y"),
+          count:    Number(r.cnt),
+        }));
+
+        setRows(mapped);
         setError(null);
       } catch (e) {
-        setError(e.message || "Failed to load violations");
+        if (e.message === "MIGRATION_PENDING") {
+          // Fallback: paginated direct query (pre-RPC behavior)
+          try {
+            const BATCH = 1000;
+            const acc   = new Map();
+            let offset  = 0;
+            while (true) {
+              let q = supabase
+                .from("inspection_violations")
+                .select("violation_desc, critical_yn")
+                .not("violation_desc", "is", null);
+              if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
+              q = q.range(offset, offset + BATCH - 1);
+              const { data, error: qErr } = await q;
+              if (qErr) throw qErr;
+              if (!data || data.length === 0) break;
+              for (const r of data) {
+                const isCrit = (r.critical_yn ?? "").toLowerCase().startsWith("y");
+                const key = r.violation_desc + "||" + (isCrit ? "Y" : "N");
+                if (acc.has(key)) acc.get(key).count++;
+                else acc.set(key, { desc: r.violation_desc, critical: isCrit, count: 1 });
+              }
+              if (data.length < BATCH) break;
+              offset += BATCH;
+            }
+            setRows([...acc.values()].sort((a, b) => b.count - a.count));
+            setError(null);
+          } catch (fallbackErr) {
+            setError(fallbackErr.message || "Failed to load violations");
+          }
+        } else {
+          setError(e.message || "Failed to load violations");
+        }
       } finally {
         setLoading(false);
       }
@@ -627,18 +819,69 @@ function ViolationDatabase({ supabase }) {
             </div>
           ) : (
             <div className="ln-vdb-list">
-              {visible.map((r, i) => (
-                <div key={i} className={"ln-vdb-row" + (r.critical ? " is-crit" : "")}>
-                  <div className={"ln-vdb-dot " + (r.critical ? "crit" : "non")} title={r.critical ? "Critical violation" : "Non-critical"} />
-                  <div className="ln-vdb-desc">
-                    <Highlighted text={toTitleCase(r.desc)} />
-                    {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
-                  </div>
-                  <div className={"ln-vdb-count" + (r.critical ? " crit" : "")}>
-                    {r.count.toLocaleString()}×
-                  </div>
-                </div>
-              ))}
+              {visible.map((r, i) => {
+                const isExpanded = expandedDesc === r.desc;
+                return (
+                  <React.Fragment key={i}>
+                    <div
+                      className={"ln-vdb-row" + (r.critical ? " is-crit" : "") + (isExpanded ? " expanded" : "")}
+                      onClick={() => handleRowClick(r.desc)}
+                      title="Click to see establishments with this violation"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleRowClick(r.desc); }}
+                    >
+                      <div className={"ln-vdb-dot " + (r.critical ? "crit" : "non")} title={r.critical ? "Critical violation" : "Non-critical"} />
+                      <div className="ln-vdb-desc">
+                        <Highlighted text={toTitleCase(r.desc)} />
+                        {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
+                      </div>
+                      <div className={"ln-vdb-count" + (r.critical ? " crit" : "")}>
+                        {r.count.toLocaleString()}×
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="ln-vdb-drill">
+                        <div className="ln-vdb-drill-title">Establishments with this violation</div>
+                        {drillLoading ? (
+                          <div className="ln-vdb-drill-loading">Loading…</div>
+                        ) : drillData.length === 0 ? (
+                          <div className="ln-vdb-drill-loading">No results found in this time window.</div>
+                        ) : (
+                          <>
+                            <div className="ln-vdb-drill-chips">
+                              {drillData.map((est) => (
+                                <button
+                                  key={est.establishment_id}
+                                  className="ln-vdb-chip"
+                                  title={est.address || ""}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenEstablishment?.(est.establishment_id);
+                                  }}
+                                >
+                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {est.premise_name || est.establishment_id}
+                                  </span>
+                                  {est.score_recent != null && (
+                                    <span className="ln-vdb-chip-score">
+                                      {est.score_recent}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                            {drillTotal >= 50 && (
+                              <div className="ln-vdb-drill-more">Showing top 50 results — search to narrow down.</div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
           )}
 
@@ -658,10 +901,12 @@ function ViolationDatabase({ supabase }) {
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 // Props:
-//   loginOpen     boolean  — whether the login modal is open
-//   onCloseLogin  fn       — called to close the modal
-//   supabase      client   — supabase client for violations query (optional)
-export default function LearnPage({ loginOpen, onCloseLogin, supabase }) {
+//   loginOpen       boolean  — whether the login modal is open
+//   onCloseLogin    fn       — called to close the modal
+//   supabase        client   — supabase client for violations query (optional)
+//   mapCutoffDate   string   — ISO date from map's "Since" filter (optional)
+//   onOpenEstablishment fn   — (eid) called to close Learn and open drawer
+export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoffDate, onOpenEstablishment }) {
   return (
     <>
       <style>{STYLES}</style>
@@ -826,7 +1071,11 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase }) {
           <div className="ln-sh" style={{ marginBottom: 10 }}>
             Violation database
           </div>
-          <ViolationDatabase supabase={supabase} />
+          <ViolationDatabase
+            supabase={supabase}
+            initialCutoffDate={mapCutoffDate ?? null}
+            onOpenEstablishment={onOpenEstablishment}
+          />
 
           {/* Source */}
           <div className="ln-src">

@@ -13,6 +13,9 @@ import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import FeedbackModal from "./FeedbackModal.jsx";
+import AccountPage from "./AccountPage.jsx";
+import { useAuth } from "./AuthContext.jsx";
+import WhatsNew from "./WhatsNew.jsx";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -137,6 +140,28 @@ function coordKey([lon, lat]) {
   return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
 }
 
+function buildWatchCircleGeoJSON(areas) {
+  const features = areas
+    .filter((a) => typeof a.center_lat === "number" && typeof a.center_lon === "number")
+    .map((a) => {
+      const radiusM = a.radius_miles * 1609.34;
+      const N = 64;
+      const coords = [];
+      for (let i = 0; i <= N; i++) {
+        const angle = (i * 2 * Math.PI) / N;
+        const dLon = (radiusM / (111320 * Math.cos(a.center_lat * Math.PI / 180))) * Math.sin(angle);
+        const dLat = (radiusM / 110540) * Math.cos(angle);
+        coords.push([a.center_lon + dLon, a.center_lat + dLat]);
+      }
+      return {
+        type: "Feature",
+        properties: { id: a.id, label: a.label || `${a.radius_miles} mi`, radius_miles: a.radius_miles },
+        geometry: { type: "Polygon", coordinates: [coords] },
+      };
+    });
+  return { type: "FeatureCollection", features };
+}
+
 function buildCoordIndex(features) {
   const m = new globalThis.Map();
   for (const f of features) {
@@ -148,110 +173,157 @@ function buildCoordIndex(features) {
 }
 
 // ─── Same-place detection ─────────────────────────────────────────────────────
-// When the health dept has the same physical restaurant under two different
-// establishment_ids (e.g. a permit rename/renumber), both end up at the exact
-// same lat/lon with similar names. We detect these pairs, keep one canonical
-// pin (the most recently inspected), and store the alias info so:
-//   • the map shows only one pin (no duplicate confusion)
-//   • the drawer merges both inspection histories (no data hidden)
-//   • the popup shows a small "Also listed as:" note (transparent to the user)
+// Detects pairs of nearby features that likely represent the same physical place
+// under different permit records (e.g. a permit rename). We tag BOTH features
+// with each other's info — no pins are removed or merged. Each pin remains
+// fully independent with its own inspection history. The "similar nearby" note
+// in the popup and drawer lets users navigate between them.
+
+const COORD_SNAP       = 0.0005; // ~55m grid at Louisville latitude
+const SAME_PLACE_MAX_M = 80;
+const SAME_PLACE_MIN_SIM = 0.60;
+
+function snapCoordKey([lon, lat]) {
+  const slon = (Math.round(lon / COORD_SNAP) * COORD_SNAP).toFixed(4);
+  const slat = (Math.round(lat / COORD_SNAP) * COORD_SNAP).toFixed(4);
+  return `${slon}|${slat}`;
+}
+
+function distanceM([lon1, lat1], [lon2, lat2]) {
+  const R = 6_371_000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function extractLocationNumber(name) {
+  const m = name.match(/#\s*(\d+)/);
+  return m ? m[1] : null;
+}
+
+function isSubTenant(name) {
+  return /@|at|inside|within/i.test(name);
+}
+
+const DEPT_WORDS = new Set([
+  "gas", "deli", "pharmacy", "bakery", "cafe", "coffee", "express", "grill",
+  "bar", "kitchen", "bistro", "market", "fuel", "floral", "optical", "vision",
+  "salon", "spa", "food", "court", "stand", "kiosk", "counter", "liquor", "wine",
+]);
 
 function normalizeName(name) {
   if (!name) return [];
   return name
     .toLowerCase()
-    // strip location numbers like #234, #1, no. 5
-    .replace(/#\d+|no\.?\s*\d+|\bunit\s+\w+/gi, "")
-    // strip punctuation
+    .replace(/#\s*\d+|no\.?\s*\d+|\bunit\s+\w+|\bstore\s+\d+/gi, "")
+    .replace(/[‘’\'']s?\b/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 1); // drop single chars
+    .filter((w) => w.length > 1);
+}
+
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+function tokensMatch(a, b) {
+  if (a === b) return true;
+  if (a.startsWith(b) || b.startsWith(a)) return true;
+  if (Math.max(a.length, b.length) >= 6 && editDistance(a, b) <= 1) return true;
+  return false;
 }
 
 function nameSimilarity(a, b) {
-  const ta = new Set(normalizeName(a));
-  const tb = new Set(normalizeName(b));
-  if (ta.size === 0 && tb.size === 0) return 1;
-  if (ta.size === 0 || tb.size === 0) return 0;
-  let intersection = 0;
-  for (const w of ta) if (tb.has(w)) intersection++;
-  const union = ta.size + tb.size - intersection;
-  return intersection / union;
+  if (isSubTenant(a) || isSubTenant(b)) return 0;
+  const numA = extractLocationNumber(a);
+  const numB = extractLocationNumber(b);
+  if (numA !== null && numB !== null && numA !== numB) return 0;
+  const ta = normalizeName(a);
+  const tb = normalizeName(b);
+  if (ta.length === 0 && tb.length === 0) return 1;
+  if (ta.length === 0 || tb.length === 0) return 0;
+  const setA = new Set(ta), setB = new Set(tb);
+  const extraTokens = [...ta.filter(w => !setB.has(w)), ...tb.filter(w => !setA.has(w))];
+  if (extraTokens.length > 0 && extraTokens.every(w => DEPT_WORDS.has(w))) return 0;
+  let matched = 0;
+  const usedB = new Set();
+  for (const wa of ta)
+    for (let bi = 0; bi < tb.length; bi++)
+      if (!usedB.has(bi) && tokensMatch(wa, tb[bi])) { matched++; usedB.add(bi); break; }
+  const jaccard = matched / (ta.length + tb.length - matched);
+  const shorter = Math.min(ta.length, tb.length);
+  const containment = matched / shorter;
+  const lr = Math.max(ta.length, tb.length) / shorter;
+  return lr >= 1.5 ? Math.max(jaccard, containment * 0.85) : jaccard;
 }
 
-// Returns a new feature list where same-place aliases are merged onto one
-// canonical feature. Aliased features are removed from the list; their eids
-// are stored in `alias_eids` (JSON string) and their names in `alias_names`
-// (JSON string) on the canonical feature's properties.
-function mergeSamePlace(features) {
-  // Group by exact coordinate
-  const byCoord = new globalThis.Map();
+// Tags nearby similar-name features with each other's eid+name so the popup
+// and drawer can show "may also be listed as" with a switch link.
+// All features remain fully independent — no suppression, no history merging.
+function tagSimilarNearby(features) {
+  const bySnap = new globalThis.Map();
   for (const f of features) {
-    const k = coordKey(f.geometry.coordinates);
-    if (!byCoord.has(k)) byCoord.set(k, []);
-    byCoord.get(k).push(f);
+    const k = snapCoordKey(f.geometry.coordinates);
+    if (!bySnap.has(k)) bySnap.set(k, []);
+    bySnap.get(k).push(f);
   }
 
-  const suppressedEids = new Set();
-  const extrasByCanon = new globalThis.Map(); // canonEid → [{eid, name}]
+  // eid → [{eid, name}] of similar neighbours
+  const similarMap = new globalThis.Map();
 
-  for (const group of byCoord.values()) {
+  for (const group of bySnap.values()) {
     if (group.length < 2) continue;
-
-    // Within each coord-group, find pairs that are likely the same physical place
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
-        const a = group[i];
-        const b = group[j];
-        if (suppressedEids.has(a.properties.establishment_id)) continue;
-        if (suppressedEids.has(b.properties.establishment_id)) continue;
-
+        const a = group[i], b = group[j];
+        if (distanceM(a.geometry.coordinates, b.geometry.coordinates) > SAME_PLACE_MAX_M) continue;
         const sim = nameSimilarity(a.properties.name, b.properties.name);
-        if (sim < 0.55) continue; // genuinely different businesses at same address
-
-        // Pick the canonical one: most recent inspection date wins;
-        // tie-break by higher score, then lower eid (stable).
-        const dateA = a.properties.date || "";
-        const dateB = b.properties.date || "";
-        let canon, alias;
-        if (dateA >= dateB) {
-          canon = a; alias = b;
-        } else {
-          canon = b; alias = a;
+        if (sim < SAME_PLACE_MIN_SIM) continue;
+        const eidA = a.properties.establishment_id;
+        const eidB = b.properties.establishment_id;
+        if (!similarMap.has(eidA)) similarMap.set(eidA, []);
+        if (!similarMap.has(eidB)) similarMap.set(eidB, []);
+        similarMap.get(eidA).push({ eid: eidB, name: b.properties.name });
+        similarMap.get(eidB).push({ eid: eidA, name: a.properties.name });
+        if (import.meta.env.DEV) {
+          console.log(
+            `[similar-nearby] "${a.properties.name}" (${eidA}) <-> ` +
+            `"${b.properties.name}" (${eidB})  sim=${sim.toFixed(2)}`
+          );
         }
-
-        const canonEid = canon.properties.establishment_id;
-        const aliasEid = alias.properties.establishment_id;
-
-        suppressedEids.add(aliasEid);
-
-        if (!extrasByCanon.has(canonEid)) extrasByCanon.set(canonEid, []);
-        extrasByCanon.get(canonEid).push({
-          eid: aliasEid,
-          name: alias.properties.name,
-        });
       }
     }
   }
 
-  // Annotate canonical features and drop suppressed ones
-  return features
-    .filter((f) => !suppressedEids.has(f.properties.establishment_id))
-    .map((f) => {
-      const eid = f.properties.establishment_id;
-      if (!extrasByCanon.has(eid)) return f;
-      const aliases = extrasByCanon.get(eid);
-      return {
-        ...f,
-        properties: {
-          ...f.properties,
-          // Store as JSON strings so MapLibre can carry them in GeoJSON properties
-          alias_eids:   JSON.stringify(aliases.map((a) => a.eid)),
-          alias_names:  JSON.stringify(aliases.map((a) => a.name)),
-        },
-      };
-    });
+  if (similarMap.size === 0) return features;
+  return features.map((f) => {
+    const eid = f.properties.establishment_id;
+    if (!similarMap.has(eid)) return f;
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        // JSON string: [{eid, name}, ...] of similar nearby permits
+        similar_nearby: JSON.stringify(similarMap.get(eid)),
+      },
+    };
+  });
 }
+
 
 function OverlapNav({ index, total, onPrev, onNext }) {
   return (
@@ -278,6 +350,7 @@ function OverlapNav({ index, total, onPrev, onNext }) {
 }
 
 export default function Map(props) {
+  const { user } = useAuth();
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const onMapReadyRef = useRef(props.onMapReady);
@@ -367,8 +440,46 @@ export default function Map(props) {
   const [tableH, setTableH] = useState(null); // null = use TableView default
   const [tableW, setTableW] = useState(null);
 
+  // What's New panel — default open on desktop, closed on mobile
+  // What's New panel — collapsed by default (shows flame icon trigger)
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+
+  // Watchlist areas (radius bubbles) — only loaded when user is signed in
+  const [watchAreas, setWatchAreas] = useState([]);
+  const watchAreasRef = useRef([]);
+  useEffect(() => {
+    watchAreasRef.current = watchAreas;
+  }, [watchAreas]);
+
+  useEffect(() => {
+    if (!user) { setWatchAreas([]); return; }
+    supabase
+      .from("watchlist_areas")
+      .select("id, label, center_lat, center_lon, radius_miles")
+      .eq("user_id", user.id)
+      .then(({ data }) => setWatchAreas(data || []));
+  }, [user]);
+
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
+
+  // Date filter — "Since X" dropdown, shared with Learn page ViolationDatabase
+  const DATE_FILTER_OPTS = [
+    { key: "1w",  label: "1 week",   days: 7 },
+    { key: "1mo", label: "1 month",  days: 30 },
+    { key: "3mo", label: "3 months", days: 91 },
+    { key: "6mo", label: "6 months", days: 182 },
+    { key: "1yr", label: "1 year",   days: 365 },
+    { key: "all", label: "All time", days: null },
+  ];
+  const [dateFilterKey, setDateFilterKey] = useState("6mo");
+  const mapCutoffDate = React.useMemo(() => {
+    const opt = DATE_FILTER_OPTS.find((o) => o.key === dateFilterKey);
+    if (!opt || !opt.days) return null;
+    const d = new Date();
+    d.setDate(d.getDate() - opt.days);
+    return d.toISOString().slice(0, 10);
+  }, [dateFilterKey]);
 
   // Page routing
   const [page, setPage] = useState("map");
@@ -385,8 +496,34 @@ export default function Map(props) {
 
   const suppressDocCloseRef = useRef(false);
 
+  const GEO_CACHE_KEY = "lfs_geodata_v1";
+  const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+  function buildFeatureIndexes(featureList) {
+    coordIndexRef.current = buildCoordIndex(featureList);
+    const byEid = {};
+    for (const f of featureList) byEid[f.properties.establishment_id] = f;
+    featureByEidRef.current = byEid;
+  }
+
   React.useEffect(() => {
     (async () => {
+      // sessionStorage cache — skipped with ?bust in URL (dev escape hatch)
+      const bustCache = new URLSearchParams(window.location.search).has("bust");
+      if (!bustCache) {
+        try {
+          const raw = sessionStorage.getItem(GEO_CACHE_KEY);
+          if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached?.ts && Date.now() - cached.ts < GEO_CACHE_TTL && cached.data) {
+              buildFeatureIndexes(cached.data.features);
+              setGeoData(cached.data);
+              return;
+            }
+          }
+        } catch { /* cache miss — proceed to fetch */ }
+      }
+
       const { count, error: headErr } = await supabase
         .from("v_facility_map_feed")
         .select("*", { head: true, count: "exact" });
@@ -498,25 +635,16 @@ export default function Map(props) {
           acc[eid] = feat;
         return acc;
       }, {});
-      // Merge same-place aliases (same coords + similar name → one canonical pin)
-      const featureList = mergeSamePlace(Object.values(latestMap));
-      coordIndexRef.current = buildCoordIndex(featureList);
-      // Build establishment_id lookup for table row hover.
-      // Also map alias eids → canonical feature so table rows for merged
-      // records still pan the map to the right pin.
-      const byEid = {};
-      for (const f of featureList) {
-        byEid[f.properties.establishment_id] = f;
-        try {
-          const aliases = JSON.parse(f.properties.alias_eids || "[]");
-          for (const aeid of aliases) byEid[aeid] = f;
-        } catch { /* ignore */ }
-      }
-      featureByEidRef.current = byEid;
-      setGeoData({
-        type: "FeatureCollection",
-        features: featureList,
-      });
+      const featureList = tagSimilarNearby(Object.values(latestMap));
+
+      const geoDataObj = { type: "FeatureCollection", features: featureList };
+
+      try {
+        sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ data: geoDataObj, ts: Date.now() }));
+      } catch { /* quota exceeded — ignore */ }
+
+      buildFeatureIndexes(featureList);
+      setGeoData(geoDataObj);
     })();
   }, []);
 
@@ -544,64 +672,26 @@ export default function Map(props) {
     setFacDetails(null);
     setFacDetailsFor(null);
 
-    // Gather all eids to fetch: primary + any same-place aliases
-    const aliasEids = (() => {
-      try { return JSON.parse(p.alias_eids || "[]"); }
-      catch { return []; }
-    })();
-    const allEids = [eid, ...aliasEids];
+    const { data: insp, error: inspErr } = await supabase
+      .from("inspections")
+      .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
+      .eq("establishment_id", eid)
+      .order("inspection_date", { ascending: false })
+      .order("inspection_id", { ascending: false });
 
-    // Fetch inspections for all eids in parallel
-    const inspResults = await Promise.all(
-      allEids.map((e) =>
-        supabase
-          .from("inspections")
-          .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
-          .eq("establishment_id", e)
-          .order("inspection_date", { ascending: false })
-          .order("inspection_id", { ascending: false })
-      )
-    );
-
-    const inspErrors = inspResults.filter((r) => r.error);
-    if (inspErrors.length === allEids.length) {
-      // All failed — nothing to show
-      console.error("history fetch error", inspErrors[0].error);
+    if (inspErr) {
+      console.error("history fetch error", inspErr);
       if (seq !== loadSeqRef.current) return;
       setDrawerLoading(false);
       return;
     }
-    inspErrors.forEach((r) => console.error("history fetch error (alias)", r.error));
 
-    // Merge all inspection rows, deduplicate by inspection_id
-    const seenInspIds = new Set();
-    const insp = inspResults
-      .flatMap((r) => r.data || [])
-      .filter((row) => {
-        if (seenInspIds.has(row.inspection_id)) return false;
-        seenInspIds.add(row.inspection_id);
-        return true;
-      })
-      .sort((a, b) => {
-        if (b.inspection_date !== a.inspection_date)
-          return b.inspection_date > a.inspection_date ? 1 : -1;
-        return b.inspection_id - a.inspection_id;
-      });
+    const { data: viols, error: vErr } = await supabase
+      .from("inspection_violations")
+      .select("violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id")
+      .eq("establishment_id", eid);
 
-    // Fetch violations for all eids in parallel
-    const violResults = await Promise.all(
-      allEids.map((e) =>
-        supabase
-          .from("inspection_violations")
-          .select("violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id")
-          .eq("establishment_id", e)
-      )
-    );
-
-    const viols = violResults.flatMap((r) => {
-      if (r.error) console.error("violations fetch error", r.error);
-      return r.data || [];
-    });
+    if (vErr) console.error("violations fetch error", vErr);
     if (seq !== loadSeqRef.current) return;
 
     const byId = new globalThis.Map();
@@ -645,9 +735,9 @@ export default function Map(props) {
       return latestNonZero || mergedDesc[0] || null;
     })();
 
-    // Parse alias names to pass to the drawer for its "Also listed as" note
-    const aliasNames = (() => {
-      try { return JSON.parse(p.alias_names || "[]"); }
+    // Parse similar-nearby data for the drawer switch links
+    const similarNearby = (() => {
+      try { return JSON.parse(p.similar_nearby || "[]"); }
       catch { return []; }
     })();
 
@@ -660,7 +750,7 @@ export default function Map(props) {
           score: headerRow.score ?? null,
           grade: headerRow.grade ?? null,
           _displayedInspectionId: headerRow.inspection_id,
-          aliasNames,
+          similarNearby,
           metaTitle:
             (headerRow.score ?? 0) > 0
               ? "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A."
@@ -674,42 +764,28 @@ export default function Map(props) {
           score: p.score ?? null,
           grade: p.grade ?? null,
           _displayedInspectionId: null,
-          aliasNames,
+          similarNearby,
           meta: null,
         };
 
     let details = null;
     let fullAddress = null;
     {
+      // Single query via v_facility_details (joins facilities + facility_categories)
       const { data: fac, error: facErr } = await supabase
-        .from("facilities")
+        .from("v_facility_details")
         .select(
-          "opening_date, facility_type, subtype, address, city, state, zip, permit_number",
+          "opening_date, facility_type, subtype, address, city, state, zip, permit_number, facility_type_description, subtype_description",
         )
         .eq("establishment_id", eid)
         .maybeSingle();
 
-      if (facErr) console.error("facilities fetch error", facErr);
-
-      let typeLabel = fac?.facility_type ?? null;
-      let subtypeLabel = fac?.subtype ?? null;
-
-      if (fac?.facility_type != null && fac?.subtype != null) {
-        const { data: cat, error: catErr } = await supabase
-          .from("facility_categories")
-          .select("facility_type_description, subtype_description")
-          .eq("facility_type", fac.facility_type)
-          .eq("subtype", fac.subtype)
-          .maybeSingle();
-        if (catErr) console.error("facility_categories fetch error", catErr);
-        typeLabel = cat?.facility_type_description ?? typeLabel;
-        subtypeLabel = cat?.subtype_description ?? subtypeLabel;
-      }
+      if (facErr) console.error("v_facility_details fetch error", facErr);
 
       details = {
         opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
-        facility_type: typeLabel,
-        subtype: subtypeLabel,
+        facility_type: fac?.facility_type_description ?? fac?.facility_type ?? null,
+        subtype: fac?.subtype_description ?? fac?.subtype ?? null,
         permit_number: fac?.permit_number ?? null,
       };
       fullAddress =
@@ -872,13 +948,13 @@ export default function Map(props) {
           overlapCount && overlapCount > 1
             ? `<div class="overlap-badge" aria-live="polite">${overlapCount} locations here</div>`
             : "";
-        // Alias note: shown when this pin represents a merged same-place record
+        // Similar-nearby note in popup
         const aliasNote = (() => {
           try {
-            const names = JSON.parse(p.alias_names || "[]");
-            if (!names.length) return "";
-            const list = names.map((n) => `<em>${n}</em>`).join(", ");
-            return `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.52);border-top:1px solid rgba(255,255,255,0.10);padding-top:4px">Also listed as: ${list}</div>`;
+            const nearby = JSON.parse(p.similar_nearby || "[]");
+            if (!nearby.length) return "";
+            const list = nearby.map((n) => `<em>${n.name}</em>`).join(", ");
+            return `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">⚠ May also be listed as: ${list}</div>`;
           } catch { return ""; }
         })();
         return `<div class="popup-content" style="font-size:14px;max-width:240px">
@@ -1181,6 +1257,7 @@ export default function Map(props) {
     showYellowPins,
     showGreenPins,
     catToggles,
+    mapCutoffDate,
   ]);
 
   React.useEffect(() => {
@@ -1190,6 +1267,91 @@ export default function Map(props) {
     const t = setTimeout(() => m.resize(), 320);
     return () => clearTimeout(t);
   }, [bandsOpen]);
+
+  // Sync watchlist area bubbles into MapLibre whenever they change
+  React.useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+
+    const apply = () => {
+      const geoJSON = buildWatchCircleGeoJSON(watchAreas);
+      const src = m.getSource("watch-areas");
+      if (src) {
+        src.setData(geoJSON);
+      } else {
+        m.addSource("watch-areas", { type: "geojson", data: geoJSON });
+        m.addLayer({
+          id: "watch-areas-fill",
+          type: "fill",
+          source: "watch-areas",
+          paint: {
+            "fill-color": "#34a853",
+            "fill-opacity": 0.08,
+          },
+        });
+        m.addLayer({
+          id: "watch-areas-line",
+          type: "line",
+          source: "watch-areas",
+          paint: {
+            "line-color": "#34a853",
+            "line-width": 2,
+            "line-opacity": 0.55,
+          },
+        });
+
+        // Click bubble to show popup with label + radius presets
+        m.on("click", "watch-areas-fill", (e) => {
+          const props = e.features?.[0]?.properties;
+          if (!props) return;
+          const RADIUS_OPTIONS = [5, 10, 15, 25];
+          const html = `
+            <div style="font-size:13px;min-width:180px">
+              <strong>${props.label}</strong>
+              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+                ${RADIUS_OPTIONS.map((r) =>
+                  `<button
+                    data-areaid="${props.id}" data-radius="${r}"
+                    style="padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;
+                      background:${props.radius_miles === r ? "rgba(52,168,83,0.24)" : "rgba(255,255,255,0.08)"};
+                      border:1px solid ${props.radius_miles === r ? "rgba(52,168,83,0.45)" : "rgba(255,255,255,0.14)"};
+                      color:${props.radius_miles === r ? "#6fcf8a" : "rgba(255,255,255,0.70)"};
+                      cursor:pointer"
+                  >${r} mi</button>`
+                ).join("")}
+              </div>
+            </div>`;
+
+          const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
+            .setLngLat(e.lngLat)
+            .setHTML(html)
+            .addTo(m);
+
+          popup.getElement()?.addEventListener("click", async (ev) => {
+            const btn = ev.target.closest("[data-areaid]");
+            if (!btn) return;
+            const areaId = btn.dataset.areaid;
+            const radius = parseInt(btn.dataset.radius, 10);
+            await supabase.from("watchlist_areas")
+              .update({ radius_miles: radius, updated_at: new Date().toISOString() })
+              .eq("id", areaId);
+            setWatchAreas((prev) =>
+              prev.map((a) => a.id === areaId ? { ...a, radius_miles: radius } : a)
+            );
+            popup.remove();
+          });
+        });
+        m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
+        m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
+      }
+    };
+
+    if (m.isStyleLoaded()) {
+      apply();
+    } else {
+      m.once("idle", apply);
+    }
+  }, [watchAreas]);
 
   const [draggingPins, setDraggingPins] = useState(false);
   React.useEffect(() => {
@@ -1281,6 +1443,12 @@ export default function Map(props) {
     ];
     const searchExpr = term ? [">=", ["index-of", term, haystack], 0] : null;
 
+    // Date filter: pins where inspection_date_recent < cutoff are hidden.
+    // Null dates (score=null/zero) are excluded when any cutoff is active.
+    const dateExpr = mapCutoffDate
+      ? [">=", ["coalesce", ["get", "date"], "0000-00-00"], mapCutoffDate]
+      : null;
+
     const selectedPairs = [];
     for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
       if (key === "unknown") continue;
@@ -1318,8 +1486,10 @@ export default function Map(props) {
       if (key === "yellow" && !showYellowPins) visible = false;
       if (key === "green" && !showGreenPins) visible = false;
 
-      const base = ["all", exprs[key], catExpr];
-      const f = searchExpr ? ["all", exprs[key], catExpr, searchExpr] : base;
+      const conditions = [exprs[key], catExpr];
+      if (searchExpr) conditions.push(searchExpr);
+      if (dateExpr) conditions.push(dateExpr);
+      const f = ["all", ...conditions];
 
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") map.setPaintProperty(id, "circle-color", PIN_COLORS.green);
@@ -1464,7 +1634,7 @@ export default function Map(props) {
             <span className="brand-safe">SAFE</span>
           </div>
 
-          {/* Right slot: Learn + Feedback + Log in — always visible on both pages */}
+          {/* Right slot: Learn + Feedback + Log in / Account */}
           <div className="header-actions">
             <button
               className={`header-nav-btn${page === "learn" ? " active" : ""}`}
@@ -1476,7 +1646,7 @@ export default function Map(props) {
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
               </svg>
-              <span className="nav-btn-label">Learn</span>
+              <span className="nav-btn-label learn-label">Learn</span>
             </button>
             <button
               className="header-nav-btn"
@@ -1489,18 +1659,37 @@ export default function Map(props) {
               </svg>
               <span className="nav-btn-label">Feedback</span>
             </button>
-            <button
-              className="header-nav-btn header-nav-btn--login"
-              onClick={() => setLoginOpen(true)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
-                strokeLinejoin="round" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-              <span className="nav-btn-label">Log in</span>
-            </button>
+            {user ? (
+              <button
+                className={`header-nav-btn${page === "account" ? " active" : ""}`}
+                onClick={() => setPage("account")}
+                title={user.email}
+              >
+                <span style={{
+                  width: 18, height: 18, borderRadius: "50%",
+                  background: "rgba(52,168,83,0.30)",
+                  border: "1.5px solid rgba(52,168,83,0.55)",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: ".65rem", fontWeight: 800, flexShrink: 0,
+                }}>
+                  {(user.email || "?")[0].toUpperCase()}
+                </span>
+                <span className="nav-btn-label">Account</span>
+              </button>
+            ) : (
+              <button
+                className="header-nav-btn header-nav-btn--login"
+                onClick={() => setLoginOpen(true)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+                  strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span className="nav-btn-label">Log in</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -1512,12 +1701,29 @@ export default function Map(props) {
           loginOpen={loginOpen}
           onCloseLogin={() => setLoginOpen(false)}
           supabase={supabase}
+          mapCutoffDate={mapCutoffDate}
+          onOpenEstablishment={(eid) => {
+            setPage("map");
+            const f = featureByEidRef.current[eid];
+            if (f) beginDrawerLoad(eid, f.properties);
+          }}
         />
       )}
 
       {/* Login modal on map page (learn page renders its own copy) */}
       {page === "map" && loginOpen && (
         <LoginModal onClose={() => setLoginOpen(false)} />
+      )}
+
+      {/* Account page overlay */}
+      {page === "account" && user && (
+        <AccountPage
+          onOpenEstablishment={(eid) => {
+            setPage("map");
+            const f = featureByEidRef.current[eid];
+            if (f) beginDrawerLoad(eid, f.properties);
+          }}
+        />
       )}
 
       {/* Feedback modal — available on all pages */}
@@ -1564,6 +1770,9 @@ export default function Map(props) {
                 applyPreset={applyPreset}
               />
             }
+            dateFilterKey={dateFilterKey}
+            setDateFilterKey={setDateFilterKey}
+            dateFilterOpts={DATE_FILTER_OPTS}
           />
 
           <InfoDrawer
@@ -1574,6 +1783,10 @@ export default function Map(props) {
             pins={pins}
             zIndex={frontPanel === "drawer" ? 3100 : 2900}
             onBringToFront={() => setFrontPanel("drawer")}
+            onSwitchTo={(switchEid) => {
+              const f = featureByEidRef.current[switchEid];
+              if (f) beginDrawerLoad(switchEid, f.properties);
+            }}
             onClose={() => {
               setSelected(null);
               setHistory(null);
@@ -1588,7 +1801,7 @@ export default function Map(props) {
           {!tableOpen && (
             <button
               className="table-toggle-btn"
-              onClick={() => setTableOpen(true)}
+              onClick={() => { setTableOpen(true); setWhatsNewOpen(false); }}
               aria-label="Open table view"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -1599,6 +1812,17 @@ export default function Map(props) {
               Table View
             </button>
           )}
+
+          <WhatsNew
+            supabase={supabase}
+            open={whatsNewOpen}
+            onClose={() => setWhatsNewOpen(false)}
+            onOpen={() => { setWhatsNewOpen(true); setTableOpen(false); }}
+            onOpenEstablishment={(eid) => {
+              const f = featureByEidRef.current[eid];
+              if (f) beginDrawerLoad(eid, f.properties);
+            }}
+          />
 
           <TableView
             supabase={supabase}

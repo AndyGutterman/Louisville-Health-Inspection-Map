@@ -23,9 +23,9 @@ function formatDateSafe(val) {
 const displayField = (v) =>
   v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
 
-function CurrentInspectionCard({ data, details }) {
+function CurrentInspectionCard({ data, details, onSwitchTo }) {
   if (!data) return null;
-  const { name, address, inspectionDate, score, grade, meta, metaTitle, aliasNames } = data;
+  const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
@@ -54,8 +54,8 @@ function CurrentInspectionCard({ data, details }) {
   const hasDetails = items.some((i) => i.value && i.value !== "—");
   const [open, setOpen] = React.useState(false);
 
-  // aliasNames: string[] — other permit names merged into this pin
-  const aliases = Array.isArray(aliasNames) ? aliasNames : [];
+  // similarNearby: [{eid, name}] — nearby permits that may represent the same place
+  const similar = Array.isArray(similarNearby) ? similarNearby : [];
 
   return (
     <div
@@ -76,23 +76,50 @@ function CurrentInspectionCard({ data, details }) {
       <div className="inspect-card_header">
         <div className="inspect-card_title">{name}</div>
         <div className="inspect-card_sub">{address}</div>
-        {aliases.length > 0 && (
+        {similar.length > 0 && (
           <div
             style={{
-              marginTop: 5,
-              fontSize: "0.72rem",
-              color: "rgba(255,255,255,0.42)",
-              lineHeight: 1.4,
+              marginTop: 8,
+              padding: "8px 11px",
+              borderRadius: 8,
+              background: "rgba(255,193,7,0.06)",
+              border: "1px solid rgba(255,193,7,0.18)",
+              fontSize: "0.70rem",
+              lineHeight: 1.5,
             }}
-            title="This pin combines multiple permit records for the same physical location"
           >
-            Also listed as:{" "}
-            {aliases.map((n, i) => (
-              <React.Fragment key={n}>
-                {i > 0 && ", "}
-                <span style={{ fontStyle: "italic" }}>{n}</span>
-              </React.Fragment>
+            <div style={{ fontWeight: 700, color: "rgba(255,193,7,0.80)", marginBottom: 4 }}>
+              ⚠ This address may also be listed under a separate permit record:
+            </div>
+            {similar.map((s) => (
+              <div key={s.eid} style={{ marginBottom: 3 }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onSwitchTo?.(s.eid); }}
+                  style={{
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    borderRadius: 6,
+                    color: "rgba(255,255,255,0.75)",
+                    fontSize: "0.70rem",
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    cursor: "pointer",
+                    fontStyle: "italic",
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background="rgba(255,255,255,0.13)"; e.currentTarget.style.color="#fff"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.color="rgba(255,255,255,0.75)"; }}
+                  title={`Switch to permit record: ${s.name}`}
+                >
+                  {s.name} →
+                </button>
+              </div>
             ))}
+            <div style={{ marginTop: 5, fontSize: "0.63rem", color: "rgba(255,255,255,0.30)", lineHeight: 1.4 }}>
+              These are separate health department records shown independently.
+              Inspection histories reflect each permit only. Data is displayed
+              as received from Louisville Metro Health and has not been verified.
+            </div>
           </div>
         )}
       </div>
@@ -324,7 +351,7 @@ function useIsMobile() {
 const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onClose }) {
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose }) {
   const isMobile = useIsMobile();
 
   // Horizontal resize — desktop only
@@ -441,10 +468,11 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             grade: selected.grade,
             meta: selected.meta,
             metaTitle: selected.metaTitle,
-            aliasNames: selected.aliasNames,
+            similarNearby: selected.similarNearby,
           }}
           details={facDetails}
           pins={pins}
+          onSwitchTo={onSwitchTo}
         />
 
         <div className="inspect-card_spacer" />

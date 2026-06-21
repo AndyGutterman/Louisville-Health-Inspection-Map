@@ -175,10 +175,12 @@ const FEEDBACK_TYPES = [
   { value: "general",             label: "💬  General feedback" },
 ];
 
+const FEEDBACK_FN_URL = import.meta.env.VITE_FEEDBACK_FUNCTION_URL;
+
 // ─── FeedbackModal ────────────────────────────────────────────────────────────
 /**
  * Props:
- *   supabase  – Supabase client
+ *   supabase  – Supabase client (kept for fallback; primary path uses edge fn)
  *   onClose   – fn called to dismiss
  */
 export default function FeedbackModal({ supabase, onClose }) {
@@ -235,15 +237,32 @@ export default function FeedbackModal({ supabase, onClose }) {
         email:         email.trim().slice(0, MAX_EMAIL) || null,
         feedback_type: fbType,
         message:       message.trim().slice(0, MAX_MSG),
-        // Lightweight fingerprint so you can spot repeat submitters without storing PII
         user_agent:    navigator.userAgent.slice(0, 300),
       };
 
-      const { error: sbErr } = await supabase
-        .from("feedback")
-        .insert([payload]);
-
-      if (sbErr) throw sbErr;
+      if (FEEDBACK_FN_URL) {
+        // Primary path: edge function with IP-based rate limiting
+        const res = await fetch(FEEDBACK_FN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.status === 429) {
+          const body = await res.json().catch(() => ({}));
+          const wait = body.retryAfter ?? 60;
+          setError(`Too many submissions. Please wait ${wait} seconds.`);
+          setCooldown(wait);
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+      } else {
+        // Fallback: direct Supabase insert (dev / edge fn not deployed yet)
+        const { error: sbErr } = await supabase.from("feedback").insert([payload]);
+        if (sbErr) throw sbErr;
+      }
 
       setSuccess(true);
       setCooldown(COOLDOWN_MS / 1000);
