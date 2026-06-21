@@ -448,6 +448,40 @@ function ComingSoonBadge() {
   );
 }
 
+// Styles scoped to LoginModal — injected here so the modal works whether rendered
+// inside LearnPage OR standalone from the map header (which doesn't load LearnPage).
+const MODAL_STYLES = `
+.ln-mback {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  z-index: 9100; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.ln-modal {
+  background: rgba(20,20,24,0.99);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 18px; padding: 26px 22px;
+  width: 100%; max-width: 380px; position: relative;
+  color: #f0f0f3; box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+}
+.ln-modal-x {
+  position: absolute; top: 12px; right: 14px;
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.40); font-size: 20px; cursor: pointer; line-height: 1;
+}
+.ln-modal-x:hover { color: #fff; }
+.ln-modal-title {
+  font-family: 'Tilt Neon', sans-serif; font-size: 1.25rem; font-weight: 600;
+  color: #34a853; text-shadow: 0 0 12px #34a853; margin-bottom: 4px;
+}
+.ln-modal-sub { font-size: .78rem; color: rgba(255,255,255,0.52); margin-bottom: 18px; line-height: 1.5; }
+.ln-modal-box {
+  background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.14);
+  border-radius: 12px; padding: 18px;
+  display: flex; flex-direction: column; gap: 7px; align-items: flex-start;
+}
+`;
+
 export function LoginModal({ onClose }) {
   const { user, sendMagicLink, signOut, loading } = useAuth();
   const [authError, setAuthError] = useState(null);
@@ -462,6 +496,8 @@ export function LoginModal({ onClose }) {
   }, [onClose]);
 
   return (
+    <>
+      <style>{MODAL_STYLES}</style>
     <div className="ln-mback" onClick={onClose}>
       <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
         <button className="ln-modal-x" onClick={onClose} aria-label="Close">×</button>
@@ -580,6 +616,7 @@ export function LoginModal({ onClose }) {
         )}
       </div>
     </div>
+    </>
   );
 }
 
