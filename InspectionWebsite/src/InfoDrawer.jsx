@@ -90,10 +90,10 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 style={{
                   width: 28, height: 28,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: watchlisted ? "rgba(52,168,83,0.18)" : "rgba(255,255,255,0.08)",
-                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.42)" : "rgba(255,255,255,0.15)"}`,
+                  background: watchlisted ? "rgba(52,168,83,0.28)" : "rgba(255,255,255,0.08)",
+                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.55)" : "rgba(255,255,255,0.15)"}`,
                   borderRadius: 8, cursor: "pointer",
-                  color: watchlisted ? "#6fcf8a" : "rgba(255,255,255,0.72)",
+                  color: watchlisted ? "#ffffff" : "rgba(255,255,255,0.65)",
                   transition: "all .15s",
                 }}
               >
