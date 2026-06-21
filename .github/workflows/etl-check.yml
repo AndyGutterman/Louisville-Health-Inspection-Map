@@ -1,0 +1,27 @@
+name: ETL Accuracy Check
+
+on:
+  schedule:
+    - cron: "0 10 * * 1"   # Every Monday at 10am UTC
+  workflow_dispatch: {}
+
+jobs:
+  accuracy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install script dependencies
+        working-directory: scripts
+        run: npm install
+
+      - name: Run ETL accuracy check
+        working-directory: scripts
+        run: node etl-accuracy-check.js

@@ -59,3 +59,9 @@ Desktop.ini
 
 # ─── Misc ────────────────────────────────────────────────────────
 *.local
+
+# ─── Database backups (never commit dumps) ───────────────────────
+backup.sql
+*.sql.gz
+etl/data-backup/
+tmp/

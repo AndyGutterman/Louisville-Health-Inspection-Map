@@ -1,0 +1,87 @@
+name: Nightly Database Backup
+
+on:
+  schedule:
+    # 2am ET = 7am UTC (EST) / 6am UTC (EDT) — close enough, pick one
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}   # e.g. "your-github-user/lfs-db-backups"
+      BACKUP_DEPLOY_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Run pg_dump
+        id: dump
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          FILENAME="backup-${DATE}.sql.gz"
+          echo "filename=${FILENAME}" >> "$GITHUB_OUTPUT"
+          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+          pg_dump "$SUPABASE_DB_URL" \
+            --no-owner --no-acl --no-privileges \
+            --exclude-table=spatial_ref_sys \
+            | gzip -9 > "/tmp/${FILENAME}"
+          echo "size=$(du -sh /tmp/${FILENAME} | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Clone backup repo via deploy key
+        env:
+          SSH_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" \
+            git clone "git@github.com:${BACKUP_REPO}.git" /tmp/backup-repo
+
+      - name: Copy backup file and prune old ones
+        run: |
+          cp "/tmp/${{ steps.dump.outputs.filename }}" /tmp/backup-repo/
+          cd /tmp/backup-repo
+          # Keep only the 30 most recent backups
+          ls -1t backup-*.sql.gz | tail -n +31 | xargs -r rm --
+          echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
+
+      - name: Commit and push
+        env:
+          SSH_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}
+        run: |
+          cd /tmp/backup-repo
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          git commit -m "backup: ${{ steps.dump.outputs.date }} (${{ steps.dump.outputs.size }})"
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" git push
+
+      - name: Send failure notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.SMTP_SERVER }}
+          server_port: 587
+          username: ${{ env.SMTP_USERNAME }}
+          password: ${{ env.SMTP_PASSWORD }}
+          subject: "[Louisville Food Safe] Nightly DB backup FAILED — ${{ steps.dump.outputs.date }}"
+          to: ${{ env.NOTIFY_EMAIL }}
+          from: "Louisville Food Safe Alerts <${{ env.SMTP_USERNAME }}>"
+          body: |
+            The nightly database backup workflow failed.
+
+            Date: ${{ steps.dump.outputs.date }}
+            Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Please check the workflow logs and investigate immediately.
