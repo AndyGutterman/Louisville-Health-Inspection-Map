@@ -163,37 +163,37 @@
 .table-panel-header {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 6px 14px;
-	border-bottom: 1px solid rgba(255, 255, 255, .08);
+	gap: 8px;
+	padding: 8px 14px 7px;
+	border-bottom: 1px solid rgba(255, 255, 255, .07);
 	flex-shrink: 0;
 }
 
+/* Match InfoDrawer section-heading style — small uppercase label */
 .table-panel-title {
 	font-weight: 800;
-	font-size: .94rem;
-	color: #fff;
+	font-size: .66rem;
+	letter-spacing: .11em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.42);
 	flex: 1;
 }
 
+/* Plain × close — matches InfoDrawer close button style */
 .table-panel-close {
 	border: none;
-	background: rgba(255, 255, 255, .08);
-	color: #fff;
-	border-radius: 999px;
-	width: 28px;
-	height: 28px;
-	font-size: .9rem;
-	font-weight: 700;
+	background: none;
+	color: rgba(255,255,255,0.45);
+	font-size: 20px;
+	line-height: 1;
 	cursor: pointer;
-	display: grid;
-	place-items: center;
-	padding: 0;
+	padding: 2px 4px;
 	flex-shrink: 0;
 	margin-right: 26px; /* clear top-right corner drag stripes */
+	transition: color .12s;
 }
 
-.table-panel-close:hover { background: rgba(255, 255, 255, .16); }
+.table-panel-close:hover { color: rgba(255,255,255,0.85); }
 
 /* ── Toolbar ── */
 .table-toolbar {
@@ -378,29 +378,29 @@
 }
 
 .table-grid th {
-	padding: 7px 10px;
+	padding: 6px 10px;
 	text-align: left;
-	font-size: .72rem;
-	font-weight: 700;
-	letter-spacing: .4px;
+	font-size: .62rem;
+	font-weight: 800;
+	letter-spacing: .09em;
 	text-transform: uppercase;
-	color: rgba(255, 255, 255, .45);
-	border-bottom: 1px solid rgba(255, 255, 255, .08);
+	color: rgba(255, 255, 255, .38);
+	border-bottom: 1px solid rgba(255, 255, 255, .07);
 	white-space: nowrap;
 	cursor: pointer;
 	user-select: none;
 }
 
-.table-grid th:hover             { color: rgba(255, 255, 255, .8); }
-.table-grid th.sorted            { color: #fff; }
-.table-grid th .sort-icon        { opacity: .6; margin-left: 4px; }
+.table-grid th:hover             { color: rgba(255, 255, 255, .72); }
+.table-grid th.sorted            { color: rgba(255,255,255,0.90); }
+.table-grid th .sort-icon        { opacity: .5; margin-left: 4px; }
 .table-grid th.sorted .sort-icon { opacity: 1; }
 
 .table-grid td {
-	padding: 7px 10px;
-	border-bottom: 1px solid rgba(255, 255, 255, .04);
-	font-size: .84rem;
-	color: rgba(255, 255, 255, .86);
+	padding: 8px 10px;
+	border-bottom: 1px solid rgba(255, 255, 255, .05);
+	font-size: .83rem;
+	color: rgba(255, 255, 255, .84);
 	vertical-align: middle;
 }
 
@@ -413,9 +413,9 @@
 .tbl-score-badge {
 	display: inline-grid;
 	place-items: center;
-	width: 36px;
-	height: 28px;
-	border-radius: 7px;
+	width: 38px;
+	height: 30px;
+	border-radius: 8px;
 	font-weight: 800;
 	font-size: .84rem;
 }
@@ -423,22 +423,22 @@
 .tbl-score-badge.ok   { background: #34a853; color: #fff; }
 .tbl-score-badge.warn { background: #fbbc05; color: #111; }
 .tbl-score-badge.bad  { background: #ea4335; color: #fff; }
-.tbl-score-badge.na   { background: rgba(255,255,255,.08); color: rgba(255,255,255,.4); font-size: .75rem; border: 1px dashed rgba(255,255,255,.18); }
+.tbl-score-badge.na   { background: rgba(255,255,255,.06); color: rgba(255,255,255,.38); font-size: .75rem; border: 1px dashed rgba(255,255,255,.18); }
 
-/* ── Grade pill ── */
+/* ── Grade pill — matches InfoDrawer .inspect-pill ── */
 .tbl-grade {
 	display: inline-grid;
 	place-items: center;
-	width: 30px;
-	height: 30px;
+	width: 32px;
+	height: 32px;
 	border-radius: 999px;
 	font-weight: 700;
 	font-size: .84rem;
-	background: rgba(255, 255, 255, .1);
-	border: 1px solid rgba(255, 255, 255, .14);
+	background: rgba(255, 255, 255, .08);
+	border: 1px solid rgba(255, 255, 255, .12);
 }
 
-.tbl-grade.muted { color: rgba(255, 255, 255, .3); background: transparent; border-style: dashed; }
+.tbl-grade.muted { color: rgba(255, 255, 255, .28); background: transparent; border-style: dashed; }
 
 /* ── Cell helpers ── */
 .tbl-name     { font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
