@@ -164,6 +164,42 @@ function buildWatchCircleGeoJSON(areas) {
   return { type: "FeatureCollection", features };
 }
 
+const GRADE_SEVERITY = { C: 0, B: 1, A: 2 };
+
+function worstFirst(a, b) {
+  const ga = GRADE_SEVERITY[a.properties.grade] ?? 3;
+  const gb = GRADE_SEVERITY[b.properties.grade] ?? 3;
+  if (ga !== gb) return ga - gb;
+  return (a.properties.score ?? 100) - (b.properties.score ?? 100);
+}
+
+// Collapse same-coordinate features into one rendered circle (worst representative).
+// The FULL feature list stays in coordIndexRef for popup navigation — only
+// the RENDERED GeoJSON is deduplicated so strokes never stack additively.
+function deduplicateForRender(featureList) {
+  const byCoord = new globalThis.Map();
+  for (const f of featureList) {
+    const k = coordKey(f.geometry.coordinates);
+    if (!byCoord.has(k)) byCoord.set(k, []);
+    byCoord.get(k).push(f);
+  }
+  const out = [];
+  for (const feats of byCoord.values()) {
+    if (feats.length === 1) { out.push(feats[0]); continue; }
+    const rep = feats.slice().sort(worstFirst)[0];
+    // Merge violation flags: ring appears if ANY establishment here has violations
+    out.push({
+      ...rep,
+      properties: {
+        ...rep.properties,
+        has_critical_violation: feats.some(f => f.properties.has_critical_violation),
+        has_any_violation:      feats.some(f => f.properties.has_any_violation),
+      },
+    });
+  }
+  return out;
+}
+
 function buildCoordIndex(features) {
   const m = new globalThis.Map();
   for (const f of features) {
@@ -544,7 +580,7 @@ export default function Map(props) {
 
   const suppressDocCloseRef = useRef(false);
 
-  const GEO_CACHE_KEY = "lfs_geodata_v2"; // bumped: violation flags now in features
+  const GEO_CACHE_KEY = "lfs_geodata_v3"; // bumped: no black pin stroke, violation rings
   const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   function buildFeatureIndexes(featureList) {
@@ -564,8 +600,9 @@ export default function Map(props) {
           if (raw) {
             const cached = JSON.parse(raw);
             if (cached?.ts && Date.now() - cached.ts < GEO_CACHE_TTL && cached.data) {
+              // Full list → coord index; deduplicated list → rendered GeoJSON
               buildFeatureIndexes(cached.data.features);
-              setGeoData(cached.data);
+              setGeoData({ type: "FeatureCollection", features: deduplicateForRender(cached.data.features) });
               return;
             }
           }
@@ -697,14 +734,16 @@ export default function Map(props) {
       }, {});
       const featureList = tagSimilarNearby(Object.values(latestMap));
 
-      const geoDataObj = { type: "FeatureCollection", features: featureList };
-
+      // Cache the full list (needed for popup navigation of stacked locations)
+      const fullGeoData = { type: "FeatureCollection", features: featureList };
       try {
-        sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ data: geoDataObj, ts: Date.now() }));
+        sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ data: fullGeoData, ts: Date.now() }));
       } catch { /* quota exceeded — ignore */ }
 
+      // Build coord/eid indexes from the FULL list
       buildFeatureIndexes(featureList);
-      setGeoData(geoDataObj);
+      // Render deduplicated: one circle per location — eliminates stroke stacking
+      setGeoData({ type: "FeatureCollection", features: deduplicateForRender(featureList) });
     })();
   }, []);
 
@@ -1309,9 +1348,21 @@ export default function Map(props) {
         const { feature: f, group } = groupAtPixel(e.point);
         if (!f) return;
 
+        // Check coordIndex for all establishments at this geographic location.
+        // Since rendering is deduplicated (one circle per coord), group.length
+        // is always 1, but coordIndexRef may have many establishments here.
+        {
+          const ck = coordKey(f.geometry.coordinates);
+          const allAtCoord = coordIndexRef.current.get(ck) || [];
+          if (allAtCoord.length > 1) {
+            showGroupPopup(allAtCoord.slice().sort(worstFirst), 0);
+            return;
+          }
+        }
+
+        // Fallback: rendered-group overlap (different coords, same screen pos)
         if (group.length > 1) {
-          const ordered = group.slice().sort((a, b) => a.id - b.id);
-          showGroupPopup(ordered, 0);
+          showGroupPopup(group.slice().sort(worstFirst), 0);
           return;
         }
 

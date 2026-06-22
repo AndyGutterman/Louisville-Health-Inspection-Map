@@ -77,7 +77,17 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="inspect-card_title">{name}</div>
-            <div className="inspect-card_sub">{address}</div>
+            {(() => {
+              // Split "614 W MAIN ST, LOUISVILLE, KY 40202" at the first comma
+              const idx = address ? address.indexOf(",") : -1;
+              if (idx < 0) return <div className="inspect-card_sub">{address}</div>;
+              return (
+                <>
+                  <div className="inspect-card_sub">{address.slice(0, idx)}</div>
+                  <div className="inspect-card_sub" style={{ opacity: 0.55 }}>{address.slice(idx + 1).trim()}</div>
+                </>
+              );
+            })()}
           </div>
           {/* Bookmark (rounded container) + plain × — top-right of card */}
           <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, marginTop: 1 }}
@@ -90,10 +100,10 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 style={{
                   width: 28, height: 28,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: watchlisted ? "rgba(52,168,83,0.28)" : "rgba(255,255,255,0.08)",
-                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.55)" : "rgba(255,255,255,0.15)"}`,
-                  borderRadius: 8, cursor: "pointer",
-                  color: watchlisted ? "#ffffff" : "rgba(255,255,255,0.65)",
+                  background: watchlisted ? "rgba(52,168,83,0.25)" : "rgba(255,255,255,0.07)",
+                  border: `1px solid ${watchlisted ? "rgba(52,168,83,0.50)" : "rgba(255,255,255,0.14)"}`,
+                  borderRadius: "50%", cursor: "pointer",
+                  color: watchlisted ? "#ffffff" : "rgba(255,255,255,0.60)",
                   transition: "all .15s",
                 }}
               >
@@ -418,7 +428,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
   const isMobile = useIsMobile();
 
   // Horizontal resize — desktop only
-  const defaultW = () => Math.min(520, Math.round(window.innerWidth * 0.92));
+  const defaultW = () => Math.min(420, Math.round(window.innerWidth * 0.82));
   const [drawerW, setDrawerW] = React.useState(defaultW);
   const dragRef = React.useRef({ on: false });
 
