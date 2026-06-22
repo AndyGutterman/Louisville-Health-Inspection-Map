@@ -1617,60 +1617,18 @@ export default function Map(props) {
     }
   }
 
-  // Table row hover: show hover popup on map
-  const onTableRowHover = React.useCallback((establishmentId, rowData) => {
-    const map = mapRef.current;
-    if (!map) return;
-    const feature = featureByEidRef.current[establishmentId];
-    if (!feature) return;
-
-    // Clear any previous table-driven hover popup
-    if (tableHoverPopupRef.current) {
-      tableHoverPopupRef.current.remove();
-      tableHoverPopupRef.current = null;
-    }
-
-    const p = feature.properties;
-    const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
-    const addr = p.address_full || p.address || "";
-    const html = `<div class="popup-content" style="font-size:14px;max-width:220px">
-      <strong>${p.name}</strong><br/>
-      <small>${addr}</small><br/>
-      Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
-    </div>`;
-
-    tableHoverPopupRef.current = new maplibregl.Popup({
-      anchor: "bottom",
-      offset: [0, -14],
-      closeButton: false,
-      closeOnMove: false,
-      closeOnClick: false,
-    })
-      .setLngLat(feature.geometry.coordinates)
-      .setHTML(html)
-      .addTo(map);
-
-    // Pan map to show the pin (softly)
-    const bounds = map.getBounds();
-    const [lon, lat] = feature.geometry.coordinates;
-    if (!bounds.contains([lon, lat])) {
-      map.easeTo({ center: [lon, lat], duration: 400 });
-    }
+  // Table row hover — same popup as What's New, no map panning
+  const onTableRowHover = React.useCallback((establishmentId) => {
+    hoverEstablishmentPopupRef.current?.(establishmentId);
   }, []);
 
   const onTableRowHoverEnd = React.useCallback(() => {
-    if (tableHoverPopupRef.current) {
-      tableHoverPopupRef.current.remove();
-      tableHoverPopupRef.current = null;
-    }
+    hoverEstablishmentEndRef.current?.();
   }, []);
 
   const onTableRowClick = React.useCallback((row) => {
-    // Clear table hover popup
-    if (tableHoverPopupRef.current) {
-      tableHoverPopupRef.current.remove();
-      tableHoverPopupRef.current = null;
-    }
+    // Close any hover popup before showing pinned popup
+    hoverEstablishmentEndRef.current?.();
     // Find the feature and show a pinned popup on the map
     const map = mapRef.current;
     const feature = featureByEidRef.current[row.establishment_id];
