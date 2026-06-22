@@ -35,10 +35,12 @@ function clampPins([r, y]) {
   y = Math.max(r + 1, Math.min(YEL_CAP, Math.round(y)));
   return [r, y];
 }
+// Louisville grading: C = score ≤ 84 (or critical violation), A = score ≥ 85.
+// "balanced" default aligns with the official 84/85 threshold so red = C territory.
 const PRESETS = {
-  loose: clampPins([75, 89]),
-  balanced: clampPins([85, 94]),
-  strict: clampPins([90, 96]),
+  loose:    clampPins([75, 89]),
+  balanced: clampPins([84, 94]),  // red ≤84 matches Louisville's C-grade cutoff
+  strict:   clampPins([90, 96]),
 };
 
 const CATEGORY_SPECS = {
@@ -919,6 +921,28 @@ export default function Map(props) {
         });
       }
 
+      // Critical-violation ring — amber stroke on grade=C pins drawn above all score layers.
+      // Grade C means critical violations were cited (regardless of numeric score).
+      // Uses same radius as the pin so the stroke sits right on the pin edge.
+      map.addLayer({
+        id: "points-critical-ring",
+        type: "circle",
+        source: "facilities",
+        filter: ["==", ["get", "grade"], "C"],
+        paint: {
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            8,  window.innerWidth <= 600 ? 4  : 6,
+            11, window.innerWidth <= 600 ? 8  : 10.5,
+            14, window.innerWidth <= 600 ? 12 : 14,
+            17, window.innerWidth <= 600 ? 16 : 18,
+          ],
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "rgba(249,115,22,0.88)",  // orange — distinct from pin reds
+        },
+      });
+
       const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
       const styleZ = (() => {
         let idx = null;
@@ -1633,6 +1657,14 @@ export default function Map(props) {
 
       map.setFilter(id, visible ? f : hidden);
       if (key === "green") map.setPaintProperty(id, "circle-color", PIN_COLORS.green);
+    }
+
+    // Keep the critical-violation ring in sync with visible category/search/date filters
+    if (map.getLayer("points-critical-ring")) {
+      const ringConditions = [["==", ["get", "grade"], "C"], catExpr];
+      if (searchExpr) ringConditions.push(searchExpr);
+      if (dateExpr) ringConditions.push(dateExpr);
+      map.setFilter("points-critical-ring", ["all", ...ringConditions]);
     }
   }
 
