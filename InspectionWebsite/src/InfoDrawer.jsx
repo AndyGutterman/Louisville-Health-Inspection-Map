@@ -77,17 +77,7 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="inspect-card_title">{name}</div>
-            {(() => {
-              // Split "614 W MAIN ST, LOUISVILLE, KY 40202" at the first comma
-              const idx = address ? address.indexOf(",") : -1;
-              if (idx < 0) return <div className="inspect-card_sub">{address}</div>;
-              return (
-                <>
-                  <div className="inspect-card_sub">{address.slice(0, idx)}</div>
-                  <div className="inspect-card_sub" style={{ opacity: 0.55 }}>{address.slice(idx + 1).trim()}</div>
-                </>
-              );
-            })()}
+            <div className="inspect-card_sub">{address}</div>
           </div>
           {/* Bookmark (rounded container) + plain × — top-right of card */}
           <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, marginTop: 1 }}
