@@ -518,7 +518,7 @@ export default function Map(props) {
     { key: "1yr", label: "1 year",   days: 365 },
     { key: "all", label: "All time", days: null },
   ];
-  const [dateFilterKey, setDateFilterKey] = useState("6mo");
+  const [dateFilterKey, setDateFilterKey] = useState("1yr");
   const mapCutoffDate = React.useMemo(() => {
     const opt = DATE_FILTER_OPTS.find((o) => o.key === dateFilterKey);
     if (!opt || !opt.days) return null;
