@@ -1,41 +1,38 @@
 .inspect-card {
     position: relative;
-    background: rgba(255, 255, 255, .06);
-    border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 14px;
-    padding: 14px;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, .25);
+    border-radius: 12px;
+    padding: 14px 16px 12px;
     cursor: pointer;
+    /* No card-chrome background — content lives directly on the drawer background */
 }
 
 .inspect-card_header {
     margin-bottom: 10px;
-    min-height: 56px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    /* Removed min-height + justify-content:flex-end — was causing gap on mobile */
 }
 
 .inspect-card_title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.3;
 }
 
 .inspect-card_sub {
-    opacity: .8;
-    font-size: .9rem;
+    opacity: .65;
+    font-size: .84rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 1px;
 }
 
 .inspect-card_stats {
     display: grid;
-    grid-template-columns: minmax(72px, 112px) minmax(100px, 1fr) minmax(56px, 112px);
-    gap: 10px;
+    grid-template-columns: minmax(60px, 96px) minmax(90px, 1fr) minmax(50px, 90px);
+    gap: 8px;
     align-items: end;
     justify-content: space-between;
     overflow: hidden;
@@ -45,94 +42,90 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     min-width: 0;
 }
 
+/* Score badge — reduced from 64px to 52px to match site scale */
 .inspect-badge {
-    width: 64px;
-    min-width: 64px;
-    height: 64px;
-    border-radius: 12px;
+    width: 52px;
+    min-width: 52px;
+    height: 52px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     font-weight: 800;
-    font-size: 1.2rem;
-    background: #2a2a2a;
+    font-size: 1.05rem;
+    background: rgba(255,255,255,0.08);
     color: #fff;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
     white-space: nowrap;
 }
 
-.inspect-badge.ok {
-    background: #34a853;
-}
-
-.inspect-badge.warn {
-    background: #fbbc05;
-    color: #111;
-}
-
-.inspect-badge.bad {
-    background: #ea4335;
-}
-
-.inspect-badge.na {
-    background: #2a2a2a;
-    color: rgba(255, 255, 255, .45);
-    border: 1px dashed rgba(255, 255, 255, .2);
-    font-size: .95rem;
+.inspect-badge.ok   { background: #34a853; }
+.inspect-badge.warn { background: #fbbc05; color: #111; }
+.inspect-badge.bad  { background: #ea4335; }
+.inspect-badge.na   {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,.45);
+    border: 1px dashed rgba(255,255,255,.18);
+    font-size: .88rem;
 }
 
 .inspect-date {
     min-width: 0;
     text-align: center;
-    padding: 8px 12px;
-    border-radius: 10px;
-    background: #222;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+    padding: 7px 10px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.10);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: .88rem;
+    font-weight: 600;
 }
 
 .inspect-pill {
-    width: 44px;
-    min-width: 44px;
+    width: 40px;
+    min-width: 40px;
     display: grid;
     place-items: center;
-    padding: 8px 0;
+    padding: 7px 0;
     border-radius: 999px;
-    background: rgba(255, 255, 255, .12);
-    border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.14);
+    font-size: .88rem;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .inspect-pill.muted {
-    background: rgba(255, 255, 255, .06);
+    background: rgba(255,255,255,.04);
     color: #bbb;
-    border: 1px dashed rgba(255, 255, 255, .18);
+    border: 1px dashed rgba(255,255,255,.14);
 }
 
 .inspect-stat_label {
-    font-size: .78rem;
-    opacity: .8;
+    font-size: .72rem;
+    opacity: .55;
 }
 
 .inspect-card_spacer {
-    height: 12px;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 8px 0 12px;
 }
 
 .inspect-more-inline {
     margin-top: 8px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: #fff;
+    gap: 5px;
+    color: rgba(255,255,255,0.60);
     font-weight: 700;
-    opacity: .9;
+    font-size: .84rem;
     user-select: none;
 }
 
@@ -146,32 +139,33 @@
 
 .inspect-details {
     margin-top: 10px;
-    background: rgba(0, 0, 0, .18);
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
     padding: 10px 12px;
 }
 
 .inspect-details-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 7px;
 }
 
 .detail-item {
     display: grid;
-    grid-template-columns: 120px 1fr;
-    gap: 10px;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
     align-items: center;
 }
 
 .detail-label {
-    opacity: .85;
-    font-size: .9rem;
+    opacity: .55;
+    font-size: .82rem;
 }
 
 .detail-value {
     font-weight: 600;
+    font-size: .86rem;
 }
 
 @media (max-width:600px) {

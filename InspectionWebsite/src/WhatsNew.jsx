@@ -37,10 +37,14 @@ const STYLES = `
   filter: drop-shadow(0 0 6px rgba(249,115,22,0.60));
 }
 
-/* ── Expanded panel — fixed height so switching tabs doesn't resize it ── */
+/* ── Expanded panel — grows upward from trigger (bottom-left origin) ── */
+@keyframes wn-open {
+  from { opacity: 0; transform: scale(0.88) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
 .wn-panel {
   position: fixed;
-  bottom: 88px;
+  bottom: 84px;
   left: 16px;
   width: var(--wn-w, 320px);
   background: rgba(18,18,22,0.97);
@@ -55,7 +59,28 @@ const STYLES = `
   height: min(460px, 62dvh);
   overflow: hidden;
   backdrop-filter: blur(8px);
+  transform-origin: bottom left;
+  animation: wn-open 0.18s cubic-bezier(0.2, 0.8, 0.4, 1);
 }
+/* ── Two-column wide mode ── */
+.wn-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1; min-height: 0; overflow: hidden;
+}
+.wn-col {
+  display: flex; flex-direction: column; overflow: hidden;
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+.wn-col:last-child { border-right: none; }
+.wn-col-hd {
+  padding: 7px 12px 6px; flex-shrink: 0;
+  font-size: .61rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.wn-col-hd.violations { color: #f97316; }
+.wn-col-hd.perfect    { color: #6fcf8a; }
+.wn-col-body { overflow-y: auto; flex: 1; }
 
 /* ── Single-row tab header ── */
 .wn-header {
@@ -261,9 +286,13 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
     });
   }, [open, supabase]);
 
+  const WIDE_THRESHOLD = 520;
+  const isWide = !isMobile && panelW >= WIDE_THRESHOLD;
+
   // Load perfect-100s on demand — no date cap, always shows the latest 100s
+  // Also triggers when entering wide mode (both columns shown simultaneously)
   useEffect(() => {
-    if (!open || tab !== "perfect" || !supabase || loadedRef.current.perfect) return;
+    if (!open || (!isWide && tab !== "perfect") || !supabase || loadedRef.current.perfect) return;
     loadedRef.current.perfect = true;
     setPerfectLoading(true);
     supabase
@@ -284,9 +313,10 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
     dragRef.current = { on: true, x0: e.clientX, w0: panelW };
     e.currentTarget.setPointerCapture(e.pointerId);
   }, [panelW]);
+
   const onResizeMove = useCallback((e) => {
     if (!dragRef.current.on) return;
-    setPanelW(Math.max(260, Math.min(520, dragRef.current.w0 + (e.clientX - dragRef.current.x0))));
+    setPanelW(Math.max(260, Math.min(700, dragRef.current.w0 + (e.clientX - dragRef.current.x0))));
   }, []);
   const onResizeUp = useCallback(() => { dragRef.current.on = false; }, []);
 
@@ -392,19 +422,63 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
         </div>
         {/* no wn-tab-bar needed — pills don't use underline */}
 
-        {/* Swipeable body */}
-        <div
-          className="wn-body"
-          onTouchStart={isMobile ? onTouchStart : undefined}
-          onTouchEnd={isMobile ? onTouchEnd : undefined}
-        >
-          {renderList()}
-        </div>
-
-        {!activeLoading && activeList.length > 5 && (
-          <button className="wn-more" onClick={() => setShowAll(v => !v)}>
-            {showAll ? "Show fewer" : `Show all ${activeList.length}`}
-          </button>
+        {isWide ? (
+          /* ── Two-column layout ── */
+          <div className="wn-dual">
+            <div className="wn-col">
+              <div className="wn-col-hd violations">⚠ Violations</div>
+              <div className="wn-col-body">
+                {issuesLoading ? (
+                  <div className="wn-loading">Loading…</div>
+                ) : issuesError ? (
+                  <div className="wn-error">Run get_whats_new migration first.</div>
+                ) : issues.length === 0 ? (
+                  <div className="wn-empty">No flagged inspections in last 30 days.</div>
+                ) : (
+                  issues.map((item, i) => {
+                    const s = item.score;
+                    const bc = s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
+                    return <ScoreCard key={`${item.establishment_id}-${i}`} item={item} score={s} badgeClass={bc}
+                      onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd} />;
+                  })
+                )}
+              </div>
+            </div>
+            <div className="wn-col">
+              <div className="wn-col-hd perfect">✓ Top Scores</div>
+              <div className="wn-col-body">
+                {perfectLoading ? (
+                  <div className="wn-loading">Loading…</div>
+                ) : perfect.length === 0 ? (
+                  <div className="wn-empty">No perfect scores found.</div>
+                ) : (
+                  perfect.map((item, i) => (
+                    <ScoreCard key={`${item.establishment_id}-${i}`}
+                      item={{ ...item, inspection_date: item.inspection_date_recent }}
+                      score={item.score_recent} badgeClass="perfect"
+                      onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ── Single-column tab layout ── */
+          <>
+            <div
+              className="wn-body"
+              onTouchStart={isMobile ? onTouchStart : undefined}
+              onTouchEnd={isMobile ? onTouchEnd : undefined}
+            >
+              {renderList()}
+            </div>
+            {!activeLoading && activeList.length > 5 && (
+              <button className="wn-more" onClick={() => setShowAll(v => !v)}>
+                {showAll ? "Show fewer" : `Show all ${activeList.length}`}
+              </button>
+            )}
+          </>
         )}
       </div>
     </>
