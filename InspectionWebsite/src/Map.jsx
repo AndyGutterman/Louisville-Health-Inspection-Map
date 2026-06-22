@@ -718,6 +718,25 @@ export default function Map(props) {
     setFacDetails(null);
     setFacDetailsFor(null);
 
+    // ── Phase 1: show the drawer IMMEDIATELY with pin data we already have ──
+    // The top card is complete; the history section shows a skeleton while
+    // the async fetches run below.
+    const quickSimilar = (() => {
+      try { return JSON.parse(p.similar_nearby || "[]"); } catch { return []; }
+    })();
+    setSelected({
+      establishment_id: eid,
+      name: p.name,
+      address: p.address_full || p.address,
+      inspectionDate: formatDateSafe(p.date),
+      score: p.score ?? null,
+      grade: p.grade ?? null,
+      _displayedInspectionId: null,
+      similarNearby: quickSimilar,
+      metaTitle: "",
+    });
+
+    // ── Phase 2: fetch full history, violations, and facility details ──
     const { data: insp, error: inspErr } = await supabase
       .from("inspections")
       .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")

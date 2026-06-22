@@ -363,6 +363,24 @@ function PastInspection({ row }) {
   );
 }
 
+function HistorySkeleton() {
+  return (
+    <div className="hist-skeleton">
+      <div className="hist-skeleton-title">Inspection History</div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="hist-skeleton-row">
+          <div className="skel-badge skel-pulse" />
+          <div className="skel-lines">
+            <div className="skel-line-a skel-pulse" />
+            <div className="skel-line-b skel-pulse" />
+          </div>
+          <div className="skel-grade skel-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function History({ rows, pins }) {
   if (!rows || rows.length === 0) return null;
   return (
@@ -485,8 +503,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
-      {/* Loading veil */}
-      <div className={`drawer-veil ${drawerLoading ? "show" : ""}`} />
+      {/* Veil removed — skeleton in history section serves as the loading indicator */}
 
       {/* Scrollable inner body.
           flex:1 + minHeight:0 lets it grow to fill on desktop (bounded by top+bottom),
@@ -523,7 +540,13 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
 
         <div className="inspect-card_spacer" />
 
-        {history && <History rows={history} pins={pins} />}
+        {/* History: show green-scan skeleton while loading, real rows once ready */}
+        {drawerLoading && !history
+          ? <HistorySkeleton />
+          : history
+            ? <History rows={history} pins={pins} />
+            : null
+        }
       </div>
     </div>
   );
