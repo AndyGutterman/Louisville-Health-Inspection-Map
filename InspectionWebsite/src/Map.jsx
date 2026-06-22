@@ -368,6 +368,10 @@ export default function Map(props) {
   const docCloseHandlerRef = useRef(null);
   const isDraggingRef = useRef(false);
   const coordIndexRef = useRef(new globalThis.Map());
+  // Exposed so WhatsNew (and other external panels) can trigger popup + drawer
+  const openEstablishmentPopupRef  = useRef(null);  // shows pinned popup
+  const hoverEstablishmentPopupRef = useRef(null);  // shows hover popup
+  const hoverEstablishmentEndRef   = useRef(null);  // closes hover popup
 
   useEffect(() => {
     const headerEl =
@@ -1183,6 +1187,30 @@ export default function Map(props) {
         wirePopupInteractions(hoverPopupRef.current, feature);
       };
 
+      // Allow external panels (WhatsNew) to trigger popups imperatively
+      openEstablishmentPopupRef.current = (eid) => {
+        const feat = featureByEidRef.current[eid];
+        if (!feat) return;
+        pinnedReactRootRef.current?.unmount();
+        pinnedReactRootRef.current = null;
+        pinnedPopupRef.current?.remove();
+        pinnedPopupRef.current = null;
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
+        lastHoverId.current = null;
+        showPinnedPopup(feat);
+      };
+      hoverEstablishmentPopupRef.current = (eid) => {
+        const feat = featureByEidRef.current[eid];
+        if (!feat) return;
+        showHoverPopup(feat, 1);
+      };
+      hoverEstablishmentEndRef.current = () => {
+        hoverPopupRef.current?.remove();
+        hoverPopupRef.current = null;
+        lastHoverId.current = null;
+      };
+
       const onHover = (e) => {
         const { feature: f, group } = groupAtPixel(e.point);
         if (!f) return;
@@ -1931,9 +1959,13 @@ export default function Map(props) {
             onClose={() => setWhatsNewOpen(false)}
             onOpen={() => { setWhatsNewOpen(true); setTableOpen(false); }}
             onOpenEstablishment={(eid) => {
+              // Show pinned popup (as if user clicked the pin) + open drawer
+              openEstablishmentPopupRef.current?.(eid);
               const f = featureByEidRef.current[eid];
               if (f) beginDrawerLoad(eid, f.properties);
             }}
+            onHoverEstablishment={(eid) => hoverEstablishmentPopupRef.current?.(eid)}
+            onHoverEstablishmentEnd={() => hoverEstablishmentEndRef.current?.()}
           />
 
           <TableView

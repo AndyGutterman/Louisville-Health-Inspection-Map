@@ -209,11 +209,13 @@ function formatDate(val) {
   return String(val);
 }
 
-function ScoreCard({ item, score, badgeClass, onOpen }) {
+function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
   return (
     <div
       className="wn-card"
       onClick={() => onOpen?.(item.establishment_id)}
+      onMouseEnter={() => onHover?.(item.establishment_id)}
+      onMouseLeave={() => onHoverEnd?.()}
       role="button"
       tabIndex={0}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onOpen?.(item.establishment_id); }}
@@ -232,7 +234,7 @@ function ScoreCard({ item, score, badgeClass, onOpen }) {
   );
 }
 
-export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose, onOpen }) {
+export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstablishment, onHoverEstablishmentEnd, open, onClose, onOpen }) {
   const [tab, setTab]             = useState("issues");   // "issues" | "perfect"
   const [issues, setIssues]       = useState([]);
   const [perfect, setPerfect]     = useState([]);
@@ -328,7 +330,8 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
           {visible.map((item, i) => {
             const s = item.score;
             const bc = s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
-            return <ScoreCard key={`${item.establishment_id}-${i}`} item={item} score={s} badgeClass={bc} onOpen={onOpenEstablishment} />;
+            return <ScoreCard key={`${item.establishment_id}-${i}`} item={item} score={s} badgeClass={bc}
+              onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd} />;
           })}
         </>
       );
@@ -347,6 +350,8 @@ export default function WhatsNew({ supabase, onOpenEstablishment, open, onClose,
             score={item.score_recent}
             badgeClass="perfect"
             onOpen={onOpenEstablishment}
+            onHover={onHoverEstablishment}
+            onHoverEnd={onHoverEstablishmentEnd}
           />
         ))}
       </>
