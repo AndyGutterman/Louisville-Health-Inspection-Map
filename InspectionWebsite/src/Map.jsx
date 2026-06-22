@@ -544,7 +544,7 @@ export default function Map(props) {
 
   const suppressDocCloseRef = useRef(false);
 
-  const GEO_CACHE_KEY = "lfs_geodata_v1";
+  const GEO_CACHE_KEY = "lfs_geodata_v2"; // bumped: violation flags now in features
   const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   function buildFeatureIndexes(featureList) {
@@ -597,6 +597,13 @@ export default function Map(props) {
         allRows = allRows.concat(data);
       }
 
+      // Fetch violation flags (priority & any) for rings — parallel with meta
+      const violFlagsPromise = supabase.rpc("get_violation_flags").then(({ data }) => {
+        const m = new globalThis.Map();
+        for (const r of data || []) m.set(r.establishment_id, r);
+        return m;
+      }).catch(() => new globalThis.Map());
+
       let metaById = new globalThis.Map();
       try {
         const { count: facCount } = await supabase
@@ -629,10 +636,13 @@ export default function Map(props) {
         console.error("facilities meta lookup failed", e);
       }
 
+      const violFlags = await violFlagsPromise;
+
       const features = allRows
         .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
         .map((r, i) => {
           const meta = metaById.get(r.establishment_id) || {};
+          const vf   = violFlags.get(r.establishment_id) || {};
           const ft = typeof meta.ft === "number" ? meta.ft : null;
           const st = typeof meta.st === "number" ? meta.st : null;
           const fullAddr =
@@ -669,6 +679,8 @@ export default function Map(props) {
               facility_type: ft,
               subtype: st,
               cat,
+              has_critical_violation: vf.has_critical ?? false,
+              has_any_violation:      vf.has_any      ?? false,
             },
           };
         });
@@ -921,25 +933,45 @@ export default function Map(props) {
         });
       }
 
-      // Critical-violation ring — amber stroke on grade=C pins drawn above all score layers.
-      // Grade C means critical violations were cited (regardless of numeric score).
-      // Uses same radius as the pin so the stroke sits right on the pin edge.
+      // Violation rings — drawn ABOVE score layers for visual priority.
+      // Uses has_critical_violation / has_any_violation from feature properties
+      // (fetched via get_violation_flags RPC and baked into GeoJSON on load).
+      const ringRadius = [
+        "interpolate", ["linear"], ["zoom"],
+        8,  window.innerWidth <= 600 ? 5.5 : 7.5,
+        11, window.innerWidth <= 600 ? 9.5 : 12,
+        14, window.innerWidth <= 600 ? 13.5 : 15.5,
+        17, window.innerWidth <= 600 ? 17.5 : 19.5,
+      ];
+
+      // Blue ring — non-priority violations only (drawn first, so amber wins visually)
+      map.addLayer({
+        id: "points-noncritical-ring",
+        type: "circle",
+        source: "facilities",
+        filter: ["all",
+          ["==", ["get", "has_any_violation"], true],
+          ["==", ["get", "has_critical_violation"], false],
+        ],
+        paint: {
+          "circle-radius": ringRadius,
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "rgba(58,134,255,0.80)",
+        },
+      });
+
+      // Amber ring — priority (critical) violations; drawn last = visually on top
       map.addLayer({
         id: "points-critical-ring",
         type: "circle",
         source: "facilities",
-        filter: ["==", ["get", "grade"], "C"],
+        filter: ["==", ["get", "has_critical_violation"], true],
         paint: {
-          "circle-radius": [
-            "interpolate", ["linear"], ["zoom"],
-            8,  window.innerWidth <= 600 ? 4  : 6,
-            11, window.innerWidth <= 600 ? 8  : 10.5,
-            14, window.innerWidth <= 600 ? 12 : 14,
-            17, window.innerWidth <= 600 ? 16 : 18,
-          ],
+          "circle-radius": ringRadius,
           "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "rgba(249,115,22,0.88)",  // orange — distinct from pin reds
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "rgba(249,115,22,0.90)",
         },
       });
 
@@ -955,13 +987,14 @@ export default function Map(props) {
         };
       })();
 
-      // Red/yellow pins get a pixel "bonus" subtracted from their effective
-      // distance so they win ties — and even beat nearby green pins by up to
-      // the bonus amount. Red > yellow > everything else.
+      // Click priority: red pins + priority violators (amber ring) > yellow > green.
+      // Priority violators get +10 regardless of score color so a green pin with
+      // a critical violation beats nearby green pins without one.
       const colorBonus = (f) => {
-        const layerId = f.layer?.id || "";
-        if (layerId === "points-red")    return 10;
-        if (layerId === "points-yellow") return 5;
+        const props   = f.properties || {};
+        const layerId = f.layer?.id  || "";
+        if (props.has_critical_violation || layerId === "points-red") return 10;
+        if (layerId === "points-yellow")                               return 5;
         return 0;
       };
 
@@ -1659,12 +1692,23 @@ export default function Map(props) {
       if (key === "green") map.setPaintProperty(id, "circle-color", PIN_COLORS.green);
     }
 
-    // Keep the critical-violation ring in sync with visible category/search/date filters
+    // Keep violation rings in sync with active filters
+    const buildRingFilter = (base) => {
+      const conds = [...base, catExpr];
+      if (searchExpr) conds.push(searchExpr);
+      if (dateExpr)   conds.push(dateExpr);
+      return ["all", ...conds];
+    };
     if (map.getLayer("points-critical-ring")) {
-      const ringConditions = [["==", ["get", "grade"], "C"], catExpr];
-      if (searchExpr) ringConditions.push(searchExpr);
-      if (dateExpr) ringConditions.push(dateExpr);
-      map.setFilter("points-critical-ring", ["all", ...ringConditions]);
+      map.setFilter("points-critical-ring",
+        buildRingFilter([["==", ["get", "has_critical_violation"], true]]));
+    }
+    if (map.getLayer("points-noncritical-ring")) {
+      map.setFilter("points-noncritical-ring",
+        buildRingFilter([
+          ["==", ["get", "has_any_violation"], true],
+          ["==", ["get", "has_critical_violation"], false],
+        ]));
     }
   }
 

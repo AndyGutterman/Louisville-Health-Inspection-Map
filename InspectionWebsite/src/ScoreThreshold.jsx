@@ -156,10 +156,21 @@ function RowSingle({
     setDrag(true);
     const id = e.pointerId;
     e.currentTarget.setPointerCapture?.(id);
+    let raf = null;
 
-    const mv = (ev) => onChange(Math.round(toValue(ev.clientX)));
+    // RAF throttle: at most 1 state update per animation frame (~60fps)
+    // prevents React re-render + MapLibre setFilter on every pointer pixel
+    const mv = (ev) => {
+      if (raf) return;
+      const x = ev.clientX;
+      raf = requestAnimationFrame(() => {
+        onChange(Math.round(toValue(x)));
+        raf = null;
+      });
+    };
     const up = () => {
       setDrag(false);
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
       try { e.currentTarget.releasePointerCapture?.(id); } catch {}
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
@@ -243,14 +254,21 @@ function RowDual({
     setActive(which);
     const id = e.pointerId;
     e.currentTarget.setPointerCapture?.(id);
+    let raf = null;
 
     const mv = (ev) => {
-      const v = Math.round(toValue(ev.clientX));
-      if (which === "L") onLeft(v);
-      else onRight(v);
+      if (raf) return;
+      const x = ev.clientX;
+      raf = requestAnimationFrame(() => {
+        const v = Math.round(toValue(x));
+        if (which === "L") onLeft(v);
+        else onRight(v);
+        raf = null;
+      });
     };
     const up = () => {
       setActive(null);
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
       try { e.currentTarget.releasePointerCapture?.(id); } catch {}
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
