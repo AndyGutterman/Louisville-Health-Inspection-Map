@@ -229,6 +229,7 @@ function ViolationRow({ v }) {
     yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   const title = v.violation_desc || "Violation";
   const body = (v.insp_viol_comments || "").trim();
+  const count = v._count || 1;
   const [open, setOpen] = React.useState(false);
   const maxLen = 240;
   const hasMore = body.length > maxLen;
@@ -241,6 +242,7 @@ function ViolationRow({ v }) {
         <div className="viol-header">
           {isCrit && <span className="viol-chip crit">Critical</span>}
           <span className="viol-title">{title}</span>
+          {count > 1 && <span className="viol-count-badge">×{count}</span>}
         </div>
 
         {shown && <div className="viol-text">{shown}</div>}
@@ -288,9 +290,22 @@ function PastInspection({ row }) {
     const yn = String(v.critical_yn || "").trim().toLowerCase();
     return yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   };
-  const viols = [...rawViols].sort(
-    (a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0),
-  );
+
+  // Deduplicate by violation_desc: same type cited multiple times (per food item) → one row + ×N count
+  const byDesc = {};
+  rawViols.forEach((v) => {
+    const key = v.violation_desc || "Unknown";
+    if (!byDesc[key]) {
+      byDesc[key] = { ...v, _count: 1, _comments: v.insp_viol_comments ? [v.insp_viol_comments] : [] };
+    } else {
+      byDesc[key]._count++;
+      const c = v.insp_viol_comments;
+      if (c && !byDesc[key]._comments.includes(c)) byDesc[key]._comments.push(c);
+    }
+  });
+  const viols = Object.values(byDesc)
+    .map((v) => ({ ...v, insp_viol_comments: v._comments.join(" | ") }))
+    .sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
 
   const [open, setOpen] = React.useState(false);
   const showToggle = viols.length > 0;
@@ -330,11 +345,11 @@ function PastInspection({ row }) {
               showToggle
                 ? open
                   ? "Collapse"
-                  : `Show all ${viols.length}`
-                : `${viols.length} violations`
+                  : `Show all ${rawViols.length}`
+                : `${rawViols.length} violations`
             }
           >
-            {viols.length} {viols.length === 1 ? "violation" : "violations"}
+            {rawViols.length} {rawViols.length === 1 ? "violation" : "violations"}
             {showToggle && <span className="chev" aria-hidden="true">▾</span>}
           </button>
         )}

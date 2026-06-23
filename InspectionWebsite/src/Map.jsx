@@ -587,7 +587,7 @@ export default function Map(props) {
 
   const suppressDocCloseRef = useRef(false);
 
-  const GEO_CACHE_KEY = "lfs_geodata_v3"; // bumped: no black pin stroke, violation rings
+  const GEO_CACHE_KEY = "lfs_geodata_v4"; // bumped: force fresh violation flags
   const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   function buildFeatureIndexes(featureList) {
@@ -642,11 +642,19 @@ export default function Map(props) {
       }
 
       // Fetch violation flags (priority & any) for rings — parallel with meta
-      const violFlagsPromise = supabase.rpc("get_violation_flags").then(({ data }) => {
+      const violFlagsPromise = (async () => {
         const m = new globalThis.Map();
-        for (const r of data || []) m.set(r.establishment_id, r);
+        const pageSize = 1000;
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase.rpc("get_violation_flags").range(from, from + pageSize - 1);
+          if (error || !data?.length) break;
+          for (const r of data) m.set(r.establishment_id, r);
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
         return m;
-      }).catch(() => new globalThis.Map());
+      })();
 
       let metaById = new globalThis.Map();
       try {
