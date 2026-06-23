@@ -993,13 +993,14 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
               <div className="ln-gbody">
                 <div>
                   <div className="ln-gfield-lbl">Score</div>
-                  <div className="ln-gfield-val">Below 85, no critical violations</div>
+                  <div className="ln-gfield-val">Not score-based</div>
                 </div>
                 <div>
-                  <div className="ln-gfield-lbl">Also issued when</div>
+                  <div className="ln-gfield-lbl">Condition</div>
                   <ul className="ln-gcriteria">
-                    <li>Failed 2 consecutive routine inspections, then passed follow-up</li>
-                    <li>Closed for imminent hazard, then passed follow-up</li>
+                    <li>2 consecutive failed inspections</li>
+                    <li>Failed follow-up inspection</li>
+                    <li>Emergency closure</li>
                   </ul>
                 </div>
               </div>
@@ -1016,10 +1017,9 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
                   <div className="ln-gfield-val">84 or below</div>
                 </div>
                 <div>
-                  <div className="ln-gfield-lbl">Condition</div>
+                  <div className="ln-gfield-lbl">Or</div>
                   <ul className="ln-gcriteria">
-                    <li>Any critical violation present</li>
-                    <li>Failed minimum KY Food Code requirements</li>
+                    <li>Any critical violation, regardless of score</li>
                   </ul>
                 </div>
               </div>
@@ -1028,17 +1028,17 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
 
           {/* Key callout */}
           <div className="ln-callout">
-            <div className="ln-callout-label">⚠ Score alone does not always determine the grade</div>
+            <div className="ln-callout-label">⚠ Score alone does not determine the grade</div>
             <p>
               A facility scoring 90 with a critical violation still receives a{" "}
-              <strong>C (red) placard</strong>. A facility scoring 82 with{" "}
-              <em>no</em> critical violations receives a <strong>B (blue) placard</strong>,
-              not a C. The grade reflects both score and violation severity together.
+              <strong>C (red) placard</strong>. The B grade is not a score range —
+              it is issued based on inspection history (repeated failures or emergency closures),
+              not the numeric score. The grade reflects both score and violation severity together.
             </p>
             <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
-              Note: The official placard colors are <strong>green, blue, and red,</strong> 
-              the colors on the map screen reflect the <strong>score only</strong> and can be customized by changing the thresholds.
-              
+              Note: Pin colors on the map reflect <strong>score only</strong> and can be customized.
+              The red ring on a pin indicates a critical violation was cited on the most recent inspection,
+              which means that facility received a C placard regardless of its score.
             </p>
           </div>
 

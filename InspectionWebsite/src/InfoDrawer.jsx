@@ -80,7 +80,7 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
             <div className="inspect-card_sub">{address}</div>
           </div>
           {/* Bookmark (rounded container) + plain × — top-right of card */}
-          <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, marginTop: 1 }}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 3, flexShrink: 0 }}
             onClick={e => e.stopPropagation()}>
             {onSaveToWatchlist && (
               <button
@@ -97,7 +97,7 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                   transition: "all .15s",
                 }}
               >
-                <span dangerouslySetInnerHTML={{ __html:
+                <span style={{ display: "flex", lineHeight: 0 }} dangerouslySetInnerHTML={{ __html:
                   `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
                       fill="${watchlisted ? '#fff' : 'none'}"
@@ -113,9 +113,11 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 aria-label="Close"
                 style={{
                   background: "none", border: "none",
-                  padding: "4px 6px", cursor: "pointer",
+                  width: 28, height: 28,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: 0, cursor: "pointer",
                   color: "rgba(255,255,255,0.45)", fontSize: 20, lineHeight: 1,
-                  transition: "color .12s",
+                  transition: "color .12s", flexShrink: 0,
                 }}
               >×</button>
             )}
