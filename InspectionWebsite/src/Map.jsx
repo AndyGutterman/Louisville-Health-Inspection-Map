@@ -1010,7 +1010,7 @@ export default function Map(props) {
           "circle-radius": ringRadius,
           "circle-color": "rgba(0,0,0,0)",
           "circle-stroke-width": 2.5,
-          "circle-stroke-color": "rgba(249,115,22,0.90)",
+          "circle-stroke-color": "rgba(234,67,53,0.90)",  // matches red pin color #ea4335
         },
       });
 
