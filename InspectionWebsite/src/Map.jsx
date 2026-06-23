@@ -167,10 +167,17 @@ function buildWatchCircleGeoJSON(areas) {
 const GRADE_SEVERITY = { C: 0, B: 1, A: 2 };
 
 function worstFirst(a, b) {
-  const ga = GRADE_SEVERITY[a.properties.grade] ?? 3;
-  const gb = GRADE_SEVERITY[b.properties.grade] ?? 3;
+  const pa = a.properties || {}, pb = b.properties || {};
+  // 1. Critical violation present → absolute worst (drives the visible red ring)
+  const ca = pa.has_critical_violation ? 0 : 1;
+  const cb = pb.has_critical_violation ? 0 : 1;
+  if (ca !== cb) return ca - cb;
+  // 2. Grade (C=0 worst → A=2 best)
+  const ga = GRADE_SEVERITY[pa.grade] ?? 3;
+  const gb = GRADE_SEVERITY[pb.grade] ?? 3;
   if (ga !== gb) return ga - gb;
-  return (a.properties.score ?? 100) - (b.properties.score ?? 100);
+  // 3. Lower score first within the same grade
+  return (pa.score ?? 100) - (pb.score ?? 100);
 }
 
 // Collapse same-coordinate features into one rendered circle (worst representative).
@@ -1363,9 +1370,26 @@ export default function Map(props) {
           }
         }
 
-        // Fallback: genuinely different coords at the same screen pixel (rare)
+        // Fallback: different coords at the same screen pixel.
+        // Expand each rendered feature through its coordIndex to catch
+        // ALL establishments at that location, not just what rendered.
         if (group.length > 1) {
-          showGroupPopup(group.slice().sort(worstFirst), 0);
+          const seen = new Set();
+          const collected = [];
+          for (const gf of group) {
+            const geid = gf.properties?.establishment_id;
+            if (!geid || seen.has(geid)) continue;
+            const gsf = featureByEidRef.current[geid];
+            const gck = coordKey((gsf ?? gf).geometry.coordinates);
+            const atCoord = coordIndexRef.current.get(gck) || [gf];
+            for (const af of atCoord) {
+              const aeid = af.properties?.establishment_id;
+              if (!aeid || seen.has(aeid)) continue;
+              seen.add(aeid);
+              collected.push(af);
+            }
+          }
+          showGroupPopup((collected.length ? collected : group).sort(worstFirst), 0);
           return;
         }
 
