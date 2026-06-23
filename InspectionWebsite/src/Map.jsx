@@ -1348,11 +1348,14 @@ export default function Map(props) {
         const { feature: f, group } = groupAtPixel(e.point);
         if (!f) return;
 
-        // Check coordIndex for all establishments at this geographic location.
-        // Since rendering is deduplicated (one circle per coord), group.length
-        // is always 1, but coordIndexRef may have many establishments here.
+        // Look up all establishments at this location via coordIndex.
+        // Use the STORED feature's coordinates (via featureByEidRef), not the
+        // rendered one — MapLibre's queryRenderedFeatures can return coordinates
+        // with slightly different floating-point precision, causing a cache miss.
         {
-          const ck = coordKey(f.geometry.coordinates);
+          const eid = f.properties.establishment_id;
+          const stored = featureByEidRef.current[eid];
+          const ck = coordKey((stored ?? f).geometry.coordinates);
           const allAtCoord = coordIndexRef.current.get(ck) || [];
           if (allAtCoord.length > 1) {
             showGroupPopup(allAtCoord.slice().sort(worstFirst), 0);
@@ -1360,7 +1363,7 @@ export default function Map(props) {
           }
         }
 
-        // Fallback: rendered-group overlap (different coords, same screen pos)
+        // Fallback: genuinely different coords at the same screen pixel (rare)
         if (group.length > 1) {
           showGroupPopup(group.slice().sort(worstFirst), 0);
           return;
