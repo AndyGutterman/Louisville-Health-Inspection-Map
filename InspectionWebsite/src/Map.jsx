@@ -1,3 +1,6 @@
+
+
+
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
@@ -855,17 +858,12 @@ export default function Map(props) {
     });
 
     const headerRow = (() => {
-      const byExact = mergedDesc.find(
-        (r) =>
-          r.inspection_date === p.date &&
-          (r.score ?? null) === (p.score ?? null) &&
-          (r.grade ?? null) === (p.grade ?? null),
-      );
-      if (byExact) return byExact;
-      const byDate = mergedDesc.find((r) => r.inspection_date === p.date);
-      if (byDate) return byDate;
+      // Prioritize the latest inspection (mergedDesc is sorted descending by date)
+      const latest = mergedDesc[0] || null;
+      if (latest && (latest.score ?? 0) > 0) return latest;
+      // If latest has zero score, find the latest non-zero
       const latestNonZero = mergedDesc.find((r) => (r.score ?? 0) > 0);
-      return latestNonZero || mergedDesc[0] || null;
+      return latestNonZero || latest || null;
     })();
 
     // Parse similar-nearby data for the drawer switch links
