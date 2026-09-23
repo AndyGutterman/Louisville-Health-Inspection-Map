@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
@@ -196,7 +193,26 @@ function deduplicateForRender(featureList) {
   const out = [];
   for (const feats of byCoord.values()) {
     if (feats.length === 1) { out.push(feats[0]); continue; }
-    const rep = feats.slice().sort(worstFirst)[0];
+    const sorted = feats.slice().sort(worstFirst);
+    const rep = sorted[0];
+    console.warn(
+      `${feats.length} establishments share one coordinate — only "${rep.properties.name}" ` +
+      `(eid ${rep.properties.establishment_id}) gets a pin here; the rest are suppressed`,
+      sorted.map(f => ({
+        establishment_id: f.properties.establishment_id,
+        name: f.properties.name,
+        address: f.properties.address,
+        score: f.properties.score,
+        grade: f.properties.grade,
+        has_critical_violation: f.properties.has_critical_violation,
+      })),
+    );
+    // Bake every co-located establishment's name + address into the
+    // representative's properties so the search filter can still match
+    // a business whose own pin got suppressed here.
+    const colocatedSearch = sorted
+      .map(f => `${f.properties.name || ""} ${f.properties.address_full || f.properties.address || ""}`)
+      .join(" | ");
     // Merge violation flags: ring appears if ANY establishment here has violations
     out.push({
       ...rep,
@@ -204,6 +220,7 @@ function deduplicateForRender(featureList) {
         ...rep.properties,
         has_critical_violation: feats.some(f => f.properties.has_critical_violation),
         has_any_violation:      feats.some(f => f.properties.has_any_violation),
+        colocated_search: colocatedSearch,
       },
     });
   }
@@ -457,6 +474,8 @@ export default function Map(props) {
   const [facDetailsFor, setFacDetailsFor] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const searchTermRef = useRef("");
+  useEffect(() => { searchTermRef.current = searchTerm.trim().toLowerCase(); }, [searchTerm]);
 
   const [pins, setPins] = useState(PRESETS.balanced);
   const [preset, setPreset] = useState("balanced");
@@ -693,8 +712,32 @@ export default function Map(props) {
 
       const violFlags = await violFlagsPromise;
 
-      const features = allRows
-        .filter((r) => typeof r.lon === "number" && typeof r.lat === "number")
+      // Supabase/PostgREST can return `numeric` columns as strings rather than
+      // JS numbers (to avoid float precision loss), so coerce before checking.
+      // Rows that still fail after coercion are logged instead of silently
+      // dropped, so missing pins are traceable instead of invisible.
+      const coerced = allRows.map((r) => {
+        const lon = typeof r.lon === "number" ? r.lon : Number(r.lon);
+        const lat = typeof r.lat === "number" ? r.lat : Number(r.lat);
+        return { ...r, lon, lat };
+      });
+
+      const features = coerced
+        .filter((r) => {
+          const ok =
+            typeof r.lon === "number" && Number.isFinite(r.lon) &&
+            typeof r.lat === "number" && Number.isFinite(r.lat);
+          if (!ok) {
+            console.warn("Facility missing usable coordinates (no pin will render)", {
+              establishment_id: r.establishment_id,
+              name: r.premise_name,
+              address: r.address,
+              raw_lon: r.lon,
+              raw_lat: r.lat,
+            });
+          }
+          return ok;
+        })
         .map((r, i) => {
           const meta = metaById.get(r.establishment_id) || {};
           const vf   = violFlags.get(r.establishment_id) || {};
@@ -1353,6 +1396,21 @@ export default function Map(props) {
         hoverPopupRef.current = null;
       };
 
+      // When several establishments share one pin, open the popup on the one
+      // matching the active search term (if any) instead of always the
+      // "worst" representative — otherwise a search that only matches a
+      // suppressed co-located business leads nowhere when clicked.
+      const startIndexForSearch = (sortedFeatures) => {
+        const term = searchTermRef.current;
+        if (!term) return 0;
+        const idx = sortedFeatures.findIndex((sf) => {
+          const p = sf.properties;
+          const hay = `${p.name || ""} ${p.address_full || p.address || ""}`.toLowerCase();
+          return hay.includes(term);
+        });
+        return idx >= 0 ? idx : 0;
+      };
+
       const onClick = (e) => {
         hoverPopupRef.current?.remove();
         hoverPopupRef.current = null;
@@ -1371,7 +1429,8 @@ export default function Map(props) {
           const ck = coordKey((stored ?? f).geometry.coordinates);
           const allAtCoord = coordIndexRef.current.get(ck) || [];
           if (allAtCoord.length > 1) {
-            showGroupPopup(allAtCoord.slice().sort(worstFirst), 0);
+            const sorted = allAtCoord.slice().sort(worstFirst);
+            showGroupPopup(sorted, startIndexForSearch(sorted));
             return;
           }
         }
@@ -1395,7 +1454,8 @@ export default function Map(props) {
               collected.push(af);
             }
           }
-          showGroupPopup((collected.length ? collected : group).sort(worstFirst), 0);
+          const sorted = (collected.length ? collected : group).slice().sort(worstFirst);
+          showGroupPopup(sorted, startIndexForSearch(sorted));
           return;
         }
 
@@ -1720,6 +1780,8 @@ export default function Map(props) {
         ["coalesce", ["get", "address"], ""],
         " ",
         ["coalesce", ["get", "zip"], ""],
+        " ",
+        ["coalesce", ["get", "colocated_search"], ""],
       ],
     ];
     const searchExpr = term ? [">=", ["index-of", term, haystack], 0] : null;
