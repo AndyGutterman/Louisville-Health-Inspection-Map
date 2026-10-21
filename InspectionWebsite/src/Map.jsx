@@ -4,12 +4,13 @@ import maplibregl from "maplibre-gl";
 import LearnPage, { LoginModal } from "./LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./lib/supabase.js";
 import InfoDrawer from "./InfoDrawer.jsx";
 import TableView from "./TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
+import { buildWatchCollection, openWatchPopup } from "./watchAreaLayer.js";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import FeedbackModal from "./FeedbackModal.jsx";
@@ -17,10 +18,6 @@ import AccountPage from "./AccountPage.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import WhatsNew from "./WhatsNew.jsx";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-);
 
 const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
 const MIN_ZOOM = 11;
@@ -142,27 +139,6 @@ function coordKey([lon, lat]) {
   return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
 }
 
-function buildWatchCircleGeoJSON(areas) {
-  const features = areas
-    .filter((a) => typeof a.center_lat === "number" && typeof a.center_lon === "number")
-    .map((a) => {
-      const radiusM = a.radius_miles * 1609.34;
-      const N = 64;
-      const coords = [];
-      for (let i = 0; i <= N; i++) {
-        const angle = (i * 2 * Math.PI) / N;
-        const dLon = (radiusM / (111320 * Math.cos(a.center_lat * Math.PI / 180))) * Math.sin(angle);
-        const dLat = (radiusM / 110540) * Math.cos(angle);
-        coords.push([a.center_lon + dLon, a.center_lat + dLat]);
-      }
-      return {
-        type: "Feature",
-        properties: { id: a.id, label: a.label || `${a.radius_miles} mi`, radius_miles: a.radius_miles },
-        geometry: { type: "Polygon", coordinates: [coords] },
-      };
-    });
-  return { type: "FeatureCollection", features };
-}
 
 const GRADE_SEVERITY = { C: 0, B: 1, A: 2 };
 
@@ -571,6 +547,21 @@ export default function Map(props) {
       .select("id, label, center_lat, center_lon, radius_miles")
       .eq("user_id", user.id)
       .then(({ data }) => setWatchAreas(data || []));
+  }, [user]);
+
+  // The account page dispatches this after adding, removing, or changing a watch area.
+  // Without it, the map keeps the list it loaded at sign-in and the new circle never appears.
+  useEffect(() => {
+    if (!user) return;
+    const reload = () => {
+      supabase
+        .from("watchlist_areas")
+        .select("id, label, center_address, center_lat, center_lon, radius_miles")
+        .eq("user_id", user.id)
+        .then(({ data }) => setWatchAreas(data || []));
+    };
+    window.addEventListener("watch-areas-changed", reload);
+    return () => window.removeEventListener("watch-areas-changed", reload);
   }, [user]);
 
   // Which panel sits on top when both are open ('drawer' | 'table')
@@ -1412,6 +1403,10 @@ export default function Map(props) {
       };
 
       const onClick = (e) => {
+        if (pinnedPopupRef.current?.__watchArea) {
+          pinnedPopupRef.current.remove();
+          pinnedPopupRef.current = null;
+        }
         hoverPopupRef.current?.remove();
         hoverPopupRef.current = null;
         lastHoverId.current = null;
@@ -1609,89 +1604,50 @@ export default function Map(props) {
     if (svg) svg.setAttribute("fill", saved ? "currentColor" : "none");
   }, [watchlistEids]);
 
-  // Sync watchlist area bubbles into MapLibre whenever they change
+  // Watch-area circles. Popups share pinnedPopupRef, so only one dialog is open at a time.
   React.useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-
     const apply = () => {
-      const geoJSON = buildWatchCircleGeoJSON(watchAreas);
+      const data = buildWatchCollection(watchAreasRef.current);
       const src = m.getSource("watch-areas");
-      if (src) {
-        src.setData(geoJSON);
-      } else {
-        m.addSource("watch-areas", { type: "geojson", data: geoJSON });
-        m.addLayer({
-          id: "watch-areas-fill",
-          type: "fill",
-          source: "watch-areas",
-          paint: {
-            "fill-color": "#34a853",
-            "fill-opacity": 0.08,
+      if (src) { src.setData(data); return; }
+
+      m.addSource("watch-areas", { type: "geojson", data });
+      m.addLayer({
+        id: "watch-areas-fill",
+        type: "fill",
+        source: "watch-areas",
+        paint: { "fill-color": "#ff9f1c", "fill-opacity": 0.07 },
+      }, "points-null");
+      m.addLayer({
+        id: "watch-areas-line",
+        type: "line",
+        source: "watch-areas",
+        paint: { "line-color": "#ff9f1c", "line-width": 2, "line-opacity": 0.75, "line-dasharray": [2, 1.5] },
+      }, "points-null");
+
+      m.on("click", "watch-areas-fill", (e) => {
+        const id = e.features?.[0]?.properties?.id;
+        const area = watchAreasRef.current.find((a) => a.id === id);
+        if (!area) return;
+        openWatchPopup({
+          maplibregl,
+          map: m,
+          popupRef: pinnedPopupRef,
+          area,
+          lngLat: e.lngLat,
+          onRadius: async (r) => {
+            const { error } = await supabase.from("watchlist_areas").update({ radius_miles: r }).eq("id", area.id);
+            if (!error) setWatchAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, radius_miles: r } : a)));
           },
         });
-        m.addLayer({
-          id: "watch-areas-line",
-          type: "line",
-          source: "watch-areas",
-          paint: {
-            "line-color": "#34a853",
-            "line-width": 2,
-            "line-opacity": 0.55,
-          },
-        });
-
-        // Click bubble to show popup with label + radius presets
-        m.on("click", "watch-areas-fill", (e) => {
-          const props = e.features?.[0]?.properties;
-          if (!props) return;
-          const RADIUS_OPTIONS = [5, 10, 15, 25];
-          const html = `
-            <div style="font-size:13px;min-width:180px">
-              <strong>${props.label}</strong>
-              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-                ${RADIUS_OPTIONS.map((r) =>
-                  `<button
-                    data-areaid="${props.id}" data-radius="${r}"
-                    style="padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;
-                      background:${props.radius_miles === r ? "rgba(52,168,83,0.24)" : "rgba(255,255,255,0.08)"};
-                      border:1px solid ${props.radius_miles === r ? "rgba(52,168,83,0.45)" : "rgba(255,255,255,0.14)"};
-                      color:${props.radius_miles === r ? "#6fcf8a" : "rgba(255,255,255,0.70)"};
-                      cursor:pointer"
-                  >${r} mi</button>`
-                ).join("")}
-              </div>
-            </div>`;
-
-          const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false })
-            .setLngLat(e.lngLat)
-            .setHTML(html)
-            .addTo(m);
-
-          popup.getElement()?.addEventListener("click", async (ev) => {
-            const btn = ev.target.closest("[data-areaid]");
-            if (!btn) return;
-            const areaId = btn.dataset.areaid;
-            const radius = parseInt(btn.dataset.radius, 10);
-            await supabase.from("watchlist_areas")
-              .update({ radius_miles: radius, updated_at: new Date().toISOString() })
-              .eq("id", areaId);
-            setWatchAreas((prev) =>
-              prev.map((a) => a.id === areaId ? { ...a, radius_miles: radius } : a)
-            );
-            popup.remove();
-          });
-        });
-        m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
-        m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
-      }
+      });
+      m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
+      m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
     };
 
-    if (m.isStyleLoaded()) {
-      apply();
-    } else {
-      m.once("idle", apply);
-    }
+    if (m.isStyleLoaded()) apply(); else m.once("idle", apply);
   }, [watchAreas]);
 
   const [draggingPins, setDraggingPins] = useState(false);
@@ -1904,7 +1860,8 @@ export default function Map(props) {
     beginDrawerLoad(row.establishment_id, row);
   }, [beginDrawerLoad]);
 
-  return (
+  
+return (
     <>
       <header className="app-header">
         <div className="header-inner">
