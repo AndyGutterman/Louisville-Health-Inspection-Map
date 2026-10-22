@@ -61,6 +61,18 @@ const STYLES = `
 .wl-place-score.poor { color: #ea4335; }
 .wl-place-date { font-size: 0.64rem; color: rgba(255,255,255,0.40); margin-top: 1px; }
 .wl-crit { font-size: 0.64rem; color: #ff9a9a; margin-top: 2px; }
+.wl-click { cursor: pointer; transition: background .12s, border-color .12s; }
+.wl-click:focus-visible { outline: 2px solid rgba(255,255,255,0.30); outline-offset: 2px; }
+.wl-place.wl-click:hover { background: rgba(255,255,255,0.07); }
+.wl-place.active { background: rgba(255,255,255,0.09); border-left-color: rgba(255,159,28,0.85); }
+.wl-place.active.fail { border-left-color: #ea4335; }
+.wl-grow.wl-click:hover .wl-name { text-decoration: underline; text-underline-offset: 3px; }
+.wl-item.active { border-color: rgba(255,159,28,0.45); }
+
+/* Side-panel layout: the panel is narrower than the viewport, so ignore viewport breakpoints */
+.wl-compact .wl-add-opts { grid-template-columns: 1fr; }
+.wl-compact .wl-item { padding: 12px; }
+
 .wl-more { align-self: center; padding: 7px 16px; border-radius: 999px; background: transparent;
   border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.6); font-size: 0.72rem; font-weight: 700;
   cursor: pointer; font-family: inherit; }
@@ -110,9 +122,15 @@ function sortPlaces(rows, key) {
   return copy;
 }
 
-function PlaceRow({ p }) {
+function PlaceRow({ p, active, onOpen }) {
   return (
-    <div className={`wl-place${p.failing ? " fail" : ""}`}>
+    <div
+      className={`wl-place${p.failing ? " fail" : ""}${active ? " active" : ""}${onOpen ? " wl-click" : ""}`}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen ? () => onOpen(p) : undefined}
+      onKeyDown={onOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(p); } } : undefined}
+    >
       <div className="wl-place-main">
         <div className="wl-place-name">{p.name}</div>
         <div className="wl-place-addr">
@@ -132,7 +150,15 @@ function PlaceRow({ p }) {
   );
 }
 
-export default function WatchlistTab({ supabase, user }) {
+export default function WatchlistTab({
+  supabase,
+  user,
+  compact = false,
+  onOpenEstablishment, // (establishment_id, row) => void; makes restaurant rows clickable
+  activeEid,           // establishment currently shown in the info drawer
+  onItemRemoved,       // (establishment_id) => void; tells the map the bookmark is gone
+  refreshToken,        // changes whenever the map/drawer adds or removes a bookmark
+}) {
   const [items, setItems] = useState([]);
   const [areas, setAreas] = useState([]);
   const [zones, setZones] = useState({});
@@ -163,6 +189,38 @@ export default function WatchlistTab({ supabase, user }) {
     });
   }, [supabase, user]);
 
+  // The map and info drawer can now change bookmarks while this list is on screen.
+  const firstRefresh = React.useRef(true);
+  useEffect(() => {
+    if (firstRefresh.current) { firstRefresh.current = false; return; }
+    if (!supabase || !user) return;
+    supabase
+      .from("v_watchlist_with_latest")
+      .select("*")
+      .eq("user_id", user.id)
+      .then(({ data }) => { if (data) setItems(data); });
+  }, [refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ...and the map's circle editor can move or resize a watch area while this list is on screen.
+  useEffect(() => {
+    if (!supabase || !user) return;
+    let timer;
+    const onExternal = (e) => {
+      if (e.detail?.source === "watchlist") return; // our own change
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const { data } = await supabase
+          .from("watchlist_areas")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        if (data) { setAreas(data); setZones({}); }
+      }, 350);
+    };
+    window.addEventListener("watch-areas-changed", onExternal);
+    return () => { clearTimeout(timer); window.removeEventListener("watch-areas-changed", onExternal); };
+  }, [supabase, user]);
+
   useEffect(() => {
     let cancelled = false;
     areas.forEach((a) => {
@@ -179,9 +237,13 @@ export default function WatchlistTab({ supabase, user }) {
   }, [areas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function removeItem(id) {
+    const gone = items.find((i) => i.id === id);
     await supabase.from("watchlist").delete().eq("id", id);
     setItems((prev) => prev.filter((i) => i.id !== id));
+    if (gone) onItemRemoved?.(gone.establishment_id);
   }
+
+  const openRow = (row) => onOpenEstablishment?.(row.establishment_id, row);
 
   async function addArea() {
     if (!pick || saving || areas.length >= CAPS.areas) return;
@@ -205,7 +267,7 @@ export default function WatchlistTab({ supabase, user }) {
       return;
     }
     setAreas((prev) => [data, ...prev]);
-    window.dispatchEvent(new Event("watch-areas-changed"));
+    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
     setPick(null);
     setAreaLabel("");
     setPickerKey((k) => k + 1);
@@ -214,7 +276,7 @@ export default function WatchlistTab({ supabase, user }) {
   async function removeArea(id) {
     await supabase.from("watchlist_areas").delete().eq("id", id);
     setAreas((prev) => prev.filter((a) => a.id !== id));
-    window.dispatchEvent(new Event("watch-areas-changed"));
+    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
   }
 
   async function updateAreaRadius(id, r) {
@@ -225,7 +287,7 @@ export default function WatchlistTab({ supabase, user }) {
     }
     setZones((prev) => { const n = { ...prev }; delete n[id]; return n; });
     setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, radius_miles: r } : a)));
-    window.dispatchEvent(new Event("watch-areas-changed"));
+    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
   }
 
   if (loading) {
@@ -240,7 +302,7 @@ export default function WatchlistTab({ supabase, user }) {
   const atAreaCap = areas.length >= CAPS.areas;
 
   return (
-    <>
+    <div className={compact ? "wl-compact" : undefined}>
       <style>{STYLES}</style>
 
       {banner && <div className="wl-banner" role="alert">{banner}</div>}
@@ -255,9 +317,15 @@ export default function WatchlistTab({ supabase, user }) {
         ) : (
           <div className="wl-list">
             {items.map((item) => (
-              <div key={item.id} className="wl-item">
+              <div key={item.id} className={`wl-item${activeEid && activeEid === item.establishment_id ? " active" : ""}`}>
                 <div className="wl-row">
-                  <div className="wl-grow">
+                  <div
+                    className={`wl-grow${onOpenEstablishment ? " wl-click" : ""}`}
+                    role={onOpenEstablishment ? "button" : undefined}
+                    tabIndex={onOpenEstablishment ? 0 : undefined}
+                    onClick={onOpenEstablishment ? () => openRow(item) : undefined}
+                    onKeyDown={onOpenEstablishment ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRow(item); } } : undefined}
+                  >
                     <div className="wl-name">{item.name}</div>
                     <div className="wl-sub">{[item.address, item.city].filter(Boolean).join(", ")}</div>
                     <div className={`wl-score ${scoreClass(item.score)}`}>
@@ -337,7 +405,14 @@ export default function WatchlistTab({ supabase, user }) {
                   <div className="wl-empty" style={{ padding: 0 }}>No restaurants inside this radius.</div>
                 )}
 
-                {rows.slice(0, shown).map((p) => <PlaceRow key={p.establishment_id} p={p} />)}
+                {rows.slice(0, shown).map((p) => (
+                  <PlaceRow
+                    key={p.establishment_id}
+                    p={p}
+                    active={!!activeEid && activeEid === p.establishment_id}
+                    onOpen={onOpenEstablishment ? openRow : undefined}
+                  />
+                ))}
 
                 {rows.length > shown && (
                   <button
@@ -390,6 +465,6 @@ export default function WatchlistTab({ supabase, user }) {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

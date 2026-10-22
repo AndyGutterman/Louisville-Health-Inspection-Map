@@ -14,7 +14,7 @@ import { buildWatchCollection, openWatchEditor } from "./watchAreaLayer.js";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import FeedbackModal from "./FeedbackModal.jsx";
-import AccountPage from "./AccountPage.jsx";
+import AccountPage, { ACCOUNT_PANEL_W } from "./AccountPage.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import WhatsNew from "./WhatsNew.jsx";
 
@@ -391,6 +391,20 @@ function OverlapNav({ index, total, onPrev, onNext }) {
   );
 }
 
+// True while the viewport matches the query (phones: max-width 600px, same breakpoint as InfoDrawer).
+function useMediaQuery(query) {
+  const get = () => typeof window !== "undefined" && window.matchMedia(query).matches;
+  const [matches, setMatches] = useState(get);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
 export default function Map(props) {
   const { user } = useAuth();
   const mapContainerRef = useRef(null);
@@ -558,7 +572,8 @@ export default function Map(props) {
   // Without it, the map keeps the list it loaded at sign-in and the new circle never appears.
   useEffect(() => {
     if (!user) return;
-    const reload = () => {
+    const reload = (e) => {
+      if (e?.detail?.source === "map") return; // our own edit, state is already current
       supabase
         .from("watchlist_areas")
         .select("id, label, center_address, center_lat, center_lon, radius_miles")
@@ -568,6 +583,8 @@ export default function Map(props) {
     window.addEventListener("watch-areas-changed", reload);
     return () => window.removeEventListener("watch-areas-changed", reload);
   }, [user]);
+
+  useEffect(() => { if (!user) setAccountOpen(false); }, [user]);
 
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
@@ -591,7 +608,12 @@ export default function Map(props) {
   }, [dateFilterKey]);
 
   // Page routing
-  const [page, setPage] = useState("map");
+  const [page, setPage] = useState("map"); // "map" | "learn"
+  // The account view is no longer a page: on desktop it's a side panel next to the info drawer,
+  // on phones it's a full-screen overlay (accountFullscreen) that the info drawer pops up over.
+  const [accountOpen, setAccountOpen] = useState(false);
+  const isMobile = useMediaQuery("(max-width: 600px)");
+  const accountFullscreen = accountOpen && isMobile && page === "map";
   const [loginOpen, setLoginOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
@@ -1528,6 +1550,8 @@ export default function Map(props) {
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".control-card")?.contains(ev.target)) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
+        if (document.querySelector(".acct-panel")?.contains(ev.target)) return; // account panel works beside the drawer
+        if (ev.target.closest?.(".header-nav-btn--account")) return;
         if (document.querySelector(".table-panel")?.contains(ev.target)) return;
         if (document.querySelector(".table-toggle-btn")?.contains(ev.target)) return;
 
@@ -1664,7 +1688,11 @@ export default function Map(props) {
                 update.center_address = `${patch.center_lat.toFixed(4)}, ${patch.center_lon.toFixed(4)}`;
               }
               const { error } = await supabase.from("watchlist_areas").update(update).eq("id", area.id);
-              if (!error) setWatchAreas((list) => list.map((a) => (a.id === area.id ? { ...a, ...update } : a)));
+              if (!error) {
+              setWatchAreas((list) => list.map((a) => (a.id === area.id ? { ...a, ...update } : a)));
+              // Lets an open account panel refresh its list for this area
+              window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "map" } }));
+            }
             },
           });
         });
@@ -1894,14 +1922,55 @@ export default function Map(props) {
   }, [beginDrawerLoad]);
 
   
-return (
+const closeDrawer = () => {
+    setSelected(null);
+    setHistory(null);
+    setHistoryFor(null);
+    setFacDetails(null);
+    setFacDetailsFor(null);
+    setDrawerLoading(false);
+    loadSeqRef.current++;
+  };
+
+  // A row was clicked in the account panel / page: show that place in the info drawer.
+  const openFromAccount = (eid, row) => {
+    const f = featureByEidRef.current[eid];
+    const p = f?.properties ?? {
+      name: row?.name,
+      address: row?.address,
+      date: row?.inspection_date,
+      score: row?.score ?? null,
+      grade: row?.grade ?? null,
+    };
+    if (!isMobile && f) {
+      // Desktop: the map is visible beside the panels, so also pin and center the place
+      openEstablishmentPopupRef.current?.(eid);
+      mapRef.current?.easeTo({
+        center: f.geometry.coordinates,
+        offset: [-Math.round((ACCOUNT_PANEL_W + 12 + 420) / 2), 0], // keep it clear of the right-hand panels
+        duration: 450,
+      });
+    }
+    beginDrawerLoad(eid, p);
+  };
+
+  const toggleAccount = () => {
+    if (accountOpen && page === "map") { setAccountOpen(false); return; }
+    setPage("map");
+    if (isMobile) closeDrawer(); // phones: don't leave a bottom sheet over the account page
+    setAccountOpen(true);
+  };
+
+  const backToMap = () => { setPage("map"); setAccountOpen(false); };
+
+  return (
     <>
       <header className="app-header">
         <div className="header-inner">
 
           {/* Left slot: search (map) or back-to-map link (learn) */}
           <div className="header-search">
-            {page === "map" ? (
+            {page === "map" && !accountFullscreen ? (
               <div className="search-wrap">
                 <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
                   <path
@@ -1919,7 +1988,7 @@ return (
             ) : (
               <button
                 className="header-nav-btn"
-                onClick={() => setPage("map")}
+                onClick={backToMap}
                 style={{ gap: 5 }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -1936,7 +2005,7 @@ return (
           <div
             className="brand"
             style={{ cursor: "pointer" }}
-            onClick={() => setPage("map")}
+            onClick={backToMap}
             title="Louisville Food Safe — back to map"
           >
             <span className="brand-louisville">LOUISVILLE</span>
@@ -1971,8 +2040,8 @@ return (
             </button>
             {user ? (
               <button
-                className={`header-nav-btn${page === "account" ? " active" : ""}`}
-                onClick={() => setPage("account")}
+                className={`header-nav-btn header-nav-btn--account${accountOpen && page === "map" ? " active" : ""}`}
+                onClick={toggleAccount}
                 title={user.email}
               >
                 <span style={{
@@ -2025,14 +2094,17 @@ return (
         <LoginModal onClose={() => setLoginOpen(false)} />
       )}
 
-      {/* Account page overlay */}
-      {page === "account" && user && (
+      {/* Account: side panel on desktop, full-screen page on phones */}
+      {page === "map" && accountOpen && user && (
         <AccountPage
-          onOpenEstablishment={(eid) => {
-            setPage("map");
-            const f = featureByEidRef.current[eid];
-            if (f) beginDrawerLoad(eid, f.properties);
-          }}
+          variant={isMobile ? "page" : "panel"}
+          onClose={() => setAccountOpen(false)}
+          onOpenEstablishment={openFromAccount}
+          activeEid={selected?.establishment_id}
+          onItemRemoved={(eid) =>
+            setWatchlistEids((prev) => { const s = new Set(prev); s.delete(eid); return s; })
+          }
+          refreshToken={watchlistEids}
         />
       )}
 
@@ -2048,10 +2120,47 @@ return (
       <div
         ref={mapContainerRef}
         className="map-container"
-        style={page !== "map" ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+        style={page !== "map" || accountFullscreen ? { visibility: "hidden", pointerEvents: "none" } : undefined}
       />
 
       {page === "map" && (
+        <InfoDrawer
+          selected={selected}
+          drawerLoading={drawerLoading}
+          history={history}
+          facDetails={facDetails}
+          pins={pins}
+          zIndex={frontPanel === "drawer" ? 3100 : 2900}
+          onBringToFront={() => setFrontPanel("drawer")}
+          onSwitchTo={(switchEid) => {
+            const f = featureByEidRef.current[switchEid];
+            if (f) beginDrawerLoad(switchEid, f.properties);
+          }}
+          onClose={closeDrawer}
+          rightOffset={accountOpen && !isMobile && user ? ACCOUNT_PANEL_W + 12 : 0}
+          watchlisted={selected ? watchlistEids.has(selected.establishment_id) : false}
+          onSaveToWatchlist={async (eid) => {
+            if (!eid) return;
+            if (!user) { setLoginOpen(true); return; }
+            if (watchlistEids.has(eid)) {
+              // Remove only the clicked permit — user removes the other themselves
+              await supabase.from("watchlist").delete()
+                .eq("user_id", user.id).eq("establishment_id", eid);
+              setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
+            } else {
+              // Save this eid AND any similar-nearby permits (same place, different permit)
+              const similarEids = getSimilarEids(eid);
+              const allNew = [eid, ...similarEids].filter(e => !watchlistEids.has(e));
+              if (allNew.length > 0) {
+                await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
+                setWatchlistEids(prev => new Set([...prev, ...allNew]));
+              }
+            }
+          }}
+        />
+      )}
+
+      {page === "map" && !accountFullscreen && (
         <>
           <FilterSearch
             searchTerm={searchTerm}
@@ -2083,48 +2192,6 @@ return (
             dateFilterKey={dateFilterKey}
             setDateFilterKey={setDateFilterKey}
             dateFilterOpts={DATE_FILTER_OPTS}
-          />
-
-          <InfoDrawer
-            selected={selected}
-            drawerLoading={drawerLoading}
-            history={history}
-            facDetails={facDetails}
-            pins={pins}
-            zIndex={frontPanel === "drawer" ? 3100 : 2900}
-            onBringToFront={() => setFrontPanel("drawer")}
-            onSwitchTo={(switchEid) => {
-              const f = featureByEidRef.current[switchEid];
-              if (f) beginDrawerLoad(switchEid, f.properties);
-            }}
-            onClose={() => {
-              setSelected(null);
-              setHistory(null);
-              setHistoryFor(null);
-              setFacDetails(null);
-              setFacDetailsFor(null);
-              setDrawerLoading(false);
-              loadSeqRef.current++;
-            }}
-            watchlisted={selected ? watchlistEids.has(selected.establishment_id) : false}
-            onSaveToWatchlist={async (eid) => {
-              if (!eid) return;
-              if (!user) { setLoginOpen(true); return; }
-              if (watchlistEids.has(eid)) {
-                // Remove only the clicked permit — user removes the other themselves
-                await supabase.from("watchlist").delete()
-                  .eq("user_id", user.id).eq("establishment_id", eid);
-                setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
-              } else {
-                // Save this eid AND any similar-nearby permits (same place, different permit)
-                const similarEids = getSimilarEids(eid);
-                const allNew = [eid, ...similarEids].filter(e => !watchlistEids.has(e));
-                if (allNew.length > 0) {
-                  await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
-                  setWatchlistEids(prev => new Set([...prev, ...allNew]));
-                }
-              }
-            }}
           />
 
           {!tableOpen && (

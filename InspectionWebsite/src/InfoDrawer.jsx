@@ -431,7 +431,8 @@ function useIsMobile() {
 const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist }) {
+// rightOffset (desktop only): px to slide left so another right-hand panel (the account panel) can sit beside it.
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist, rightOffset = 0 }) {
   const isMobile = useIsMobile();
 
   // Horizontal resize — desktop only
@@ -468,11 +469,13 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
     borderRadius: "14px 14px 0 0",
   } : {
     position: "fixed",
-    right: 16,
+    right: 16 + rightOffset,
     top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
     bottom: 16,
-    width: drawerW,
+    // Never run off the left edge when another panel is beside us
+    width: Math.max(300, Math.min(drawerW, window.innerWidth - 16 - rightOffset - 24)),
     borderRadius: 12,
+    transition: "right .24s ease",
   };
 
   return (
