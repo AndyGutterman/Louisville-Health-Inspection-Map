@@ -7,7 +7,6 @@ const PAGE = 25;
 const SORTS = [
   { key: "distance", label: "Distance" },
   { key: "score", label: "Score" },
-  { key: "priority", label: "Priority" },
   { key: "critical", label: "Critical" },
 ];
 
@@ -97,17 +96,17 @@ const scoreClass = (s) => (s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 7
 const fmtDate = (d) =>
   d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
 
-// Distance: nearest first. Score: highest first. Priority: failing first, then most critical, then lowest score.
-// Critical: most critical violations first, ties broken by highest score.
+// Distance: nearest first. Score: highest first.
+// Critical: failing first, then most critical violations, then lowest score.
+// ("Priority" is the health department's new name for "critical", so there is one sort for both.)
 function sortPlaces(rows, key) {
   const hi = (r) => (r.score == null || r.score === 0 ? -1 : r.score);
   const lo = (r) => (r.score == null || r.score === 0 ? 999 : r.score);
   const copy = [...rows];
   if (key === "distance") copy.sort((a, b) => (a.distance_mi ?? 1e9) - (b.distance_mi ?? 1e9));
   if (key === "score") copy.sort((a, b) => hi(b) - hi(a));
-  if (key === "priority")
+  if (key === "critical")
     copy.sort((a, b) => Number(b.failing) - Number(a.failing) || b.critical_6mo - a.critical_6mo || lo(a) - lo(b));
-  if (key === "critical") copy.sort((a, b) => b.critical_6mo - a.critical_6mo || hi(b) - hi(a));
   return copy;
 }
 

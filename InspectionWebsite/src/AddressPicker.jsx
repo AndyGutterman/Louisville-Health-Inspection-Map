@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-
 // Address autocomplete, called directly from the browser.
 // Needs VITE_GEOAPIFY_KEY in .env (local) and in Netlify (production).
 // The key must be referrer-restricted to localhost:5173 and your Netlify domain.

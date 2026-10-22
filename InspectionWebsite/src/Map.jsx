@@ -10,7 +10,7 @@ import TableView from "./TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
-import { buildWatchCollection, openWatchPopup } from "./watchAreaLayer.js";
+import { buildWatchCollection, openWatchEditor } from "./watchAreaLayer.js";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import FeedbackModal from "./FeedbackModal.jsx";
@@ -20,6 +20,7 @@ import WhatsNew from "./WhatsNew.jsx";
 
 
 const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
+
 const MIN_ZOOM = 11;
 
 const SCORE_MIN = 1;
@@ -533,6 +534,10 @@ export default function Map(props) {
     };
   }, [user, watchlistEids]);
 
+  // True once the map exists and its pin layers are in. The watch-area circles wait for this,
+  // because the map is only created after the facilities data arrives.
+  const [mapReady, setMapReady] = useState(false);
+
   // Watchlist areas (radius bubbles) — only loaded when user is signed in
   const [watchAreas, setWatchAreas] = useState([]);
   const watchAreasRef = useRef([]);
@@ -544,7 +549,7 @@ export default function Map(props) {
     if (!user) { setWatchAreas([]); return; }
     supabase
       .from("watchlist_areas")
-      .select("id, label, center_lat, center_lon, radius_miles")
+      .select("id, label, center_address, center_lat, center_lon, radius_miles")
       .eq("user_id", user.id)
       .then(({ data }) => setWatchAreas(data || []));
   }, [user]);
@@ -1061,6 +1066,8 @@ export default function Map(props) {
         },
       });
 
+      setMapReady(true);
+
       const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
       const styleZ = (() => {
         let idx = null;
@@ -1517,6 +1524,7 @@ export default function Map(props) {
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
         if ((p1 && p1.contains(ev.target)) || (p2 && p2.contains(ev.target))) return;
+        if (ev.target.closest?.(".wa-handle")) return;
         if (document.querySelector(".bands.open")) return;
         if (document.querySelector(".control-card")?.contains(ev.target)) return;
         if (document.querySelector(".info-drawer")?.contains(ev.target)) return;
@@ -1608,47 +1616,72 @@ export default function Map(props) {
   React.useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
+
     const apply = () => {
-      const data = buildWatchCollection(watchAreasRef.current);
-      const src = m.getSource("watch-areas");
-      if (src) { src.setData(data); return; }
+      try {
+        const data = buildWatchCollection(watchAreasRef.current);
+        const src = m.getSource("watch-areas");
+        if (src) src.setData(data);
+        else m.addSource("watch-areas", { type: "geojson", data });
 
-      m.addSource("watch-areas", { type: "geojson", data });
-      m.addLayer({
-        id: "watch-areas-fill",
-        type: "fill",
-        source: "watch-areas",
-        paint: { "fill-color": "#ff9f1c", "fill-opacity": 0.07 },
-      }, "points-null");
-      m.addLayer({
-        id: "watch-areas-line",
-        type: "line",
-        source: "watch-areas",
-        paint: { "line-color": "#ff9f1c", "line-width": 2, "line-opacity": 0.75, "line-dasharray": [2, 1.5] },
-      }, "points-null");
+        // The circle layers sit under the pins, so they can only be added once the pin
+        // layers exist. Until then this returns and a later styledata event retries.
+        if (m.getLayer("watch-areas-fill") || !m.getLayer("points-null")) return;
 
-      m.on("click", "watch-areas-fill", (e) => {
-        const id = e.features?.[0]?.properties?.id;
-        const area = watchAreasRef.current.find((a) => a.id === id);
-        if (!area) return;
-        openWatchPopup({
-          maplibregl,
-          map: m,
-          popupRef: pinnedPopupRef,
-          area,
-          lngLat: e.lngLat,
-          onRadius: async (r) => {
-            const { error } = await supabase.from("watchlist_areas").update({ radius_miles: r }).eq("id", area.id);
-            if (!error) setWatchAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, radius_miles: r } : a)));
-          },
+        m.addLayer({
+          id: "watch-areas-fill",
+          type: "fill",
+          source: "watch-areas",
+          paint: { "fill-color": "#ff9f1c", "fill-opacity": 0.07 },
+        }, "points-null");
+        m.addLayer({
+          id: "watch-areas-line",
+          type: "line",
+          source: "watch-areas",
+          paint: { "line-color": "#ff9f1c", "line-width": 2, "line-opacity": 0.75, "line-dasharray": [2, 1.5] },
+        }, "points-null");
+
+        m.on("click", "watch-areas-fill", (e) => {
+          // Establishment pins win: a tap on a pin is never also a tap on the circle.
+          const pinLayers = DRAW_ORDER.map((k) => `points-${k}`).filter((id) => m.getLayer(id));
+          if (m.queryRenderedFeatures(e.point, { layers: pinLayers }).length) return;
+
+          const id = e.features?.[0]?.properties?.id;
+          const area = watchAreasRef.current.find((a) => a.id === id);
+          if (!area) return;
+          openWatchEditor({
+            maplibregl,
+            map: m,
+            popupRef: pinnedPopupRef,
+            area,
+            getAreas: () => watchAreasRef.current,
+            onCommit: async (patch) => {
+              const prev = watchAreasRef.current.find((a) => a.id === area.id) || area;
+              const update = { radius_miles: patch.radius_miles };
+              if (patch.center_lat !== prev.center_lat || patch.center_lon !== prev.center_lon) {
+                update.center_lat = patch.center_lat;
+                update.center_lon = patch.center_lon;
+                update.center_address = `${patch.center_lat.toFixed(4)}, ${patch.center_lon.toFixed(4)}`;
+              }
+              const { error } = await supabase.from("watchlist_areas").update(update).eq("id", area.id);
+              if (!error) setWatchAreas((list) => list.map((a) => (a.id === area.id ? { ...a, ...update } : a)));
+            },
+          });
         });
-      });
-      m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
-      m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
+        m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
+        m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
+      } catch {
+        // Style not ready yet; the styledata listener below retries.
+      }
     };
 
-    if (m.isStyleLoaded()) apply(); else m.once("idle", apply);
-  }, [watchAreas]);
+    apply();
+
+    // Keep retrying until the circle layers exist (cheap once they do).
+    const retry = () => { if (!m.getLayer("watch-areas-fill")) apply(); };
+    m.on("styledata", retry);
+    return () => m.off("styledata", retry);
+  }, [watchAreas, mapReady]);
 
   const [draggingPins, setDraggingPins] = useState(false);
   React.useEffect(() => {
