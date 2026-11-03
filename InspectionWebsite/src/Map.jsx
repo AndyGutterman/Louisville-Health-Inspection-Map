@@ -844,6 +844,10 @@ export default function Map(props) {
   // Hoisted from map.on('load') so table rows can trigger drawer
   const beginDrawerLoad = async (eid, p) => {
     const seq = ++loadSeqRef.current;
+    // Records with no usable coordinates never become map features (see the
+    // "missing usable coordinates" filter above). The drawer still opens for
+    // them, flagged so it can explain why there is no pin.
+    const noLocation = !featureByEidRef.current[eid];
     setDrawerLoading(true);
     setHistory(null);
     setHistoryFor(null);
@@ -866,6 +870,7 @@ export default function Map(props) {
       _displayedInspectionId: null,
       similarNearby: quickSimilar,
       metaTitle: "",
+      noLocation,
     });
 
     // ── Phase 2: fetch full history, violations, and facility details ──
@@ -942,6 +947,7 @@ export default function Map(props) {
           score: headerRow.score ?? null,
           grade: headerRow.grade ?? null,
           _displayedInspectionId: headerRow.inspection_id,
+          noLocation,
           similarNearby,
           metaTitle:
             (headerRow.score ?? 0) > 0
@@ -956,6 +962,7 @@ export default function Map(props) {
           score: p.score ?? null,
           grade: p.grade ?? null,
           _displayedInspectionId: null,
+          noLocation,
           similarNearby,
           meta: null,
         };
@@ -2214,11 +2221,23 @@ const closeDrawer = () => {
             open={whatsNewOpen}
             onClose={() => setWhatsNewOpen(false)}
             onOpen={() => { setWhatsNewOpen(true); setTableOpen(false); }}
-            onOpenEstablishment={(eid) => {
-              // Show pinned popup (as if user clicked the pin) + open drawer
-              openEstablishmentPopupRef.current?.(eid);
+            onOpenEstablishment={(eid, row) => {
               const f = featureByEidRef.current[eid];
-              if (f) beginDrawerLoad(eid, f.properties);
+              if (f) {
+                // Has a pin: show pinned popup (as if user clicked the pin) + open drawer
+                openEstablishmentPopupRef.current?.(eid);
+                beginDrawerLoad(eid, f.properties);
+              } else {
+                // No pin (missing coordinates): still open the drawer from the
+                // row's own data, and leave the map alone.
+                beginDrawerLoad(eid, {
+                  name: row?.premise_name,
+                  address: row?.address,
+                  date: row?.inspection_date ?? row?.inspection_date_recent,
+                  score: row?.score ?? row?.score_recent ?? null,
+                  grade: row?.grade ?? row?.grade_recent ?? null,
+                });
+              }
             }}
             onHoverEstablishment={(eid) => hoverEstablishmentPopupRef.current?.(eid)}
             onHoverEstablishmentEnd={() => hoverEstablishmentEndRef.current?.()}

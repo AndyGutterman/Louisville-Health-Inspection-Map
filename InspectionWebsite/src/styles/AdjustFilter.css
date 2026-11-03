@@ -11,17 +11,17 @@
 .rx-tabs-list {
   display: flex;
   gap: 3px;
-  padding: 4px;
+  padding: 3px;
   background: rgba(0,0,0,0.20);
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.07);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .rx-tab {
   all: unset;
   flex: 1;
-  padding: 6px 10px;
+  padding: 5px 10px;
   border-radius: 7px;
   font-size: .72rem;
   font-weight: 800;
@@ -41,7 +41,7 @@
 }
 
 .rx-tab-content {
-  padding: 4px 0 6px;
+  padding: 2px 0;
 }
 
 /* ── Preset buttons ── */
@@ -173,8 +173,8 @@
 .cat-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
+  margin-top: 0;
 }
 
 .filter-panel-header {
@@ -228,27 +228,27 @@
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
   justify-items: stretch;
 }
 
 .cat-tile {
   position: relative;
   text-align: center;
-  padding: 8px 6px;
-  border-radius: 10px;
+  padding: 5px 4px;
+  border-radius: 9px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.50);
   font-weight: 700;
   line-height: 1.1;
   user-select: none;
-  height: 76px;
+  height: 56px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   cursor: pointer;
   transition: background .12s, border-color .12s, color .12s;
 }
@@ -266,10 +266,42 @@
   color: #fff;
 }
 
-.cat-icon { width: 26px; height: 26px; }
+/* Selected tiles pick up their category accent (set via --tile-accent) */
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+  .cat-tile[data-checked="true"] {
+    background: color-mix(in srgb, var(--tile-accent, #fff) 14%, rgba(255,255,255,0.04));
+    border-color: color-mix(in srgb, var(--tile-accent, #fff) 50%, transparent);
+  }
+}
+
+.cat-icon { width: 20px; height: 20px; display: flex; }
+.cat-icon svg { width: 100%; height: 100%; }
+
+/* ── Bulk All off / All on — lives in the grid's spare cell ── */
+.cat-bulk {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  box-sizing: border-box;
+  background: rgba(0,0,0,0.20);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 9px;
+}
+
+.cat-bulk .seg-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-size: .64rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
 
 .cat-label {
-  font-size: .76rem;
+  font-size: .72rem;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -293,9 +325,19 @@
 
 @media (max-width: 600px) {
   .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-  .cat-tile { height: 68px; border-radius: 9px; }
-  .cat-label { font-size: .72rem; white-space: normal; }
-  .cat-icon  { width: 22px; height: 22px; }
+  .cat-tile { height: 54px; border-radius: 9px; }
+  .cat-label { font-size: .7rem; white-space: normal; }
+  .cat-icon  { width: 18px; height: 18px; }
+}
+
+/* Two-column layout (narrow phones): 8 tiles fill the grid evenly, so the
+   bulk toggle becomes a slim full-width row instead of a cell. */
+@media (max-width: 429px) {
+  .cat-bulk {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+  .cat-bulk .seg-option { padding: 7px 8px; font-size: .68rem; }
 }
 
 @media (min-width: 430px) and (max-width: 900px) {

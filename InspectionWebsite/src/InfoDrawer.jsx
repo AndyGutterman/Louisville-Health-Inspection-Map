@@ -25,7 +25,7 @@ const displayField = (v) =>
 
 function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveToWatchlist, onClose }) {
   if (!data) return null;
-  const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby } = data;
+  const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby, noLocation } = data;
   const gradeDisplay =
     grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
@@ -78,6 +78,18 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="inspect-card_title">{name}</div>
             <div className="inspect-card_sub">{address}</div>
+            {noLocation && (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: ".78rem",
+                  fontStyle: "italic",
+                  color: "rgba(255,255,255,0.60)",
+                }}
+              >
+                No map location on file for this establishment.
+              </div>
+            )}
           </div>
           {/* Bookmark (rounded container) + plain × — top-right of card */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 3, flexShrink: 0 }}
@@ -89,6 +101,9 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
                 style={{
                   width: 28, height: 28,
+                  minWidth: 28, minHeight: 28, maxWidth: 28, maxHeight: 28,
+                  boxSizing: "border-box", padding: 0, margin: 0,
+                  flexShrink: 0, lineHeight: 1,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: watchlisted ? "rgba(52,168,83,0.25)" : "rgba(255,255,255,0.07)",
                   border: `1px solid ${watchlisted ? "rgba(52,168,83,0.50)" : "rgba(255,255,255,0.14)"}`,
@@ -549,6 +564,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             meta: selected.meta,
             metaTitle: selected.metaTitle,
             similarNearby: selected.similarNearby,
+            noLocation: selected.noLocation,
           }}
           details={facDetails}
           pins={pins}

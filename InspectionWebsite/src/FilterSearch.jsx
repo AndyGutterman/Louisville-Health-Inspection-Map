@@ -99,6 +99,20 @@ function Icon({ k, active }) {
   }
 }
 
+// One accent per category, used for the selected tile's icon, border and tint.
+// Deliberately distinct hues; the pin colours (red/amber/green) are left to
+// the pins so tiles don't read as score filters.
+const CAT_ACCENTS = {
+  restaurants: "#fb923c",
+  schools: "#60a5fa",
+  daycare: "#f472b6",
+  hospitals: "#2dd4bf",
+  concessions: "#fbbf24",
+  caterers_commissary: "#a78bfa",
+  retail: "#a3e635",
+  unknown: "#94a3b8",
+};
+
 export default function FilterSearch({
   searchTerm,
   setSearchTerm,
@@ -126,6 +140,27 @@ export default function FilterSearch({
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMedia("(min-width: 900px)");
+  const cardRef = React.useRef(null);
+
+  // Publish the card's bottom edge as --filter-bottom so other panels
+  // (What's New) can size themselves to sit beneath it instead of under it.
+  React.useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return undefined;
+    const root = document.documentElement;
+    const publish = () => {
+      root.style.setProperty("--filter-bottom", `${Math.ceil(el.getBoundingClientRect().bottom)}px`);
+    };
+    publish();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", publish);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.removeProperty("--filter-bottom");
+    };
+  }, []);
 
 
   React.useEffect(() => {
@@ -170,6 +205,7 @@ export default function FilterSearch({
   return (
     <div className="controls">
       <div
+        ref={cardRef}
         className={`control-card ${collapsed ? "collapsed" : ""}`}
         style={
           isDesktop
@@ -385,13 +421,32 @@ export default function FilterSearch({
 
                 <Tabs.Content className="rx-tab-content" value="filter">
                   <div className="cat-filters" aria-label="Filters">
-                    <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
-                      <div
-                        className="seg-toggle"
-                        role="radiogroup"
-                        aria-label="Toggle all categories"
-                        style={{ margin: "0 auto" }}
-                      >
+                    <div className="cat-grid">
+                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
+                        const enabled = !!catToggles[key]?.enabled;
+                        const label = shortLabel(spec.label);
+                        const accent = CAT_ACCENTS[key] ?? CAT_ACCENTS.unknown;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className="cat-tile"
+                            data-checked={enabled}
+                            aria-pressed={enabled}
+                            onClick={() => toggleCategory(key, spec, !enabled)}
+                            title={spec.label}
+                            style={{ "--tile-accent": accent }}
+                          >
+                            <span className="cat-icon">
+                              <Icon k={key} active={enabled} />
+                            </span>
+                            <span className="cat-label">{label}</span>
+                          </button>
+                        );
+                      })}
+
+                      {/* Bulk toggle sits in the grid's spare cell (full-width row on narrow screens) */}
+                      <div className="cat-bulk" role="radiogroup" aria-label="Toggle all categories">
                         <button
                           type="button"
                           role="radio"
@@ -411,31 +466,6 @@ export default function FilterSearch({
                           All on
                         </button>
                       </div>
-                    </div>
-
-                    <div className="cat-grid">
-                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
-                        const enabled = !!catToggles[key]?.enabled;
-                        const label = shortLabel(spec.label);
-                        const accent = "#BAA7FF";
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            className="cat-tile"
-                            data-checked={enabled}
-                            aria-pressed={enabled}
-                            onClick={() => toggleCategory(key, spec, !enabled)}
-                            title={spec.label}
-                            style={{ "--tile-accent": accent }}
-                          >
-                            <span className="cat-icon">
-                              <Icon k={key} active={enabled} />
-                            </span>
-                            <span className="cat-label">{label}</span>
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
                 </Tabs.Content>

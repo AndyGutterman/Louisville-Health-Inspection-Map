@@ -57,6 +57,8 @@ const STYLES = `
   display: flex;
   flex-direction: column;
   height: min(460px, 62dvh);
+  /* Shrink to sit beneath the filter card (FilterSearch publishes --filter-bottom) */
+  max-height: max(220px, calc(100dvh - 84px - var(--filter-bottom, 0px) - 12px));
   overflow: hidden;
   backdrop-filter: blur(8px);
   transform-origin: bottom left;
@@ -179,6 +181,10 @@ const STYLES = `
   margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.wn-noloc {
+  font-style: italic;
+  opacity: .75;
+}
 .wn-crit {
   font-size: .62rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
   color: rgba(234,67,53,0.65); margin-top: 3px;
@@ -211,6 +217,7 @@ const STYLES = `
   .wn-panel {
     left: 16px; right: 16px; width: auto !important;
     bottom: 90px; height: min(60dvh, 440px);
+    max-height: max(220px, calc(100dvh - 90px - var(--filter-bottom, 0px) - 12px));
   }
 }
 `;
@@ -238,18 +245,23 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
   return (
     <div
       className="wn-card"
-      onClick={() => onOpen?.(item.establishment_id)}
+      onClick={() => onOpen?.(item.establishment_id, item)}
       onMouseEnter={() => onHover?.(item.establishment_id)}
       onMouseLeave={() => onHoverEnd?.()}
       role="button"
       tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onOpen?.(item.establishment_id); }}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onOpen?.(item.establishment_id, item); }}
     >
       <div className={`wn-badge ${badgeClass}`}>{score == null || score === 0 ? "–" : score}</div>
       <div className="wn-info">
         <div className="wn-name">{item.premise_name || item.establishment_id}</div>
         <div className="wn-sub">
-          {[item.address, formatDate(item.inspection_date || item.inspection_date_recent)].filter(Boolean).join(" · ")}
+          {item.address
+            ? [item.address, formatDate(item.inspection_date || item.inspection_date_recent)].filter(Boolean).join(" · ")
+            : <>
+                <span className="wn-noloc">Location unavailable</span>
+                {formatDate(item.inspection_date || item.inspection_date_recent) && ` · ${formatDate(item.inspection_date || item.inspection_date_recent)}`}
+              </>}
         </div>
         {item.critical_count > 0 && (
           <div className="wn-crit">{item.critical_count} critical {item.critical_count === 1 ? "violation" : "violations"}</div>
