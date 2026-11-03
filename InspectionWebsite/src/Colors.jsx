@@ -1,6 +1,6 @@
 import {
   red, amber, grass, slate, mauve,
-  orange, lime, pink, cyan, violet, yellow, indigo, olive
+  orange, lime, pink, cyan, violet, yellow
 } from "@radix-ui/colors";
 
 export const PIN_COLORS = {

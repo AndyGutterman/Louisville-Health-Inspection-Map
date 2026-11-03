@@ -24,6 +24,8 @@ const displayField = (v) =>
   v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
 
 function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveToWatchlist, onClose }) {
+  // Hooks must run on every render, so this sits above the early return.
+  const [open, setOpen] = React.useState(false);
   if (!data) return null;
   const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby, noLocation } = data;
   const gradeDisplay =
@@ -52,7 +54,6 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
     : [];
 
   const hasDetails = items.some((i) => i.value && i.value !== "—");
-  const [open, setOpen] = React.useState(false);
 
   // similarNearby: [{eid, name}] — nearby permits that may represent the same place
   const similar = Array.isArray(similarNearby) ? similarNearby : [];

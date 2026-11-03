@@ -78,6 +78,8 @@ export function AuthProvider({ children }) {
   );
 }
 
+// Hook lives beside its provider on purpose; splitting it out is a later cleanup.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");

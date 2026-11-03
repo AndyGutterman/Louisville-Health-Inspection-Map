@@ -114,8 +114,6 @@ const CAT_ACCENTS = {
 };
 
 export default function FilterSearch({
-  searchTerm,
-  setSearchTerm,
   showRedPins,
   setShowRedPins,
   showYellowPins,
@@ -124,12 +122,10 @@ export default function FilterSearch({
   setShowGreenPins,
   showMissing,
   setShowMissing,
-  filtersOpen,
   setFiltersOpen,
   catToggles,
   setCatToggles,
   CATEGORY_SPECS,
-  CAT_COLORS,
   buildInitialCatToggles,
   onAdjustClick,
   adjustContent,

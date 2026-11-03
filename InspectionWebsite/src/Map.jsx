@@ -9,7 +9,7 @@ import InfoDrawer from "./InfoDrawer.jsx";
 import TableView from "./TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
-import { PIN_COLORS, CAT_COLORS } from "./Colors.jsx";
+import { PIN_COLORS } from "./Colors.jsx";
 import { buildWatchCollection, openWatchEditor } from "./watchAreaLayer.js";
 import * as AccessibleIcon from "@radix-ui/react-accessible-icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
@@ -249,7 +249,7 @@ function extractLocationNumber(name) {
 }
 
 function isSubTenant(name) {
-  return /@|at|inside|within/i.test(name);
+  return /@|\bat\b|\binside\b|\bwithin\b/i.test(name);
 }
 
 const DEPT_WORDS = new Set([
@@ -263,7 +263,7 @@ function normalizeName(name) {
   return name
     .toLowerCase()
     .replace(/#\s*\d+|no\.?\s*\d+|\bunit\s+\w+|\bstore\s+\d+/gi, "")
-    .replace(/[‘’\'']s?\b/g, "")
+    .replace(/[‘’']s?\b/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 1);
@@ -416,7 +416,6 @@ export default function Map(props) {
   const pinnedPopupRef = useRef(null);
   const pinnedReactRootRef = useRef(null);
   // Exposed so TableView can drive map popups from row hover/click
-  const tableHoverPopupRef  = useRef(null); // tracks table-driven hover popup
   const featureByEidRef     = useRef({});   // establishment_id → feature, built after geoData loads
   const lastHoverId = useRef(null);
   const pinnedFeatureRef = useRef(null);
@@ -457,12 +456,12 @@ export default function Map(props) {
   }, [selected]);
 
   const [history, setHistory] = useState(null);
-  const [historyFor, setHistoryFor] = useState(null);
+  const [, setHistoryFor] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const loadSeqRef = useRef(0);
 
   const [facDetails, setFacDetails] = useState(null);
-  const [facDetailsFor, setFacDetailsFor] = useState(null);
+  const [, setFacDetailsFor] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const searchTermRef = useRef("");
@@ -491,12 +490,11 @@ export default function Map(props) {
   const [showRedPins, setShowRedPins] = useState(true);
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [, setFiltersOpen] = useState(false);
   const [catToggles, setCatToggles] = useState(buildInitialCatToggles());
 
-  const [fabHidden, setFabHidden] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
-  const [bandsOpen, setBandsOpen] = useState(false);
+  const [bandsOpen] = useState(false);
 
   // Persist table dimensions across open/close so reopening remembers last size
   const [tableH, setTableH] = useState(null); // null = use TableView default
@@ -1098,16 +1096,6 @@ export default function Map(props) {
       setMapReady(true);
 
       const layerIds = DRAW_ORDER.map((k) => `points-${k}`);
-      const styleZ = (() => {
-        let idx = null;
-        return (layerId) => {
-          if (!idx) {
-            const layers = (map.getStyle()?.layers) || [];
-            idx = new globalThis.Map(layers.map((l, i) => [l.id, i]));
-          }
-          return idx.get(layerId) ?? -1;
-        };
-      })();
 
       // Click priority: red pins + priority violators (amber ring) > yellow > green.
       // Priority violators get +10 regardless of score color so a green pin with
@@ -1153,28 +1141,6 @@ export default function Map(props) {
           ],
           { layers: layerIds },
         );
-
-      const screenKey = (feature) => {
-        const p = map.project(feature.geometry.coordinates);
-        return `${Math.round(p.x)}|${Math.round(p.y)}`;
-      };
-
-      const nearestFeature = (point, px = 14) => {
-        const box = [
-          [point.x - px, point.y - px],
-          [point.x + px, point.y + px],
-        ];
-        const hits = map.queryRenderedFeatures(box, { layers: layerIds });
-        if (!hits.length) return null;
-        let best = hits[0], bestEff = Infinity;
-        for (const h of hits) {
-          const p = map.project(h.geometry.coordinates);
-          const d = Math.hypot(p.x - point.x, p.y - point.y);
-          const eff = d - colorBonus(h);
-          if (eff < bestEff) { bestEff = eff; best = h; }
-        }
-        return best;
-      };
 
       const colorForScore = (score) => {
         const [rMax, yMax] = pinsRef.current;
@@ -1718,7 +1684,7 @@ export default function Map(props) {
     return () => m.off("styledata", retry);
   }, [watchAreas, mapReady]);
 
-  const [draggingPins, setDraggingPins] = useState(false);
+  const [draggingPins] = useState(false);
   React.useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
@@ -2170,8 +2136,6 @@ const closeDrawer = () => {
       {page === "map" && !accountFullscreen && (
         <>
           <FilterSearch
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
             showRedPins={showRedPins}
             setShowRedPins={setShowRedPins}
             showYellowPins={showYellowPins}
@@ -2180,12 +2144,10 @@ const closeDrawer = () => {
             setShowGreenPins={setShowGreenPins}
             showMissing={showMissing}
             setShowMissing={setShowMissing}
-            filtersOpen={filtersOpen}
             setFiltersOpen={setFiltersOpen}
             catToggles={catToggles}
             setCatToggles={setCatToggles}
             CATEGORY_SPECS={CATEGORY_SPECS}
-            CAT_COLORS={CAT_COLORS}
             buildInitialCatToggles={buildInitialCatToggles}
             onAdjustClick={() => {}}
             adjustContent={
@@ -2252,7 +2214,6 @@ const closeDrawer = () => {
             savedH={tableH}
             savedW={tableW}
             onResize={(h, w) => { setTableH(h); setTableW(w); }}
-            pins={pins}
             hidden={!tableOpen}
             zIndex={frontPanel === "table" ? 3100 : 2900}
             onBringToFront={() => setFrontPanel("table")}

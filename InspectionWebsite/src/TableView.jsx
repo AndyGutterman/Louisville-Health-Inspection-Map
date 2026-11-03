@@ -101,7 +101,7 @@ const FACILITY_CATS = {
 };
 const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
 
-export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose, savedH, savedW, onResize, hidden, pins, zIndex, onBringToFront }) {
+export default function TableView({ supabase, onRowClick, onRowHover, onRowHoverEnd, onClose, savedH, savedW, onResize, hidden, zIndex, onBringToFront }) {
   const [rows,    setRows]    = useState([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(false);

@@ -422,15 +422,6 @@ const CATEGORY_RULES = [
   { label: "Facility / Structure",  keywords: ["floor","wall","ceiling","light","ventilat","structure","facility","repair","maintain","pest-proof"] },
 ];
 
-function categorize(desc) {
-  if (!desc) return "Other";
-  const lower = desc.toLowerCase();
-  for (const rule of CATEGORY_RULES) {
-    if (rule.keywords.some(kw => lower.includes(kw))) return rule.label;
-  }
-  return "Other";
-}
-
 // ─── Subcomponents ───────────────────────────────────────────────────────────
 
 function ComingSoonBadge() {
