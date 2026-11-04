@@ -766,8 +766,11 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 	}
 }
 
+/* Compact scroll body on small phones. Keep this scoped to the body: a bare
+   `.info-drawer [style]` here once forced the padding onto every inline-styled
+   element in the drawer (bookmark button, rows, history), leaving big gaps. */
 @media (max-width: 480px) {
-	.info-drawer [style] {
+	.info-drawer .info-drawer-body {
 		padding: 10px 10px 36px !important;
 	}
 }

@@ -266,39 +266,8 @@
   color: #fff;
 }
 
-/* Selected tiles pick up their category accent (set via --tile-accent) */
-@supports (background: color-mix(in srgb, red 10%, transparent)) {
-  .cat-tile[data-checked="true"] {
-    background: color-mix(in srgb, var(--tile-accent, #fff) 14%, rgba(255,255,255,0.04));
-    border-color: color-mix(in srgb, var(--tile-accent, #fff) 50%, transparent);
-  }
-}
-
 .cat-icon { width: 20px; height: 20px; display: flex; }
 .cat-icon svg { width: 100%; height: 100%; }
-
-/* ── Bulk All off / All on — lives in the grid's spare cell ── */
-.cat-bulk {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 3px;
-  box-sizing: border-box;
-  background: rgba(0,0,0,0.20);
-  border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 9px;
-}
-
-.cat-bulk .seg-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  font-size: .64rem;
-  letter-spacing: .04em;
-  white-space: nowrap;
-}
 
 .cat-label {
   font-size: .72rem;
@@ -328,16 +297,6 @@
   .cat-tile { height: 54px; border-radius: 9px; }
   .cat-label { font-size: .7rem; white-space: normal; }
   .cat-icon  { width: 18px; height: 18px; }
-}
-
-/* Two-column layout (narrow phones): 8 tiles fill the grid evenly, so the
-   bulk toggle becomes a slim full-width row instead of a cell. */
-@media (max-width: 429px) {
-  .cat-bulk {
-    grid-column: 1 / -1;
-    flex-direction: row;
-  }
-  .cat-bulk .seg-option { padding: 7px 8px; font-size: .68rem; }
 }
 
 @media (min-width: 430px) and (max-width: 900px) {

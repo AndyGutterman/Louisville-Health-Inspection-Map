@@ -167,6 +167,14 @@
 }
 
 @media (max-width:600px) {
+    .inspect-card {
+        padding: 6px 4px 10px;
+    }
+
+    .inspect-card_header {
+        margin-bottom: 8px;
+    }
+
     .inspect-card_stats {
         grid-template-columns: 1fr 1fr 1fr;
     }

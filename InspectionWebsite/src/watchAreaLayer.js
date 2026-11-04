@@ -73,7 +73,10 @@ const POPUP_CSS = `
   padding: 12px 12px 10px; width: 236px; box-sizing: border-box;
   user-select: none; -webkit-user-select: none;
   animation: wa-in .14s ease-out;
+  cursor: pointer; /* clicking the card opens the Watch panel */
+  transition: border-color .12s;
 }
+.wa-popup .maplibregl-popup-content:hover { border-color: rgba(255,255,255,.18); }
 .wa-popup .maplibregl-popup-tip { border-top-color: rgba(18,18,22,.94); }
 .wa-popup .maplibregl-popup-close-button {
   top: 8px; right: 8px; width: 24px; height: 24px; padding: 0;
@@ -159,7 +162,8 @@ function makeHandle(kind, label, iconPath) {
 //
 //   getAreas()   returns the current list of watch areas (for live preview)
 //   onCommit(p)  is called after each change with { center_lat, center_lon, radius_miles }
-export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onCommit }) {
+//   onOpenPanel(areaId)  is called when the popup itself is clicked (not its buttons)
+export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onCommit, onOpenPanel }) {
   popupRef.current?.remove();
   ensureStyles();
 
@@ -235,6 +239,14 @@ export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onC
 
   popup.__watchArea = true; // lets pin clicks clear this popup before opening their own
   popupRef.current = popup;
+
+  // Clicking the card itself opens the Watch panel. Buttons (radius presets, the
+  // close ×) and the preset row keep their own jobs.
+  popup.getElement()?.addEventListener("click", (ev) => {
+    if (ev.target.closest("button, .wa-seg")) return;
+    ev.stopPropagation(); // never also count as a tap on the map underneath
+    onOpenPanel?.(area.id);
+  });
 
   popup.on("close", () => {
     moveMarker.remove();

@@ -46,6 +46,7 @@ const STYLES = `
 .wl-sort { display: flex; gap: 4px; flex-wrap: wrap; }
 .wl-sort button { padding: 4px 9px; border-radius: 999px; background: transparent; border: 1px solid rgba(255,255,255,0.12);
   color: rgba(255,255,255,0.55); font-size: 0.68rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.wl-flash { box-shadow: 0 0 0 2px rgba(255,159,28,0.55); transition: box-shadow .3s; }
 .wl-sort button.on { background: rgba(52,168,83,0.14); border-color: rgba(52,168,83,0.45); color: #6fcf8a; }
 
 .wl-place { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px;
@@ -158,6 +159,7 @@ export default function WatchlistTab({
   activeEid,           // establishment currently shown in the info drawer
   onItemRemoved,       // (establishment_id) => void; tells the map the bookmark is gone
   refreshToken,        // changes whenever the map/drawer adds or removes a bookmark
+  focusAreaId,         // { id, n } when the map asks to jump to one watch area
 }) {
   const [items, setItems] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -171,6 +173,17 @@ export default function WatchlistTab({
   const [areaLabel, setAreaLabel] = useState("");
   const [areaRadius, setAreaRadius] = useState(5);
   const [saving, setSaving] = useState(false);
+
+  // Opened from a watch-area popup on the map: scroll to that area and flash it.
+  useEffect(() => {
+    if (!focusAreaId || loading) return undefined;
+    const el = document.querySelector(`[data-area-id="${focusAreaId.id}"]`);
+    if (!el) return undefined;
+    el.scrollIntoView({ block: "start", behavior: "smooth" });
+    el.classList.add("wl-flash");
+    const t = setTimeout(() => el.classList.remove("wl-flash"), 1600);
+    return () => clearTimeout(t);
+  }, [focusAreaId, loading, areas]);
 
   useEffect(() => {
     if (!supabase || !user) return;
@@ -360,11 +373,11 @@ export default function WatchlistTab({
         <div className="wl-list" style={{ marginBottom: areas.length ? 18 : 0 }}>
           {areas.map((area) => {
             const z = zones[area.id];
-            const sortKey = zoneSort[area.id] || "distance";
+            const sortKey = zoneSort[area.id] || "critical";
             const rows = z?.rows ? sortPlaces(z.rows, sortKey) : [];
             const shown = zoneShown[area.id] || PAGE;
             return (
-              <div key={area.id} className="wl-item">
+              <div key={area.id} className="wl-item" data-area-id={area.id}>
                 <div className="wl-row">
                   <div className="wl-grow">
                     <div className="wl-name">{area.label || area.center_address}</div>

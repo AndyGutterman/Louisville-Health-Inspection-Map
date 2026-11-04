@@ -99,19 +99,8 @@ function Icon({ k, active }) {
   }
 }
 
-// One accent per category, used for the selected tile's icon, border and tint.
-// Deliberately distinct hues; the pin colours (red/amber/green) are left to
-// the pins so tiles don't read as score filters.
-const CAT_ACCENTS = {
-  restaurants: "#fb923c",
-  schools: "#60a5fa",
-  daycare: "#f472b6",
-  hospitals: "#2dd4bf",
-  concessions: "#fbbf24",
-  caterers_commissary: "#a78bfa",
-  retail: "#a3e635",
-  unknown: "#94a3b8",
-};
+// One accent for every category tile, so the panel reads as a single set.
+const CAT_ACCENT = "#ff9f1c";
 
 export default function FilterSearch({
   showRedPins,
@@ -417,32 +406,13 @@ export default function FilterSearch({
 
                 <Tabs.Content className="rx-tab-content" value="filter">
                   <div className="cat-filters" aria-label="Filters">
-                    <div className="cat-grid">
-                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
-                        const enabled = !!catToggles[key]?.enabled;
-                        const label = shortLabel(spec.label);
-                        const accent = CAT_ACCENTS[key] ?? CAT_ACCENTS.unknown;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            className="cat-tile"
-                            data-checked={enabled}
-                            aria-pressed={enabled}
-                            onClick={() => toggleCategory(key, spec, !enabled)}
-                            title={spec.label}
-                            style={{ "--tile-accent": accent }}
-                          >
-                            <span className="cat-icon">
-                              <Icon k={key} active={enabled} />
-                            </span>
-                            <span className="cat-label">{label}</span>
-                          </button>
-                        );
-                      })}
-
-                      {/* Bulk toggle sits in the grid's spare cell (full-width row on narrow screens) */}
-                      <div className="cat-bulk" role="radiogroup" aria-label="Toggle all categories">
+                    <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
+                      <div
+                        className="seg-toggle"
+                        role="radiogroup"
+                        aria-label="Toggle all categories"
+                        style={{ margin: "0 auto" }}
+                      >
                         <button
                           type="button"
                           role="radio"
@@ -462,6 +432,31 @@ export default function FilterSearch({
                           All on
                         </button>
                       </div>
+                    </div>
+
+                    <div className="cat-grid">
+                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
+                        const enabled = !!catToggles[key]?.enabled;
+                        const label = shortLabel(spec.label);
+                        const accent = CAT_ACCENT;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className="cat-tile"
+                            data-checked={enabled}
+                            aria-pressed={enabled}
+                            onClick={() => toggleCategory(key, spec, !enabled)}
+                            title={spec.label}
+                            style={{ "--tile-accent": accent }}
+                          >
+                            <span className="cat-icon">
+                              <Icon k={key} active={enabled} />
+                            </span>
+                            <span className="cat-label">{label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </Tabs.Content>

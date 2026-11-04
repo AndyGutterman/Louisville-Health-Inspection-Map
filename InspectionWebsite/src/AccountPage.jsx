@@ -70,6 +70,7 @@ export default function AccountPage({
   activeEid,
   onItemRemoved,
   refreshToken,
+  focusAreaId,
 }) {
   const { user, signOut, supabase } = useAuth();
   const side = variant === "panel";
@@ -108,6 +109,7 @@ export default function AccountPage({
           activeEid={activeEid}
           onItemRemoved={onItemRemoved}
           refreshToken={refreshToken}
+          focusAreaId={focusAreaId}
         />
       </div>
     </div>

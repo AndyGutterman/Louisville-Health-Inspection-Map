@@ -545,6 +545,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
           flex:1 + minHeight:0 lets it grow to fill on desktop (bounded by top+bottom),
           and on mobile sizes to content while still being scrollable if tall. */}
       <div
+        className="info-drawer-body"
         style={{
           flex: 1,
           minHeight: 0,
