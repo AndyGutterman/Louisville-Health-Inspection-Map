@@ -7,6 +7,7 @@ import "./Map.css";
 import { supabase } from "./lib/supabase.js";
 import { tagSimilarNearby } from "./lib/samePlaceDetection.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import { METRO_BOUNDS, looseBounds } from "./lib/mapBounds.js";
 import { DRAW_ORDER, MIN_ZOOM, EDGE_ZONE } from "./lib/constants.js";
 import { PRESETS, bandExprs } from "./lib/scoring.js";
 import { CATEGORY_SPECS, classifyCategory, buildInitialCatToggles } from "./lib/categories.js";
@@ -661,10 +662,12 @@ export default function Map(props) {
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [-85.75, 38.25],
       zoom: MIN_ZOOM,
-      maxBounds: [
-        [-86.4, 37.7],
-        [-85.0, 38.7],
-      ],
+      // Pan limits with room for the covered area under the drawer and side panels.
+      maxBounds: looseBounds(METRO_BOUNDS, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        zoom: MIN_ZOOM,
+      }),
     });
     mapRef.current = map;
 
