@@ -1674,7 +1674,7 @@ const closeDrawer = () => {
                 className={`header-nav-btn header-nav-btn--account${accountOpen && page === "map" ? " active" : ""}`}
                 onClick={toggleAccount}
                 title={user.email}
-                aria-label="Watch"
+                aria-label="Saved"
               >
                 <span style={{
                   width: 18, height: 18, borderRadius: "50%",
@@ -1685,7 +1685,7 @@ const closeDrawer = () => {
                 }}>
                   {(user.email || "?")[0].toUpperCase()}
                 </span>
-                <span className="nav-btn-label">Watch</span>
+                <span className="nav-btn-label">Saved</span>
               </button>
             ) : (
               <button
