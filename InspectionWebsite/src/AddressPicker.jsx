@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import { searchAddresses } from "./lib/geocode.js";
 // Address autocomplete, called directly from the browser.
 // Needs VITE_GEOAPIFY_KEY in .env (local) and in Netlify (production).
 // The key must be referrer-restricted to localhost:5173 and your Netlify domain.
 // Only a confirmed pick (click or Enter on a suggestion) produces a value.
 
 const KEY = import.meta.env.VITE_GEOAPIFY_KEY;
-const BOUNDS = { w: -86.15, s: 37.85, e: -85.3, n: 38.5 };
-const CENTER = { lon: -85.7585, lat: 38.2527 };
-
 const MESSAGES = {
   nokey: "Address search isn't configured. Add VITE_GEOAPIFY_KEY to .env, then restart the dev server.",
   error: "Address search is unavailable right now. Try again in a moment.",
@@ -37,37 +35,6 @@ const STYLES = `
 .ap-credit a { color: inherit; }
 @media (max-width: 560px) { .ap-opt { padding: 12px 11px; } }
 `;
-
-const inBounds = (lat, lon) =>
-  lat >= BOUNDS.s && lat <= BOUNDS.n && lon >= BOUNDS.w && lon <= BOUNDS.e;
-
-async function search(q, signal) {
-  const url = new URL("https://api.geoapify.com/v1/geocode/autocomplete");
-  url.searchParams.set("text", q);
-  url.searchParams.set("filter", `rect:${BOUNDS.w},${BOUNDS.s},${BOUNDS.e},${BOUNDS.n}`);
-  url.searchParams.set("bias", `proximity:${CENTER.lon},${CENTER.lat}`);
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("lang", "en");
-  url.searchParams.set("apiKey", KEY);
-
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw Object.assign(new Error(`Geoapify ${res.status}`), { code: "error" });
-  const data = await res.json();
-  const features = data.features || [];
-
-  const results = features
-    .map((f) => f.properties)
-    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon) && inBounds(p.lat, p.lon))
-    .map((p) => ({
-      address: p.formatted,
-      primary: p.address_line1 || p.name || p.formatted,
-      secondary: p.address_line2 || "",
-      lat: p.lat,
-      lon: p.lon,
-    }));
-
-  return { results, upstream: features.length };
-}
 
 export default function AddressPicker({ value, onChange, inputClass = "wl-input" }) {
   const [text, setText] = useState(value?.address || "");
@@ -108,7 +75,7 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
       abortRef.current = ctrl;
       setBusy(true);
       try {
-        const body = await search(q, ctrl.signal);
+        const body = await searchAddresses(q, { key: KEY, signal: ctrl.signal });
         const list = body.results;
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
         cache.set(q, list);

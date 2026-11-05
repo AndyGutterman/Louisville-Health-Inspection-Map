@@ -6,6 +6,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./Map.css";
 import { supabase } from "./lib/supabase.js";
 import { tagSimilarNearby } from "./lib/samePlaceDetection.js";
+import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import { DRAW_ORDER, MIN_ZOOM, EDGE_ZONE } from "./lib/constants.js";
+import { PRESETS, bandExprs } from "./lib/scoring.js";
+import { CATEGORY_SPECS, classifyCategory, buildInitialCatToggles } from "./lib/categories.js";
+import { formatDateSafe } from "./lib/dates.js";
+import { coordKey, worstFirst, deduplicateForRender, buildCoordIndex } from "./lib/dedupe.js";
 import InfoDrawer from "./InfoDrawer.jsx";
 import TableView from "./TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
@@ -18,202 +24,6 @@ import FeedbackModal from "./FeedbackModal.jsx";
 import AccountPage, { ACCOUNT_PANEL_W } from "./AccountPage.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import WhatsNew from "./WhatsNew.jsx";
-
-
-const DRAW_ORDER = ["null", "green", "yellow", "zero", "red"];
-
-const MIN_ZOOM = 11;
-
-const SCORE_MIN = 1;
-const SCORE_MAX = 99;
-const RED_CAP = 98;
-const YEL_CAP = 99;
-
-function clampPins([r, y]) {
-  r = Math.max(SCORE_MIN, Math.min(RED_CAP, Math.round(r)));
-  y = Math.max(r + 1, Math.min(YEL_CAP, Math.round(y)));
-  return [r, y];
-}
-// Louisville grading: C = score ≤ 84 (or critical violation), A = score ≥ 85.
-// "balanced" default aligns with the official 84/85 threshold so red = C territory.
-const PRESETS = {
-  loose:    clampPins([75, 89]),
-  balanced: clampPins([84, 94]),  // red ≤84 matches Louisville's C-grade cutoff
-  strict:   clampPins([90, 96]),
-};
-
-const CATEGORY_SPECS = {
-  restaurants: { label: "Restaurants", subs: [{ ft: 605, st: 11 }] },
-  schools: { label: "Schools", subs: [{ ft: 605, st: 33 }] },
-  daycare: { label: "Daycare", subs: [{ ft: 605, st: 31 }] },
-  hospitals: { label: "Hospitals & Nursing", subs: [{ ft: 605, st: 32 }] },
-  concessions: {
-    label: "Concessions",
-    subs: [
-      { ft: 603, st: 51 },
-      { ft: 603, st: 53 },
-    ],
-  },
-  caterers_commissary: {
-    label: "Caterers & Commissaries",
-    subs: [
-      { ft: 605, st: 42 },
-      { ft: 605, st: 43 },
-    ],
-  },
-  retail: {
-    label: "Retail",
-    subs: [
-      { ft: 610, st: 61 },
-      { ft: 610, st: 62 },
-      { ft: 610, st: 63 },
-      { ft: 610, st: 64 },
-      { ft: 610, st: 65 },
-      { ft: 610, st: 73 },
-      { ft: 610, st: 212 },
-      { ft: 607, st: 54 },
-      { ft: 607, st: 55 },
-      { ft: 605, st: 54 },
-    ],
-  },
-  unknown: {
-    label: "Other / Unknown",
-    subs: [
-      { ft: 605, st: 36 },
-      { ft: 604, st: 16 },
-      { ft: 605, st: 52 },
-      { ft: 610, st: 73 },
-    ],
-  },
-};
-
-function classifyCategory(ft, st) {
-  for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
-    if (key === "unknown") continue;
-    if (spec.subs.some((p) => p.ft === ft && p.st === st)) return key;
-  }
-  return "unknown";
-}
-
-function buildInitialCatToggles() {
-  const obj = {};
-  for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
-    const subs = {};
-    for (const p of spec.subs) subs[`${p.ft}:${p.st}`] = true;
-    obj[key] = { enabled: true, subs };
-  }
-  return obj;
-}
-
-const EDGE_ZONE = 24;
-const SPURT_PX = 60;
-
-function bandExprs([rMax, yMax]) {
-  const GET = ["get", "score"];
-  const GETN = ["coalesce", ["get", "score"], -999999];
-  return {
-    red: ["all", [">=", GETN, 1], ["<=", GETN, rMax]],
-    yellow: ["all", [">=", GETN, rMax + 1], ["<=", GETN, yMax]],
-    green: ["all", [">=", GETN, yMax + 1], ["<=", GETN, 100]],
-    zero: ["==", GET, 0],
-    null: ["==", GET, null],
-  };
-}
-
-function formatDateSafe(val) {
-  if (!val) return "n/a";
-  if (typeof val === "string") {
-    const m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-      const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-      return d.toLocaleDateString(undefined, { timeZone: "UTC" });
-    }
-  }
-  try {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
-  } catch {
-    return String(val);
-  }
-}
-
-function coordKey([lon, lat]) {
-  return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
-}
-
-
-const GRADE_SEVERITY = { C: 0, B: 1, A: 2 };
-
-function worstFirst(a, b) {
-  const pa = a.properties || {}, pb = b.properties || {};
-  // 1. Critical violation present → absolute worst (drives the visible red ring)
-  const ca = pa.has_critical_violation ? 0 : 1;
-  const cb = pb.has_critical_violation ? 0 : 1;
-  if (ca !== cb) return ca - cb;
-  // 2. Grade (C=0 worst → A=2 best)
-  const ga = GRADE_SEVERITY[pa.grade] ?? 3;
-  const gb = GRADE_SEVERITY[pb.grade] ?? 3;
-  if (ga !== gb) return ga - gb;
-  // 3. Lower score first within the same grade
-  return (pa.score ?? 100) - (pb.score ?? 100);
-}
-
-// Collapse same-coordinate features into one rendered circle (worst representative).
-// The FULL feature list stays in coordIndexRef for popup navigation — only
-// the RENDERED GeoJSON is deduplicated so strokes never stack additively.
-function deduplicateForRender(featureList) {
-  const byCoord = new globalThis.Map();
-  for (const f of featureList) {
-    const k = coordKey(f.geometry.coordinates);
-    if (!byCoord.has(k)) byCoord.set(k, []);
-    byCoord.get(k).push(f);
-  }
-  const out = [];
-  for (const feats of byCoord.values()) {
-    if (feats.length === 1) { out.push(feats[0]); continue; }
-    const sorted = feats.slice().sort(worstFirst);
-    const rep = sorted[0];
-    console.warn(
-      `${feats.length} establishments share one coordinate — only "${rep.properties.name}" ` +
-      `(eid ${rep.properties.establishment_id}) gets a pin here; the rest are suppressed`,
-      sorted.map(f => ({
-        establishment_id: f.properties.establishment_id,
-        name: f.properties.name,
-        address: f.properties.address,
-        score: f.properties.score,
-        grade: f.properties.grade,
-        has_critical_violation: f.properties.has_critical_violation,
-      })),
-    );
-    // Bake every co-located establishment's name + address into the
-    // representative's properties so the search filter can still match
-    // a business whose own pin got suppressed here.
-    const colocatedSearch = sorted
-      .map(f => `${f.properties.name || ""} ${f.properties.address_full || f.properties.address || ""}`)
-      .join(" | ");
-    // Merge violation flags: ring appears if ANY establishment here has violations
-    out.push({
-      ...rep,
-      properties: {
-        ...rep.properties,
-        has_critical_violation: feats.some(f => f.properties.has_critical_violation),
-        has_any_violation:      feats.some(f => f.properties.has_any_violation),
-        colocated_search: colocatedSearch,
-      },
-    });
-  }
-  return out;
-}
-
-function buildCoordIndex(features) {
-  const m = new globalThis.Map();
-  for (const f of features) {
-    const k = coordKey(f.geometry.coordinates);
-    if (!m.has(k)) m.set(k, []);
-    m.get(k).push(f);
-  }
-  return m;
-}
 
 function OverlapNav({ index, total, onPrev, onNext }) {
   return (
@@ -240,19 +50,6 @@ function OverlapNav({ index, total, onPrev, onNext }) {
 }
 
 // True while the viewport matches the query (phones: max-width 600px, same breakpoint as InfoDrawer).
-function useMediaQuery(query) {
-  const get = () => typeof window !== "undefined" && window.matchMedia(query).matches;
-  const [matches, setMatches] = useState(get);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setMatches(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
-}
-
 export default function Map(props) {
   const { user } = useAuth();
   const mapContainerRef = useRef(null);

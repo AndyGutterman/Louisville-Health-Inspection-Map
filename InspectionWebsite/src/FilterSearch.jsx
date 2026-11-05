@@ -3,29 +3,7 @@ import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import "./styles/AdjustFilter.css";
 import './styles/ToggleRow.css';
-
-function useMedia(query) {
-  const get = () =>
-    typeof window !== "undefined" && window.matchMedia(query).matches;
-  const [match, setMatch] = React.useState(get);
-  React.useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setMatch(mq.matches);
-    try {
-      mq.addEventListener("change", onChange);
-    } catch {
-      mq.addListener(onChange);
-    }
-    return () => {
-      try {
-        mq.removeEventListener("change", onChange);
-      } catch {
-        mq.removeListener(onChange);
-      }
-    };
-  }, [query]);
-  return match;
-}
+import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
 function Icon({ k, active }) {
   const stroke = active ? "var(--tile-accent, #5aa8ff)" : "rgba(255,255,255,.45)";
@@ -124,7 +102,7 @@ export default function FilterSearch({
 }) {
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
-  const isDesktop = useMedia("(min-width: 900px)");
+  const isDesktop = useMediaQuery("(min-width: 900px)");
   const cardRef = React.useRef(null);
 
   // Publish the card's bottom edge as --filter-bottom so other panels

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AddressPicker from "./AddressPicker.jsx";
 import { WATCH_RADIUS_OPTIONS } from "./watchAreaLayer.js";
+import { formatLongDate } from "./lib/dates.js";
 
 const CAPS = { places: 30, areas: 3 };
 const PAGE = 25;
@@ -106,9 +107,6 @@ const STYLES = `
 `;
 
 const scoreClass = (s) => (s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor");
-const fmtDate = (d) =>
-  d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
-
 // Distance: nearest first. Score: highest first.
 // Critical: failing first, then most critical violations, then lowest score.
 // ("Priority" is the health department's new name for "critical", so there is one sort for both.)
@@ -144,7 +142,7 @@ function PlaceRow({ p, active, onOpen }) {
           {p.score ? p.score : "N/A"}
           {p.grade ? ` · ${p.grade}` : ""}
         </div>
-        {p.inspection_date && <div className="wl-place-date">{fmtDate(p.inspection_date)}</div>}
+        {p.inspection_date && <div className="wl-place-date">{formatLongDate(p.inspection_date)}</div>}
         {p.critical_6mo > 0 && <div className="wl-crit">{p.critical_6mo} critical · 6 mo</div>}
       </div>
     </div>
@@ -344,7 +342,7 @@ export default function WatchlistTab({
                     <div className={`wl-score ${scoreClass(item.score)}`}>
                       {item.score ? `Score ${item.score}` : "Score N/A"}
                       {item.grade ? ` · Grade ${item.grade}` : ""}
-                      {item.inspection_date && <span className="dt"> · {fmtDate(item.inspection_date)}</span>}
+                      {item.inspection_date && <span className="dt"> · {formatLongDate(item.inspection_date)}</span>}
                       {item.critical_6mo > 0 && (
                         <div className="wl-crit" style={{ marginTop: 3 }}>⚠ {item.critical_6mo} critical · 6 mo</div>
                       )}

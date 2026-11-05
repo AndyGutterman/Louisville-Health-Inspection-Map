@@ -1,5 +1,6 @@
 import React from "react";
 import "./styles/AdjustFilter.css";
+import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
 const LO = 1;
 const HI = 100;
@@ -9,32 +10,9 @@ const YEL_CAP = 99;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, Math.round(n)));
 const toPct = (v) => ((v - LO) * 100) / (HI - LO);
 
-function useIsMobile() {
-  const get = () =>
-    typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
-  const [mobile, setMobile] = React.useState(get);
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 640px)");
-    const onChange = () => setMobile(mq.matches);
-    try {
-      mq.addEventListener("change", onChange);
-    } catch {
-      mq.addListener(onChange);
-    }
-    return () => {
-      try {
-        mq.removeEventListener("change", onChange);
-      } catch {
-        mq.removeListener(onChange);
-      }
-    };
-  }, []);
-  return mobile;
-}
-
 export function ScoreThresholdInline({ pins, setPins, preset, applyPreset }) {
   const [rMax, yMax] = pins || [86, 94];
-  const isMobile = useIsMobile();
+  const isMobile = useMediaQuery("(max-width: 640px)");
   const gap = isMobile ? 6 : 10;
 
   const setR = (v) => {

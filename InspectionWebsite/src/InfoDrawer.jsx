@@ -2,23 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import "./styles/Violations.css";
 import "./styles/History.css";
 import './styles/RestaurantInfo.css';
-
-function formatDateSafe(val) {
-  if (!val) return "n/a";
-  if (typeof val === "string") {
-    const m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-      const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-      return d.toLocaleDateString(undefined, { timeZone: "UTC" });
-    }
-  }
-  try {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
-  } catch {
-    return String(val);
-  }
-}
+import { formatDateSafe } from "./lib/dates.js";
+import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
 const displayField = (v) =>
   v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
@@ -432,24 +417,12 @@ function History({ rows, pins }) {
   );
 }
 
-function useIsMobile() {
-  const get = () => typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches;
-  const [mobile, setMobile] = React.useState(get);
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 600px)");
-    const onChange = () => setMobile(mq.matches);
-    try { mq.addEventListener("change", onChange); } catch { mq.addListener(onChange); }
-    return () => { try { mq.removeEventListener("change", onChange); } catch { mq.removeListener(onChange); } };
-  }, []);
-  return mobile;
-}
-
 const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
 // rightOffset (desktop only): px to slide left so another right-hand panel (the account panel) can sit beside it.
 export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist, rightOffset = 0 }) {
-  const isMobile = useIsMobile();
+  const isMobile = useMediaQuery("(max-width: 600px)");
 
   // Horizontal resize — desktop only
   const defaultW = () => Math.min(420, Math.round(window.innerWidth * 0.82));

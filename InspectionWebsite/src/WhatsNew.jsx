@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { formatMonthDay } from "./lib/dates.js";
 
 const STYLES = `
 /* ── Collapsed trigger — aligns with Table View at bottom: 28px ── */
@@ -233,14 +234,6 @@ function FlameIcon({ className, style }) {
   );
 }
 
-function formatDate(val) {
-  if (!val) return "";
-  const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]))
-    .toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric" });
-  return String(val);
-}
-
 function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
   return (
     <div
@@ -257,10 +250,10 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
         <div className="wn-name">{item.premise_name || item.establishment_id}</div>
         <div className="wn-sub">
           {item.address
-            ? [item.address, formatDate(item.inspection_date || item.inspection_date_recent)].filter(Boolean).join(" · ")
+            ? [item.address, formatMonthDay(item.inspection_date || item.inspection_date_recent)].filter(Boolean).join(" · ")
             : <>
                 <span className="wn-noloc">Location unavailable</span>
-                {formatDate(item.inspection_date || item.inspection_date_recent) && ` · ${formatDate(item.inspection_date || item.inspection_date_recent)}`}
+                {formatMonthDay(item.inspection_date || item.inspection_date_recent) && ` · ${formatMonthDay(item.inspection_date || item.inspection_date_recent)}`}
               </>}
         </div>
         {item.critical_count > 0 && (
