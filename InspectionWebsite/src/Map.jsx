@@ -66,6 +66,7 @@ export default function Map(props) {
   const pinnedFeatureRef = useRef(null);
   const multiHitsRef = useRef(null);
   const docCloseHandlerRef = useRef(null);
+  const docDownHandlerRef = useRef(null); // where the last press started (see outsideClose)
   const isDraggingRef = useRef(false);
   const coordIndexRef = useRef(new globalThis.Map());
   // Exposed so WhatsNew (and other external panels) can trigger popup + drawer
@@ -1160,11 +1161,23 @@ export default function Map(props) {
         }
       });
 
+      // What's New works beside the drawer. Opening it, closing it, resizing it or switching
+      // its tabs must not count as a click on the map and close the drawer. A press that
+      // starts inside it also counts, even if the pointer is released elsewhere (a resize).
+      const KEEP_DRAWER_OPEN = ".wn-panel, .wn-trigger";
+      let lastDownTarget = null;
+      const rememberDown = (ev) => { lastDownTarget = ev.target; };
+      document.addEventListener("pointerdown", rememberDown, true);
+      docDownHandlerRef.current = rememberDown;
+
       const outsideClose = (ev) => {
         if (suppressDocCloseRef.current) {
           suppressDocCloseRef.current = false;
           return;
         }
+        const downTarget = lastDownTarget;
+        lastDownTarget = null;
+        if (ev.target.closest?.(KEEP_DRAWER_OPEN) || downTarget?.closest?.(KEEP_DRAWER_OPEN)) return;
         if (isDraggingRef.current) return;
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
@@ -1209,6 +1222,10 @@ export default function Map(props) {
       if (docCloseHandlerRef.current) {
         document.removeEventListener("click", docCloseHandlerRef.current, true);
         docCloseHandlerRef.current = null;
+      }
+      if (docDownHandlerRef.current) {
+        document.removeEventListener("pointerdown", docDownHandlerRef.current, true);
+        docDownHandlerRef.current = null;
       }
       hoverPopupRef.current?.remove();
       hoverPopupRef.current = null;
