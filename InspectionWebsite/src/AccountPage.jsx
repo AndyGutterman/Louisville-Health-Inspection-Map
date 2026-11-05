@@ -71,6 +71,8 @@ export default function AccountPage({
   onItemRemoved,
   refreshToken,
   focusAreaId,
+  zIndex,      // phones: lets Map.jsx put this page above or below the info drawer
+  bottomInset, // phones: px of the info drawer sitting over the bottom of this page
 }) {
   const { user, signOut, supabase } = useAuth();
   const side = variant === "panel";
@@ -85,9 +87,9 @@ export default function AccountPage({
   }
 
   return (
-    <div className={`acct-panel${side ? " side" : ""}`}>
+    <div className={`acct-panel${side ? " side" : ""}`} style={zIndex != null ? { zIndex } : undefined}>
       <style>{STYLES}</style>
-      <div className="acct-inner">
+      <div className="acct-inner" style={bottomInset ? { paddingBottom: 80 + bottomInset } : undefined}>
         <div className="acct-head">
           <div className="acct-avatar">{(user.email || "?")[0].toUpperCase()}</div>
           <div className="acct-who">

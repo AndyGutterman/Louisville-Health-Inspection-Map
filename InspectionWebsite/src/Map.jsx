@@ -257,6 +257,9 @@ export default function Map(props) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [focusArea, setFocusArea] = useState(null); // { id, n }: scroll the Watch panel to this area
   const openWatchPanelRef = useRef(null);
+  // Phones: which full-screen layer sits on top, the account page or the info drawer.
+  const [mobileTop, setMobileTop] = useState("account");
+  const [sheetH, setSheetH] = useState(0); // phones: resting height of the info drawer sheet
   const isMobile = useMediaQuery("(max-width: 600px)");
   const accountFullscreen = accountOpen && isMobile && page === "map";
   const [loginOpen, setLoginOpen] = useState(false);
@@ -1551,6 +1554,7 @@ const closeDrawer = () => {
     setFacDetailsFor(null);
     setDrawerLoading(false);
     loadSeqRef.current++;
+    setMobileTop("account"); // with the drawer gone, the account page (if open) is on top again
   };
 
   // A row was clicked in the account panel / page: show that place in the info drawer.
@@ -1572,13 +1576,18 @@ const closeDrawer = () => {
         duration: 450,
       });
     }
+    // Phones: the drawer opens over the account page and replaces any drawer already open
+    // underneath. Closing it leaves the account page open.
+    setMobileTop("drawer");
     beginDrawerLoad(eid, p);
   };
 
+  // Phones: opening the account page puts it over the map and over any open drawer,
+  // which stays open underneath.
   const toggleAccount = () => {
     if (accountOpen && page === "map") { setAccountOpen(false); return; }
     setPage("map");
-    if (isMobile) closeDrawer(); // phones: don't leave a bottom sheet over the account page
+    setMobileTop("account");
     setFocusArea(null);
     setAccountOpen(true);
   };
@@ -1587,7 +1596,7 @@ const closeDrawer = () => {
   // Map handlers are registered once, so they call this through a ref.
   openWatchPanelRef.current = (areaId) => {
     setPage("map");
-    if (isMobile) closeDrawer();
+    setMobileTop("account");
     setFocusArea({ id: areaId, n: Date.now() });
     setAccountOpen(true);
   };
@@ -1732,6 +1741,8 @@ const closeDrawer = () => {
           variant={isMobile ? "page" : "panel"}
           onClose={() => setAccountOpen(false)}
           focusAreaId={focusArea}
+          zIndex={isMobile ? (mobileTop === "drawer" && selected ? 50 : 3300) : undefined}
+          bottomInset={isMobile && selected && mobileTop === "drawer" ? sheetH : 0}
           onOpenEstablishment={openFromAccount}
           activeEid={selected?.establishment_id}
           onItemRemoved={(eid) =>
@@ -1770,6 +1781,7 @@ const closeDrawer = () => {
             if (f) beginDrawerLoad(switchEid, f.properties);
           }}
           onClose={closeDrawer}
+          onSheetHeight={setSheetH}
           rightOffset={accountOpen && !isMobile && user ? ACCOUNT_PANEL_W + 12 : 0}
           watchlisted={selected ? watchlistEids.has(selected.establishment_id) : false}
           onSaveToWatchlist={async (eid) => {

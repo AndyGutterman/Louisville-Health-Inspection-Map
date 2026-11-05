@@ -46,7 +46,7 @@ flowchart TD
   map --> learn["LearnPage"]
   map --> feedback["FeedbackModal"]
   map --> wal["watchAreaLayer.js"]
-  map --> lib["lib/<br/>scoring, categories, dedupe, dates,<br/>samePlaceDetection, geocode, constants"]
+  map --> lib["lib/<br/>scoring, categories, dedupe, dates,<br/>samePlaceDetection, geocode, bottomSheet, constants"]
   map --> hooks["hooks/useMediaQuery"]
   filters --> hooks
   drawer --> hooks
@@ -94,6 +94,8 @@ sequenceDiagram
 | Date formats | `src/lib/dates.js` |
 | Address search for watch areas | `src/lib/geocode.js`, `src/AddressPicker.jsx` |
 | Phone / desktop breakpoints in components | `src/hooks/useMediaQuery.js` |
+| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/InfoDrawer.jsx` |
+| Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx` |
 | The info drawer and its history | `src/InfoDrawer.jsx`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
 | Filters and score sliders | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css` |
 | Watch areas on the map | `src/watchAreaLayer.js` |

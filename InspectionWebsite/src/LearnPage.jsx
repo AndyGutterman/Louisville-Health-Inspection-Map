@@ -494,7 +494,7 @@ export function LoginModal({ onClose }) {
         <button className="ln-modal-x" onClick={onClose} aria-label="Close">×</button>
         <div className="ln-modal-title">Sign in</div>
         <div className="ln-modal-sub">
-          Create a free account to save your favorite restaurants and get placard alerts.
+          Create a free account to create a watchlist or save restaurants
         </div>
 
         {loading ? (
@@ -599,10 +599,6 @@ export function LoginModal({ onClose }) {
                 {sending ? "Sending…" : "Send sign-in link"}
               </button>
             </form>
-
-            <div style={{ marginTop: 12, fontSize: ".68rem", color: "rgba(255,255,255,0.22)", textAlign: "center", lineHeight: 1.5 }}>
-              Free account · No password · Unsubscribe anytime
-            </div>
           </>
         )}
       </div>

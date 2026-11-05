@@ -4,6 +4,12 @@ import "./styles/History.css";
 import './styles/RestaurantInfo.css';
 import { formatDateSafe } from "./lib/dates.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import {
+  expandedHeight,
+  computePeekHeight,
+  clampSheetHeight,
+  resolveSheetRelease,
+} from "./lib/bottomSheet.js";
 
 const displayField = (v) =>
   v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
@@ -421,8 +427,114 @@ const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
 // rightOffset (desktop only): px to slide left so another right-hand panel (the account panel) can sit beside it.
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist, rightOffset = 0 }) {
+export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist, rightOffset = 0, onSheetHeight }) {
   const isMobile = useMediaQuery("(max-width: 600px)");
+
+  // ── Phone bottom sheet: rests at "peek" (card + about 1.5 history rows) or "expanded",
+  // and can be dragged between them by its handle. Hooks stay above the early return.
+  const sheetRef = React.useRef(null);
+  const bodyRef = React.useRef(null);
+  const gestureRef = React.useRef(null);
+  const [snap, setSnap] = React.useState("peek");
+  const [peekH, setPeekH] = React.useState(340);
+  const [dragH, setDragH] = React.useState(null); // px while the handle is being dragged
+  const [animate, setAnimate] = React.useState(false);
+  const [vh, setVh] = React.useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
+  const hasSelected = !!selected;
+  const eid = selected?.establishment_id;
+  const expandedH = expandedHeight(vh);
+
+  React.useEffect(() => {
+    const onResize = () => setVh(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Every fresh open starts at peek.
+  React.useEffect(() => {
+    if (!hasSelected) {
+      setSnap("peek");
+      setDragH(null);
+      setAnimate(false);
+    }
+  }, [hasSelected]);
+
+  // Measure where the first history row sits, so peek shows exactly 1.5 rows.
+  React.useLayoutEffect(() => {
+    if (!isMobile || !hasSelected) return;
+    const sheet = sheetRef.current;
+    const body = bodyRef.current;
+    if (!sheet || !body) return;
+    const row = body.querySelector(".hist-item, .hist-skeleton-row");
+    setPeekH(
+      computePeekHeight({
+        firstRowTop: row
+          ? row.getBoundingClientRect().top - sheet.getBoundingClientRect().top + body.scrollTop
+          : null,
+        rowHeight: row ? row.offsetHeight : 0,
+        viewportH: vh,
+      }),
+    );
+    const id = requestAnimationFrame(() => setAnimate(true)); // no grow-in on first paint
+    return () => cancelAnimationFrame(id);
+  }, [isMobile, hasSelected, eid, history, drawerLoading, vh]);
+
+  const restH = snap === "expanded" ? expandedH : peekH;
+  const sheetH = dragH ?? restH;
+
+  // Tell the parent the resting height (not every pixel of a drag).
+  React.useEffect(() => {
+    onSheetHeight?.(isMobile && hasSelected ? restH : 0);
+  }, [onSheetHeight, isMobile, hasSelected, restH]);
+
+  const onHandleDown = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const now = performance.now();
+    gestureRef.current = {
+      y0: e.clientY,
+      h0: sheetRef.current ? sheetRef.current.getBoundingClientRect().height : restH,
+      moved: false,
+      lastY: e.clientY,
+      lastT: now,
+      v: 0,
+      h: null,
+    };
+  };
+
+  const onHandleMove = (e) => {
+    const g = gestureRef.current;
+    if (!g) return;
+    const dy = g.y0 - e.clientY; // up is positive
+    if (Math.abs(dy) > 6) g.moved = true;
+    if (!g.moved) return;
+    const now = performance.now();
+    g.v = (g.lastY - e.clientY) / Math.max(1, now - g.lastT);
+    g.lastY = e.clientY;
+    g.lastT = now;
+    g.h = clampSheetHeight(g.h0 + dy, peekH, expandedH);
+    setDragH(g.h);
+  };
+
+  const onHandleUp = (e) => {
+    const g = gestureRef.current;
+    gestureRef.current = null;
+    if (!g) return;
+    try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch { /* already released */ }
+    if (!g.moved) {
+      setSnap((cur) => (cur === "peek" ? "expanded" : "peek")); // a tap toggles
+      return;
+    }
+    const next = resolveSheetRelease({
+      height: g.h ?? g.h0,
+      velocity: g.v,
+      snap,
+      peekH,
+      expandedH,
+    });
+    setDragH(null);
+    if (next === "close") onClose?.();
+    else setSnap(next);
+  };
 
   // Horizontal resize — desktop only
   const defaultW = () => Math.min(420, Math.round(window.innerWidth * 0.82));
@@ -446,16 +558,17 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
 
   if (!selected) return null;
 
-  // Mobile: bottom sheet, auto-heights to content (up to 82dvh), slides up from bottom.
+  // Mobile: bottom sheet with two resting heights (see above), dragged by its handle.
   // Desktop: full-height column between header and screen bottom, always scrollable.
   const outerStyle = isMobile ? {
     position: "fixed",
     left: 0,
     right: 0,
     bottom: 0,
-    maxHeight: "82dvh",
+    height: sheetH,
     width: "100%",
     borderRadius: "14px 14px 0 0",
+    transition: dragH != null || !animate ? "none" : "height .24s cubic-bezier(.2,.8,.2,1)",
   } : {
     position: "fixed",
     right: 16 + rightOffset,
@@ -469,6 +582,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
 
   return (
     <div
+      ref={sheetRef}
       className="info-drawer"
       onPointerDown={onBringToFront}
       style={{
@@ -512,12 +626,41 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         />
       )}
 
+      {/* Phone only: drag handle. Drag up to expand, down to collapse or close; a tap toggles. */}
+      {isMobile && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={snap === "peek" ? "Expand details" : "Collapse details"}
+          onPointerDown={onHandleDown}
+          onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp}
+          onPointerCancel={onHandleUp}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setSnap((cur) => (cur === "peek" ? "expanded" : "peek"));
+          }}
+          style={{
+            flexShrink: 0,
+            height: 26,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "grab",
+            touchAction: "none",
+            userSelect: "none",
+          }}
+        >
+          <span style={{ width: 40, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.28)" }} />
+        </div>
+      )}
+
       {/* Veil removed — skeleton in history section serves as the loading indicator */}
 
       {/* Scrollable inner body.
           flex:1 + minHeight:0 lets it grow to fill on desktop (bounded by top+bottom),
           and on mobile sizes to content while still being scrollable if tall. */}
       <div
+        ref={bodyRef}
         className="info-drawer-body"
         style={{
           flex: 1,
