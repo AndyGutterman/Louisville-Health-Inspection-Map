@@ -35,7 +35,7 @@ docs/
 
 | Phase | Work | Risk |
 |---|---|---|
-| 0 | Full schema into `supabase/migrations`; `.gitattributes` for line endings; tests that pin down current behaviour of code about to move (drawer history merge, filter building, popup HTML) | Low |
+| 0 | Full schema into `supabase/migrations` (done 2026-11-06); `.gitattributes` for line endings. Tests for logic in `Map.jsx` are written as each piece is extracted (phases 4–5), since it can't be tested in place | Low |
 | 1 | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` | Low |
 | 2 | `packages/core`: region config, categories, scoring; delete the copies | Low |
 | 3 | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first) | Medium |
@@ -78,4 +78,18 @@ A `data-map-overlay` attribute on panels replaces the class-name list that decid
 - `scripts/etl-accuracy-check.js` queries a different server and field names than the ETL; probably skips or fails every record.
 - `etl/Recover.js` can't recover `seed_facilities`, which never records its runs.
 - The table view's row-click popup is a simpler copy of the map popup (no save button).
-- `supabase/migrations/20260619_accounts.sql` allows radii 5/10/15/25; the live database allows 1–25. Phase 0's schema export replaces it.
+- The Learn page drill-down shows each place's *current* score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
+- `AuthContext.jsx` calls `unsubscribe_by_token`, which doesn't exist, so every unsubscribe link reports "isn't valid". Alert emails were never built.
+- Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
+- Pipeline order: `seed_categories` runs last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would make `backfill_types` fail. Categories should load first.
+- `facilities.lon`/`lat` are generated from `geom`: the `trg_sync_lonlat` trigger does nothing, and fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error).
+- Redundant indexes: `facilities_establishment_id_uidx` duplicates the primary key; `inspections_establishment_id_idx` is covered by `inspections_est_idx`.
+
+## Region-specific facts in the database
+
+- `watchlist_areas_bounds` limits watch-area centres to roughly Louisville Metro (lat 37.8–38.6, lon −86.3 to −85.1). A county outside that box needs this widened.
+
+## Security (fix now, outside the refactor)
+
+- `feedback` has a policy letting **any signed-in user read all feedback**, including submitters' names and emails. Drop `auth_can_read_feedback`.
+- `feedback` also lets anonymous users insert directly, which skips the edge function's rate limit. Drop `anon_can_insert_feedback` once production is confirmed to use the edge function (`VITE_FEEDBACK_FUNCTION_URL` set in Netlify).
