@@ -666,6 +666,10 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
+          // Always reserve the scrollbar's space so the content width doesn't
+          // change (and the name/address don't re-wrap) when "More info"
+          // expands the body past the scroll threshold.
+          scrollbarGutter: "stable",
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
           padding: isMobile ? "16px 16px 48px" : "24px 24px 60px",
