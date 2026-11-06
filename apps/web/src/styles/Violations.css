@@ -17,46 +17,57 @@
   gap: 6px;
   padding: 6px 12px;
   border-radius: 999px;
-  font-size: .8rem;
+  font-size: 0.8rem;
   font-weight: 800;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
   color: #eaeaea;
-  background: rgba(255, 255, 255, .10);
-  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 .viol-count.crit {
   color: #111;
   background: #ffb9b9;
   border-color: #ff9a9a;
 }
-.viol-count.clickable { cursor: pointer; }
+.viol-count.clickable {
+  cursor: pointer;
+}
 .viol-count .chev {
   transform: translateY(1px) rotate(0);
-  transition: transform .15s ease;
+  transition: transform 0.15s ease;
 }
-.viol-count.open .chev { transform: translateY(1px) rotate(180deg); }
+.viol-count.open .chev {
+  transform: translateY(1px) rotate(180deg);
+}
 
 .viol-collapse {
   overflow: hidden;
   opacity: 0;
-  transition: max-height .28s cubic-bezier(.2,.8,.2,1), opacity .24s ease;
+  transition:
+    max-height 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.24s ease;
 }
-.viol-collapse.open { opacity: 1; }
+.viol-collapse.open {
+  opacity: 1;
+}
 
 .viol-group-toggle {
   padding: 6px 12px;
   border-radius: 999px;
-  font-size: .82rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #d7efff;
-  background: rgba(90, 208, 255, .12);
-  border: 1px solid rgba(90, 208, 255, .28);
-  transition: transform .12s ease, .12s ease, border-color .12s ease;
+  background: rgba(90, 208, 255, 0.12);
+  border: 1px solid rgba(90, 208, 255, 0.28);
+  transition:
+    transform 0.12s ease,
+    0.12s ease,
+    border-color 0.12s ease;
 }
 .viol-group-toggle:hover {
   transform: translateY(-1px);
-  background: rgba(90, 208, 255, .18);
-  border-color: rgba(90, 208, 255, .36);
+  background: rgba(90, 208, 255, 0.18);
+  border-color: rgba(90, 208, 255, 0.36);
 }
 
 .viol-list {
@@ -72,16 +83,19 @@
   display: grid;
   grid-template-columns: 4px 1fr;
   align-items: stretch;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .03));
-  border: 1px solid rgba(255, 255, 255, .09);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
   overflow: hidden;
-  transition: transform .15s ease, .15s ease, border-color .15s ease;
+  transition:
+    transform 0.15s ease,
+    0.15s ease,
+    border-color 0.15s ease;
 }
 .viol-card:hover {
   transform: translateY(-1px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .04));
-  border-color: rgba(255, 255, 255, .13);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.04));
+  border-color: rgba(255, 255, 255, 0.13);
 }
 .viol-card .viol-rail {
   background: linear-gradient(180deg, #7f8cff, #5ad0ff);
@@ -110,12 +124,12 @@
   gap: 4px;
   padding: 2px 7px;
   border-radius: 999px;
-  font-size: .7rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: .15px;
+  letter-spacing: 0.15px;
   color: #eaeaea;
-  background: rgba(255, 255, 255, .10);
-  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   white-space: nowrap;
 }
 .viol-chip.crit {
@@ -132,28 +146,28 @@
   text-overflow: clip;
   line-height: 1.2;
   overflow-wrap: anywhere;
-  font-size: .88rem;
+  font-size: 0.88rem;
   font-weight: 700;
 }
 
 .viol-count-badge {
   flex: 0 0 auto;
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: #fff;
   white-space: nowrap;
   align-self: center;
-  background: rgba(255,255,255,0.13);
-  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   padding: 2px 8px;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
 }
 
 .viol-text {
-  color: rgba(255, 255, 255, .85);
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1.3;
-  font-size: .82rem;
+  font-size: 0.82rem;
   padding-left: 0;
   padding-right: 2px;
   text-wrap: pretty;
@@ -164,18 +178,21 @@
   margin-left: 0;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: .75rem;
+  font-size: 0.75rem;
   color: #d7efff;
-  background: rgba(90, 208, 255, .12);
-  border: 1px solid rgba(90, 208, 255, .28);
-  transition: transform .12s ease, .12s ease, border-color .12s ease;
+  background: rgba(90, 208, 255, 0.12);
+  border: 1px solid rgba(90, 208, 255, 0.28);
+  transition:
+    transform 0.12s ease,
+    0.12s ease,
+    border-color 0.12s ease;
 }
 .viol-card.crit .viol-toggle {
   color: #2b0e0e;
-  background: rgba(255, 107, 107, .16);
-  border-color: rgba(255, 61, 61, .32);
+  background: rgba(255, 107, 107, 0.16);
+  border-color: rgba(255, 61, 61, 0.32);
 }
 .viol-card.crit .viol-toggle:hover {
-  background: rgba(255, 107, 107, .22);
-  border-color: rgba(255, 61, 61, .40);
+  background: rgba(255, 107, 107, 0.22);
+  border-color: rgba(255, 61, 61, 0.4);
 }

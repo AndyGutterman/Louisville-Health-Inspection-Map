@@ -26,13 +26,20 @@ describe("buildCircle", () => {
   it("keeps every point within 1% of the requested radius", () => {
     const center = [area.center_lon, area.center_lat];
     for (const pt of ring) {
-      expect(Math.abs(miles(center, pt) - area.radius_miles)).toBeLessThan(area.radius_miles * 0.01);
+      expect(Math.abs(miles(center, pt) - area.radius_miles)).toBeLessThan(
+        area.radius_miles * 0.01,
+      );
     }
   });
 
   it("carries the id and falls back label -> address -> radius", () => {
-    expect(buildCircle({ ...area, label: "Home" }).properties).toMatchObject({ id: 7, label: "Home" });
-    expect(buildCircle({ ...area, center_address: "1 Main St" }).properties.label).toBe("1 Main St");
+    expect(buildCircle({ ...area, label: "Home" }).properties).toMatchObject({
+      id: 7,
+      label: "Home",
+    });
+    expect(buildCircle({ ...area, center_address: "1 Main St" }).properties.label).toBe(
+      "1 Main St",
+    );
     expect(buildCircle(area).properties.label).toBe("3 mi");
   });
 

@@ -90,14 +90,16 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const { error } = await supabase.from("feedback").insert([{
-    name: typeof payload.name === "string" ? payload.name.slice(0, 80) || null : null,
-    email: typeof payload.email === "string" ? payload.email.slice(0, 120) || null : null,
-    feedback_type: payload.feedback_type,
-    message: message.slice(0, 1200),
-    user_agent: typeof payload.user_agent === "string" ? payload.user_agent.slice(0, 300) : null,
-    ip_hash: ipHash, // stored in feedback.ip_hash for duplicate/abuse tracking
-  }]);
+  const { error } = await supabase.from("feedback").insert([
+    {
+      name: typeof payload.name === "string" ? payload.name.slice(0, 80) || null : null,
+      email: typeof payload.email === "string" ? payload.email.slice(0, 120) || null : null,
+      feedback_type: payload.feedback_type,
+      message: message.slice(0, 1200),
+      user_agent: typeof payload.user_agent === "string" ? payload.user_agent.slice(0, 300) : null,
+      ip_hash: ipHash, // stored in feedback.ip_hash for duplicate/abuse tracking
+    },
+  ]);
 
   if (error) {
     console.error("Supabase insert error:", error);

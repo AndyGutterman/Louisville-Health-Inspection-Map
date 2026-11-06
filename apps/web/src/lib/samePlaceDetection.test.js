@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  snapCoordKey,
-  distanceM,
-  nameSimilarity,
-  tagSimilarNearby,
-} from "./samePlaceDetection.js";
+import { snapCoordKey, distanceM, nameSimilarity, tagSimilarNearby } from "./samePlaceDetection.js";
 
 const feature = (eid, name, coords) => ({
   type: "Feature",
@@ -96,7 +91,9 @@ describe("tagSimilarNearby", () => {
 
     const [ta, tb] = tagSimilarNearby([a, b]);
 
-    expect(JSON.parse(ta.properties.similar_nearby)).toEqual([{ eid: "B", name: "Joes Pizza LLC" }]);
+    expect(JSON.parse(ta.properties.similar_nearby)).toEqual([
+      { eid: "B", name: "Joes Pizza LLC" },
+    ]);
     expect(JSON.parse(tb.properties.similar_nearby)).toEqual([{ eid: "A", name: "Joe's Pizza" }]);
   });
 

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import './SplashScreen.css';
+import React, { useEffect, useState } from "react";
+import "./SplashScreen.css";
 
 const FADE_DURATION = 600; // must match splash-out animation duration in CSS
 
@@ -11,20 +11,29 @@ export default function SplashScreen({ isLoading, timedOut }) {
     if (!isLoading) {
       const fadeTimer = setTimeout(() => setFadeOut(true), 150);
       const removeTimer = setTimeout(() => setUnmounted(true), 150 + FADE_DURATION);
-      return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(removeTimer);
+      };
     }
   }, [isLoading]);
 
   if (unmounted) return null;
 
   return (
-    <div className={`splash-screen ${fadeOut ? 'fade-out' : ''}`}>
+    <div className={`splash-screen ${fadeOut ? "fade-out" : ""}`}>
       <div className="splash-bg" />
       <div className="splash-content">
         <div className="splash-brand">
-          <div className="splash-word"><span className="word-red">LOADING</span></div>
-          <div className="splash-word"><span className="word-yellow">HEALTH</span></div>
-          <div className="splash-word"><span className="word-green">SCORES</span></div>
+          <div className="splash-word">
+            <span className="word-red">LOADING</span>
+          </div>
+          <div className="splash-word">
+            <span className="word-yellow">HEALTH</span>
+          </div>
+          <div className="splash-word">
+            <span className="word-green">SCORES</span>
+          </div>
         </div>
 
         <p className="splash-tagline">Health Inspections at a Glance</p>

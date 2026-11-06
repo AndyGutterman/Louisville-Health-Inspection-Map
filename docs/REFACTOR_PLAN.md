@@ -33,34 +33,34 @@ docs/
 
 ## Phases
 
-| Phase | Work | Risk |
-|---|---|---|
-| 0 | Full schema into `supabase/migrations` (done 2026-11-06); `.gitattributes` for line endings. Tests for logic in `Map.jsx` are written as each piece is extracted (phases 4–5), since it can't be tested in place | Low |
-| 1 | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` (done 2026-11-06) | Low |
-| 2 | `packages/core`: region config, categories, scoring; delete the copies | Low |
-| 3 | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first) | Medium |
-| 4 | Web data layer: `api/` modules and hooks | Medium |
-| 5 | Split `Map.jsx` (see below) | Highest |
-| 6 | Remaining components, CSS clean-up, dead code | Low–medium |
-| 7 | Docs: architecture, CONTRIBUTING, "adding a county", decision notes | None |
+| Phase | Work                                                                                                                                                                                                             | Risk       |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0     | Full schema into `supabase/migrations` (done 2026-11-06); `.gitattributes` for line endings. Tests for logic in `Map.jsx` are written as each piece is extracted (phases 4–5), since it can't be tested in place | Low        |
+| 1     | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` (done 2026-11-06)                                                        | Low        |
+| 2     | `packages/core`: region config, categories, scoring; delete the copies                                                                                                                                           | Low        |
+| 3     | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first)                                                                                                                                | Medium     |
+| 4     | Web data layer: `api/` modules and hooks                                                                                                                                                                         | Medium     |
+| 5     | Split `Map.jsx` (see below)                                                                                                                                                                                      | Highest    |
+| 6     | Remaining components, CSS clean-up, dead code                                                                                                                                                                    | Low–medium |
+| 7     | Docs: architecture, CONTRIBUTING, "adding a county", decision notes                                                                                                                                              | None       |
 
 After each phase: lint, tests, build and [SMOKE_TEST.md](SMOKE_TEST.md) pass.
 
 ### Splitting Map.jsx
 
-| New file | Job |
-|---|---|
-| `app/App.jsx` | which panels and pages are open |
-| `app/AppHeader.jsx` | header |
-| `features/map/MapView.jsx` | creates the map and wires its events |
-| `features/map/layers.js` | pin and ring layer definitions |
-| `features/map/filterExpression.js` | builds the MapLibre filter (pure, tested) |
-| `features/map/pinPicking.js` | which pin a click means (pure, tested) |
-| `features/map/popupHtml.js` | popup HTML, with escaping (pure, tested) |
-| `useMapFeatures` | loads and caches map data |
-| `useDrawer` | opens, closes and loads the info drawer |
-| `useWatchlist` | the one save/remove implementation |
-| `useWatchAreas` | shared watch-area state (replaces the `window` event) |
+| New file                           | Job                                                   |
+| ---------------------------------- | ----------------------------------------------------- |
+| `app/App.jsx`                      | which panels and pages are open                       |
+| `app/AppHeader.jsx`                | header                                                |
+| `features/map/MapView.jsx`         | creates the map and wires its events                  |
+| `features/map/layers.js`           | pin and ring layer definitions                        |
+| `features/map/filterExpression.js` | builds the MapLibre filter (pure, tested)             |
+| `features/map/pinPicking.js`       | which pin a click means (pure, tested)                |
+| `features/map/popupHtml.js`        | popup HTML, with escaping (pure, tested)              |
+| `useMapFeatures`                   | loads and caches map data                             |
+| `useDrawer`                        | opens, closes and loads the info drawer               |
+| `useWatchlist`                     | the one save/remove implementation                    |
+| `useWatchAreas`                    | shared watch-area state (replaces the `window` event) |
 
 A `data-map-overlay` attribute on panels replaces the class-name list that decides what closes the drawer.
 
@@ -78,7 +78,7 @@ A `data-map-overlay` attribute on panels replaces the class-name list that decid
 - `pipeline/etl-accuracy-check.js` queries a different server and field names than the ETL; probably skips or fails every record.
 - `pipeline/Recover.js` can't recover `seed_facilities`, which never records its runs.
 - The table view's row-click popup is a simpler copy of the map popup (no save button).
-- The Learn page drill-down shows each place's *current* score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
+- The Learn page drill-down shows each place's _current_ score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
 - `AuthContext.jsx` calls `unsubscribe_by_token`, which doesn't exist, so every unsubscribe link reports "isn't valid". Alert emails were never built.
 - Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
 - Pipeline order: `seed_categories` runs last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would make `backfill_types` fail. Categories should load first.

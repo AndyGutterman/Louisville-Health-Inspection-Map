@@ -10,15 +10,16 @@
  *
  * Safe to re-run: only touches rows where facility_type IS NULL.
  */
-import 'dotenv/config';
-import { supa }           from './lib/db.js';
-import { paginateArcGIS } from './lib/arcgis.js';
+import "dotenv/config";
+import { supa } from "./lib/db.js";
+import { paginateArcGIS } from "./lib/arcgis.js";
 
-const EST_BASE = 'https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Establishments/FeatureServer/0';
+const EST_BASE =
+  "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/Louisville_Metro_KY_Permitted_Food_Service_Establishments/FeatureServer/0";
 
-const normId = v => {
+const normId = (v) => {
   if (v == null) return null;
-  const n = parseInt(String(v).replace(/,/g, '').trim(), 10);
+  const n = parseInt(String(v).replace(/,/g, "").trim(), 10);
   return Number.isFinite(n) ? String(n) : null;
 };
 
@@ -28,9 +29,9 @@ async function getNullIds() {
   const PAGE = 1000;
   for (;;) {
     const { data, error } = await supa
-      .from('facilities')
-      .select('establishment_id')
-      .is('facility_type', null)
+      .from("facilities")
+      .select("establishment_id")
+      .is("facility_type", null)
       .range(offset, offset + PAGE - 1);
     if (error) throw error;
     if (!data?.length) break;
@@ -44,29 +45,39 @@ async function getNullIds() {
 (async function run() {
   const needsFix = await getNullIds();
   console.log(`Facilities needing type/subtype backfill: ${needsFix.size}`);
-  if (!needsFix.size) { console.log('Nothing to do.'); return; }
+  if (!needsFix.size) {
+    console.log("Nothing to do.");
+    return;
+  }
 
   let totalFixed = 0;
 
-  for await (const { attrs, page, offset } of paginateArcGIS(EST_BASE, {
-    where:     '1=1',
-    outFields: 'permit_number,facility_type,subtype',
-  }, { pageSize: 1000, delayMs: 50 })) {
+  for await (const { attrs, page, offset } of paginateArcGIS(
+    EST_BASE,
+    {
+      where: "1=1",
+      outFields: "permit_number,facility_type,subtype",
+    },
+    { pageSize: 1000, delayMs: 50 },
+  )) {
     const updates = attrs
-      .map(a => ({
+      .map((a) => ({
         establishment_id: normId(a.permit_number),
-        facility_type:    Number.isFinite(+a.facility_type) ? +a.facility_type : null,
-        subtype:          Number.isFinite(+a.subtype)       ? +a.subtype       : null,
+        facility_type: Number.isFinite(+a.facility_type) ? +a.facility_type : null,
+        subtype: Number.isFinite(+a.subtype) ? +a.subtype : null,
       }))
-      .filter(r => r.establishment_id
-               && needsFix.has(r.establishment_id)
-               && r.facility_type != null
-               && r.subtype != null);
+      .filter(
+        (r) =>
+          r.establishment_id &&
+          needsFix.has(r.establishment_id) &&
+          r.facility_type != null &&
+          r.subtype != null,
+      );
 
     if (updates.length) {
       const { error } = await supa
-        .from('facilities')
-        .upsert(updates, { onConflict: 'establishment_id' });
+        .from("facilities")
+        .upsert(updates, { onConflict: "establishment_id" });
       if (error) throw error;
       totalFixed += updates.length;
       console.log(`page ${page} @${offset}: fixed ${updates.length}`);
@@ -78,6 +89,11 @@ async function getNullIds() {
   const remaining = needsFix.size - totalFixed;
   console.log(`Done — backfilled type/subtype for ${totalFixed} facilities.`);
   if (remaining > 0) {
-    console.log(`Note: ${remaining} facilities still have no type (not yet in Establishments endpoint — normal for new/closed permits).`);
+    console.log(
+      `Note: ${remaining} facilities still have no type (not yet in Establishments endpoint — normal for new/closed permits).`,
+    );
   }
-})().catch(err => { console.error('backfill_types failed:', err); process.exit(1); });
+})().catch((err) => {
+  console.error("backfill_types failed:", err);
+  process.exit(1);
+});

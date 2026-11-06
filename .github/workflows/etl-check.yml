@@ -2,7 +2,7 @@ name: ETL Accuracy Check
 
 on:
   schedule:
-    - cron: "0 10 * * 1"   # Every Monday at 10am UTC
+    - cron: "0 10 * * 1" # Every Monday at 10am UTC
   workflow_dispatch: {}
 
 jobs:

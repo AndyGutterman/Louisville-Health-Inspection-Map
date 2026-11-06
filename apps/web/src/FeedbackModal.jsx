@@ -3,16 +3,16 @@ import "./styles/FeedbackModal.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const COOLDOWN_MS = 30_000; // 30 seconds between submissions
-const MAX_MSG     = 1200;
-const MAX_NAME    = 80;
-const MAX_EMAIL   = 120;
+const MAX_MSG = 1200;
+const MAX_NAME = 80;
+const MAX_EMAIL = 120;
 
 const FEEDBACK_TYPES = [
-  { value: "",                    label: "Select a type…" },
-  { value: "bug",                 label: "🐛  Bug report" },
-  { value: "wrong_data",          label: "📍  Incorrect restaurant info" },
-  { value: "feature",             label: "💡  Feature request" },
-  { value: "general",             label: "💬  General feedback" },
+  { value: "", label: "Select a type…" },
+  { value: "bug", label: "🐛  Bug report" },
+  { value: "wrong_data", label: "📍  Incorrect restaurant info" },
+  { value: "feature", label: "💡  Feature request" },
+  { value: "general", label: "💬  General feedback" },
 ];
 
 const FEEDBACK_FN_URL = import.meta.env.VITE_FEEDBACK_FUNCTION_URL;
@@ -24,20 +24,22 @@ const FEEDBACK_FN_URL = import.meta.env.VITE_FEEDBACK_FUNCTION_URL;
  *   onClose   – fn called to dismiss
  */
 export default function FeedbackModal({ supabase, onClose }) {
-  const [name,      setName]      = useState("");
-  const [email,     setEmail]     = useState("");
-  const [fbType,    setFbType]    = useState("");
-  const [message,   setMessage]   = useState("");
-  const [trap,      setTrap]      = useState(""); // honeypot
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [fbType, setFbType] = useState("");
+  const [message, setMessage] = useState("");
+  const [trap, setTrap] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
-  const [success,   setSuccess]   = useState(false);
-  const [error,     setError]     = useState("");
-  const [cooldown,  setCooldown]  = useState(0);  // seconds remaining
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [cooldown, setCooldown] = useState(0); // seconds remaining
   const timerRef = useRef(null);
 
   // Escape key
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onClose(); };
+    const h = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
@@ -49,7 +51,7 @@ export default function FeedbackModal({ supabase, onClose }) {
     return () => clearTimeout(timerRef.current);
   }, [cooldown]);
 
-  const msgLen  = message.length;
+  const msgLen = message.length;
   const canSend = fbType && message.trim().length >= 10 && !submitting && cooldown === 0;
 
   async function handleSubmit() {
@@ -61,9 +63,9 @@ export default function FeedbackModal({ supabase, onClose }) {
       return;
     }
 
-    if (!fbType)                          return setError("Please select a feedback type.");
-    if (message.trim().length < 10)       return setError("Message is too short (10 chars min).");
-    if (msgLen > MAX_MSG)                 return setError(`Message is too long (${MAX_MSG} chars max).`);
+    if (!fbType) return setError("Please select a feedback type.");
+    if (message.trim().length < 10) return setError("Message is too short (10 chars min).");
+    if (msgLen > MAX_MSG) return setError(`Message is too long (${MAX_MSG} chars max).`);
 
     // Basic email format check
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -73,11 +75,11 @@ export default function FeedbackModal({ supabase, onClose }) {
     setSubmitting(true);
     try {
       const payload = {
-        name:          name.trim().slice(0, MAX_NAME)   || null,
-        email:         email.trim().slice(0, MAX_EMAIL) || null,
+        name: name.trim().slice(0, MAX_NAME) || null,
+        email: email.trim().slice(0, MAX_EMAIL) || null,
         feedback_type: fbType,
-        message:       message.trim().slice(0, MAX_MSG),
-        user_agent:    navigator.userAgent.slice(0, 300),
+        message: message.trim().slice(0, MAX_MSG),
+        user_agent: navigator.userAgent.slice(0, 300),
       };
 
       if (FEEDBACK_FN_URL) {
@@ -116,17 +118,20 @@ export default function FeedbackModal({ supabase, onClose }) {
 
   return (
     <>
-
       {/* Backdrop */}
       <div
         className="fb-back"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="Send feedback"
       >
         <div className="fb-modal">
-          <button className="fb-x" onClick={onClose} aria-label="Close">×</button>
+          <button className="fb-x" onClick={onClose} aria-label="Close">
+            ×
+          </button>
 
           {success ? (
             <div className="fb-success">
@@ -135,7 +140,9 @@ export default function FeedbackModal({ supabase, onClose }) {
               <div className="fb-success-sub">
                 We read every submission. If you left an email we may follow up.
               </div>
-              <button className="fb-success-close" onClick={onClose}>Close</button>
+              <button className="fb-success-close" onClick={onClose}>
+                Close
+              </button>
             </div>
           ) : (
             <>
@@ -144,7 +151,11 @@ export default function FeedbackModal({ supabase, onClose }) {
                 Found a bug, wrong data, or have a suggestion? Let us know.
               </div>
 
-              {error && <div className="fb-error" role="alert">{error}</div>}
+              {error && (
+                <div className="fb-error" role="alert">
+                  {error}
+                </div>
+              )}
 
               {/* Type */}
               <div className="fb-field">
@@ -177,8 +188,8 @@ export default function FeedbackModal({ supabase, onClose }) {
                     fbType === "wrong_data"
                       ? "Which restaurant? What's incorrect? (e.g. wrong score, address, missing data)"
                       : fbType === "bug"
-                      ? "What happened? Steps to reproduce if possible."
-                      : "Describe your feedback…"
+                        ? "What happened? Steps to reproduce if possible."
+                        : "Describe your feedback…"
                   }
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -236,14 +247,8 @@ export default function FeedbackModal({ supabase, onClose }) {
               </div>
 
               <div className="fb-row">
-                <div className="fb-note">
-                  Anonymous feedback is fine. No account required.
-                </div>
-                <button
-                  className="fb-submit"
-                  onClick={handleSubmit}
-                  disabled={!canSend}
-                >
+                <div className="fb-note">Anonymous feedback is fine. No account required.</div>
+                <button className="fb-submit" onClick={handleSubmit} disabled={!canSend}>
                   {submitting ? "Sending…" : cooldown > 0 ? `Wait ${cooldown}s` : "Send"}
                 </button>
               </div>

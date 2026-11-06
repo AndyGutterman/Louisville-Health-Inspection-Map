@@ -8,37 +8,148 @@ function toTitleCase(str) {
   if (!str) return str;
   // If the string is not all-caps (mixed case already), leave it alone
   if (str !== str.toUpperCase()) return str;
-  const STOP = new Set(['a','an','the','and','but','or','for','nor','on','at','to','by','in','of','up','as','is','it']);
-  return str.toLowerCase().replace(/\b\w+/g, (word, idx) =>
-    idx === 0 || !STOP.has(word) ? word[0].toUpperCase() + word.slice(1) : word
-  );
+  const STOP = new Set([
+    "a",
+    "an",
+    "the",
+    "and",
+    "but",
+    "or",
+    "for",
+    "nor",
+    "on",
+    "at",
+    "to",
+    "by",
+    "in",
+    "of",
+    "up",
+    "as",
+    "is",
+    "it",
+  ]);
+  return str
+    .toLowerCase()
+    .replace(/\b\w+/g, (word, idx) =>
+      idx === 0 || !STOP.has(word) ? word[0].toUpperCase() + word.slice(1) : word,
+    );
 }
 
 // ─── Violation category keywords → label ─────────────────────────────────────
 const CATEGORY_RULES = [
-  { label: "Pest / Rodent",         keywords: ["pest","rodent","vermin","insect","roach","mice","rat","fly","flies","bug"] },
-  { label: "Temperature Control",   keywords: ["temperature","temp","hot hold","cold hold","cooling","reheating","thaw","reheat"] },
-  { label: "Handwashing",           keywords: ["handwash","hand wash","hand-wash","handwashing"] },
-  { label: "Employee Hygiene",      keywords: ["employee","personnel","bare hand","glove","hair","illness","sick","hygiene","personal"] },
-  { label: "Food Storage",          keywords: ["storage","store","stored","separation","segreg","raw","cooked","contamin","protect","cover"] },
-  { label: "Equipment Sanitation",  keywords: ["equipment","utensil","sanitiz","clean","wash","ware","surface","food-contact"] },
-  { label: "Water / Plumbing",      keywords: ["water","plumbing","sewage","drain","backflow","cross-connect","supply"] },
-  { label: "Documentation / Permit",keywords: ["permit","license","certif","record","document","posting","label","consumer advisory"] },
-  { label: "Facility / Structure",  keywords: ["floor","wall","ceiling","light","ventilat","structure","facility","repair","maintain","pest-proof"] },
+  {
+    label: "Pest / Rodent",
+    keywords: ["pest", "rodent", "vermin", "insect", "roach", "mice", "rat", "fly", "flies", "bug"],
+  },
+  {
+    label: "Temperature Control",
+    keywords: [
+      "temperature",
+      "temp",
+      "hot hold",
+      "cold hold",
+      "cooling",
+      "reheating",
+      "thaw",
+      "reheat",
+    ],
+  },
+  { label: "Handwashing", keywords: ["handwash", "hand wash", "hand-wash", "handwashing"] },
+  {
+    label: "Employee Hygiene",
+    keywords: [
+      "employee",
+      "personnel",
+      "bare hand",
+      "glove",
+      "hair",
+      "illness",
+      "sick",
+      "hygiene",
+      "personal",
+    ],
+  },
+  {
+    label: "Food Storage",
+    keywords: [
+      "storage",
+      "store",
+      "stored",
+      "separation",
+      "segreg",
+      "raw",
+      "cooked",
+      "contamin",
+      "protect",
+      "cover",
+    ],
+  },
+  {
+    label: "Equipment Sanitation",
+    keywords: [
+      "equipment",
+      "utensil",
+      "sanitiz",
+      "clean",
+      "wash",
+      "ware",
+      "surface",
+      "food-contact",
+    ],
+  },
+  {
+    label: "Water / Plumbing",
+    keywords: ["water", "plumbing", "sewage", "drain", "backflow", "cross-connect", "supply"],
+  },
+  {
+    label: "Documentation / Permit",
+    keywords: [
+      "permit",
+      "license",
+      "certif",
+      "record",
+      "document",
+      "posting",
+      "label",
+      "consumer advisory",
+    ],
+  },
+  {
+    label: "Facility / Structure",
+    keywords: [
+      "floor",
+      "wall",
+      "ceiling",
+      "light",
+      "ventilat",
+      "structure",
+      "facility",
+      "repair",
+      "maintain",
+      "pest-proof",
+    ],
+  },
 ];
 
 // ─── Subcomponents ───────────────────────────────────────────────────────────
 
 function ComingSoonBadge() {
   return (
-    <span style={{
-      fontSize: ".60rem", fontWeight: 700,
-      padding: "2px 8px", borderRadius: 999,
-      background: "rgba(251,188,5,0.12)",
-      border: "1px solid rgba(251,188,5,0.28)",
-      color: "#fbbc05", letterSpacing: ".06em",
-      textTransform: "uppercase", verticalAlign: "middle", marginLeft: 6,
-    }}>
+    <span
+      style={{
+        fontSize: ".60rem",
+        fontWeight: 700,
+        padding: "2px 8px",
+        borderRadius: 999,
+        background: "rgba(251,188,5,0.12)",
+        border: "1px solid rgba(251,188,5,0.28)",
+        color: "#fbbc05",
+        letterSpacing: ".06em",
+        textTransform: "uppercase",
+        verticalAlign: "middle",
+        marginLeft: 6,
+      }}
+    >
       Coming soon
     </span>
   );
@@ -54,164 +165,294 @@ export function LoginModal({ onClose }) {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onClose(); };
+    const h = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
 
   return (
     <>
-    <div className="ln-mback" onClick={onClose}>
-      <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="ln-modal-x" onClick={onClose} aria-label="Close">×</button>
-        <div className="ln-modal-title">Sign in</div>
-        <div className="ln-modal-sub">
-          Create a free account to save your favorite restaurants and get placard alerts.
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: "center", color: "rgba(255,255,255,0.40)", fontSize: ".84rem", padding: "16px 0" }}>Loading…</div>
-        ) : user ? (
-          <div className="ln-modal-box" style={{ alignItems: "flex-start", textAlign: "left" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(52,168,83,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "1rem", flexShrink: 0 }}>
-                {(user.email || "?")[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: ".88rem" }}>My Account</div>
-                <div style={{ fontSize: ".74rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
-              </div>
-            </div>
-            <button
-              onClick={() => { signOut(); onClose(); }}
-              style={{ marginTop: 14, width: "100%", padding: "9px 0", borderRadius: 8, background: "rgba(234,67,53,0.10)", border: "1px solid rgba(234,67,53,0.22)", color: "rgba(234,67,53,0.80)", fontWeight: 700, fontSize: ".84rem", cursor: "pointer", fontFamily: "inherit" }}
-            >
-              Sign out
-            </button>
+      <div className="ln-mback" onClick={onClose}>
+        <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
+          <button className="ln-modal-x" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+          <div className="ln-modal-title">Sign in</div>
+          <div className="ln-modal-sub">
+            Create a free account to save your favorite restaurants and get placard alerts.
           </div>
-        ) : sent ? (
-          /* ── Sent confirmation ── */
-          <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
-            <div style={{ fontSize: "2rem", marginBottom: 8 }}>✉️</div>
-            <div style={{ fontWeight: 700, fontSize: ".92rem", marginBottom: 6 }}>Check your email</div>
-            <div style={{ fontSize: ".80rem", color: "rgba(255,255,255,0.48)", lineHeight: 1.55, maxWidth: 240, margin: "0 auto 16px" }}>
-              We sent a sign-in link to <strong style={{ color: "rgba(255,255,255,0.70)" }}>{email}</strong>.
-              Click it to sign in — no password needed.
-            </div>
-            <button
-              onClick={() => { setSent(false); setEmail(""); setAuthError(null); }}
-              style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.38)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-            >
-              Use a different email
-            </button>
-          </div>
-        ) : (
-          /* ── Email input ── */
-          <>
-            <div style={{ fontSize: ".80rem", color: "rgba(255,255,255,0.48)", marginBottom: 14, lineHeight: 1.5 }}>
-              Enter your email and we'll send you a sign-in link. No password, no third-party account needed.
-            </div>
 
-            {authError && (
-              <div style={{ fontSize: ".74rem", color: "#ff9a9a", background: "rgba(234,67,53,0.09)", border: "1px solid rgba(234,67,53,0.20)", borderRadius: 8, padding: "8px 11px", marginBottom: 12 }}>
-                {authError}
-              </div>
-            )}
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!email.trim() || sending) return;
-                setAuthError(null);
-                setSending(true);
-                const { error } = await sendMagicLink(email.trim());
-                setSending(false);
-                if (error) {
-                  setAuthError(error.message || "Couldn't send the link. Try again.");
-                } else {
-                  setSent(true);
-                }
+          {loading ? (
+            <div
+              style={{
+                textAlign: "center",
+                color: "rgba(255,255,255,0.40)",
+                fontSize: ".84rem",
+                padding: "16px 0",
               }}
             >
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setAuthError(null); }}
-                autoFocus
-                required
-                style={{
-                  display: "block", width: "100%", boxSizing: "border-box",
-                  height: 40, borderRadius: 8, padding: "0 12px",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  color: "#f0f0f3", fontSize: ".88rem", fontFamily: "inherit",
-                  marginBottom: 10, outline: "none",
-                }}
-                onFocus={e => { e.target.style.borderColor = "rgba(52,168,83,0.50)"; }}
-                onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.14)"; }}
-              />
+              Loading…
+            </div>
+          ) : user ? (
+            <div className="ln-modal-box" style={{ alignItems: "flex-start", textAlign: "left" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "rgba(52,168,83,0.18)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: "1rem",
+                    flexShrink: 0,
+                  }}
+                >
+                  {(user.email || "?")[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: ".88rem" }}>My Account</div>
+                  <div
+                    style={{
+                      fontSize: ".74rem",
+                      color: "rgba(255,255,255,0.45)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {user.email}
+                  </div>
+                </div>
+              </div>
               <button
-                type="submit"
-                disabled={!email.trim() || sending}
+                onClick={() => {
+                  signOut();
+                  onClose();
+                }}
                 style={{
-                  display: "block", width: "100%",
-                  padding: "10px 0", borderRadius: 8,
-                  background: "rgba(52,168,83,0.16)",
-                  border: "1px solid rgba(52,168,83,0.34)",
-                  color: "#6fcf8a", fontWeight: 700, fontSize: ".88rem",
-                  cursor: sending || !email.trim() ? "not-allowed" : "pointer",
-                  opacity: !email.trim() ? 0.45 : 1,
-                  transition: "background .15s, opacity .15s",
+                  marginTop: 14,
+                  width: "100%",
+                  padding: "9px 0",
+                  borderRadius: 8,
+                  background: "rgba(234,67,53,0.10)",
+                  border: "1px solid rgba(234,67,53,0.22)",
+                  color: "rgba(234,67,53,0.80)",
+                  fontWeight: 700,
+                  fontSize: ".84rem",
+                  cursor: "pointer",
                   fontFamily: "inherit",
                 }}
-                onMouseEnter={e => { if (email.trim() && !sending) e.target.style.background = "rgba(52,168,83,0.26)"; }}
-                onMouseLeave={e => { e.target.style.background = "rgba(52,168,83,0.16)"; }}
               >
-                {sending ? "Sending…" : "Send sign-in link"}
+                Sign out
               </button>
-            </form>
-
-            <div style={{ marginTop: 12, fontSize: ".68rem", color: "rgba(255,255,255,0.22)", textAlign: "center", lineHeight: 1.5 }}>
-              Free account · No password · Unsubscribe anytime
             </div>
-          </>
-        )}
+          ) : sent ? (
+            /* ── Sent confirmation ── */
+            <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+              <div style={{ fontSize: "2rem", marginBottom: 8 }}>✉️</div>
+              <div style={{ fontWeight: 700, fontSize: ".92rem", marginBottom: 6 }}>
+                Check your email
+              </div>
+              <div
+                style={{
+                  fontSize: ".80rem",
+                  color: "rgba(255,255,255,0.48)",
+                  lineHeight: 1.55,
+                  maxWidth: 240,
+                  margin: "0 auto 16px",
+                }}
+              >
+                We sent a sign-in link to{" "}
+                <strong style={{ color: "rgba(255,255,255,0.70)" }}>{email}</strong>. Click it to
+                sign in — no password needed.
+              </div>
+              <button
+                onClick={() => {
+                  setSent(false);
+                  setEmail("");
+                  setAuthError(null);
+                }}
+                style={{
+                  fontSize: ".76rem",
+                  color: "rgba(255,255,255,0.38)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+              >
+                Use a different email
+              </button>
+            </div>
+          ) : (
+            /* ── Email input ── */
+            <>
+              <div
+                style={{
+                  fontSize: ".80rem",
+                  color: "rgba(255,255,255,0.48)",
+                  marginBottom: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                Enter your email and we'll send you a sign-in link. No password, no third-party
+                account needed.
+              </div>
+
+              {authError && (
+                <div
+                  style={{
+                    fontSize: ".74rem",
+                    color: "#ff9a9a",
+                    background: "rgba(234,67,53,0.09)",
+                    border: "1px solid rgba(234,67,53,0.20)",
+                    borderRadius: 8,
+                    padding: "8px 11px",
+                    marginBottom: 12,
+                  }}
+                >
+                  {authError}
+                </div>
+              )}
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!email.trim() || sending) return;
+                  setAuthError(null);
+                  setSending(true);
+                  const { error } = await sendMagicLink(email.trim());
+                  setSending(false);
+                  if (error) {
+                    setAuthError(error.message || "Couldn't send the link. Try again.");
+                  } else {
+                    setSent(true);
+                  }
+                }}
+              >
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setAuthError(null);
+                  }}
+                  autoFocus
+                  required
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    height: 40,
+                    borderRadius: 8,
+                    padding: "0 12px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    color: "#f0f0f3",
+                    fontSize: ".88rem",
+                    fontFamily: "inherit",
+                    marginBottom: 10,
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "rgba(52,168,83,0.50)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "rgba(255,255,255,0.14)";
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!email.trim() || sending}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "10px 0",
+                    borderRadius: 8,
+                    background: "rgba(52,168,83,0.16)",
+                    border: "1px solid rgba(52,168,83,0.34)",
+                    color: "#6fcf8a",
+                    fontWeight: 700,
+                    fontSize: ".88rem",
+                    cursor: sending || !email.trim() ? "not-allowed" : "pointer",
+                    opacity: !email.trim() ? 0.45 : 1,
+                    transition: "background .15s, opacity .15s",
+                    fontFamily: "inherit",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (email.trim() && !sending)
+                      e.target.style.background = "rgba(52,168,83,0.26)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "rgba(52,168,83,0.16)";
+                  }}
+                >
+                  {sending ? "Sending…" : "Send sign-in link"}
+                </button>
+              </form>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: ".68rem",
+                  color: "rgba(255,255,255,0.22)",
+                  textAlign: "center",
+                  lineHeight: 1.5,
+                }}
+              >
+                Free account · No password · Unsubscribe anytime
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }
 
 // ─── Timeline options ────────────────────────────────────────────────────────
 const TIMELINE_OPTS = [
-  { key: "all",  label: "All time",  days: null, note: "Every recorded citation since data collection began." },
-  { key: "12mo", label: "12 months", days: 365,  note: "Citations from the past 12 months only." },
-  { key: "6mo",  label: "6 months",  days: 182,  note: "Citations from the past 6 months only." },
-  { key: "3mo",  label: "3 months",  days: 91,   note: "Citations from the past 3 months only." },
+  {
+    key: "all",
+    label: "All time",
+    days: null,
+    note: "Every recorded citation since data collection began.",
+  },
+  { key: "12mo", label: "12 months", days: 365, note: "Citations from the past 12 months only." },
+  { key: "6mo", label: "6 months", days: 182, note: "Citations from the past 6 months only." },
+  { key: "3mo", label: "3 months", days: 91, note: "Citations from the past 3 months only." },
 ];
 
 // ─── Violations database section ─────────────────────────────────────────────
 const PAGE_SIZE = 40;
 
 function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment }) {
-  const [rows, setRows]         = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
-  const [search, setSearch]     = useState("");
-  const [tab, setTab]           = useState("all");   // "all" | "crit" | "non"
-  const [timeline, setTimeline] = useState("all");   // TIMELINE_OPTS key
-  const [showAll, setShowAll]   = useState(false);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState("all"); // "all" | "crit" | "non"
+  const [timeline, setTimeline] = useState("all"); // TIMELINE_OPTS key
+  const [showAll, setShowAll] = useState(false);
 
   // Drill-down: which violation row is expanded + its establishments list
-  const [expandedDesc, setExpandedDesc]       = useState(null);
-  const [drillData, setDrillData]             = useState([]); // [{establishment_id, premise_name, address, score_recent}]
-  const [drillLoading, setDrillLoading]       = useState(false);
-  const [drillTotal, setDrillTotal]           = useState(0);
+  const [expandedDesc, setExpandedDesc] = useState(null);
+  const [drillData, setDrillData] = useState([]); // [{establishment_id, premise_name, address, score_recent}]
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [drillTotal, setDrillTotal] = useState(0);
 
   async function handleRowClick(desc) {
     if (!supabase) return;
-    if (expandedDesc === desc) { setExpandedDesc(null); return; }
+    if (expandedDesc === desc) {
+      setExpandedDesc(null);
+      return;
+    }
     setExpandedDesc(desc);
     setDrillLoading(true);
     setDrillData([]);
@@ -233,16 +474,25 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
 
   // ISO cutoff date — use the more restrictive of map filter or local timeline
   const cutoffDate = useMemo(() => {
-    const opt = TIMELINE_OPTS.find(o => o.key === timeline);
-    const localCutoff = (opt && opt.days)
-      ? (() => { const d = new Date(); d.setDate(d.getDate() - opt.days); return d.toISOString().slice(0, 10); })()
-      : null;
-    if (localCutoff && initialCutoffDate) return localCutoff > initialCutoffDate ? localCutoff : initialCutoffDate;
+    const opt = TIMELINE_OPTS.find((o) => o.key === timeline);
+    const localCutoff =
+      opt && opt.days
+        ? (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - opt.days);
+            return d.toISOString().slice(0, 10);
+          })()
+        : null;
+    if (localCutoff && initialCutoffDate)
+      return localCutoff > initialCutoffDate ? localCutoff : initialCutoffDate;
     return localCutoff ?? initialCutoffDate ?? null;
   }, [timeline, initialCutoffDate]);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setRows([]);
     setShowAll(false);
@@ -263,9 +513,9 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
         }
 
         const mapped = (data || []).map((r) => ({
-          desc:     r.violation_desc,
+          desc: r.violation_desc,
           critical: (r.critical_yn ?? "").toLowerCase().startsWith("y"),
-          count:    Number(r.cnt),
+          count: Number(r.cnt),
         }));
 
         setRows(mapped);
@@ -275,8 +525,8 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           // Fallback: paginated direct query (pre-RPC behavior)
           try {
             const BATCH = 1000;
-            const acc   = new Map();
-            let offset  = 0;
+            const acc = new Map();
+            let offset = 0;
             while (true) {
               let q = supabase
                 .from("inspection_violations")
@@ -314,26 +564,33 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const searchRegex = useMemo(() => {
     const q = search.trim();
     if (!q) return null;
-    try { return new RegExp("\\b" + q.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i"); }
-    catch { return null; }
+    try {
+      return new RegExp("\\b" + q.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i");
+    } catch {
+      return null;
+    }
   }, [search]);
 
-  const filtered = useMemo(() => rows.filter(r => {
-    if (tab === "crit" && !r.critical) return false;
-    if (tab === "non"  &&  r.critical) return false;
-    if (searchRegex && !searchRegex.test(r.desc)) return false;
-    return true;
-  }), [rows, searchRegex, tab]);
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (tab === "crit" && !r.critical) return false;
+        if (tab === "non" && r.critical) return false;
+        if (searchRegex && !searchRegex.test(r.desc)) return false;
+        return true;
+      }),
+    [rows, searchRegex, tab],
+  );
 
-  const visible        = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
-  const critCount      = rows.filter(r =>  r.critical).length;
-  const nonCount       = rows.filter(r => !r.critical).length;
+  const visible = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
+  const critCount = rows.filter((r) => r.critical).length;
+  const nonCount = rows.filter((r) => !r.critical).length;
   const totalCitations = rows.reduce((s, r) => s + r.count, 0);
-  const scopeNote      = TIMELINE_OPTS.find(o => o.key === timeline)?.note ?? "";
+  const scopeNote = TIMELINE_OPTS.find((o) => o.key === timeline)?.note ?? "";
 
   function Highlighted({ text }) {
     if (!searchRegex) return <>{text}</>;
-    const parts   = text.split(searchRegex);
+    const parts = text.split(searchRegex);
     const matches = text.match(searchRegex) || [];
     return (
       <>
@@ -341,7 +598,14 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           <React.Fragment key={i}>
             {p}
             {matches[i] && (
-              <mark style={{ background: "rgba(251,188,5,0.28)", color: "#fbbc05", borderRadius: 2, padding: "0 1px" }}>
+              <mark
+                style={{
+                  background: "rgba(251,188,5,0.28)",
+                  color: "#fbbc05",
+                  borderRadius: 2,
+                  padding: "0 1px",
+                }}
+              >
                 {matches[i]}
               </mark>
             )}
@@ -351,20 +615,27 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
     );
   }
 
-  if (!supabase) return (
-    <div className="ln-vdb-loading">Violation database unavailable — supabase prop not provided.</div>
-  );
+  if (!supabase)
+    return (
+      <div className="ln-vdb-loading">
+        Violation database unavailable — supabase prop not provided.
+      </div>
+    );
 
   return (
     <>
       {/* Timeline selector */}
       <div className="ln-vdb-timeline">
         <span className="ln-vdb-tl-label">Showing</span>
-        {TIMELINE_OPTS.map(opt => (
+        {TIMELINE_OPTS.map((opt) => (
           <button
             key={opt.key}
             className={"ln-vdb-tl-btn" + (timeline === opt.key ? " tl-active" : "")}
-            onClick={() => { setTimeline(opt.key); setSearch(""); setTab("all"); }}
+            onClick={() => {
+              setTimeline(opt.key);
+              setSearch("");
+              setTab("all");
+            }}
           >
             {opt.label}
           </button>
@@ -374,19 +645,29 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
       {loading ? (
         <div className="ln-vdb-loading">Loading violations…</div>
       ) : error ? (
-        <div className="ln-vdb-loading" style={{ color: "#ff9a9a" }}>Error: {error}</div>
+        <div className="ln-vdb-loading" style={{ color: "#ff9a9a" }}>
+          Error: {error}
+        </div>
       ) : (
         <>
           <p className="ln-vdb-scope-note">{scopeNote}</p>
 
           {/* Stats */}
           <div className="ln-vdb-stats">
-            <span className="ln-vdb-stat"><strong>{rows.length.toLocaleString()}</strong> distinct violation types</span>
-            <span className="ln-vdb-stat"><strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical</span>
-            <span className="ln-vdb-stat"><strong>{nonCount}</strong> non-critical</span>
+            <span className="ln-vdb-stat">
+              <strong>{rows.length.toLocaleString()}</strong> distinct violation types
+            </span>
+            <span className="ln-vdb-stat">
+              <strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical
+            </span>
+            <span className="ln-vdb-stat">
+              <strong>{nonCount}</strong> non-critical
+            </span>
             <span className="ln-vdb-stat">
               <strong>{totalCitations.toLocaleString()}</strong> total citations
-              {timeline !== "all" && <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>}
+              {timeline !== "all" && (
+                <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>
+              )}
             </span>
           </div>
 
@@ -394,28 +675,62 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           <div className="ln-vdb-header">
             <div className="ln-vdb-search-wrap">
               <svg className="ln-vdb-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z" fill="currentColor" />
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
+                  fill="currentColor"
+                />
               </svg>
               <input
                 className="ln-vdb-search"
                 type="text"
                 placeholder="Search violations…"
                 value={search}
-                onChange={e => { setSearch(e.target.value); setShowAll(false); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowAll(false);
+                }}
               />
             </div>
             <div className="ln-vdb-tabs">
-              <button className={"ln-vdb-tab " + (tab === "all"  ? "active-all"  : "")} onClick={() => { setTab("all");  setShowAll(false); }}>All</button>
-              <button className={"ln-vdb-tab " + (tab === "crit" ? "active-crit" : "")} onClick={() => { setTab("crit"); setShowAll(false); }}>⚠ Critical</button>
-              <button className={"ln-vdb-tab " + (tab === "non"  ? "active-non"  : "")} onClick={() => { setTab("non");  setShowAll(false); }}>Non-critical</button>
+              <button
+                className={"ln-vdb-tab " + (tab === "all" ? "active-all" : "")}
+                onClick={() => {
+                  setTab("all");
+                  setShowAll(false);
+                }}
+              >
+                All
+              </button>
+              <button
+                className={"ln-vdb-tab " + (tab === "crit" ? "active-crit" : "")}
+                onClick={() => {
+                  setTab("crit");
+                  setShowAll(false);
+                }}
+              >
+                ⚠ Critical
+              </button>
+              <button
+                className={"ln-vdb-tab " + (tab === "non" ? "active-non" : "")}
+                onClick={() => {
+                  setTab("non");
+                  setShowAll(false);
+                }}
+              >
+                Non-critical
+              </button>
             </div>
           </div>
 
           {/* List */}
           {filtered.length === 0 ? (
             <div className="ln-vdb-loading">
-              No violations match "{search}"{tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.<br />
-              <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>Try a broader term or switch to All.</span>
+              No violations match "{search}"
+              {tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.
+              <br />
+              <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>
+                Try a broader term or switch to All.
+              </span>
             </div>
           ) : (
             <div className="ln-vdb-list">
@@ -424,14 +739,23 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                 return (
                   <React.Fragment key={i}>
                     <div
-                      className={"ln-vdb-row" + (r.critical ? " is-crit" : "") + (isExpanded ? " expanded" : "")}
+                      className={
+                        "ln-vdb-row" +
+                        (r.critical ? " is-crit" : "") +
+                        (isExpanded ? " expanded" : "")
+                      }
                       onClick={() => handleRowClick(r.desc)}
                       title="Click to see establishments with this violation"
                       role="button"
                       tabIndex={0}
-                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleRowClick(r.desc); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") handleRowClick(r.desc);
+                      }}
                     >
-                      <div className={"ln-vdb-dot " + (r.critical ? "crit" : "non")} title={r.critical ? "Critical violation" : "Non-critical"} />
+                      <div
+                        className={"ln-vdb-dot " + (r.critical ? "crit" : "non")}
+                        title={r.critical ? "Critical violation" : "Non-critical"}
+                      />
                       <div className="ln-vdb-desc">
                         <Highlighted text={toTitleCase(r.desc)} />
                         {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
@@ -447,13 +771,20 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                         {drillLoading ? (
                           <div className="ln-vdb-drill-loading">Loading…</div>
                         ) : drillData.length === 0 ? (
-                          <div className="ln-vdb-drill-loading">No results found in this time window.</div>
+                          <div className="ln-vdb-drill-loading">
+                            No results found in this time window.
+                          </div>
                         ) : (
                           <>
                             <div className="ln-vdb-drill-chips">
                               {drillData.map((est) => {
                                 const vDate = est.violation_date
-                                  ? new Date(est.violation_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit", timeZone: "UTC" })
+                                  ? new Date(est.violation_date).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "2-digit",
+                                      timeZone: "UTC",
+                                    })
                                   : null;
                                 const vScore = est.violation_score ?? est.score_recent;
                                 return (
@@ -470,7 +801,10 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                                       {est.premise_name || est.establishment_id}
                                     </span>
                                     {(vDate || vScore != null) && (
-                                      <span className="ln-vdb-chip-score" title="Score · date when cited">
+                                      <span
+                                        className="ln-vdb-chip-score"
+                                        title="Score · date when cited"
+                                      >
                                         {vScore != null ? vScore : ""}
                                         {vDate ? ` · ${vDate}` : ""}
                                       </span>
@@ -480,7 +814,9 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                               })}
                             </div>
                             {drillTotal >= 50 && (
-                              <div className="ln-vdb-drill-more">Showing top 50 results — search to narrow down.</div>
+                              <div className="ln-vdb-drill-more">
+                                Showing top 50 results — search to narrow down.
+                              </div>
                             )}
                           </>
                         )}
@@ -498,7 +834,9 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
             </button>
           )}
           {showAll && filtered.length > PAGE_SIZE && (
-            <button className="ln-vdb-show-more" onClick={() => setShowAll(false)}>Collapse</button>
+            <button className="ln-vdb-show-more" onClick={() => setShowAll(false)}>
+              Collapse
+            </button>
           )}
         </>
       )}
@@ -513,17 +851,23 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
 //   supabase        client   — supabase client for violations query (optional)
 //   mapCutoffDate   string   — ISO date from map's "Since" filter (optional)
 //   onOpenEstablishment fn   — (eid) called to close Learn and open drawer
-export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoffDate, onOpenEstablishment }) {
+export default function LearnPage({
+  loginOpen,
+  onCloseLogin,
+  supabase,
+  mapCutoffDate,
+  onOpenEstablishment,
+}) {
   return (
     <>
       <div className="ln-page-wrap">
         <div className="ln-page">
-
           {/* Hero */}
           <div className="ln-hero">
             <h1 className="ln-hero-title">Understanding Louisville Food Inspections</h1>
             <p className="ln-hero-sub">
-              This is how the Louisville Health Department uses scores and violations to determine the resulting placard.
+              This is how the Louisville Health Department uses scores and violations to determine
+              the resulting placard.
             </p>
           </div>
 
@@ -542,7 +886,9 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
                 </div>
                 <div>
                   <div className="ln-gfield-lbl">Condition</div>
-                  <ul className="ln-gcriteria"><li>No critical violations</li></ul>
+                  <ul className="ln-gcriteria">
+                    <li>No critical violations</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -593,14 +939,14 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
             <div className="ln-callout-label">⚠ Score alone does not determine the grade</div>
             <p>
               A facility scoring 90 with a critical violation still receives a{" "}
-              <strong>C (red) placard</strong>. The B grade is not a score range —
-              it is issued based on inspection history (repeated failures or emergency closures),
-              not the numeric score. The grade reflects both score and violation severity together.
+              <strong>C (red) placard</strong>. The B grade is not a score range — it is issued
+              based on inspection history (repeated failures or emergency closures), not the numeric
+              score. The grade reflects both score and violation severity together.
             </p>
             <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
               Note: Pin colors on the map reflect <strong>score only</strong> and can be customized.
-              The red ring on a pin indicates a critical violation was cited on the most recent inspection,
-              which means that facility received a C placard regardless of its score.
+              The red ring on a pin indicates a critical violation was cited on the most recent
+              inspection, which means that facility received a C placard regardless of its score.
             </p>
           </div>
 
@@ -617,19 +963,27 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
             </thead>
             <tbody>
               <tr>
-                <td><span className="ln-grade-cell ga">A</span></td>
+                <td>
+                  <span className="ln-grade-cell ga">A</span>
+                </td>
                 <td>Green</td>
                 <td>Until next routine inspection</td>
                 <td>Next scheduled routine visit</td>
               </tr>
               <tr>
-                <td><span className="ln-grade-cell gb">B</span></td>
+                <td>
+                  <span className="ln-grade-cell gb">B</span>
+                </td>
                 <td>Blue</td>
                 <td>3 To 6 Months</td>
-                <td>The health department forces a mandatory regular inspection within this window.</td>
+                <td>
+                  The health department forces a mandatory regular inspection within this window.
+                </td>
               </tr>
               <tr>
-                <td><span className="ln-grade-cell gc">C</span></td>
+                <td>
+                  <span className="ln-grade-cell gc">C</span>
+                </td>
                 <td>Red</td>
                 <td>Min 7 days, max 10 days</td>
                 <td>Follow-up inspection required; new placard posted after</td>
@@ -649,10 +1003,11 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
               <span className="ln-vchip crit">⚠ Critical</span>
               <div className="ln-vtitle">Direct foodborne illness risk</div>
               <p className="ln-vdesc">
-                A violation of a Kentucky Food Code provision that directly eliminates,
-                prevents, or reduces a foodborne illness hazard with no other provision
-                more directly controlling it.
-                <br /><br />
+                A violation of a Kentucky Food Code provision that directly eliminates, prevents, or
+                reduces a foodborne illness hazard with no other provision more directly controlling
+                it.
+                <br />
+                <br />
                 Any critical violation = C placard, regardless of score.
               </p>
             </div>
@@ -660,17 +1015,17 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
               <span className="ln-vchip non">Non-critical</span>
               <div className="ln-vtitle">Operational or structural</div>
               <p className="ln-vdesc">
-                Violations related to upkeep, documentation, or equipment.
-                These lower your score but don't automatically trigger a C.
-                Enough of them can push you below 85 into B territory.
+                Violations related to upkeep, documentation, or equipment. These lower your score
+                but don't automatically trigger a C. Enough of them can push you below 85 into B
+                territory.
               </p>
             </div>
           </div>
           <p className="ln-table-note">
-          Note: While the health department legally changed the 
-          term "Critical Violation" to "Priority Violation" (and "Non-Critical" to "Core Violation"), 
-          the basic rules remain the same. We prefer the traditional terms, though both refer 
-          to the exact same food safety risks.
+            Note: While the health department legally changed the term "Critical Violation" to
+            "Priority Violation" (and "Non-Critical" to "Core Violation"), the basic rules remain
+            the same. We prefer the traditional terms, though both refer to the exact same food
+            safety risks.
           </p>
 
           {/* Violations database */}
@@ -685,18 +1040,18 @@ export default function LearnPage({ loginOpen, onCloseLogin, supabase, mapCutoff
 
           {/* Source */}
           <div className="ln-src">
-            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Source:</strong>{" "}
-            Louisville Metro Health Dept. ABC Placard Issuance Policy (effective March 14, 2016,
-            updated June 7, 2019) and Kentucky Food Code. All information is derived directly
-            from the official policy document.{" "}
+            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Source:</strong> Louisville Metro
+            Health Dept. ABC Placard Issuance Policy (effective March 14, 2016, updated June 7,
+            2019) and Kentucky Food Code. All information is derived directly from the official
+            policy document.{" "}
             <a
               href="https://louisvilleky.gov/sites/default/files/2021-12/abc-placard-issuance_pol_env_20190607.pdf"
-              target="_blank" rel="noopener noreferrer"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               View official policy →
             </a>
           </div>
-
         </div>
       </div>
 

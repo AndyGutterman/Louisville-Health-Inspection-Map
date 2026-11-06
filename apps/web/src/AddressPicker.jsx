@@ -8,7 +8,8 @@ import "./styles/AddressPicker.css";
 
 const KEY = import.meta.env.VITE_GEOAPIFY_KEY;
 const MESSAGES = {
-  nokey: "Address search isn't configured. Add VITE_GEOAPIFY_KEY to .env, then restart the dev server.",
+  nokey:
+    "Address search isn't configured. Add VITE_GEOAPIFY_KEY to .env, then restart the dev server.",
   error: "Address search is unavailable right now. Try again in a moment.",
 };
 
@@ -61,7 +62,11 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
         cache.set(q, list);
         setResults(list);
         // Geoapify found places, but none inside our bounds
-        setNotice(!list.length && body.upstream > 0 ? "Found places, but none inside Louisville Metro." : "");
+        setNotice(
+          !list.length && body.upstream > 0
+            ? "Found places, but none inside Louisville Metro."
+            : "",
+        );
         setActive(-1);
         setOpen(true);
       } catch (err) {
@@ -77,7 +82,9 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
   }, [text, value]);
 
   useEffect(() => {
-    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
@@ -94,13 +101,16 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
       if (e.key === "Enter") e.preventDefault();
       return;
     }
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => (results.length ? (i + 1) % results.length : -1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => (i <= 0 ? results.length - 1 : i - 1)); }
-    else if (e.key === "Enter") {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (results.length ? (i + 1) % results.length : -1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i <= 0 ? results.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
       e.preventDefault();
       if (results.length) pick(results[active >= 0 ? active : 0]);
-    }
-    else if (e.key === "Escape") setOpen(false);
+    } else if (e.key === "Escape") setOpen(false);
   }
 
   const noMatch = open && !value && !busy && !notice && !results.length && text.trim().length >= 4;
@@ -123,9 +133,15 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
             setOpen(true);
           }}
           onKeyDown={onKeyDown}
-          onFocus={() => { if (results.length || notice) setOpen(true); }}
+          onFocus={() => {
+            if (results.length || notice) setOpen(true);
+          }}
         />
-        {value && <span className="ap-check" aria-label="Address confirmed">✓</span>}
+        {value && (
+          <span className="ap-check" aria-label="Address confirmed">
+            ✓
+          </span>
+        )}
       </div>
 
       {showList && (
@@ -138,7 +154,10 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
               aria-selected={i === active}
               className={"ap-opt" + (i === active ? " on" : "")}
               onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => { e.preventDefault(); pick(r); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(r);
+              }}
             >
               {r.primary}
               {r.secondary && <small>{r.secondary}</small>}
@@ -154,8 +173,15 @@ export default function AddressPicker({ value, onChange, inputClass = "wl-input"
       )}
 
       <div className="ap-credit">
-        Address search by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> ·{" "}
-        © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors
+        Address search by{" "}
+        <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
+          Geoapify
+        </a>{" "}
+        · ©{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          OpenStreetMap
+        </a>{" "}
+        contributors
       </div>
     </div>
   );

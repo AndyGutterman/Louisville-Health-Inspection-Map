@@ -54,7 +54,14 @@ describe("clampSheetHeight", () => {
 
 describe("resolveSheetRelease", () => {
   const release = (over) =>
-    resolveSheetRelease({ height: PEEK, velocity: 0, snap: "peek", peekH: PEEK, expandedH: EXPANDED, ...over });
+    resolveSheetRelease({
+      height: PEEK,
+      velocity: 0,
+      snap: "peek",
+      peekH: PEEK,
+      expandedH: EXPANDED,
+      ...over,
+    });
 
   it("snaps to the closer resting height after a slow drag", () => {
     expect(release({ height: 420 })).toBe("peek");

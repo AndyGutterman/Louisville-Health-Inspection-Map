@@ -50,7 +50,8 @@
 }
 
 @keyframes gradient-shift {
-  0%, 100% {
+  0%,
+  100% {
     background: linear-gradient(
       135deg,
       rgba(234, 67, 53, 0.08) 0%,
@@ -77,13 +78,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(
-    90deg,
-    #ea4335 0%,
-    #fbbc05 33.33%,
-    #34a853 66.66%,
-    #3a86ff 100%
-  );
+  background: linear-gradient(90deg, #ea4335 0%, #fbbc05 33.33%, #34a853 66.66%, #3a86ff 100%);
   box-shadow: 0 8px 32px rgba(58, 134, 255, 0.3);
 }
 
@@ -108,7 +103,14 @@
 }
 
 .splash-word {
-  font-family: 'Tilt Neon', system-ui, -apple-system, segoe-ui, roboto, arial, sans-serif;
+  font-family:
+    "Tilt Neon",
+    system-ui,
+    -apple-system,
+    segoe-ui,
+    roboto,
+    arial,
+    sans-serif;
   font-optical-sizing: auto;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -116,16 +118,23 @@
   line-height: 1;
   text-rendering: optimizeLegibility;
   animation: word-rise 0.6s ease-out backwards;
-  text-shadow: 0 0 0.5px #fff,
+  text-shadow:
+    0 0 0.5px #fff,
     0 0 6px var(--word-color),
     0 0 14px var(--word-color),
     0 0 26px var(--word-color);
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.35));
 }
 
-.splash-word:nth-child(1) { animation-delay: 0.1s; }
-.splash-word:nth-child(2) { animation-delay: 0.2s; }
-.splash-word:nth-child(3) { animation-delay: 0.3s; }
+.splash-word:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.splash-word:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.splash-word:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 .word-red {
   --word-color: #ea4335;
@@ -254,7 +263,8 @@
 }
 
 @keyframes text-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.58;
   }
   50% {

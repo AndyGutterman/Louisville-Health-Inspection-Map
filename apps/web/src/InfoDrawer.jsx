@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./styles/Violations.css";
 import "./styles/History.css";
-import './styles/RestaurantInfo.css';
+import "./styles/RestaurantInfo.css";
 import { formatDateSafe } from "./lib/dates.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import {
@@ -11,27 +11,35 @@ import {
   resolveSheetRelease,
 } from "./lib/bottomSheet.js";
 
-const displayField = (v) =>
-  v === null ? "not listed" : v === undefined || v === "" ? "—" : v;
+const displayField = (v) => (v === null ? "not listed" : v === undefined || v === "" ? "—" : v);
 
-function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveToWatchlist, onClose }) {
+function CurrentInspectionCard({
+  data,
+  details,
+  onSwitchTo,
+  watchlisted,
+  onSaveToWatchlist,
+  onClose,
+}) {
   // Hooks must run on every render, so this sits above the early return.
   const [open, setOpen] = React.useState(false);
   if (!data) return null;
-  const { name, address, inspectionDate, score, grade, meta, metaTitle, similarNearby, noLocation } = data;
-  const gradeDisplay =
-    grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
-  const scoreNum = score != null && Number.isFinite(Number(score)) && Number(score) > 0
-  ? Number(score)
-  : null;
+  const {
+    name,
+    address,
+    inspectionDate,
+    score,
+    grade,
+    meta,
+    metaTitle,
+    similarNearby,
+    noLocation,
+  } = data;
+  const gradeDisplay = grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
+  const scoreNum =
+    score != null && Number.isFinite(Number(score)) && Number(score) > 0 ? Number(score) : null;
   const badgeClass =
-    scoreNum == null
-      ? "na"
-      : scoreNum >= 95
-        ? "ok"
-        : scoreNum >= 85
-          ? "warn"
-          : "bad";
+    scoreNum == null ? "na" : scoreNum >= 95 ? "ok" : scoreNum >= 85 ? "warn" : "bad";
 
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
@@ -84,34 +92,49 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
             )}
           </div>
           {/* Bookmark (rounded container) + plain × — top-right of card */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 3, flexShrink: 0 }}
-            onClick={e => e.stopPropagation()}>
+          <div
+            style={{ display: "flex", alignItems: "flex-start", gap: 3, flexShrink: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {onSaveToWatchlist && (
               <button
                 onClick={() => onSaveToWatchlist(data.establishment_id)}
                 aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
                 title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
                 style={{
-                  width: 28, height: 28,
-                  minWidth: 28, minHeight: 28, maxWidth: 28, maxHeight: 28,
-                  boxSizing: "border-box", padding: 0, margin: 0,
-                  flexShrink: 0, lineHeight: 1,
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 28,
+                  height: 28,
+                  minWidth: 28,
+                  minHeight: 28,
+                  maxWidth: 28,
+                  maxHeight: 28,
+                  boxSizing: "border-box",
+                  padding: 0,
+                  margin: 0,
+                  flexShrink: 0,
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   background: watchlisted ? "rgba(52,168,83,0.25)" : "rgba(255,255,255,0.07)",
                   border: `1px solid ${watchlisted ? "rgba(52,168,83,0.50)" : "rgba(255,255,255,0.14)"}`,
-                  borderRadius: "50%", cursor: "pointer",
+                  borderRadius: "50%",
+                  cursor: "pointer",
                   color: watchlisted ? "#ffffff" : "rgba(255,255,255,0.60)",
                   transition: "all .15s",
                 }}
               >
-                <span style={{ display: "flex", lineHeight: 0 }} dangerouslySetInnerHTML={{ __html:
-                  `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                <span
+                  style={{ display: "flex", lineHeight: 0 }}
+                  dangerouslySetInnerHTML={{
+                    __html: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
-                      fill="${watchlisted ? '#fff' : 'none'}"
-                      stroke="${watchlisted ? '#fff' : 'rgba(255,255,255,0.70)'}"
+                      fill="${watchlisted ? "#fff" : "none"}"
+                      stroke="${watchlisted ? "#fff" : "rgba(255,255,255,0.70)"}"
                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>`
-                }} />
+                  </svg>`,
+                  }}
+                />
               </button>
             )}
             {onClose && (
@@ -119,14 +142,24 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                 onClick={onClose}
                 aria-label="Close"
                 style={{
-                  background: "none", border: "none",
-                  width: 28, height: 28,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: 0, cursor: "pointer",
-                  color: "rgba(255,255,255,0.45)", fontSize: 20, lineHeight: 1,
-                  transition: "color .12s", flexShrink: 0,
+                  background: "none",
+                  border: "none",
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.45)",
+                  fontSize: 20,
+                  lineHeight: 1,
+                  transition: "color .12s",
+                  flexShrink: 0,
                 }}
-              >×</button>
+              >
+                ×
+              </button>
             )}
           </div>
         </div>
@@ -148,7 +181,10 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
             {similar.map((s) => (
               <div key={s.eid} style={{ marginBottom: 3 }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onSwitchTo?.(s.eid); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSwitchTo?.(s.eid);
+                  }}
                   style={{
                     background: "rgba(255,255,255,0.07)",
                     border: "1px solid rgba(255,255,255,0.14)",
@@ -161,18 +197,31 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
                     fontStyle: "italic",
                     transition: "background 0.15s, color 0.15s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background="rgba(255,255,255,0.13)"; e.currentTarget.style.color="#fff"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.color="rgba(255,255,255,0.75)"; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.13)";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                    e.currentTarget.style.color = "rgba(255,255,255,0.75)";
+                  }}
                   title={`Switch to permit record: ${s.name}`}
                 >
                   {s.name} →
                 </button>
               </div>
             ))}
-            <div style={{ marginTop: 5, fontSize: "0.63rem", color: "rgba(255,255,255,0.30)", lineHeight: 1.4 }}>
-              These are separate health department records shown independently.
-              Inspection histories reflect each permit only. Data is displayed
-              as received from Louisville Metro Health and has not been verified.
+            <div
+              style={{
+                marginTop: 5,
+                fontSize: "0.63rem",
+                color: "rgba(255,255,255,0.30)",
+                lineHeight: 1.4,
+              }}
+            >
+              These are separate health department records shown independently. Inspection histories
+              reflect each permit only. Data is displayed as received from Louisville Metro Health
+              and has not been verified.
             </div>
           </div>
         )}
@@ -190,9 +239,7 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
         </div>
 
         <div className="inspect-stat">
-          <div
-            className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}
-          >
+          <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
             {gradeDisplay}
           </div>
           <div className="inspect-stat_label">Grade</div>
@@ -203,13 +250,7 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
         <>
           <div className="inspect-more-inline">
             <span>More info</span>
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              className="chev"
-              aria-hidden="true"
-            >
+            <svg viewBox="0 0 24 24" width="16" height="16" className="chev" aria-hidden="true">
               <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
           </div>
@@ -233,9 +274,10 @@ function CurrentInspectionCard({ data, details, onSwitchTo, watchlisted, onSaveT
 }
 
 function ViolationRow({ v }) {
-  const yn = String(v.critical_yn || "").trim().toLowerCase();
-  const isCrit =
-    yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
+  const yn = String(v.critical_yn || "")
+    .trim()
+    .toLowerCase();
+  const isCrit = yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   const title = v.violation_desc || "Violation";
   const body = (v.insp_viol_comments || "").trim();
   const count = v._count || 1;
@@ -275,28 +317,23 @@ function ViolationRow({ v }) {
 function PastInspection({ row }) {
   const date = formatDateSafe(row.inspection_date);
   const gradeDisplay =
-    row.grade && String(row.grade).trim().length > 0
-      ? String(row.grade).trim()
-      : "—";
+    row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
 
-  const scoreNum = row.score != null && Number.isFinite(Number(row.score)) && Number(row.score) > 0
-    ? Number(row.score)
-    : null;
+  const scoreNum =
+    row.score != null && Number.isFinite(Number(row.score)) && Number(row.score) > 0
+      ? Number(row.score)
+      : null;
 
   const scoreText = scoreNum == null ? "N/A" : scoreNum;
 
   const badgeClass =
-    scoreNum == null
-      ? "na"
-      : scoreNum >= 95
-        ? "ok"
-        : scoreNum >= 85
-          ? "warn"
-          : "bad";
+    scoreNum == null ? "na" : scoreNum >= 95 ? "ok" : scoreNum >= 85 ? "warn" : "bad";
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
   const isCrit = (v) => {
-    const yn = String(v.critical_yn || "").trim().toLowerCase();
+    const yn = String(v.critical_yn || "")
+      .trim()
+      .toLowerCase();
     return yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   };
 
@@ -305,7 +342,11 @@ function PastInspection({ row }) {
   rawViols.forEach((v) => {
     const key = v.violation_desc || "Unknown";
     if (!byDesc[key]) {
-      byDesc[key] = { ...v, _count: 1, _comments: v.insp_viol_comments ? [v.insp_viol_comments] : [] };
+      byDesc[key] = {
+        ...v,
+        _count: 1,
+        _comments: v.insp_viol_comments ? [v.insp_viol_comments] : [],
+      };
     } else {
       byDesc[key]._count++;
       const c = v.insp_viol_comments;
@@ -359,13 +400,15 @@ function PastInspection({ row }) {
             }
           >
             {rawViols.length} {rawViols.length === 1 ? "violation" : "violations"}
-            {showToggle && <span className="chev" aria-hidden="true">▾</span>}
+            {showToggle && (
+              <span className="chev" aria-hidden="true">
+                ▾
+              </span>
+            )}
           </button>
         )}
 
-        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>
-          {gradeDisplay}
-        </div>
+        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
       </div>
 
       {viols.length > 0 && (
@@ -427,7 +470,21 @@ const DRAWER_MIN_W = 360;
 const DRAWER_MAX_W = 1100;
 
 // rightOffset (desktop only): px to slide left so another right-hand panel (the account panel) can sit beside it.
-export default function InfoDrawer({ selected, drawerLoading, history, facDetails, pins, zIndex, onBringToFront, onSwitchTo, onClose, watchlisted, onSaveToWatchlist, rightOffset = 0, onSheetHeight }) {
+export default function InfoDrawer({
+  selected,
+  drawerLoading,
+  history,
+  facDetails,
+  pins,
+  zIndex,
+  onBringToFront,
+  onSwitchTo,
+  onClose,
+  watchlisted,
+  onSaveToWatchlist,
+  rightOffset = 0,
+  onSheetHeight,
+}) {
   const isMobile = useMediaQuery("(max-width: 600px)");
 
   // ── Phone bottom sheet: rests at "peek" (card + about 1.5 history rows) or "expanded",
@@ -439,7 +496,9 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
   const [peekH, setPeekH] = React.useState(340);
   const [dragH, setDragH] = React.useState(null); // px while the handle is being dragged
   const [animate, setAnimate] = React.useState(false);
-  const [vh, setVh] = React.useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
+  const [vh, setVh] = React.useState(() =>
+    typeof window !== "undefined" ? window.innerHeight : 800,
+  );
   const hasSelected = !!selected;
   const eid = selected?.establishment_id;
   const expandedH = expandedHeight(vh);
@@ -519,7 +578,11 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
     const g = gestureRef.current;
     gestureRef.current = null;
     if (!g) return;
-    try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch { /* already released */ }
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* already released */
+    }
     if (!g.moved) {
       setSnap((cur) => (cur === "peek" ? "expanded" : "peek")); // a tap toggles
       return;
@@ -541,44 +604,50 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
   const [drawerW, setDrawerW] = React.useState(defaultW);
   const dragRef = React.useRef({ on: false });
 
-  const onLeftEdgeDown = React.useCallback((e) => {
-    e.preventDefault();
-    dragRef.current = { on: true, x0: e.clientX, w0: drawerW };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [drawerW]);
+  const onLeftEdgeDown = React.useCallback(
+    (e) => {
+      e.preventDefault();
+      dragRef.current = { on: true, x0: e.clientX, w0: drawerW };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [drawerW],
+  );
 
   const onLeftEdgeMove = React.useCallback((e) => {
     if (!dragRef.current.on) return;
     const dx = dragRef.current.x0 - e.clientX; // drag left = wider
-    setDrawerW(Math.max(DRAWER_MIN_W, Math.min(DRAWER_MAX_W,
-      dragRef.current.w0 + dx)));
+    setDrawerW(Math.max(DRAWER_MIN_W, Math.min(DRAWER_MAX_W, dragRef.current.w0 + dx)));
   }, []);
 
-  const onLeftEdgeUp = React.useCallback(() => { dragRef.current.on = false; }, []);
+  const onLeftEdgeUp = React.useCallback(() => {
+    dragRef.current.on = false;
+  }, []);
 
   if (!selected) return null;
 
   // Mobile: bottom sheet with two resting heights (see above), dragged by its handle.
   // Desktop: full-height column between header and screen bottom, always scrollable.
-  const outerStyle = isMobile ? {
-    position: "fixed",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: sheetH,
-    width: "100%",
-    borderRadius: "14px 14px 0 0",
-    transition: dragH != null || !animate ? "none" : "height .24s cubic-bezier(.2,.8,.2,1)",
-  } : {
-    position: "fixed",
-    right: 16 + rightOffset,
-    top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
-    bottom: 16,
-    // Never run off the left edge when another panel is beside us
-    width: Math.max(300, Math.min(drawerW, window.innerWidth - 16 - rightOffset - 24)),
-    borderRadius: 12,
-    transition: "right .24s ease",
-  };
+  const outerStyle = isMobile
+    ? {
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: sheetH,
+        width: "100%",
+        borderRadius: "14px 14px 0 0",
+        transition: dragH != null || !animate ? "none" : "height .24s cubic-bezier(.2,.8,.2,1)",
+      }
+    : {
+        position: "fixed",
+        right: 16 + rightOffset,
+        top: "calc(var(--header-h, var(--mobile-header-h, 64px)) + 10px)",
+        bottom: 16,
+        // Never run off the left edge when another panel is beside us
+        width: Math.max(300, Math.min(drawerW, window.innerWidth - 16 - rightOffset - 24)),
+        borderRadius: 12,
+        transition: "right .24s ease",
+      };
 
   return (
     <div
@@ -591,9 +660,7 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         backdropFilter: "blur(8px)",
         color: "#fff",
         zIndex: zIndex ?? 3000,
-        boxShadow: isMobile
-          ? "0 -8px 32px rgba(0,0,0,0.55)"
-          : "0 10px 30px rgba(0,0,0,0.4)",
+        boxShadow: isMobile ? "0 -8px 32px rgba(0,0,0,0.55)" : "0 10px 30px rgba(0,0,0,0.4)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -621,8 +688,14 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             background: "linear-gradient(to right, rgba(255,255,255,.10), transparent)",
             transition: "background .15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(to right, rgba(255,255,255,.28), transparent)"}
-          onMouseLeave={e => e.currentTarget.style.background = "linear-gradient(to right, rgba(255,255,255,.10), transparent)"}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.background =
+              "linear-gradient(to right, rgba(255,255,255,.28), transparent)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.background =
+              "linear-gradient(to right, rgba(255,255,255,.10), transparent)")
+          }
         />
       )}
 
@@ -637,7 +710,8 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
           onPointerUp={onHandleUp}
           onPointerCancel={onHandleUp}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") setSnap((cur) => (cur === "peek" ? "expanded" : "peek"));
+            if (e.key === "Enter" || e.key === " ")
+              setSnap((cur) => (cur === "peek" ? "expanded" : "peek"));
           }}
           style={{
             flexShrink: 0,
@@ -650,7 +724,14 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
             userSelect: "none",
           }}
         >
-          <span style={{ width: 40, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.28)" }} />
+          <span
+            style={{
+              width: 40,
+              height: 4,
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.28)",
+            }}
+          />
         </div>
       )}
 
@@ -699,12 +780,11 @@ export default function InfoDrawer({ selected, drawerLoading, history, facDetail
         <div className="inspect-card_spacer" />
 
         {/* History: show green-scan skeleton while loading, real rows once ready */}
-        {drawerLoading && !history
-          ? <HistorySkeleton />
-          : history
-            ? <History rows={history} pins={pins} />
-            : null
-        }
+        {drawerLoading && !history ? (
+          <HistorySkeleton />
+        ) : history ? (
+          <History rows={history} pins={pins} />
+        ) : null}
       </div>
     </div>
   );

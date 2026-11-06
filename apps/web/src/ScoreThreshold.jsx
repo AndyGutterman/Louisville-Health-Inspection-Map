@@ -148,8 +148,15 @@ function RowSingle({
     };
     const up = () => {
       setDrag(false);
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      try { e.currentTarget.releasePointerCapture?.(id); } catch { /* pointer capture already released */ }
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = null;
+      }
+      try {
+        e.currentTarget.releasePointerCapture?.(id);
+      } catch {
+        /* pointer capture already released */
+      }
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -246,8 +253,15 @@ function RowDual({
     };
     const up = () => {
       setActive(null);
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      try { e.currentTarget.releasePointerCapture?.(id); } catch { /* pointer capture already released */ }
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = null;
+      }
+      try {
+        e.currentTarget.releasePointerCapture?.(id);
+      } catch {
+        /* pointer capture already released */
+      }
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);

@@ -8,9 +8,9 @@
 // fully independent with its own inspection history. The "similar nearby" note
 // in the popup and drawer lets users navigate between them.
 
-const COORD_SNAP       = 0.0005; // ~55m grid at Louisville latitude
+const COORD_SNAP = 0.0005; // ~55m grid at Louisville latitude
 const SAME_PLACE_MAX_M = 80;
-const SAME_PLACE_MIN_SIM = 0.60;
+const SAME_PLACE_MIN_SIM = 0.6;
 
 export function snapCoordKey([lon, lat]) {
   const slon = (Math.round(lon / COORD_SNAP) * COORD_SNAP).toFixed(4);
@@ -20,13 +20,11 @@ export function snapCoordKey([lon, lat]) {
 
 export function distanceM([lon1, lat1], [lon2, lat2]) {
   const R = 6_371_000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -40,9 +38,31 @@ function isSubTenant(name) {
 }
 
 const DEPT_WORDS = new Set([
-  "gas", "deli", "pharmacy", "bakery", "cafe", "coffee", "express", "grill",
-  "bar", "kitchen", "bistro", "market", "fuel", "floral", "optical", "vision",
-  "salon", "spa", "food", "court", "stand", "kiosk", "counter", "liquor", "wine",
+  "gas",
+  "deli",
+  "pharmacy",
+  "bakery",
+  "cafe",
+  "coffee",
+  "express",
+  "grill",
+  "bar",
+  "kitchen",
+  "bistro",
+  "market",
+  "fuel",
+  "floral",
+  "optical",
+  "vision",
+  "salon",
+  "spa",
+  "food",
+  "court",
+  "stand",
+  "kiosk",
+  "counter",
+  "liquor",
+  "wine",
 ]);
 
 function normalizeName(name) {
@@ -57,15 +77,17 @@ function normalizeName(name) {
 }
 
 function editDistance(a, b) {
-  const m = a.length, n = b.length;
+  const m = a.length,
+    n = b.length;
   const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
   for (let i = 0; i <= m; i++) dp[i][0] = i;
   for (let j = 0; j <= n; j++) dp[0][j] = j;
   for (let i = 1; i <= m; i++)
     for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
   return dp[m][n];
 }
 
@@ -85,14 +107,19 @@ export function nameSimilarity(a, b) {
   const tb = normalizeName(b);
   if (ta.length === 0 && tb.length === 0) return 1;
   if (ta.length === 0 || tb.length === 0) return 0;
-  const setA = new Set(ta), setB = new Set(tb);
-  const extraTokens = [...ta.filter(w => !setB.has(w)), ...tb.filter(w => !setA.has(w))];
-  if (extraTokens.length > 0 && extraTokens.every(w => DEPT_WORDS.has(w))) return 0;
+  const setA = new Set(ta),
+    setB = new Set(tb);
+  const extraTokens = [...ta.filter((w) => !setB.has(w)), ...tb.filter((w) => !setA.has(w))];
+  if (extraTokens.length > 0 && extraTokens.every((w) => DEPT_WORDS.has(w))) return 0;
   let matched = 0;
   const usedB = new Set();
   for (const wa of ta)
     for (let bi = 0; bi < tb.length; bi++)
-      if (!usedB.has(bi) && tokensMatch(wa, tb[bi])) { matched++; usedB.add(bi); break; }
+      if (!usedB.has(bi) && tokensMatch(wa, tb[bi])) {
+        matched++;
+        usedB.add(bi);
+        break;
+      }
   const jaccard = matched / (ta.length + tb.length - matched);
   const shorter = Math.min(ta.length, tb.length);
   const containment = matched / shorter;
@@ -118,7 +145,8 @@ export function tagSimilarNearby(features) {
     if (group.length < 2) continue;
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
-        const a = group[i], b = group[j];
+        const a = group[i],
+          b = group[j];
         if (distanceM(a.geometry.coordinates, b.geometry.coordinates) > SAME_PLACE_MAX_M) continue;
         const sim = nameSimilarity(a.properties.name, b.properties.name);
         if (sim < SAME_PLACE_MIN_SIM) continue;
@@ -131,7 +159,7 @@ export function tagSimilarNearby(features) {
         if (import.meta.env?.DEV) {
           console.log(
             `[similar-nearby] "${a.properties.name}" (${eidA}) <-> ` +
-            `"${b.properties.name}" (${eidB})  sim=${sim.toFixed(2)}`
+              `"${b.properties.name}" (${eidB})  sim=${sim.toFixed(2)}`,
           );
         }
       }

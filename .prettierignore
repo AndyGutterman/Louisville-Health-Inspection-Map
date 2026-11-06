@@ -1,4 +1,5 @@
-dist
-node_modules
+# Prettier also skips everything in .gitignore.
 package-lock.json
 coverage
+dist
+supabase/migrations

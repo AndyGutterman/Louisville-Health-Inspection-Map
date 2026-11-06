@@ -4,9 +4,9 @@ import { supabase } from "./lib/supabase.js";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice]   = useState(null); // small toast, e.g. after unsubscribing
+  const [notice, setNotice] = useState(null); // small toast, e.g. after unsubscribing
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -14,7 +14,9 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -29,11 +31,17 @@ export function AuthProvider({ children }) {
     if (!token) return;
     params.delete("unsubscribe");
     const qs = params.toString();
-    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+    );
     supabase.rpc("unsubscribe_by_token", { p_token: token }).then(({ data, error }) => {
-      setNotice(!error && data
-        ? "You're unsubscribed from alert emails."
-        : "That unsubscribe link isn't valid. You can turn alerts off in your account.");
+      setNotice(
+        !error && data
+          ? "You're unsubscribed from alert emails."
+          : "That unsubscribe link isn't valid. You can turn alerts off in your account.",
+      );
       setTimeout(() => setNotice(null), 6000);
     });
   }, []);
@@ -67,12 +75,25 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ user, loading, sendMagicLink, verifyCode, signOut, supabase }}>
       {children}
       {notice && (
-        <div role="status" style={{
-          position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)",
-          zIndex: 9999, padding: "10px 18px", borderRadius: 999,
-          background: "rgba(20,20,24,0.97)", border: "1px solid rgba(255,255,255,0.16)",
-          color: "#f0f0f3", fontSize: ".84rem", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-        }}>{notice}</div>
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            padding: "10px 18px",
+            borderRadius: 999,
+            background: "rgba(20,20,24,0.97)",
+            border: "1px solid rgba(255,255,255,0.16)",
+            color: "#f0f0f3",
+            fontSize: ".84rem",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}
+        >
+          {notice}
+        </div>
       )}
     </AuthContext.Provider>
   );

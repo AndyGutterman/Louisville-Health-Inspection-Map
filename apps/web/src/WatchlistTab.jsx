@@ -12,7 +12,8 @@ const SORTS = [
   { key: "critical", label: "Critical" },
 ];
 
-const scoreClass = (s) => (s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor");
+const scoreClass = (s) =>
+  s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor";
 // Distance: nearest first. Score: highest first.
 // Critical: failing first, then most critical violations, then lowest score.
 // ("Priority" is the health department's new name for "critical", so there is one sort for both.)
@@ -23,7 +24,10 @@ function sortPlaces(rows, key) {
   if (key === "distance") copy.sort((a, b) => (a.distance_mi ?? 1e9) - (b.distance_mi ?? 1e9));
   if (key === "score") copy.sort((a, b) => hi(b) - hi(a));
   if (key === "critical")
-    copy.sort((a, b) => Number(b.failing) - Number(a.failing) || b.critical_6mo - a.critical_6mo || lo(a) - lo(b));
+    copy.sort(
+      (a, b) =>
+        Number(b.failing) - Number(a.failing) || b.critical_6mo - a.critical_6mo || lo(a) - lo(b),
+    );
   return copy;
 }
 
@@ -34,7 +38,16 @@ function PlaceRow({ p, active, onOpen }) {
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
       onClick={onOpen ? () => onOpen(p) : undefined}
-      onKeyDown={onOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(p); } } : undefined}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpen(p);
+              }
+            }
+          : undefined
+      }
     >
       <div className="wl-place-main">
         <div className="wl-place-name">{p.name}</div>
@@ -48,7 +61,9 @@ function PlaceRow({ p, active, onOpen }) {
           {p.score ? p.score : "N/A"}
           {p.grade ? ` · ${p.grade}` : ""}
         </div>
-        {p.inspection_date && <div className="wl-place-date">{formatLongDate(p.inspection_date)}</div>}
+        {p.inspection_date && (
+          <div className="wl-place-date">{formatLongDate(p.inspection_date)}</div>
+        )}
         {p.critical_6mo > 0 && <div className="wl-crit">{p.critical_6mo} critical · 6 mo</div>}
       </div>
     </div>
@@ -60,10 +75,10 @@ export default function WatchlistTab({
   user,
   compact = false,
   onOpenEstablishment, // (establishment_id, row) => void; makes restaurant rows clickable
-  activeEid,           // establishment currently shown in the info drawer
-  onItemRemoved,       // (establishment_id) => void; tells the map the bookmark is gone
-  refreshToken,        // changes whenever the map/drawer adds or removes a bookmark
-  focusAreaId,         // { id, n } when the map asks to jump to one watch area
+  activeEid, // establishment currently shown in the info drawer
+  onItemRemoved, // (establishment_id) => void; tells the map the bookmark is gone
+  refreshToken, // changes whenever the map/drawer adds or removes a bookmark
+  focusAreaId, // { id, n } when the map asks to jump to one watch area
 }) {
   const [items, setItems] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -93,7 +108,11 @@ export default function WatchlistTab({
     if (!supabase || !user) return;
     Promise.all([
       supabase.from("v_watchlist_with_latest").select("*").eq("user_id", user.id),
-      supabase.from("watchlist_areas").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase
+        .from("watchlist_areas")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
     ]).then(([wRes, aRes]) => {
       const e = wRes.error || aRes.error;
       if (e) {
@@ -109,13 +128,18 @@ export default function WatchlistTab({
   // The map and info drawer can now change bookmarks while this list is on screen.
   const firstRefresh = React.useRef(true);
   useEffect(() => {
-    if (firstRefresh.current) { firstRefresh.current = false; return; }
+    if (firstRefresh.current) {
+      firstRefresh.current = false;
+      return;
+    }
     if (!supabase || !user) return;
     supabase
       .from("v_watchlist_with_latest")
       .select("*")
       .eq("user_id", user.id)
-      .then(({ data }) => { if (data) setItems(data); });
+      .then(({ data }) => {
+        if (data) setItems(data);
+      });
   }, [refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ...and the map's circle editor can move or resize a watch area while this list is on screen.
@@ -131,11 +155,17 @@ export default function WatchlistTab({
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
-        if (data) { setAreas(data); setZones({}); }
+        if (data) {
+          setAreas(data);
+          setZones({});
+        }
       }, 350);
     };
     window.addEventListener("watch-areas-changed", onExternal);
-    return () => { clearTimeout(timer); window.removeEventListener("watch-areas-changed", onExternal); };
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("watch-areas-changed", onExternal);
+    };
   }, [supabase, user]);
 
   useEffect(() => {
@@ -150,7 +180,9 @@ export default function WatchlistTab({
         }));
       });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [areas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function removeItem(id) {
@@ -168,14 +200,16 @@ export default function WatchlistTab({
     setSaving(true);
     const { data, error } = await supabase
       .from("watchlist_areas")
-      .insert([{
-        user_id: user.id,
-        label: areaLabel.trim() || null,
-        center_address: pick.address,
-        center_lat: pick.lat,
-        center_lon: pick.lon,
-        radius_miles: areaRadius,
-      }])
+      .insert([
+        {
+          user_id: user.id,
+          label: areaLabel.trim() || null,
+          center_address: pick.address,
+          center_lat: pick.lat,
+          center_lon: pick.lon,
+          radius_miles: areaRadius,
+        },
+      ])
       .select()
       .single();
     setSaving(false);
@@ -184,7 +218,9 @@ export default function WatchlistTab({
       return;
     }
     setAreas((prev) => [data, ...prev]);
-    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
+    window.dispatchEvent(
+      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
+    );
     setPick(null);
     setAreaLabel("");
     setPickerKey((k) => k + 1);
@@ -193,18 +229,29 @@ export default function WatchlistTab({
   async function removeArea(id) {
     await supabase.from("watchlist_areas").delete().eq("id", id);
     setAreas((prev) => prev.filter((a) => a.id !== id));
-    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
+    window.dispatchEvent(
+      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
+    );
   }
 
   async function updateAreaRadius(id, r) {
-    const { error } = await supabase.from("watchlist_areas").update({ radius_miles: r }).eq("id", id);
+    const { error } = await supabase
+      .from("watchlist_areas")
+      .update({ radius_miles: r })
+      .eq("id", id);
     if (error) {
       setBanner(`Couldn't change that radius: ${error.message}`);
       return;
     }
-    setZones((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    setZones((prev) => {
+      const n = { ...prev };
+      delete n[id];
+      return n;
+    });
     setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, radius_miles: r } : a)));
-    window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }));
+    window.dispatchEvent(
+      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
+    );
   }
 
   if (loading) {
@@ -219,40 +266,65 @@ export default function WatchlistTab({
 
   return (
     <div className={compact ? "wl-compact" : undefined}>
-
-      {banner && <div className="wl-banner" role="alert">{banner}</div>}
+      {banner && (
+        <div className="wl-banner" role="alert">
+          {banner}
+        </div>
+      )}
 
       <div className="wl-section">
         <div className="wl-section-hd">
           <h3>Saved restaurants</h3>
-          <span className="wl-usage">{items.length} / {CAPS.places}</span>
+          <span className="wl-usage">
+            {items.length} / {CAPS.places}
+          </span>
         </div>
         {items.length === 0 ? (
           <div className="wl-empty">Click any map pin, then save it here.</div>
         ) : (
           <div className="wl-list">
             {items.map((item) => (
-              <div key={item.id} className={`wl-item${activeEid && activeEid === item.establishment_id ? " active" : ""}`}>
+              <div
+                key={item.id}
+                className={`wl-item${activeEid && activeEid === item.establishment_id ? " active" : ""}`}
+              >
                 <div className="wl-row">
                   <div
                     className={`wl-grow${onOpenEstablishment ? " wl-click" : ""}`}
                     role={onOpenEstablishment ? "button" : undefined}
                     tabIndex={onOpenEstablishment ? 0 : undefined}
                     onClick={onOpenEstablishment ? () => openRow(item) : undefined}
-                    onKeyDown={onOpenEstablishment ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRow(item); } } : undefined}
+                    onKeyDown={
+                      onOpenEstablishment
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openRow(item);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     <div className="wl-name">{item.name}</div>
-                    <div className="wl-sub">{[item.address, item.city].filter(Boolean).join(", ")}</div>
+                    <div className="wl-sub">
+                      {[item.address, item.city].filter(Boolean).join(", ")}
+                    </div>
                     <div className={`wl-score ${scoreClass(item.score)}`}>
                       {item.score ? `Score ${item.score}` : "Score N/A"}
                       {item.grade ? ` · Grade ${item.grade}` : ""}
-                      {item.inspection_date && <span className="dt"> · {formatLongDate(item.inspection_date)}</span>}
+                      {item.inspection_date && (
+                        <span className="dt"> · {formatLongDate(item.inspection_date)}</span>
+                      )}
                       {item.critical_6mo > 0 && (
-                        <div className="wl-crit" style={{ marginTop: 3 }}>⚠ {item.critical_6mo} critical · 6 mo</div>
+                        <div className="wl-crit" style={{ marginTop: 3 }}>
+                          ⚠ {item.critical_6mo} critical · 6 mo
+                        </div>
                       )}
                     </div>
                   </div>
-                  <button className="wl-remove" onClick={() => removeItem(item.id)}>Remove</button>
+                  <button className="wl-remove" onClick={() => removeItem(item.id)}>
+                    Remove
+                  </button>
                 </div>
               </div>
             ))}
@@ -263,7 +335,9 @@ export default function WatchlistTab({
       <div className="wl-section">
         <div className="wl-section-hd">
           <h3>Watch areas</h3>
-          <span className="wl-usage">{areas.length} / {CAPS.areas}</span>
+          <span className="wl-usage">
+            {areas.length} / {CAPS.areas}
+          </span>
         </div>
 
         {areas.length === 0 && (
@@ -285,7 +359,9 @@ export default function WatchlistTab({
                     <div className="wl-name">{area.label || area.center_address}</div>
                     <div className="wl-sub">{area.center_address}</div>
                   </div>
-                  <button className="wl-remove" onClick={() => removeArea(area.id)}>Remove</button>
+                  <button className="wl-remove" onClick={() => removeArea(area.id)}>
+                    Remove
+                  </button>
                 </div>
 
                 <div className="wl-seg">
@@ -301,7 +377,11 @@ export default function WatchlistTab({
                 </div>
 
                 <div className="wl-zone-hd">
-                  <span>{z ? `${z.rows.length} restaurant${z.rows.length === 1 ? "" : "s"} in zone` : "Loading…"}</span>
+                  <span>
+                    {z
+                      ? `${z.rows.length} restaurant${z.rows.length === 1 ? "" : "s"} in zone`
+                      : "Loading…"}
+                  </span>
                   <div className="wl-sort" role="group" aria-label="Sort restaurants">
                     {SORTS.map((s) => (
                       <button
@@ -315,9 +395,15 @@ export default function WatchlistTab({
                   </div>
                 </div>
 
-                {z?.error && <div className="wl-banner" style={{ margin: 0 }}>{z.error}</div>}
+                {z?.error && (
+                  <div className="wl-banner" style={{ margin: 0 }}>
+                    {z.error}
+                  </div>
+                )}
                 {z && !z.error && rows.length === 0 && (
-                  <div className="wl-empty" style={{ padding: 0 }}>No restaurants inside this radius.</div>
+                  <div className="wl-empty" style={{ padding: 0 }}>
+                    No restaurants inside this radius.
+                  </div>
                 )}
 
                 {rows.slice(0, shown).map((p) => (
@@ -362,7 +448,11 @@ export default function WatchlistTab({
                 <div className="wl-lbl">Radius</div>
                 <div className="wl-seg">
                   {WATCH_RADIUS_OPTIONS.map((r) => (
-                    <button key={r} className={areaRadius === r ? "on" : ""} onClick={() => setAreaRadius(r)}>
+                    <button
+                      key={r}
+                      className={areaRadius === r ? "on" : ""}
+                      onClick={() => setAreaRadius(r)}
+                    >
                       {r} mi
                     </button>
                   ))}
@@ -371,7 +461,9 @@ export default function WatchlistTab({
             </div>
             <div className="wl-add-foot">
               <span className="wl-hint">
-                {pick ? "Address confirmed. You can change the radius later." : "Choose an address from the dropdown to continue."}
+                {pick
+                  ? "Address confirmed. You can change the radius later."
+                  : "Choose an address from the dropdown to continue."}
               </span>
               <button className="wl-btn" onClick={addArea} disabled={!pick || saving}>
                 {saving ? "Adding…" : "Add area"}

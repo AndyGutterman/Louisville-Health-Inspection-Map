@@ -13,21 +13,18 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import {
-  S3Client,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { writeFile, unlink } from "fs/promises";
 import { gzipSync } from "zlib";
 import "dotenv/config";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const SUPABASE_URL          = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const R2_ACCOUNT_ID         = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID      = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY  = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET             = process.env.R2_BUCKET ?? "lfs-archive";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET = process.env.R2_BUCKET ?? "lfs-archive";
 const THREE_YEARS_AGO = (() => {
   const d = new Date();
   d.setFullYear(d.getFullYear() - 3);
@@ -55,7 +52,9 @@ const r2 = new S3Client({
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function log(...args) { console.log(new Date().toISOString(), ...args); }
+function log(...args) {
+  console.log(new Date().toISOString(), ...args);
+}
 
 async function fetchAll(query) {
   const PAGE = 1000;
@@ -116,7 +115,11 @@ async function main() {
       .lt("inspection_date", THREE_YEARS_AGO)
       .order("inspection_date", { ascending: true });
 
-    if (oldErr) { log("Error fetching old inspections:", oldErr); stats.errors++; continue; }
+    if (oldErr) {
+      log("Error fetching old inspections:", oldErr);
+      stats.errors++;
+      continue;
+    }
     if (!oldInsp || oldInsp.length === 0) continue;
 
     // Group by eid
@@ -133,9 +136,13 @@ async function main() {
       .in("establishment_id", batch)
       .gte("inspection_date", THREE_YEARS_AGO);
 
-    if (newErr) { log("Error checking newer inspections:", newErr); stats.errors++; continue; }
+    if (newErr) {
+      log("Error checking newer inspections:", newErr);
+      stats.errors++;
+      continue;
+    }
 
-    const hasNewer = new Set((newerCheck || []).map(r => r.establishment_id));
+    const hasNewer = new Set((newerCheck || []).map((r) => r.establishment_id));
 
     for (const [eid, rows] of Object.entries(byEid)) {
       if (!hasNewer.has(eid)) {
@@ -155,7 +162,7 @@ async function main() {
   log(`${archiveRows.length} inspection rows qualify for archival`);
 
   // Step 3: Fetch associated violations for all qualifying inspection IDs
-  const inspIds = archiveRows.map(r => r.inspection_id);
+  const inspIds = archiveRows.map((r) => r.inspection_id);
   log(`Fetching violations for ${inspIds.length} inspections...`);
 
   const allViolations = [];
@@ -166,8 +173,10 @@ async function main() {
       .from("inspection_violations")
       .select("*")
       .in("inspection_id", batch);
-    if (vErr) { log("Error fetching violations:", vErr); stats.errors++; }
-    else allViolations.push(...(viols || []));
+    if (vErr) {
+      log("Error fetching violations:", vErr);
+      stats.errors++;
+    } else allViolations.push(...(viols || []));
   }
 
   log(`${allViolations.length} violation rows to archive`);
@@ -189,18 +198,20 @@ async function main() {
 
   // Step 5: Upload to R2
   log(`Uploading ${r2Key} to R2 bucket "${R2_BUCKET}"...`);
-  await r2.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: r2Key,
-    Body: gzipped,
-    ContentType: "application/json",
-    ContentEncoding: "gzip",
-    Metadata: {
-      archived_at: new Date().toISOString(),
-      inspection_count: String(archiveRows.length),
-      violation_count: String(allViolations.length),
-    },
-  }));
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: r2Key,
+      Body: gzipped,
+      ContentType: "application/json",
+      ContentEncoding: "gzip",
+      Metadata: {
+        archived_at: new Date().toISOString(),
+        inspection_count: String(archiveRows.length),
+        violation_count: String(allViolations.length),
+      },
+    }),
+  );
   log(`Upload complete: ${r2Key}`);
   stats.archived = archiveRows.length;
 
@@ -217,12 +228,12 @@ async function main() {
       .from("inspection_violations")
       .delete()
       .in("inspection_id", batch);
-    if (vDelErr) { log("Error deleting violations:", vDelErr); stats.errors++; }
+    if (vDelErr) {
+      log("Error deleting violations:", vDelErr);
+      stats.errors++;
+    }
 
-    const { error: iDelErr } = await supa
-      .from("inspections")
-      .delete()
-      .in("inspection_id", batch);
+    const { error: iDelErr } = await supa.from("inspections").delete().in("inspection_id", batch);
 
     if (iDelErr) {
       log("Error deleting inspections batch:", iDelErr);

@@ -7,7 +7,10 @@ export const WATCH_MAX_MILES = 10;
 const MILE_M = 1609.34;
 
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
 
 // Geodesic circle as a polygon, so the radius is accurate at Louisville's latitude.
 export function buildCircle(area) {
@@ -23,7 +26,10 @@ export function buildCircle(area) {
   }
   return {
     type: "Feature",
-    properties: { id: area.id, label: area.label || area.center_address || `${area.radius_miles} mi` },
+    properties: {
+      id: area.id,
+      label: area.label || area.center_address || `${area.radius_miles} mi`,
+    },
     geometry: { type: "Polygon", coordinates: [coords] },
   };
 }
@@ -163,7 +169,15 @@ function makeHandle(kind, label, iconPath) {
 //   getAreas()   returns the current list of watch areas (for live preview)
 //   onCommit(p)  is called after each change with { center_lat, center_lon, radius_miles }
 //   onOpenPanel(areaId)  is called when the popup itself is clicked (not its buttons)
-export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onCommit, onOpenPanel }) {
+export function openWatchEditor({
+  maplibregl,
+  map,
+  popupRef,
+  area,
+  getAreas,
+  onCommit,
+  onOpenPanel,
+}) {
   popupRef.current?.remove();
   ensureStyles();
 
@@ -174,7 +188,10 @@ export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onC
   };
 
   const name = area.label || area.center_address || "Watch area";
-  const sub = area.label && area.center_address && area.label !== area.center_address ? area.center_address : "";
+  const sub =
+    area.label && area.center_address && area.label !== area.center_address
+      ? area.center_address
+      : "";
 
   const root = document.createElement("div");
   root.innerHTML = `
@@ -186,8 +203,9 @@ export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onC
       <div class="wa-value"></div>
     </div>
     <div class="wa-seg" role="radiogroup" aria-label="Watch radius in miles">
-      ${WATCH_RADIUS_OPTIONS.map((r) =>
-        `<button type="button" role="radio" data-wa-radius="${r}">${r} mi</button>`).join("")}
+      ${WATCH_RADIUS_OPTIONS.map(
+        (r) => `<button type="button" role="radio" data-wa-radius="${r}">${r} mi</button>`,
+      ).join("")}
     </div>`;
 
   const valueEl = root.querySelector(".wa-value");
@@ -268,7 +286,9 @@ export function openWatchEditor({ maplibregl, map, popupRef, area, getAreas, onC
   // Resize: radius is the distance from the center to the handle, in whole miles.
   sizeMarker.on("drag", () => {
     const ll = sizeMarker.getLngLat();
-    draft.radius_miles = clampMiles(distanceMiles(draft.center_lat, draft.center_lon, ll.lat, ll.lng));
+    draft.radius_miles = clampMiles(
+      distanceMiles(draft.center_lat, draft.center_lon, ll.lat, ll.lng),
+    );
     updateUI();
     preview();
   });

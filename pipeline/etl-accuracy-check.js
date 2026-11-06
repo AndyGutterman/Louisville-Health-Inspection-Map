@@ -39,9 +39,7 @@ async function fetchArcGISInspection(establishment_id) {
   const feat = json.features?.[0]?.attributes;
   if (!feat) return null;
   const dateMs = feat.INSPECTION_DATE;
-  const isoDate = dateMs
-    ? new Date(dateMs).toISOString().slice(0, 10)
-    : null;
+  const isoDate = dateMs ? new Date(dateMs).toISOString().slice(0, 10) : null;
   return {
     inspection_date: isoDate,
     score: feat.SCORE ?? null,
@@ -60,7 +58,10 @@ async function main() {
     .order("inspection_date", { ascending: false })
     .limit(200);
 
-  if (sErr) { console.error("Supabase error:", sErr); process.exit(1); }
+  if (sErr) {
+    console.error("Supabase error:", sErr);
+    process.exit(1);
+  }
 
   // Deduplicate, pick 10 random ones
   const seen = new Set();
@@ -79,7 +80,8 @@ async function main() {
   }
   const chosen = [...indices].map((i) => pool[i]);
 
-  let passed = 0, failed = 0;
+  let passed = 0,
+    failed = 0;
   const mismatches = [];
 
   for (const local of chosen) {
@@ -97,18 +99,21 @@ async function main() {
       continue;
     }
 
-    const dateMatch  = local.inspection_date === live.inspection_date;
+    const dateMatch = local.inspection_date === live.inspection_date;
     const scoreMatch = local.score === live.score || (local.score == null && live.score == null);
     const gradeMatch = (local.grade ?? "").trim() === (live.grade ?? "").trim();
     const ok = dateMatch && scoreMatch && gradeMatch;
 
     if (ok) {
       passed++;
-      console.log(`  PASS  ${eid}  date=${local.inspection_date}  score=${local.score}  grade=${local.grade}`);
+      console.log(
+        `  PASS  ${eid}  date=${local.inspection_date}  score=${local.score}  grade=${local.grade}`,
+      );
     } else {
       failed++;
       const detail = [];
-      if (!dateMatch)  detail.push(`date: local=${local.inspection_date} live=${live.inspection_date}`);
+      if (!dateMatch)
+        detail.push(`date: local=${local.inspection_date} live=${live.inspection_date}`);
       if (!scoreMatch) detail.push(`score: local=${local.score} live=${live.score}`);
       if (!gradeMatch) detail.push(`grade: local=${local.grade} live=${live.grade}`);
       mismatches.push({ eid, detail });
@@ -131,4 +136,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((e) => { console.error("Fatal:", e); process.exit(1); });
+main().catch((e) => {
+  console.error("Fatal:", e);
+  process.exit(1);
+});

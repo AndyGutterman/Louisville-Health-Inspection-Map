@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import SplashScreen from './SplashScreen';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import SplashScreen from "./SplashScreen";
 
 const MIN_DURATION = 400;
 const MAX_DURATION = 8000;

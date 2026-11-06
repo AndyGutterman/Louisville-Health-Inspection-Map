@@ -87,23 +87,23 @@ sequenceDiagram
 
 Website paths below are relative to `apps/web/`.
 
-| I want to change | Look in |
-|---|---|
-| Score colours, presets, red/yellow/green bands | `src/lib/scoring.js` |
-| Which facility types belong to a category | `src/lib/categories.js` |
-| How "may also be listed as" duplicates are detected | `src/lib/samePlaceDetection.js` |
-| How pins sharing one location are collapsed | `src/lib/dedupe.js` |
-| Date formats | `src/lib/dates.js` |
-| Address search for watch areas | `src/lib/geocode.js`, `src/AddressPicker.jsx` |
-| Phone / desktop breakpoints in components | `src/hooks/useMediaQuery.js` |
-| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/InfoDrawer.jsx` |
-| Map pan limits | `src/lib/mapBounds.js` |
-| Date-filter options and the map data cache settings | `src/lib/constants.js` |
-| Styles for a component | `src/styles/<Component>.css` (imported by the component) |
-| Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx` |
-| The info drawer and its history | `src/InfoDrawer.jsx`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
-| Filters and score sliders | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css` |
-| Watch areas on the map | `src/watchAreaLayer.js` |
-| Watchlist and account panel | `src/AccountPage.jsx`, `src/WatchlistTab.jsx` |
-| Nightly data load | `pipeline/`, `.github/workflows/ingest.yml` |
-| Database tables, views, functions and security rules | `supabase/migrations/` (start with the baseline file) |
+| I want to change                                              | Look in                                                                                |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Score colours, presets, red/yellow/green bands                | `src/lib/scoring.js`                                                                   |
+| Which facility types belong to a category                     | `src/lib/categories.js`                                                                |
+| How "may also be listed as" duplicates are detected           | `src/lib/samePlaceDetection.js`                                                        |
+| How pins sharing one location are collapsed                   | `src/lib/dedupe.js`                                                                    |
+| Date formats                                                  | `src/lib/dates.js`                                                                     |
+| Address search for watch areas                                | `src/lib/geocode.js`, `src/AddressPicker.jsx`                                          |
+| Phone / desktop breakpoints in components                     | `src/hooks/useMediaQuery.js`                                                           |
+| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/InfoDrawer.jsx`                                         |
+| Map pan limits                                                | `src/lib/mapBounds.js`                                                                 |
+| Date-filter options and the map data cache settings           | `src/lib/constants.js`                                                                 |
+| Styles for a component                                        | `src/styles/<Component>.css` (imported by the component)                               |
+| Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx`                                                           |
+| The info drawer and its history                               | `src/InfoDrawer.jsx`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
+| Filters and score sliders                                     | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css`        |
+| Watch areas on the map                                        | `src/watchAreaLayer.js`                                                                |
+| Watchlist and account panel                                   | `src/AccountPage.jsx`, `src/WatchlistTab.jsx`                                          |
+| Nightly data load                                             | `pipeline/`, `.github/workflows/ingest.yml`                                            |
+| Database tables, views, functions and security rules          | `supabase/migrations/` (start with the baseline file)                                  |

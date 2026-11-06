@@ -12,9 +12,9 @@ export function clampPins([r, y]) {
 // Louisville grading: C = score ≤ 84 (or critical violation), A = score ≥ 85.
 // "balanced" default aligns with the official 84/85 threshold so red = C territory.
 export const PRESETS = {
-  loose:    clampPins([75, 89]),
-  balanced: clampPins([84, 94]),  // red ≤84 matches Louisville's C-grade cutoff
-  strict:   clampPins([90, 96]),
+  loose: clampPins([75, 89]),
+  balanced: clampPins([84, 94]), // red ≤84 matches Louisville's C-grade cutoff
+  strict: clampPins([90, 96]),
 };
 
 // MapLibre filter expressions, one per score band.

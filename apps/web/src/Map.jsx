@@ -63,13 +63,15 @@ export default function Map(props) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const onMapReadyRef = useRef(props.onMapReady);
-  useEffect(() => { onMapReadyRef.current = props.onMapReady; }, [props.onMapReady]);
+  useEffect(() => {
+    onMapReadyRef.current = props.onMapReady;
+  }, [props.onMapReady]);
 
   const hoverPopupRef = useRef(null);
   const pinnedPopupRef = useRef(null);
   const pinnedReactRootRef = useRef(null);
   // Exposed so TableView can drive map popups from row hover/click
-  const featureByEidRef     = useRef({});   // establishment_id → feature, built after geoData loads
+  const featureByEidRef = useRef({}); // establishment_id → feature, built after geoData loads
   const lastHoverId = useRef(null);
   const pinnedFeatureRef = useRef(null);
   const multiHitsRef = useRef(null);
@@ -78,13 +80,12 @@ export default function Map(props) {
   const isDraggingRef = useRef(false);
   const coordIndexRef = useRef(new globalThis.Map());
   // Exposed so WhatsNew (and other external panels) can trigger popup + drawer
-  const openEstablishmentPopupRef  = useRef(null);  // shows pinned popup
-  const hoverEstablishmentPopupRef = useRef(null);  // shows hover popup
-  const hoverEstablishmentEndRef   = useRef(null);  // closes hover popup
+  const openEstablishmentPopupRef = useRef(null); // shows pinned popup
+  const hoverEstablishmentPopupRef = useRef(null); // shows hover popup
+  const hoverEstablishmentEndRef = useRef(null); // closes hover popup
 
   useEffect(() => {
-    const headerEl =
-      document.querySelector(".app-header, .site-header, header") || null;
+    const headerEl = document.querySelector(".app-header, .site-header, header") || null;
 
     const setVars = () => {
       const h = headerEl ? Math.round(headerEl.getBoundingClientRect().height) : 72;
@@ -119,7 +120,9 @@ export default function Map(props) {
 
   const [searchTerm, setSearchTerm] = useState("");
   const searchTermRef = useRef("");
-  useEffect(() => { searchTermRef.current = searchTerm.trim().toLowerCase(); }, [searchTerm]);
+  useEffect(() => {
+    searchTermRef.current = searchTerm.trim().toLowerCase();
+  }, [searchTerm]);
 
   const [pins, setPins] = useState(PRESETS.balanced);
   const [preset, setPreset] = useState("balanced");
@@ -134,9 +137,7 @@ export default function Map(props) {
     pinsRef.current = pins;
   }, [pins]);
   useEffect(() => {
-    const match = Object.entries(PRESETS).find(
-      ([, v]) => v[0] === pins[0] && v[1] === pins[1],
-    );
+    const match = Object.entries(PRESETS).find(([, v]) => v[0] === pins[0] && v[1] === pins[1]);
     setPreset(match ? match[0] : null);
   }, [pins]);
 
@@ -161,12 +162,20 @@ export default function Map(props) {
   // Watchlist establishment IDs — loaded on login for bookmark button state
   const [watchlistEids, setWatchlistEids] = useState(new Set());
   const watchlistEidsRef = useRef(new Set());
-  useEffect(() => { watchlistEidsRef.current = watchlistEids; }, [watchlistEids]);
+  useEffect(() => {
+    watchlistEidsRef.current = watchlistEids;
+  }, [watchlistEids]);
 
   useEffect(() => {
-    if (!user) { setWatchlistEids(new Set()); return; }
-    supabase.from("watchlist").select("establishment_id").eq("user_id", user.id)
-      .then(({ data }) => setWatchlistEids(new Set((data || []).map(r => r.establishment_id))));
+    if (!user) {
+      setWatchlistEids(new Set());
+      return;
+    }
+    supabase
+      .from("watchlist")
+      .select("establishment_id")
+      .eq("user_id", user.id)
+      .then(({ data }) => setWatchlistEids(new Set((data || []).map((r) => r.establishment_id))));
   }, [user]);
 
   // Returns the eids of similar-nearby permits for a given eid (same physical place, different permit)
@@ -174,8 +183,10 @@ export default function Map(props) {
     try {
       const feature = featureByEidRef.current[eid];
       const nearby = JSON.parse(feature?.properties?.similar_nearby || "[]");
-      return nearby.map(n => n.eid).filter(Boolean);
-    } catch { return []; }
+      return nearby.map((n) => n.eid).filter(Boolean);
+    } catch {
+      return [];
+    }
   };
 
   // Stable ref to the save/remove function — used by popup HTML button handlers
@@ -183,18 +194,31 @@ export default function Map(props) {
   useEffect(() => {
     popupSaveRef.current = async (eid) => {
       if (!eid) return;
-      if (!user) { setLoginOpen(true); return; }
+      if (!user) {
+        setLoginOpen(true);
+        return;
+      }
       if (watchlistEidsRef.current.has(eid)) {
         // Remove only the one explicitly clicked — user can remove the other manually
-        await supabase.from("watchlist").delete().eq("user_id", user.id).eq("establishment_id", eid);
-        setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
+        await supabase
+          .from("watchlist")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("establishment_id", eid);
+        setWatchlistEids((prev) => {
+          const s = new Set(prev);
+          s.delete(eid);
+          return s;
+        });
       } else {
         // Save this eid AND any similar-nearby permits (same place, different permit record)
         const similarEids = getSimilarEids(eid);
-        const allNew = [eid, ...similarEids].filter(e => !watchlistEidsRef.current.has(e));
+        const allNew = [eid, ...similarEids].filter((e) => !watchlistEidsRef.current.has(e));
         if (allNew.length > 0) {
-          await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
-          setWatchlistEids(prev => new Set([...prev, ...allNew]));
+          await supabase
+            .from("watchlist")
+            .insert(allNew.map((e) => ({ user_id: user.id, establishment_id: e })));
+          setWatchlistEids((prev) => new Set([...prev, ...allNew]));
         }
       }
     };
@@ -212,7 +236,10 @@ export default function Map(props) {
   }, [watchAreas]);
 
   useEffect(() => {
-    if (!user) { setWatchAreas([]); return; }
+    if (!user) {
+      setWatchAreas([]);
+      return;
+    }
     supabase
       .from("watchlist_areas")
       .select("id, label, center_address, center_lat, center_lon, radius_miles")
@@ -236,7 +263,9 @@ export default function Map(props) {
     return () => window.removeEventListener("watch-areas-changed", reload);
   }, [user]);
 
-  useEffect(() => { if (!user) setAccountOpen(false); }, [user]);
+  useEffect(() => {
+    if (!user) setAccountOpen(false);
+  }, [user]);
 
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
@@ -295,11 +324,16 @@ export default function Map(props) {
             if (cached?.ts && Date.now() - cached.ts < GEO_CACHE_TTL && cached.data) {
               // Full list → coord index; deduplicated list → rendered GeoJSON
               buildFeatureIndexes(cached.data.features);
-              setGeoData({ type: "FeatureCollection", features: deduplicateForRender(cached.data.features) });
+              setGeoData({
+                type: "FeatureCollection",
+                features: deduplicateForRender(cached.data.features),
+              });
               return;
             }
           }
-        } catch { /* cache miss — proceed to fetch */ }
+        } catch {
+          /* cache miss — proceed to fetch */
+        }
       }
 
       const { count, error: headErr } = await supabase
@@ -333,7 +367,9 @@ export default function Map(props) {
         const pageSize = 1000;
         let from = 0;
         while (true) {
-          const { data, error } = await supabase.rpc("get_violation_flags").range(from, from + pageSize - 1);
+          const { data, error } = await supabase
+            .rpc("get_violation_flags")
+            .range(from, from + pageSize - 1);
           if (error || !data?.length) break;
           for (const r of data) m.set(r.establishment_id, r);
           if (data.length < pageSize) break;
@@ -352,15 +388,13 @@ export default function Map(props) {
           const to2 = Math.min((facCount || 0) - 1, off + page2 - 1);
           const { data: facRows, error: facErr } = await supabase
             .from("facilities")
-            .select(
-              "establishment_id, facility_type, subtype, address, city, state, zip",
-            )
+            .select("establishment_id, facility_type, subtype, address, city, state, zip")
             .range(off, to2);
           if (facErr) {
             console.error("facilities meta fetch error", facErr);
             break;
           }
-          for (const f of (facRows || []))
+          for (const f of facRows || [])
             metaById.set(f.establishment_id, {
               ft: f.facility_type,
               st: f.subtype,
@@ -389,8 +423,10 @@ export default function Map(props) {
       const features = coerced
         .filter((r) => {
           const ok =
-            typeof r.lon === "number" && Number.isFinite(r.lon) &&
-            typeof r.lat === "number" && Number.isFinite(r.lat);
+            typeof r.lon === "number" &&
+            Number.isFinite(r.lon) &&
+            typeof r.lat === "number" &&
+            Number.isFinite(r.lat);
           if (!ok) {
             console.warn("Facility missing usable coordinates (no pin will render)", {
               establishment_id: r.establishment_id,
@@ -404,15 +440,13 @@ export default function Map(props) {
         })
         .map((r, i) => {
           const meta = metaById.get(r.establishment_id) || {};
-          const vf   = violFlags.get(r.establishment_id) || {};
+          const vf = violFlags.get(r.establishment_id) || {};
           const ft = typeof meta.ft === "number" ? meta.ft : null;
           const st = typeof meta.st === "number" ? meta.st : null;
           const fullAddr =
-            [meta?.address || r.address, meta?.city, meta?.state]
-              .filter(Boolean)
-              .join(", ") + (meta?.zip ? ` ${meta.zip}` : "");
-          const cat =
-            ft != null && st != null ? classifyCategory(ft, st) : "unknown";
+            [meta?.address || r.address, meta?.city, meta?.state].filter(Boolean).join(", ") +
+            (meta?.zip ? ` ${meta.zip}` : "");
+          const cat = ft != null && st != null ? classifyCategory(ft, st) : "unknown";
 
           if (cat === "unknown" && ft != null && st != null) {
             console.warn("Unmapped facility (category filters)", {
@@ -442,7 +476,7 @@ export default function Map(props) {
               subtype: st,
               cat,
               has_critical_violation: vf.has_critical ?? false,
-              has_any_violation:      vf.has_any      ?? false,
+              has_any_violation: vf.has_any ?? false,
             },
           };
         });
@@ -450,10 +484,7 @@ export default function Map(props) {
       const latestMap = features.reduce((acc, feat) => {
         const eid = feat.properties.establishment_id;
         const prev = acc[eid];
-        if (
-          !prev ||
-          (feat.properties.date && feat.properties.date > prev.properties.date)
-        )
+        if (!prev || (feat.properties.date && feat.properties.date > prev.properties.date))
           acc[eid] = feat;
         return acc;
       }, {});
@@ -462,8 +493,13 @@ export default function Map(props) {
       // Cache the full list (needed for popup navigation of stacked locations)
       const fullGeoData = { type: "FeatureCollection", features: featureList };
       try {
-        sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ data: fullGeoData, ts: Date.now() }));
-      } catch { /* quota exceeded — ignore */ }
+        sessionStorage.setItem(
+          GEO_CACHE_KEY,
+          JSON.stringify({ data: fullGeoData, ts: Date.now() }),
+        );
+      } catch {
+        /* quota exceeded — ignore */
+      }
 
       // Build coord/eid indexes from the FULL list
       buildFeatureIndexes(featureList);
@@ -504,7 +540,11 @@ export default function Map(props) {
     // The top card is complete; the history section shows a skeleton while
     // the async fetches run below.
     const quickSimilar = (() => {
-      try { return JSON.parse(p.similar_nearby || "[]"); } catch { return []; }
+      try {
+        return JSON.parse(p.similar_nearby || "[]");
+      } catch {
+        return [];
+      }
     })();
     setSelected({
       establishment_id: eid,
@@ -536,7 +576,9 @@ export default function Map(props) {
 
     const { data: viols, error: vErr } = await supabase
       .from("inspection_violations")
-      .select("violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id")
+      .select(
+        "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
+      )
       .eq("establishment_id", eid);
 
     if (vErr) console.error("violations fetch error", vErr);
@@ -580,8 +622,11 @@ export default function Map(props) {
 
     // Parse similar-nearby data for the drawer switch links
     const similarNearby = (() => {
-      try { return JSON.parse(p.similar_nearby || "[]"); }
-      catch { return []; }
+      try {
+        return JSON.parse(p.similar_nearby || "[]");
+      } catch {
+        return [];
+      }
     })();
 
     const selectedData = headerRow
@@ -634,9 +679,8 @@ export default function Map(props) {
         permit_number: fac?.permit_number ?? null,
       };
       fullAddress =
-        [fac?.address || p.address, fac?.city, fac?.state]
-          .filter(Boolean)
-          .join(", ") + (fac?.zip ? ` ${fac.zip}` : "");
+        [fac?.address || p.address, fac?.city, fac?.state].filter(Boolean).join(", ") +
+        (fac?.zip ? ` ${fac.zip}` : "");
     }
 
     setSelected({
@@ -705,11 +749,17 @@ export default function Map(props) {
       // Uses has_critical_violation / has_any_violation from feature properties
       // (fetched via get_violation_flags RPC and baked into GeoJSON on load).
       const ringRadius = [
-        "interpolate", ["linear"], ["zoom"],
-        8,  window.innerWidth <= 600 ? 5.5 : 7.5,
-        11, window.innerWidth <= 600 ? 9.5 : 12,
-        14, window.innerWidth <= 600 ? 13.5 : 15.5,
-        17, window.innerWidth <= 600 ? 17.5 : 19.5,
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        window.innerWidth <= 600 ? 5.5 : 7.5,
+        11,
+        window.innerWidth <= 600 ? 9.5 : 12,
+        14,
+        window.innerWidth <= 600 ? 13.5 : 15.5,
+        17,
+        window.innerWidth <= 600 ? 17.5 : 19.5,
       ];
 
       // Blue ring — non-priority violations only (drawn first, so amber wins visually)
@@ -717,7 +767,8 @@ export default function Map(props) {
         id: "points-noncritical-ring",
         type: "circle",
         source: "facilities",
-        filter: ["all",
+        filter: [
+          "all",
           ["==", ["get", "has_any_violation"], true],
           ["==", ["get", "has_critical_violation"], false],
         ],
@@ -739,7 +790,7 @@ export default function Map(props) {
           "circle-radius": ringRadius,
           "circle-color": "rgba(0,0,0,0)",
           "circle-stroke-width": 2.5,
-          "circle-stroke-color": "rgba(234,67,53,0.90)",  // matches red pin color #ea4335
+          "circle-stroke-color": "rgba(234,67,53,0.90)", // matches red pin color #ea4335
         },
       });
 
@@ -751,20 +802,24 @@ export default function Map(props) {
       // Priority violators get +10 regardless of score color so a green pin with
       // a critical violation beats nearby green pins without one.
       const colorBonus = (f) => {
-        const props   = f.properties || {};
-        const layerId = f.layer?.id  || "";
+        const props = f.properties || {};
+        const layerId = f.layer?.id || "";
         if (props.has_critical_violation || layerId === "points-red") return 10;
-        if (layerId === "points-yellow")                               return 5;
+        if (layerId === "points-yellow") return 5;
         return 0;
       };
 
       const nearestOf = (point, feats) => {
-        let best = null, bestEff = Infinity;
+        let best = null,
+          bestEff = Infinity;
         for (const f of feats) {
           const p = map.project(f.geometry.coordinates);
           const d = Math.hypot(p.x - point.x, p.y - point.y);
           const eff = d - colorBonus(f);
-          if (eff < bestEff) { best = f; bestEff = eff; }
+          if (eff < bestEff) {
+            best = f;
+            bestEff = eff;
+          }
         }
         return best;
       };
@@ -814,7 +869,9 @@ export default function Map(props) {
             if (!nearby.length) return "";
             const list = nearby.map((n) => `<em>${n.name}</em>`).join(", ");
             return `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">⚠ May also be listed as: ${list}</div>`;
-          } catch { return ""; }
+          } catch {
+            return "";
+          }
         })();
         const saved = watchlistEidsRef.current.has(p.establishment_id);
         const pinBtn = `<button
@@ -882,8 +939,12 @@ export default function Map(props) {
             const svg = pinBtn.querySelector("svg");
             if (svg) svg.setAttribute("fill", nowSaved ? "currentColor" : "none");
           };
-          pinBtn.onmouseenter = () => { pinBtn.style.opacity = "1"; };
-          pinBtn.onmouseleave = () => { pinBtn.style.opacity = ""; };
+          pinBtn.onmouseenter = () => {
+            pinBtn.style.opacity = "1";
+          };
+          pinBtn.onmouseleave = () => {
+            pinBtn.style.opacity = "";
+          };
         }
 
         const content = root?.querySelector(".popup-content");
@@ -945,7 +1006,7 @@ export default function Map(props) {
             total={features.length}
             onPrev={() => go("prev")}
             onNext={() => go("next")}
-          />
+          />,
         );
 
         if (!rootEl.dataset.navBound) {
@@ -1165,7 +1226,9 @@ export default function Map(props) {
       // starts inside it also counts, even if the pointer is released elsewhere (a resize).
       const KEEP_DRAWER_OPEN = ".wn-panel, .wn-trigger";
       let lastDownTarget = null;
-      const rememberDown = (ev) => { lastDownTarget = ev.target; };
+      const rememberDown = (ev) => {
+        lastDownTarget = ev.target;
+      };
       document.addEventListener("pointerdown", rememberDown, true);
       docDownHandlerRef.current = rememberDown;
 
@@ -1176,7 +1239,8 @@ export default function Map(props) {
         }
         const downTarget = lastDownTarget;
         lastDownTarget = null;
-        if (ev.target.closest?.(KEEP_DRAWER_OPEN) || downTarget?.closest?.(KEEP_DRAWER_OPEN)) return;
+        if (ev.target.closest?.(KEEP_DRAWER_OPEN) || downTarget?.closest?.(KEEP_DRAWER_OPEN))
+          return;
         if (isDraggingRef.current) return;
         const p1 = pinnedPopupRef.current?.getElement();
         const p2 = hoverPopupRef.current?.getElement();
@@ -1209,7 +1273,6 @@ export default function Map(props) {
       };
       document.addEventListener("click", outsideClose, true);
       docCloseHandlerRef.current = outsideClose;
-
 
       applyFilter(map);
 
@@ -1291,18 +1354,29 @@ export default function Map(props) {
         // layers exist. Until then this returns and a later styledata event retries.
         if (m.getLayer("watch-areas-fill") || !m.getLayer("points-null")) return;
 
-        m.addLayer({
-          id: "watch-areas-fill",
-          type: "fill",
-          source: "watch-areas",
-          paint: { "fill-color": "#ff9f1c", "fill-opacity": 0.07 },
-        }, "points-null");
-        m.addLayer({
-          id: "watch-areas-line",
-          type: "line",
-          source: "watch-areas",
-          paint: { "line-color": "#ff9f1c", "line-width": 2, "line-opacity": 0.75, "line-dasharray": [2, 1.5] },
-        }, "points-null");
+        m.addLayer(
+          {
+            id: "watch-areas-fill",
+            type: "fill",
+            source: "watch-areas",
+            paint: { "fill-color": "#ff9f1c", "fill-opacity": 0.07 },
+          },
+          "points-null",
+        );
+        m.addLayer(
+          {
+            id: "watch-areas-line",
+            type: "line",
+            source: "watch-areas",
+            paint: {
+              "line-color": "#ff9f1c",
+              "line-width": 2,
+              "line-opacity": 0.75,
+              "line-dasharray": [2, 1.5],
+            },
+          },
+          "points-null",
+        );
 
         m.on("click", "watch-areas-fill", (e) => {
           // Establishment pins win: a tap on a pin is never also a tap on the circle.
@@ -1327,17 +1401,28 @@ export default function Map(props) {
                 update.center_lon = patch.center_lon;
                 update.center_address = `${patch.center_lat.toFixed(4)}, ${patch.center_lon.toFixed(4)}`;
               }
-              const { error } = await supabase.from("watchlist_areas").update(update).eq("id", area.id);
+              const { error } = await supabase
+                .from("watchlist_areas")
+                .update(update)
+                .eq("id", area.id);
               if (!error) {
-              setWatchAreas((list) => list.map((a) => (a.id === area.id ? { ...a, ...update } : a)));
-              // Lets an open account panel refresh its list for this area
-              window.dispatchEvent(new CustomEvent("watch-areas-changed", { detail: { source: "map" } }));
-            }
+                setWatchAreas((list) =>
+                  list.map((a) => (a.id === area.id ? { ...a, ...update } : a)),
+                );
+                // Lets an open account panel refresh its list for this area
+                window.dispatchEvent(
+                  new CustomEvent("watch-areas-changed", { detail: { source: "map" } }),
+                );
+              }
             },
           });
         });
-        m.on("mouseenter", "watch-areas-fill", () => { m.getCanvas().style.cursor = "pointer"; });
-        m.on("mouseleave", "watch-areas-fill", () => { m.getCanvas().style.cursor = ""; });
+        m.on("mouseenter", "watch-areas-fill", () => {
+          m.getCanvas().style.cursor = "pointer";
+        });
+        m.on("mouseleave", "watch-areas-fill", () => {
+          m.getCanvas().style.cursor = "";
+        });
       } catch {
         // Style not ready yet; the styledata listener below retries.
       }
@@ -1346,7 +1431,9 @@ export default function Map(props) {
     apply();
 
     // Keep retrying until the circle layers exist (cheap once they do).
-    const retry = () => { if (!m.getLayer("watch-areas-fill")) apply(); };
+    const retry = () => {
+      if (!m.getLayer("watch-areas-fill")) apply();
+    };
     m.on("styledata", retry);
     return () => m.off("styledata", retry);
   }, [watchAreas, mapReady]);
@@ -1475,8 +1562,8 @@ export default function Map(props) {
           ? ["any", pairExpr, unknownExpr]
           : pairExpr
         : unknownOn
-        ? unknownExpr
-        : ["boolean", false];
+          ? unknownExpr
+          : ["boolean", false];
 
     const hidden = ["==", ["get", "score"], "__none__"];
     for (const key of DRAW_ORDER) {
@@ -1500,19 +1587,23 @@ export default function Map(props) {
     const buildRingFilter = (base) => {
       const conds = [...base, catExpr];
       if (searchExpr) conds.push(searchExpr);
-      if (dateExpr)   conds.push(dateExpr);
+      if (dateExpr) conds.push(dateExpr);
       return ["all", ...conds];
     };
     if (map.getLayer("points-critical-ring")) {
-      map.setFilter("points-critical-ring",
-        buildRingFilter([["==", ["get", "has_critical_violation"], true]]));
+      map.setFilter(
+        "points-critical-ring",
+        buildRingFilter([["==", ["get", "has_critical_violation"], true]]),
+      );
     }
     if (map.getLayer("points-noncritical-ring")) {
-      map.setFilter("points-noncritical-ring",
+      map.setFilter(
+        "points-noncritical-ring",
         buildRingFilter([
           ["==", ["get", "has_any_violation"], true],
           ["==", ["get", "has_critical_violation"], false],
-        ]));
+        ]),
+      );
     }
   }
 
@@ -1525,45 +1616,47 @@ export default function Map(props) {
     hoverEstablishmentEndRef.current?.();
   }, []);
 
-  const onTableRowClick = React.useCallback((row) => {
-    // Close any hover popup before showing pinned popup
-    hoverEstablishmentEndRef.current?.();
-    // Find the feature and show a pinned popup on the map
-    const map = mapRef.current;
-    const feature = featureByEidRef.current[row.establishment_id];
-    if (map && feature) {
-      // Clear any existing pinned popup
-      if (pinnedPopupRef.current) {
-        pinnedPopupRef.current.remove();
-        pinnedPopupRef.current = null;
-      }
-      const p = feature.properties;
-      const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
-      const addr = p.address_full || p.address || "";
-      const html = `<div class="popup-content" style="font-size:14px;max-width:220px">
+  const onTableRowClick = React.useCallback(
+    (row) => {
+      // Close any hover popup before showing pinned popup
+      hoverEstablishmentEndRef.current?.();
+      // Find the feature and show a pinned popup on the map
+      const map = mapRef.current;
+      const feature = featureByEidRef.current[row.establishment_id];
+      if (map && feature) {
+        // Clear any existing pinned popup
+        if (pinnedPopupRef.current) {
+          pinnedPopupRef.current.remove();
+          pinnedPopupRef.current = null;
+        }
+        const p = feature.properties;
+        const scoreText = p.score === 0 || p.score == null ? "N/A" : p.score;
+        const addr = p.address_full || p.address || "";
+        const html = `<div class="popup-content" style="font-size:14px;max-width:220px">
         <strong>${p.name}</strong><br/>
         <small>${addr}</small><br/>
         Score: ${scoreText}${p.grade ? ` (${p.grade})` : ""}
       </div>`;
-      pinnedPopupRef.current = new maplibregl.Popup({
-        anchor: "bottom",
-        offset: [0, -14],
-        closeButton: false,
-        closeOnMove: false,
-        closeOnClick: false,
-      })
-        .setLngLat(feature.geometry.coordinates)
-        .setHTML(html)
-        .addTo(map);
-      // Pan to pin
-      map.easeTo({ center: feature.geometry.coordinates, duration: 400 });
-    }
-    // Load the info drawer
-    beginDrawerLoad(row.establishment_id, row);
-  }, [beginDrawerLoad]);
+        pinnedPopupRef.current = new maplibregl.Popup({
+          anchor: "bottom",
+          offset: [0, -14],
+          closeButton: false,
+          closeOnMove: false,
+          closeOnClick: false,
+        })
+          .setLngLat(feature.geometry.coordinates)
+          .setHTML(html)
+          .addTo(map);
+        // Pan to pin
+        map.easeTo({ center: feature.geometry.coordinates, duration: 400 });
+      }
+      // Load the info drawer
+      beginDrawerLoad(row.establishment_id, row);
+    },
+    [beginDrawerLoad],
+  );
 
-  
-const closeDrawer = () => {
+  const closeDrawer = () => {
     setSelected(null);
     setHistory(null);
     setHistoryFor(null);
@@ -1602,7 +1695,10 @@ const closeDrawer = () => {
   // Phones: opening the account page puts it over the map and over any open drawer,
   // which stays open underneath.
   const toggleAccount = () => {
-    if (accountOpen && page === "map") { setAccountOpen(false); return; }
+    if (accountOpen && page === "map") {
+      setAccountOpen(false);
+      return;
+    }
     setPage("map");
     setMobileTop("account");
     setFocusArea(null);
@@ -1618,13 +1714,15 @@ const closeDrawer = () => {
     setAccountOpen(true);
   };
 
-  const backToMap = () => { setPage("map"); setAccountOpen(false); };
+  const backToMap = () => {
+    setPage("map");
+    setAccountOpen(false);
+  };
 
   return (
     <>
       <header className="app-header">
         <div className="header-inner">
-
           {/* Left slot: search (map) or back-to-map link (learn) */}
           <div className="header-search">
             {page === "map" && !accountFullscreen ? (
@@ -1643,15 +1741,19 @@ const closeDrawer = () => {
                 />
               </div>
             ) : (
-              <button
-                className="header-nav-btn"
-                onClick={backToMap}
-                style={{ gap: 5 }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                  strokeLinejoin="round" aria-hidden="true">
-                  <path d="M19 12H5M12 5l-7 7 7 7"/>
+              <button className="header-nav-btn" onClick={backToMap} style={{ gap: 5 }}>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
                 </svg>
                 <span className="nav-btn-label">Map</span>
               </button>
@@ -1676,22 +1778,35 @@ const closeDrawer = () => {
               className={`header-nav-btn${page === "learn" ? " active" : ""}`}
               onClick={() => setPage("learn")}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
-                strokeLinejoin="round" aria-hidden="true">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
               </svg>
               <span className="nav-btn-label learn-label">Learn</span>
             </button>
-            <button
-              className="header-nav-btn"
-              onClick={() => setFeedbackOpen(true)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
-                strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <button className="header-nav-btn" onClick={() => setFeedbackOpen(true)}>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               <span className="nav-btn-label">Feedback</span>
             </button>
@@ -1702,13 +1817,21 @@ const closeDrawer = () => {
                 title={user.email}
                 aria-label="Saved"
               >
-                <span style={{
-                  width: 18, height: 18, borderRadius: "50%",
-                  background: "rgba(52,168,83,0.30)",
-                  border: "1.5px solid rgba(52,168,83,0.55)",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  fontSize: ".65rem", fontWeight: 800, flexShrink: 0,
-                }}>
+                <span
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "rgba(52,168,83,0.30)",
+                    border: "1.5px solid rgba(52,168,83,0.55)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: ".65rem",
+                    fontWeight: 800,
+                    flexShrink: 0,
+                  }}
+                >
                   {(user.email || "?")[0].toUpperCase()}
                 </span>
                 <span className="nav-btn-label">Saved</span>
@@ -1718,17 +1841,24 @@ const closeDrawer = () => {
                 className="header-nav-btn header-nav-btn--login"
                 onClick={() => setLoginOpen(true)}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
-                  strokeLinejoin="round" aria-hidden="true">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
                 <span className="nav-btn-label">Log in</span>
               </button>
             )}
           </div>
-
         </div>
       </header>
 
@@ -1748,9 +1878,7 @@ const closeDrawer = () => {
       )}
 
       {/* Login modal on map page (learn page renders its own copy) */}
-      {page === "map" && loginOpen && (
-        <LoginModal onClose={() => setLoginOpen(false)} />
-      )}
+      {page === "map" && loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
 
       {/* Account: side panel on desktop, full-screen page on phones */}
       {page === "map" && accountOpen && user && (
@@ -1763,25 +1891,28 @@ const closeDrawer = () => {
           onOpenEstablishment={openFromAccount}
           activeEid={selected?.establishment_id}
           onItemRemoved={(eid) =>
-            setWatchlistEids((prev) => { const s = new Set(prev); s.delete(eid); return s; })
+            setWatchlistEids((prev) => {
+              const s = new Set(prev);
+              s.delete(eid);
+              return s;
+            })
           }
           refreshToken={watchlistEids}
         />
       )}
 
       {/* Feedback modal — available on all pages */}
-      {feedbackOpen && (
-        <FeedbackModal
-          supabase={supabase}
-          onClose={() => setFeedbackOpen(false)}
-        />
-      )}
+      {feedbackOpen && <FeedbackModal supabase={supabase} onClose={() => setFeedbackOpen(false)} />}
 
       {/* Map and all map UI (hidden via CSS when on learn page) */}
       <div
         ref={mapContainerRef}
         className="map-container"
-        style={page !== "map" || accountFullscreen ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+        style={
+          page !== "map" || accountFullscreen
+            ? { visibility: "hidden", pointerEvents: "none" }
+            : undefined
+        }
       />
 
       {page === "map" && (
@@ -1803,19 +1934,31 @@ const closeDrawer = () => {
           watchlisted={selected ? watchlistEids.has(selected.establishment_id) : false}
           onSaveToWatchlist={async (eid) => {
             if (!eid) return;
-            if (!user) { setLoginOpen(true); return; }
+            if (!user) {
+              setLoginOpen(true);
+              return;
+            }
             if (watchlistEids.has(eid)) {
               // Remove only the clicked permit — user removes the other themselves
-              await supabase.from("watchlist").delete()
-                .eq("user_id", user.id).eq("establishment_id", eid);
-              setWatchlistEids(prev => { const s = new Set(prev); s.delete(eid); return s; });
+              await supabase
+                .from("watchlist")
+                .delete()
+                .eq("user_id", user.id)
+                .eq("establishment_id", eid);
+              setWatchlistEids((prev) => {
+                const s = new Set(prev);
+                s.delete(eid);
+                return s;
+              });
             } else {
               // Save this eid AND any similar-nearby permits (same place, different permit)
               const similarEids = getSimilarEids(eid);
-              const allNew = [eid, ...similarEids].filter(e => !watchlistEids.has(e));
+              const allNew = [eid, ...similarEids].filter((e) => !watchlistEids.has(e));
               if (allNew.length > 0) {
-                await supabase.from("watchlist").insert(allNew.map(e => ({ user_id: user.id, establishment_id: e })));
-                setWatchlistEids(prev => new Set([...prev, ...allNew]));
+                await supabase
+                  .from("watchlist")
+                  .insert(allNew.map((e) => ({ user_id: user.id, establishment_id: e })));
+                setWatchlistEids((prev) => new Set([...prev, ...allNew]));
               }
             }
           }}
@@ -1855,13 +1998,23 @@ const closeDrawer = () => {
           {!tableOpen && (
             <button
               className="table-toggle-btn"
-              onClick={() => { setTableOpen(true); setWhatsNewOpen(false); }}
+              onClick={() => {
+                setTableOpen(true);
+                setWhatsNewOpen(false);
+              }}
               aria-label="Open table view"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M3 9h18M3 15h18M9 3v18"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18M3 15h18M9 3v18" />
               </svg>
               Table View
             </button>
@@ -1871,7 +2024,10 @@ const closeDrawer = () => {
             supabase={supabase}
             open={whatsNewOpen}
             onClose={() => setWhatsNewOpen(false)}
-            onOpen={() => { setWhatsNewOpen(true); setTableOpen(false); }}
+            onOpen={() => {
+              setWhatsNewOpen(true);
+              setTableOpen(false);
+            }}
             onOpenEstablishment={(eid, row) => {
               const f = featureByEidRef.current[eid];
               if (f) {
@@ -1902,7 +2058,10 @@ const closeDrawer = () => {
             onRowHoverEnd={onTableRowHoverEnd}
             savedH={tableH}
             savedW={tableW}
-            onResize={(h, w) => { setTableH(h); setTableW(w); }}
+            onResize={(h, w) => {
+              setTableH(h);
+              setTableW(w);
+            }}
             hidden={!tableOpen}
             zIndex={frontPanel === "table" ? 3100 : 2900}
             onBringToFront={() => setFrontPanel("table")}

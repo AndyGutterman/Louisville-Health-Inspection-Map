@@ -5,10 +5,15 @@ import "./styles/WhatsNew.css";
 function FlameIcon({ className, style }) {
   return (
     <svg className={className} style={style} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 2C12 2 8 6 8 10C8 10 6 9 6 7C6 7 3 11 3 14C3 18.418 7.134 22 12 22C16.866 22 21 18.418 21 14C21 10 17 6 12 2Z"
-        fill="currentColor" opacity="0.75" />
-      <path d="M12 14C12 14 10 12.5 10 11C10 11 11 12 12 12C13 12 14.5 10.5 14 8C14 8 16 10 16 13C16 15.209 14.209 17 12 17C9.791 17 8 15.209 8 13"
-        fill="rgba(255,255,255,0.22)" />
+      <path
+        d="M12 2C12 2 8 6 8 10C8 10 6 9 6 7C6 7 3 11 3 14C3 18.418 7.134 22 12 22C16.866 22 21 18.418 21 14C21 10 17 6 12 2Z"
+        fill="currentColor"
+        opacity="0.75"
+      />
+      <path
+        d="M12 14C12 14 10 12.5 10 11C10 11 11 12 12 12C13 12 14.5 10.5 14 8C14 8 16 10 16 13C16 15.209 14.209 17 12 17C9.791 17 8 15.209 8 13"
+        fill="rgba(255,255,255,0.22)"
+      />
     </svg>
   );
 }
@@ -22,39 +27,56 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
       onMouseLeave={() => onHoverEnd?.()}
       role="button"
       tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onOpen?.(item.establishment_id, item); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen?.(item.establishment_id, item);
+      }}
     >
       <div className={`wn-badge ${badgeClass}`}>{score == null || score === 0 ? "–" : score}</div>
       <div className="wn-info">
         <div className="wn-name">{item.premise_name || item.establishment_id}</div>
         <div className="wn-sub">
-          {item.address
-            ? [item.address, formatMonthDay(item.inspection_date || item.inspection_date_recent)].filter(Boolean).join(" · ")
-            : <>
-                <span className="wn-noloc">Location unavailable</span>
-                {formatMonthDay(item.inspection_date || item.inspection_date_recent) && ` · ${formatMonthDay(item.inspection_date || item.inspection_date_recent)}`}
-              </>}
+          {item.address ? (
+            [item.address, formatMonthDay(item.inspection_date || item.inspection_date_recent)]
+              .filter(Boolean)
+              .join(" · ")
+          ) : (
+            <>
+              <span className="wn-noloc">Location unavailable</span>
+              {formatMonthDay(item.inspection_date || item.inspection_date_recent) &&
+                ` · ${formatMonthDay(item.inspection_date || item.inspection_date_recent)}`}
+            </>
+          )}
         </div>
         {item.critical_count > 0 && (
-          <div className="wn-crit">{item.critical_count} critical {item.critical_count === 1 ? "violation" : "violations"}</div>
+          <div className="wn-crit">
+            {item.critical_count} critical {item.critical_count === 1 ? "violation" : "violations"}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstablishment, onHoverEstablishmentEnd, open, onClose, onOpen }) {
-  const [tab, setTab]             = useState("issues");   // "issues" | "perfect"
-  const [issues, setIssues]       = useState([]);
-  const [perfect, setPerfect]     = useState([]);
+export default function WhatsNew({
+  supabase,
+  onOpenEstablishment,
+  onHoverEstablishment,
+  onHoverEstablishmentEnd,
+  open,
+  onClose,
+  onOpen,
+}) {
+  const [tab, setTab] = useState("issues"); // "issues" | "perfect"
+  const [issues, setIssues] = useState([]);
+  const [perfect, setPerfect] = useState([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
   const [perfectLoading, setPerfectLoading] = useState(false);
-  const [issuesError, setIssuesError]   = useState(null);
-  const [showAll, setShowAll]     = useState(false);
-  const [panelW, setPanelW]       = useState(320);
-  const dragRef    = useRef({ on: false });
-  const touchRef   = useRef({ x: 0 });
-  const loadedRef  = useRef({ issues: false, perfect: false });
+  const [issuesError, setIssuesError] = useState(null);
+  const [showAll, setShowAll] = useState(false);
+  const [panelW, setPanelW] = useState(320);
+  const dragRef = useRef({ on: false });
+  const touchRef = useRef({ x: 0 });
+  const loadedRef = useRef({ issues: false, perfect: false });
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 600;
 
@@ -64,8 +86,9 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
     loadedRef.current.issues = true;
     setIssuesLoading(true);
     supabase.rpc("get_whats_new", { limit_n: 20 }).then(({ data, error }) => {
-      if (error) { setIssuesError(error.message); }
-      else setIssues(data || []);
+      if (error) {
+        setIssuesError(error.message);
+      } else setIssues(data || []);
       setIssuesLoading(false);
     });
   }, [open, supabase]);
@@ -92,28 +115,38 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
   }, [open, tab, supabase, isWide]);
 
   // Resize handle
-  const onResizeDown = useCallback((e) => {
-    e.preventDefault();
-    dragRef.current = { on: true, x0: e.clientX, w0: panelW };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [panelW]);
+  const onResizeDown = useCallback(
+    (e) => {
+      e.preventDefault();
+      dragRef.current = { on: true, x0: e.clientX, w0: panelW };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [panelW],
+  );
 
   const onResizeMove = useCallback((e) => {
     if (!dragRef.current.on) return;
     setPanelW(Math.max(260, Math.min(700, dragRef.current.w0 + (e.clientX - dragRef.current.x0))));
   }, []);
-  const onResizeUp = useCallback(() => { dragRef.current.on = false; }, []);
+  const onResizeUp = useCallback(() => {
+    dragRef.current.on = false;
+  }, []);
 
   // Swipe to change tabs
-  const onTouchStart = (e) => { touchRef.current.x = e.touches[0].clientX; };
-  const onTouchEnd   = (e) => {
+  const onTouchStart = (e) => {
+    touchRef.current.x = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e) => {
     const dx = e.changedTouches[0].clientX - touchRef.current.x;
     if (Math.abs(dx) < 60) return;
     setTab(dx < 0 ? "perfect" : "issues");
     setShowAll(false);
   };
 
-  const switchTab = (t) => { setTab(t); setShowAll(false); };
+  const switchTab = (t) => {
+    setTab(t);
+    setShowAll(false);
+  };
 
   // Collapsed state — just the trigger button
   if (!open) {
@@ -130,21 +163,35 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
   const renderList = () => {
     if (tab === "issues") {
       if (issuesLoading) return <div className="wn-loading">Loading…</div>;
-      if (issuesError) return (
-        <div className="wn-error">
-          Could not load.<br />
-          <span style={{ fontSize: ".68rem", opacity: .7 }}>Run the get_whats_new migration in Supabase.</span>
-        </div>
-      );
-      if (!issues.length) return <div className="wn-empty">No flagged inspections in the last 30 days.</div>;
+      if (issuesError)
+        return (
+          <div className="wn-error">
+            Could not load.
+            <br />
+            <span style={{ fontSize: ".68rem", opacity: 0.7 }}>
+              Run the get_whats_new migration in Supabase.
+            </span>
+          </div>
+        );
+      if (!issues.length)
+        return <div className="wn-empty">No flagged inspections in the last 30 days.</div>;
       const visible = showAll ? issues : issues.slice(0, 5);
       return (
         <>
           {visible.map((item, i) => {
             const s = item.score;
             const bc = s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
-            return <ScoreCard key={`${item.establishment_id}-${i}`} item={item} score={s} badgeClass={bc}
-              onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd} />;
+            return (
+              <ScoreCard
+                key={`${item.establishment_id}-${i}`}
+                item={item}
+                score={s}
+                badgeClass={bc}
+                onOpen={onOpenEstablishment}
+                onHover={onHoverEstablishment}
+                onHoverEnd={onHoverEstablishmentEnd}
+              />
+            );
           })}
         </>
       );
@@ -152,7 +199,8 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
 
     // Perfect 100s tab
     if (perfectLoading) return <div className="wn-loading">Loading…</div>;
-    if (!perfect.length) return <div className="wn-empty">No perfect scores in the last 60 days.</div>;
+    if (!perfect.length)
+      return <div className="wn-empty">No perfect scores in the last 60 days.</div>;
     const visible = showAll ? perfect : perfect.slice(0, 5);
     return (
       <>
@@ -183,7 +231,9 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
         onPointerUp={!isMobile ? onResizeUp : undefined}
         onPointerCancel={!isMobile ? onResizeUp : undefined}
       >
-        {!isMobile && <div className="wn-resize-r" aria-hidden="true" onPointerDown={onResizeDown} />}
+        {!isMobile && (
+          <div className="wn-resize-r" aria-hidden="true" onPointerDown={onResizeDown} />
+        )}
 
         {/* Single-row header: flame | tab | tab | close */}
         <div className="wn-header">
@@ -200,7 +250,9 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
           >
             Top Scores
           </button>
-          <button className="wn-close" onClick={onClose} aria-label="Close What's New">×</button>
+          <button className="wn-close" onClick={onClose} aria-label="Close What's New">
+            ×
+          </button>
         </div>
         {/* no wn-tab-bar needed — pills don't use underline */}
 
@@ -219,9 +271,19 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
                 ) : (
                   issues.map((item, i) => {
                     const s = item.score;
-                    const bc = s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
-                    return <ScoreCard key={`${item.establishment_id}-${i}`} item={item} score={s} badgeClass={bc}
-                      onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd} />;
+                    const bc =
+                      s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
+                    return (
+                      <ScoreCard
+                        key={`${item.establishment_id}-${i}`}
+                        item={item}
+                        score={s}
+                        badgeClass={bc}
+                        onOpen={onOpenEstablishment}
+                        onHover={onHoverEstablishment}
+                        onHoverEnd={onHoverEstablishmentEnd}
+                      />
+                    );
                   })
                 )}
               </div>
@@ -235,10 +297,14 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
                   <div className="wn-empty">No perfect scores found.</div>
                 ) : (
                   perfect.map((item, i) => (
-                    <ScoreCard key={`${item.establishment_id}-${i}`}
+                    <ScoreCard
+                      key={`${item.establishment_id}-${i}`}
                       item={{ ...item, inspection_date: item.inspection_date_recent }}
-                      score={item.score_recent} badgeClass="perfect"
-                      onOpen={onOpenEstablishment} onHover={onHoverEstablishment} onHoverEnd={onHoverEstablishmentEnd}
+                      score={item.score_recent}
+                      badgeClass="perfect"
+                      onOpen={onOpenEstablishment}
+                      onHover={onHoverEstablishment}
+                      onHoverEnd={onHoverEstablishmentEnd}
                     />
                   ))
                 )}
@@ -256,7 +322,7 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
               {renderList()}
             </div>
             {!activeLoading && activeList.length > 5 && (
-              <button className="wn-more" onClick={() => setShowAll(v => !v)}>
+              <button className="wn-more" onClick={() => setShowAll((v) => !v)}>
                 {showAll ? "Show fewer" : `Show all ${activeList.length}`}
               </button>
             )}

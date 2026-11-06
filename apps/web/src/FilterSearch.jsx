@@ -2,7 +2,7 @@ import * as Switch from "@radix-ui/react-switch";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import "./styles/AdjustFilter.css";
-import './styles/ToggleRow.css';
+import "./styles/ToggleRow.css";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
 function Icon({ k, active }) {
@@ -12,14 +12,28 @@ function Icon({ k, active }) {
   switch (k) {
     case "restaurants":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M7 4v5M9 4v5M8 4v14" />
           <path d="M16 4c0 2-2 3-2 5v9" />
         </svg>
       );
     case "daycare":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="9" cy="9" r="3" />
           <path d="M9 12v5m-3 0h6" />
           <circle cx="16" cy="16" r="2" />
@@ -28,21 +42,42 @@ function Icon({ k, active }) {
       );
     case "hospitals":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="4" y="4" width="16" height="16" rx="2" />
           <path d="M12 7v10M8 12h8" />
         </svg>
       );
     case "schools":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M3 10l9-5 9 5-9 5-9-5z" />
           <path d="M7 12v4l5 3 5-3v-4" />
         </svg>
       );
     case "concessions":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M8 9h8l-1.2 8H9.2z" />
           <path d="M10 10v7M12 10v7M14 10v7" />
           <circle cx="10" cy="8.4" r="1" fill={active ? fill : "transparent"} />
@@ -52,7 +87,14 @@ function Icon({ k, active }) {
       );
     case "retail":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M6 9h12l-1 9H7L6 9z" />
           <path d="M8 9a4 4 0 0 1 8 0" />
           <path d="M6 9l-2 0 1.4 9H7" />
@@ -60,7 +102,14 @@ function Icon({ k, active }) {
       );
     case "caterers_commissary":
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M3 14h18" />
           <path d="M5 14a7 7 0 0 1 14 0" />
           <path d="M12 7v-2" />
@@ -68,7 +117,14 @@ function Icon({ k, active }) {
       );
     default:
       return (
-        <svg {...common} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          {...common}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="12" cy="12" r="9" />
           <path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.5c-.7.7-1.9 1.1-1.9 2.5" />
           <circle cx="12" cy="17" r="1" fill={active ? fill : "transparent"} />
@@ -112,7 +168,10 @@ export default function FilterSearch({
     if (!el) return undefined;
     const root = document.documentElement;
     const publish = () => {
-      root.style.setProperty("--filter-bottom", `${Math.ceil(el.getBoundingClientRect().bottom)}px`);
+      root.style.setProperty(
+        "--filter-bottom",
+        `${Math.ceil(el.getBoundingClientRect().bottom)}px`,
+      );
     };
     publish();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
@@ -124,7 +183,6 @@ export default function FilterSearch({
       root.style.removeProperty("--filter-bottom");
     };
   }, []);
-
 
   React.useEffect(() => {
     setFiltersOpen(tab === "filter");
@@ -173,7 +231,7 @@ export default function FilterSearch({
         style={
           isDesktop
             ? collapsed
-              ? {}  /* collapsed: let CSS (max-content) control width, no override */
+              ? {} /* collapsed: let CSS (max-content) control width, no override */
               : { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
             : collapsed
               ? { maxWidth: "calc(100vw - 24px)" }
@@ -189,49 +247,97 @@ export default function FilterSearch({
               onClick={() => setCollapsed((v) => !v)}
             >
               <svg viewBox="0 0 24 24" width="18" height="18">
-                <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path
+                  d="M5 7h14M5 12h14M5 17h14"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
 
           <div className="rgb-compact" role="group" aria-label="Show pins">
             <div className="tog-item">
-              <Switch.Root className="rx-switch xs red" checked={showRedPins} onCheckedChange={setShowRedPins} aria-label="Show red pins">
+              <Switch.Root
+                className="rx-switch xs red"
+                checked={showRedPins}
+                onCheckedChange={setShowRedPins}
+                aria-label="Show red pins"
+              >
                 <Switch.Thumb className="rx-thumb" />
               </Switch.Root>
-              <span className="tog-lbl" style={{ color: "#ef4444" }}>Red</span>
+              <span className="tog-lbl" style={{ color: "#ef4444" }}>
+                Red
+              </span>
             </div>
             <div className="tog-item">
-              <Switch.Root className="rx-switch xs yellow" checked={showYellowPins} onCheckedChange={setShowYellowPins} aria-label="Show yellow pins">
+              <Switch.Root
+                className="rx-switch xs yellow"
+                checked={showYellowPins}
+                onCheckedChange={setShowYellowPins}
+                aria-label="Show yellow pins"
+              >
                 <Switch.Thumb className="rx-thumb" />
               </Switch.Root>
-              <span className="tog-lbl" style={{ color: "#f59e0b" }}>Yellow</span>
+              <span className="tog-lbl" style={{ color: "#f59e0b" }}>
+                Yellow
+              </span>
             </div>
             <div className="tog-item">
-              <Switch.Root className="rx-switch xs green" checked={showGreenPins} onCheckedChange={setShowGreenPins} aria-label="Show green pins">
+              <Switch.Root
+                className="rx-switch xs green"
+                checked={showGreenPins}
+                onCheckedChange={setShowGreenPins}
+                aria-label="Show green pins"
+              >
                 <Switch.Thumb className="rx-thumb" />
               </Switch.Root>
-              <span className="tog-lbl" style={{ color: "#22c55e" }}>Green</span>
+              <span className="tog-lbl" style={{ color: "#22c55e" }}>
+                Green
+              </span>
             </div>
             <div className="tog-item">
-              <Switch.Root className="rx-switch xs purple" checked={showMissing} onCheckedChange={setShowMissing} aria-label="Show unscored pins">
+              <Switch.Root
+                className="rx-switch xs purple"
+                checked={showMissing}
+                onCheckedChange={setShowMissing}
+                aria-label="Show unscored pins"
+              >
                 <Switch.Thumb className="rx-thumb" />
               </Switch.Root>
-              <span className="tog-lbl" style={{ color: "#888" }}>N/A</span>
+              <span className="tog-lbl" style={{ color: "#888" }}>
+                N/A
+              </span>
             </div>
 
             {/* Date range filter — compact horizontal "Since" pill */}
             {dateFilterOpts && (
-              <div style={{
-                display: "flex", flexDirection: "row", alignItems: "center",
-                gap: 4, marginLeft: 6,
-                borderLeft: "1px solid rgba(255,255,255,0.10)", paddingLeft: 8,
-              }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="rgba(255,255,255,0.40)" strokeWidth="2" strokeLinecap="round"
-                  strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-                  <rect x="3" y="4" width="18" height="18" rx="2"/>
-                  <path d="M16 2v4M8 2v4M3 10h18"/>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  marginLeft: 6,
+                  borderLeft: "1px solid rgba(255,255,255,0.10)",
+                  paddingLeft: 8,
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.40)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  style={{ flexShrink: 0 }}
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
                 <select
                   value={dateFilterKey}
@@ -248,7 +354,8 @@ export default function FilterSearch({
                     padding: "3px 20px 3px 6px",
                     cursor: "pointer",
                     appearance: "none",
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.40)' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
+                    backgroundImage:
+                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.40)' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "right 5px center",
                     fontFamily: "inherit",
