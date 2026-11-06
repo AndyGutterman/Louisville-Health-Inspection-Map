@@ -89,7 +89,7 @@ A `data-map-overlay` attribute on panels replaces the class-name list that decid
 
 - `watchlist_areas_bounds` limits watch-area centres to roughly Louisville Metro (lat 37.8–38.6, lon −86.3 to −85.1). A county outside that box needs this widened.
 
-## Security (fix now, outside the refactor)
+## Security and backups (fixed outside the refactor)
 
-- `feedback` has a policy letting **any signed-in user read all feedback**, including submitters' names and emails. Drop `auth_can_read_feedback`.
-- `feedback` also lets anonymous users insert directly, which skips the edge function's rate limit. Drop `anon_can_insert_feedback` once production is confirmed to use the edge function (`VITE_FEEDBACK_FUNCTION_URL` set in Netlify).
+- `feedback` let any signed-in user read all submissions (names, emails) and let anonymous users insert directly, skipping the edge function's rate limit. Fixed by `supabase/migrations/20261106120000_feedback_edge_function_only.sql`. Production uses the edge function (`VITE_FEEDBACK_FUNCTION_URL` is set in Netlify), so the `FeedbackModal.jsx` direct-insert fallback is now dead code: remove it in phase 6.
+- The nightly backup had been committing empty files since at least July 2026: an old `pg_dump` refused the newer server, and the pipe into `gzip` hid the failure. Fixed in `db-backup.yml` (current client, `pipefail`, minimum-size check).
