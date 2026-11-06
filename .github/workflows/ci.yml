@@ -10,12 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  web:
+  checks:
     name: Lint, test, build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: InspectionWebsite
     env:
       # Dummy values so the build and tests never touch a real project.
       VITE_SUPABASE_URL: https://example.supabase.co
@@ -25,11 +22,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: InspectionWebsite/package-lock.json
 
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      - run: npm test # website and pipeline
       - run: npm run build

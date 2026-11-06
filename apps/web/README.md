@@ -3,10 +3,12 @@
 The React + Vite front end. The repository root README explains what the project is, and
 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) shows how the pieces fit together.
 
+Install and run from the repository root (it's an npm workspace):
+
 ```bash
 npm ci
-cp .env.example .env   # then fill in the values
+cp apps/web/.env.example apps/web/.env   # then fill in the values
 npm run dev
 ```
 
-Other scripts: `npm run lint`, `npm test`, `npm run build`.
+Other scripts, also from the root: `npm run lint`, `npm test`, `npm run build`.

@@ -1,10 +1,24 @@
 {
-  "name": "etl-scripts",
+  "name": "louisville-food-safe",
   "private": true,
-  "type": "module",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.46.0",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+  "description": "Interactive map of Louisville restaurant health inspections",
+  "license": "MIT",
+  "workspaces": [
+    "apps/web",
+    "pipeline"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint -w apps/web",
+    "test": "npm test --workspaces",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

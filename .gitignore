@@ -63,7 +63,7 @@ Desktop.ini
 # ─── Database backups (never commit dumps) ───────────────────────
 backup.sql
 *.sql.gz
-etl/data-backup/
+pipeline/data-backup/
 tmp/
 
 # ─── Supabase CLI temp files ──────────────────────────────────────

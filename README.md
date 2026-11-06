@@ -1,6 +1,6 @@
 # Louisville Food Safe
 
-[![CI](https://github.com/<your-github-username>/Louisville-Health-Inspection-Map/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-github-username>/Louisville-Health-Inspection-Map/actions/workflows/ci.yml)
+[![CI](https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/actions/workflows/ci.yml/badge.svg)](https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Live site: https://louisvillefoodsafe.netlify.app**
@@ -30,7 +30,7 @@ flowchart LR
   src["Louisville Metro<br/>inspection data (ArcGIS REST)"]
 
   subgraph actions["GitHub Actions"]
-    ingest["ingest.yml<br/>runs the etl/ scripts"]
+    ingest["ingest.yml<br/>runs the pipeline/ scripts"]
     backup["db-backup.yml"]
     archive["archive.yml<br/>archives old inspections"]
     check["etl-check.yml<br/>weekly accuracy check"]
@@ -48,9 +48,9 @@ flowchart LR
   site --> geo
 ```
 
-- **ETL** (`etl/`): Node scripts fetch inspection records from the city's ArcGIS REST API and load facilities, inspections, violations and categories into Supabase. Each run is recorded, so a failed or partial sync can be recovered. Missing coordinates are filled in by a geocoding step.
-- **Checks:** a weekly job (`scripts/etl-accuracy-check.js`) runs an accuracy check on the loaded data. A separate job backs the database up.
-- **Frontend** (`InspectionWebsite/`): a React app that reads from Supabase and draws the map with MapLibre GL. Accounts use Supabase Auth with email one-time codes, and feedback goes through a rate-limited Supabase Edge Function.
+- **Pipeline** (`pipeline/`): Node scripts fetch inspection records from the city's ArcGIS REST API and load facilities, inspections, violations and categories into Supabase. Each run is recorded, so a failed or partial sync can be recovered. Missing coordinates are filled in by a geocoding step.
+- **Checks:** a weekly job (`pipeline/etl-accuracy-check.js`) runs an accuracy check on the loaded data. A separate job backs the database up.
+- **Frontend** (`apps/web/`): a React app that reads from Supabase and draws the map with MapLibre GL. Accounts use Supabase Auth with email one-time codes, and feedback goes through a rate-limited Supabase Edge Function.
 - **Database:** views and functions live in `supabase/migrations/`.
 
 More detail, with module diagrams, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -61,42 +61,41 @@ React 19 and Vite 7 · MapLibre GL · Supabase (Postgres, Auth, Edge Functions) 
 
 ## Run it locally
 
-You need Node 20.19 or newer, and a Supabase project to read from.
+You need Node 22 (see `.nvmrc`) and a Supabase project to read from. Everything runs from the repository root, which is an npm workspace: one `npm ci` installs the website and the pipeline.
 
 ```bash
-cd InspectionWebsite
-cp .env.example .env     # Windows: copy .env.example .env, then fill in the values
 npm ci
+cp apps/web/.env.example apps/web/.env   # Windows: copy appsweb.env.example appsweb.env, then fill in the values
 npm run dev
 ```
 
-Other scripts, all from `InspectionWebsite/`:
+Other scripts, all from the root:
 
 ```bash
 npm run lint
-npm test
+npm test          # website and pipeline tests
 npm run build
+npm run format    # Prettier
 ```
 
-The ETL has its own package: `cd etl && npm ci && npm test`. Its scripts use a Supabase service-role key, which must stay out of the frontend and out of git.
+The pipeline scripts use a Supabase service-role key (in `pipeline/.env` locally, GitHub secrets in Actions), which must stay out of the frontend and out of git.
 
 ## Project layout
 
 ```
-InspectionWebsite/   React app
+apps/web/            the website (React app)
   src/lib/           pure logic (scoring, categories, duplicate detection, bottom-sheet rules...), each with tests
   src/hooks/         shared React hooks
   src/styles/        component stylesheets
-etl/                 data pipeline and its tests
-scripts/             maintenance jobs (accuracy check, archiving)
-supabase/            migrations and the feedback edge function
+pipeline/            data pipeline, maintenance jobs (accuracy check, archiving) and their tests
+supabase/            full database schema (migrations) and the feedback edge function
 docs/                architecture notes and a manual smoke-test checklist
 .github/workflows/   CI, ingest, backup, archive and accuracy-check jobs
 ```
 
 ## Testing
 
-CI runs lint, the unit tests and a production build on every push and pull request. The unit tests cover the logic layer in `src/lib`: score bands, category rules, duplicate-place detection, date and address helpers, pan limits and the phone bottom-sheet rules. The React components are checked by hand with [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md). The ETL tests run with `npm test` in `etl/`.
+CI runs lint, the unit tests and a production build on every push and pull request. The unit tests cover the logic layer in `apps/web/src/lib`: score bands, category rules, duplicate-place detection, date and address helpers, pan limits and the phone bottom-sheet rules. The React components are checked by hand with [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md). The pipeline tests run in the same `npm test`.
 
 ## About the data
 

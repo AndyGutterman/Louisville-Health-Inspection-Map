@@ -36,7 +36,7 @@ docs/
 | Phase | Work | Risk |
 |---|---|---|
 | 0 | Full schema into `supabase/migrations` (done 2026-11-06); `.gitattributes` for line endings. Tests for logic in `Map.jsx` are written as each piece is extracted (phases 4–5), since it can't be tested in place | Low |
-| 1 | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` | Low |
+| 1 | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` (done 2026-11-06) | Low |
 | 2 | `packages/core`: region config, categories, scoring; delete the copies | Low |
 | 3 | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first) | Medium |
 | 4 | Web data layer: `api/` modules and hooks | Medium |
@@ -74,9 +74,9 @@ A `data-map-overlay` attribute on panels replaces the class-name list that decid
 
 ## Bugs to fix after the refactor
 
-- `etl/overlay_geometry.js` never saves coordinates (expects `_lon`/`_lat`, which `fetchArcGISPage` never provides), so new places only get a pin through geocoding.
-- `scripts/etl-accuracy-check.js` queries a different server and field names than the ETL; probably skips or fails every record.
-- `etl/Recover.js` can't recover `seed_facilities`, which never records its runs.
+- `pipeline/overlay_geometry.js` never saves coordinates (expects `_lon`/`_lat`, which `fetchArcGISPage` never provides), so new places only get a pin through geocoding.
+- `pipeline/etl-accuracy-check.js` queries a different server and field names than the ETL; probably skips or fails every record.
+- `pipeline/Recover.js` can't recover `seed_facilities`, which never records its runs.
 - The table view's row-click popup is a simpler copy of the map popup (no save button).
 - The Learn page drill-down shows each place's *current* score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
 - `AuthContext.jsx` calls `unsubscribe_by_token`, which doesn't exist, so every unsubscribe link reports "isn't valid". Alert emails were never built.

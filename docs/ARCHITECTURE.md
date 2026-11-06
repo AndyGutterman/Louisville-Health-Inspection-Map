@@ -9,7 +9,7 @@ flowchart LR
   src["Louisville Metro<br/>inspection data (ArcGIS REST)"]
 
   subgraph actions["GitHub Actions"]
-    ingest["ingest.yml<br/>runs the etl/ scripts"]
+    ingest["ingest.yml<br/>runs the pipeline/ scripts"]
     backup["db-backup.yml"]
     archive["archive.yml<br/>archives old inspections"]
   end
@@ -25,7 +25,7 @@ flowchart LR
   site --> geo
 ```
 
-- **Data in:** the scripts in `etl/` fetch the city's data and write it to Supabase. `etl/tests/` covers the helpers.
+- **Data in:** the scripts in `pipeline/` fetch the city's data and write it to Supabase. `pipeline/tests/` covers the helpers.
 - **Data out:** the site reads pins, inspections and violations through `supabase-js`. Accounts use email one-time codes, and watchlists and watch areas are stored per user.
 - **Feedback:** the feedback form posts to the `submit-feedback` edge function (`supabase/functions/`), which rate-limits by IP.
 - **Address search** for watch areas calls Geoapify directly from the browser.
@@ -85,6 +85,8 @@ sequenceDiagram
 
 ## Where do I change...?
 
+Website paths below are relative to `apps/web/`.
+
 | I want to change | Look in |
 |---|---|
 | Score colours, presets, red/yellow/green bands | `src/lib/scoring.js` |
@@ -103,5 +105,5 @@ sequenceDiagram
 | Filters and score sliders | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css` |
 | Watch areas on the map | `src/watchAreaLayer.js` |
 | Watchlist and account panel | `src/AccountPage.jsx`, `src/WatchlistTab.jsx` |
-| Nightly data load | `etl/`, `.github/workflows/ingest.yml` |
-| Database views and functions | `supabase/migrations/` |
+| Nightly data load | `pipeline/`, `.github/workflows/ingest.yml` |
+| Database tables, views, functions and security rules | `supabase/migrations/` (start with the baseline file) |

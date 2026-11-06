@@ -12,13 +12,18 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     defaults:
       run:
-        working-directory: etl
+        working-directory: pipeline
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm ci
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        working-directory: .
+        run: npm ci -w pipeline
+
       - name: Test
         run: npm test
 
