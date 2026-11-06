@@ -95,6 +95,9 @@ sequenceDiagram
 | Address search for watch areas | `src/lib/geocode.js`, `src/AddressPicker.jsx` |
 | Phone / desktop breakpoints in components | `src/hooks/useMediaQuery.js` |
 | Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/InfoDrawer.jsx` |
+| Map pan limits | `src/lib/mapBounds.js` |
+| Date-filter options and the map data cache settings | `src/lib/constants.js` |
+| Styles for a component | `src/styles/<Component>.css` (imported by the component) |
 | Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx` |
 | The info drawer and its history | `src/InfoDrawer.jsx`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
 | Filters and score sliders | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css` |

@@ -1,227 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { formatMonthDay } from "./lib/dates.js";
-
-const STYLES = `
-/* ── Collapsed trigger — aligns with Table View at bottom: 28px ── */
-.wn-trigger {
-  position: fixed;
-  bottom: 28px;
-  left: 16px;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: rgba(18,18,22,0.96);
-  border: 1px solid rgba(249,115,22,0.22);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 0 12px rgba(249,115,22,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2800;
-  transition: border-color .15s, background .15s, box-shadow .15s;
-  backdrop-filter: blur(8px);
-}
-.wn-trigger:hover {
-  border-color: rgba(249,115,22,0.45);
-  background: rgba(24,20,18,0.99);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 0 18px rgba(249,115,22,0.18);
-}
-.wn-trigger-icon {
-  width: 30px; height: 30px;
-  color: #f97316;
-  opacity: 0.80;
-  transition: opacity .15s, filter .15s;
-  filter: drop-shadow(0 0 3px rgba(249,115,22,0.35));
-}
-.wn-trigger:hover .wn-trigger-icon {
-  opacity: 1;
-  filter: drop-shadow(0 0 6px rgba(249,115,22,0.60));
-}
-
-/* ── Expanded panel — grows upward from trigger (bottom-left origin) ── */
-@keyframes wn-open {
-  from { opacity: 0; transform: scale(0.88) translateY(10px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);    }
-}
-.wn-panel {
-  position: fixed;
-  bottom: 84px;
-  left: 16px;
-  width: var(--wn-w, 320px);
-  background: rgba(18,18,22,0.97);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 14px;
-  color: #f0f0f3;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  box-shadow: 0 10px 32px rgba(0,0,0,0.55);
-  z-index: 2800;
-  display: flex;
-  flex-direction: column;
-  height: min(460px, 62dvh);
-  /* Shrink to sit beneath the filter card (FilterSearch publishes --filter-bottom) */
-  max-height: max(220px, calc(100dvh - 84px - var(--filter-bottom, 0px) - 12px));
-  overflow: hidden;
-  backdrop-filter: blur(8px);
-  transform-origin: bottom left;
-  animation: wn-open 0.18s cubic-bezier(0.2, 0.8, 0.4, 1);
-}
-/* ── Two-column wide mode ── */
-.wn-dual {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  flex: 1; min-height: 0; overflow: hidden;
-}
-.wn-col {
-  display: flex; flex-direction: column; overflow: hidden;
-  border-right: 1px solid rgba(255,255,255,0.07);
-}
-.wn-col:last-child { border-right: none; }
-.wn-col-hd {
-  padding: 7px 12px 6px; flex-shrink: 0;
-  font-size: .61rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.wn-col-hd.violations { color: #f97316; }
-.wn-col-hd.perfect    { color: #6fcf8a; }
-.wn-col-body { overflow-y: auto; flex: 1; }
-
-/* ── Single-row tab header ── */
-.wn-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  flex-shrink: 0;
-}
-.wn-header-flame {
-  width: 14px; height: 14px;
-  color: #f97316;
-  opacity: 0.78;
-  flex-shrink: 0;
-  margin-right: 2px;
-}
-.wn-tab {
-  flex: 1;
-  padding: 5px 8px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: rgba(255,255,255,0.32);
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color .12s, background .12s;
-}
-.wn-tab:hover { color: rgba(255,255,255,0.58); background: rgba(255,255,255,0.04); }
-.wn-tab.active-issues  { color: #f97316; background: rgba(249,115,22,0.14); }
-.wn-tab.active-perfect { color: #6fcf8a; background: rgba(52,168,83,0.12); }
-
-.wn-close {
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,0.28);
-  font-size: 16px;
-  cursor: pointer;
-  line-height: 1;
-  padding: 3px 4px;
-  border-radius: 6px;
-  flex-shrink: 0;
-  transition: color .12s, background .12s;
-}
-.wn-close:hover { color: rgba(255,255,255,0.70); background: rgba(255,255,255,0.07); }
-
-/* ── Scrollable body ── */
-.wn-body {
-  overflow-y: auto;
-  flex: 1;
-  padding: 4px 0;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-}
-.wn-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.055);
-  transition: background .12s;
-}
-.wn-card:last-child { border-bottom: none; }
-.wn-card:hover { background: rgba(255,255,255,0.04); }
-
-/* Score badges */
-.wn-badge {
-  flex-shrink: 0;
-  width: 36px; height: 36px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .82rem;
-  font-weight: 800;
-}
-.wn-badge.perfect { background: rgba(52,168,83,0.22); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.38); box-shadow: 0 0 8px rgba(52,168,83,0.18); }
-.wn-badge.ok      { background: rgba(52,168,83,0.14); color: #6fcf8a; border: 1px solid rgba(52,168,83,0.28); }
-.wn-badge.warn    { background: rgba(251,188,5,0.13); color: #e8ae00; border: 1px solid rgba(251,188,5,0.28); }
-.wn-badge.bad     { background: rgba(234,67,53,0.14); color: #ff9a9a; border: 1px solid rgba(234,67,53,0.28); }
-.wn-badge.na      { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.12); }
-
-.wn-info { flex: 1; min-width: 0; }
-.wn-name {
-  font-size: .82rem; font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  color: rgba(255,255,255,0.88);
-}
-.wn-sub {
-  font-size: .68rem; color: rgba(255,255,255,0.35);
-  margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.wn-noloc {
-  font-style: italic;
-  opacity: .75;
-}
-.wn-crit {
-  font-size: .62rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
-  color: rgba(234,67,53,0.65); margin-top: 3px;
-}
-
-.wn-more {
-  width: 100%; padding: 8px;
-  background: transparent; border: none;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.35);
-  font-size: .72rem; font-weight: 600;
-  cursor: pointer; text-align: center; flex-shrink: 0;
-  transition: background .12s, color .12s;
-}
-.wn-more:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.60); }
-.wn-empty  { padding: 20px 14px; text-align: center; font-size: .78rem; color: rgba(255,255,255,0.28); line-height: 1.5; }
-.wn-loading{ padding: 20px 14px; text-align: center; font-size: .78rem; color: rgba(255,255,255,0.28); }
-.wn-error  { padding: 20px 14px; text-align: center; font-size: .74rem; color: rgba(234,67,53,0.55); line-height: 1.5; }
-
-/* Right-edge resize handle */
-.wn-resize-r {
-  position: absolute; right: 0; top: 0; bottom: 0; width: 5px;
-  cursor: ew-resize; z-index: 10; border-radius: 0 14px 14px 0;
-}
-.wn-resize-r:hover { background: rgba(255,255,255,0.07); }
-
-/* Mobile */
-@media (max-width: 599px) {
-  .wn-trigger { bottom: 28px; left: 16px; width: 48px; height: 48px; }
-  .wn-panel {
-    left: 16px; right: 16px; width: auto !important;
-    bottom: 90px; height: min(60dvh, 440px);
-    max-height: max(220px, calc(100dvh - 90px - var(--filter-bottom, 0px) - 12px));
-  }
-}
-`;
+import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
   return (
@@ -310,7 +89,7 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
         setPerfect(data || []);
         setPerfectLoading(false);
       });
-  }, [open, tab, supabase]);
+  }, [open, tab, supabase, isWide]);
 
   // Resize handle
   const onResizeDown = useCallback((e) => {
@@ -340,7 +119,6 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
   if (!open) {
     return (
       <>
-        <style>{STYLES}</style>
         <button className="wn-trigger" onClick={onOpen} aria-label="What's New" title="What's New">
           <FlameIcon className="wn-trigger-icon" />
         </button>
@@ -398,7 +176,6 @@ export default function WhatsNew({ supabase, onOpenEstablishment, onHoverEstabli
 
   return (
     <>
-      <style>{STYLES}</style>
       <div
         className="wn-panel"
         style={!isMobile ? { "--wn-w": `${panelW}px` } : undefined}

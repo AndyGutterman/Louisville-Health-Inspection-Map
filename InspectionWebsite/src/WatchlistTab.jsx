@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import AddressPicker from "./AddressPicker.jsx";
 import { WATCH_RADIUS_OPTIONS } from "./watchAreaLayer.js";
 import { formatLongDate } from "./lib/dates.js";
+import "./styles/WatchlistTab.css";
 
 const CAPS = { places: 30, areas: 3 };
 const PAGE = 25;
@@ -10,101 +11,6 @@ const SORTS = [
   { key: "score", label: "Score" },
   { key: "critical", label: "Critical" },
 ];
-
-const STYLES = `
-.wl-section { margin-bottom: 30px; }
-.wl-section-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.wl-section-hd h3 { margin: 0; font-size: 0.82rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
-.wl-usage { font-size: 0.74rem; color: rgba(255,255,255,0.34); font-weight: 700; }
-.wl-empty { padding: 8px 0; font-size: 0.84rem; color: rgba(255,255,255,0.50); line-height: 1.5; }
-.wl-banner { font-size: 0.78rem; color: #ff9a9a; background: rgba(234,67,53,0.10); border: 1px solid rgba(234,67,53,0.22);
-  border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
-.wl-list { display: flex; flex-direction: column; gap: 10px; }
-.wl-item { padding: 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
-  display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.wl-row { display: flex; gap: 10px; align-items: flex-start; }
-.wl-grow { flex: 1; min-width: 0; }
-.wl-name { font-weight: 700; font-size: 0.9rem; color: #f0f0f3; margin-bottom: 2px; overflow-wrap: anywhere; }
-.wl-sub { font-size: 0.74rem; color: rgba(255,255,255,0.45); overflow-wrap: anywhere; }
-.wl-score { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.70); margin-top: 6px; }
-.wl-score.good { color: #34a853; }
-.wl-score.fair { color: #fbbc05; }
-.wl-score.poor { color: #ea4335; }
-.wl-score .dt { color: rgba(255,255,255,0.40); font-weight: 600; }
-.wl-remove { padding: 6px 12px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.62); font-size: 0.72rem; cursor: pointer; white-space: nowrap; font-family: inherit; flex-shrink: 0; }
-.wl-remove:hover { background: rgba(234,67,53,0.16); border-color: rgba(234,67,53,0.30); color: #ff9a9a; }
-
-.wl-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
-.wl-seg button { padding: 7px 4px; border-radius: 6px; background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.11); color: rgba(255,255,255,0.60); font-size: 0.72rem; font-weight: 700;
-  cursor: pointer; font-family: inherit; white-space: nowrap; }
-.wl-seg button:hover { border-color: rgba(255,159,28,0.35); }
-.wl-seg button.on { background: rgba(255,159,28,0.14); border-color: rgba(255,159,28,0.50); color: #ffb347; }
-
-.wl-zone-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  font-size: 0.72rem; color: rgba(255,255,255,0.45); font-weight: 700; }
-.wl-sort { display: flex; gap: 4px; flex-wrap: wrap; }
-.wl-sort button { padding: 4px 9px; border-radius: 999px; background: transparent; border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.55); font-size: 0.68rem; font-weight: 700; cursor: pointer; font-family: inherit; }
-.wl-flash { box-shadow: 0 0 0 2px rgba(255,159,28,0.55); transition: box-shadow .3s; }
-.wl-sort button.on { background: rgba(52,168,83,0.14); border-color: rgba(52,168,83,0.45); color: #6fcf8a; }
-
-.wl-place { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px;
-  background: rgba(0,0,0,0.18); border-left: 3px solid rgba(255,255,255,0.08); min-width: 0; }
-.wl-place.fail { border-left-color: #ea4335; }
-.wl-place-main { flex: 1; min-width: 0; }
-.wl-place-name { font-size: 0.82rem; font-weight: 700; color: #f0f0f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wl-place-addr { font-size: 0.68rem; color: rgba(255,255,255,0.42); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wl-place-side { text-align: right; flex-shrink: 0; }
-.wl-place-score { font-size: 0.8rem; font-weight: 800; color: rgba(255,255,255,0.7); }
-.wl-place-score.good { color: #34a853; }
-.wl-place-score.fair { color: #fbbc05; }
-.wl-place-score.poor { color: #ea4335; }
-.wl-place-date { font-size: 0.64rem; color: rgba(255,255,255,0.40); margin-top: 1px; }
-.wl-crit { font-size: 0.64rem; color: #ff9a9a; margin-top: 2px; }
-.wl-click { cursor: pointer; transition: background .12s, border-color .12s; }
-.wl-click:focus-visible { outline: 2px solid rgba(255,255,255,0.30); outline-offset: 2px; }
-.wl-place.wl-click:hover { background: rgba(255,255,255,0.07); }
-.wl-place.active { background: rgba(255,255,255,0.09); border-left-color: rgba(255,159,28,0.85); }
-.wl-place.active.fail { border-left-color: #ea4335; }
-.wl-grow.wl-click:hover .wl-name { text-decoration: underline; text-underline-offset: 3px; }
-.wl-item.active { border-color: rgba(255,159,28,0.45); }
-
-/* Side-panel layout: the panel is narrower than the viewport, so ignore viewport breakpoints */
-.wl-compact .wl-add-opts { grid-template-columns: 1fr; }
-.wl-compact .wl-item { padding: 12px; }
-
-.wl-more { align-self: center; padding: 7px 16px; border-radius: 999px; background: transparent;
-  border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.6); font-size: 0.72rem; font-weight: 700;
-  cursor: pointer; font-family: inherit; }
-
-.wl-add { padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09);
-  display: flex; flex-direction: column; gap: 12px; }
-.wl-add-title { font-size: 0.82rem; font-weight: 700; color: #f0f0f3; }
-.wl-input { display: block; width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px; border-radius: 8px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.13); color: #f0f0f3; font-size: 0.88rem; font-family: inherit; }
-.wl-input:focus { outline: none; border-color: rgba(52,168,83,0.50); }
-.wl-add-opts { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 560px) { .wl-add-opts { grid-template-columns: 160px 1fr; align-items: end; } }
-.wl-lbl { font-size: 0.64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.40); margin-bottom: 6px; }
-.wl-add-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.wl-hint { font-size: 0.72rem; color: rgba(255,255,255,0.40); }
-.wl-btn { padding: 10px 20px; border-radius: 8px; background: rgba(52,168,83,0.16); border: 1px solid rgba(52,168,83,0.34);
-  color: #6fcf8a; font-weight: 700; font-size: 0.84rem; cursor: pointer; font-family: inherit; }
-.wl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.wl-quiet { font-size: 0.78rem; color: rgba(255,255,255,0.42); padding: 4px 2px 0; }
-
-@media (max-width: 560px) {
-  .wl-input { font-size: 16px; height: 44px; }
-  .wl-item { padding: 12px; }
-  .wl-seg button { padding: 10px 4px; }
-  .wl-sort button { padding: 6px 10px; }
-  .wl-remove { padding: 7px 12px; }
-  .wl-btn { width: 100%; padding: 12px 20px; }
-  .wl-add-foot .wl-btn { order: -1; }
-}
-`;
 
 const scoreClass = (s) => (s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor");
 // Distance: nearest first. Score: highest first.
@@ -304,7 +210,6 @@ export default function WatchlistTab({
   if (loading) {
     return (
       <>
-        <style>{STYLES}</style>
         <div className="wl-empty">Loading…</div>
       </>
     );
@@ -314,7 +219,6 @@ export default function WatchlistTab({
 
   return (
     <div className={compact ? "wl-compact" : undefined}>
-      <style>{STYLES}</style>
 
       {banner && <div className="wl-banner" role="alert">{banner}</div>}
 

@@ -1,0 +1,18 @@
+.ap-wrap { position: relative; width: 100%; }
+.ap-field { position: relative; }
+.ap-field input { padding-right: 36px; }
+.ap-check { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #6fcf8a; font-weight: 800; pointer-events: none; }
+.ap-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30;
+  margin: 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto;
+  background: #17171c; border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+}
+.ap-opt { padding: 10px 11px; border-radius: 7px; cursor: pointer; font-size: 0.86rem; line-height: 1.35; color: rgba(255,255,255,0.84); }
+.ap-opt.on, .ap-opt:hover { background: rgba(52,168,83,0.16); color: #fff; }
+.ap-opt small { display: block; color: rgba(255,255,255,0.42); font-size: 0.72rem; margin-top: 1px; }
+.ap-msg { padding: 10px 11px; font-size: 0.8rem; color: rgba(255,255,255,0.50); line-height: 1.45; }
+.ap-msg.err { color: #ff9a9a; }
+.ap-credit { font-size: 0.64rem; color: rgba(255,255,255,0.28); margin-top: 6px; }
+.ap-credit a { color: inherit; }
+@media (max-width: 560px) { .ap-opt { padding: 12px 11px; } }

@@ -3,12 +3,19 @@ import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
 import LearnPage, { LoginModal } from "./LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
-import "./Map.css";
+import "./styles/Map.css";
 import { supabase } from "./lib/supabase.js";
 import { tagSimilarNearby } from "./lib/samePlaceDetection.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { METRO_BOUNDS, looseBounds } from "./lib/mapBounds.js";
-import { DRAW_ORDER, MIN_ZOOM, EDGE_ZONE } from "./lib/constants.js";
+import {
+  DRAW_ORDER,
+  MIN_ZOOM,
+  EDGE_ZONE,
+  DATE_FILTER_OPTS,
+  GEO_CACHE_KEY,
+  GEO_CACHE_TTL,
+} from "./lib/constants.js";
 import { PRESETS, bandExprs } from "./lib/scoring.js";
 import { CATEGORY_SPECS, classifyCategory, buildInitialCatToggles } from "./lib/categories.js";
 import { formatDateSafe } from "./lib/dates.js";
@@ -234,15 +241,7 @@ export default function Map(props) {
   // Which panel sits on top when both are open ('drawer' | 'table')
   const [frontPanel, setFrontPanel] = useState("drawer");
 
-  // Date filter — "Since X" dropdown, shared with Learn page ViolationDatabase
-  const DATE_FILTER_OPTS = [
-    { key: "1w",  label: "1 week",   days: 7 },
-    { key: "1mo", label: "1 month",  days: 30 },
-    { key: "3mo", label: "3 months", days: 91 },
-    { key: "6mo", label: "6 months", days: 182 },
-    { key: "1yr", label: "1 year",   days: 365 },
-    { key: "all", label: "All time", days: null },
-  ];
+  // Date filter: "Since X" dropdown (options live in lib/constants.js)
   const [dateFilterKey, setDateFilterKey] = useState("1yr");
   const mapCutoffDate = React.useMemo(() => {
     const opt = DATE_FILTER_OPTS.find((o) => o.key === dateFilterKey);
@@ -276,9 +275,6 @@ export default function Map(props) {
   );
 
   const suppressDocCloseRef = useRef(false);
-
-  const GEO_CACHE_KEY = "lfs_geodata_v4"; // bumped: force fresh violation flags
-  const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   function buildFeatureIndexes(featureList) {
     coordIndexRef.current = buildCoordIndex(featureList);
@@ -492,7 +488,7 @@ export default function Map(props) {
   }
 
   // Hoisted from map.on('load') so table rows can trigger drawer
-  const beginDrawerLoad = async (eid, p) => {
+  const beginDrawerLoad = React.useCallback(async (eid, p) => {
     const seq = ++loadSeqRef.current;
     // Records with no usable coordinates never become map features (see the
     // "missing usable coordinates" filter above). The drawer still opens for
@@ -652,7 +648,7 @@ export default function Map(props) {
     setFacDetails(details);
     setFacDetailsFor(eid);
     setDrawerLoading(false);
-  };
+  }, []);
 
   React.useEffect(() => {
     if (!geoData || mapRef.current) return;
@@ -1241,7 +1237,7 @@ export default function Map(props) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [geoData]);
+  }, [geoData, beginDrawerLoad]); // beginDrawerLoad is stable; applyFilter is deliberately left out (see Map split)
 
   React.useEffect(() => {
     if (mapRef.current) applyFilterWhenReady();
@@ -1394,8 +1390,6 @@ export default function Map(props) {
     }
     return false;
   };
-  const spurtDisabled = () => !mapRef.current || bandsOpen || draggingPins;
-
   React.useEffect(() => {
     const onMove = (e) => {
       let dx = 0,
@@ -1406,7 +1400,10 @@ export default function Map(props) {
       else if (e.clientY >= window.innerHeight - EDGE_ZONE) dy = 1;
       const nearEdge = dx !== 0 || dy !== 0;
       const active =
-        nearEdge && !spurtDisabled() && e.buttons === 0 && !isInDeadzone(e.clientX, e.clientY);
+        nearEdge &&
+        !(!mapRef.current || bandsOpen || draggingPins) &&
+        e.buttons === 0 &&
+        !isInDeadzone(e.clientX, e.clientY);
       if (active && !inEdgeRef.current) {
         mapRef.current.panBy([dx * 60, dy * 60], { duration: 240 });
         inEdgeRef.current = true;
