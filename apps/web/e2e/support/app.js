@@ -12,6 +12,11 @@ export async function openApp(page) {
   page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
 
   const mock = await mockSupabase(page);
+  // Netlify injects its feedback toolbar ("Netlify Drawer") into deploy previews. It
+  // isn't part of the site and can log errors or cover buttons, so serve it empty.
+  await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
+  );
   await page.goto("/");
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
   return { consoleErrors, unmocked: mock.unmocked };
