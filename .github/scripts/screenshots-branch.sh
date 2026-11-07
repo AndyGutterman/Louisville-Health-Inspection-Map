@@ -3,9 +3,10 @@
 # them inline (raw.githubusercontent.com links render because the repo is public).
 #
 #   screenshots-branch.sh publish <pr-number> <folder> <source-dir>
-#       Replaces pr-<number>/ with <source-dir> copied to pr-<number>/<folder>/.
-#   screenshots-branch.sh remove <pr-number>
-#       Deletes pr-<number>/ (run when the PR closes).
+#
+# Replaces pr-<number>/ with <source-dir> copied to pr-<number>/<folder>/, then keeps
+# only the newest $SCREENSHOTS_KEEP PRs (default 20, by PR number) and deletes older
+# ones. Merged and closed PRs keep their screenshots until they age out.
 #
 # The branch is always one commit with no history, so replaced screenshots don't pile
 # up in the repository. If another run updates the branch at the same moment, the push
@@ -16,11 +17,14 @@
 set -euo pipefail
 
 BRANCH=e2e-screenshots
-action=${1:?usage: publish <pr> <folder> <dir> | remove <pr>}
+KEEP=${SCREENSHOTS_KEEP:-20}
+action=${1:?usage: publish <pr-number> <folder> <source-dir>}
 pr=${2:?pr number required}
-if [ "$action" = publish ]; then
-  folder=${3:?folder name required}
-  src=$(cd "${4:?source directory required}" && pwd)
+folder=${3:?folder name required}
+src=$(cd "${4:?source directory required}" && pwd)
+if [ "$action" != publish ]; then
+  echo "Unknown action: $action (only publish is supported)" >&2
+  exit 2
 fi
 remote=${SCREENSHOTS_REMOTE:-"https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"}
 work=$(mktemp -d)
@@ -37,22 +41,23 @@ for attempt in 1 2 3; do
   if [ -n "$base" ]; then
     git fetch -q --depth=1 "$remote" "refs/heads/$BRANCH"
     git checkout -q FETCH_HEAD -- . 2>/dev/null || true # fails only on an empty tree
-  elif [ "$action" = remove ]; then
-    echo "No $BRANCH branch yet, so nothing to remove."
-    exit 0
   fi
 
   rm -rf "pr-$pr"
-  if [ "$action" = publish ]; then
-    mkdir -p "pr-$pr/$folder"
-    cp -R "$src"/. "pr-$pr/$folder"/
-  fi
+  mkdir -p "pr-$pr/$folder"
+  cp -R "$src"/. "pr-$pr/$folder"/
+
+  # Keep the newest $KEEP PRs, by PR number.
+  for old in $(ls -d pr-*/ 2>/dev/null | sed 's#^pr-##; s#/$##' | sort -rn | tail -n +$((KEEP + 1))); do
+    rm -rf "pr-$old"
+    echo "Removed screenshots for PR #$old (older than the newest $KEEP)."
+  done
 
   git checkout -q --orphan snapshot
   git add -A
-  git commit -q --allow-empty -m "e2e screenshots: $action PR #$pr"
+  git commit -q -m "e2e screenshots: PR #$pr"
   if git push -q --force-with-lease="refs/heads/$BRANCH:$base" "$remote" "HEAD:refs/heads/$BRANCH"; then
-    echo "Updated $BRANCH: $action PR #$pr."
+    echo "Updated $BRANCH with PR #$pr."
     exit 0
   fi
   echo "$BRANCH changed while this run was updating it; retrying ($attempt/3)."
