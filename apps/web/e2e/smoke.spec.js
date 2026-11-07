@@ -4,8 +4,9 @@
 import { test, expect } from "@playwright/test";
 import { openApp, openWhatsNew, whatsNewRow, openDrawerFromWhatsNew } from "./support/app.js";
 import { byEid, NO_PIN_EID, PINNED_EID, PERFECT_EID } from "./support/fixtures.js";
+import { snap } from "./support/screenshots.js";
 
-test("loads with no console errors", async ({ page }) => {
+test("loads with no console errors", async ({ page }, testInfo) => {
   const { consoleErrors, unmocked } = await openApp(page);
 
   // The splash also goes away after an 8s timeout, so check the map really loaded:
@@ -15,18 +16,20 @@ test("loads with no console errors", async ({ page }) => {
   await expect(page.getByPlaceholder("Search map")).toBeVisible();
   await expect(page.getByTestId("filter-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: "What's New", exact: true })).toBeVisible();
+  await snap(page, testInfo, "01-map-loaded");
 
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
-test("filter panel toggles categories", async ({ page }) => {
+test("filter panel toggles categories", async ({ page }, testInfo) => {
   await openApp(page);
   await page.getByRole("button", { name: "Expand controls" }).click();
   await page.getByRole("tab", { name: "Filter" }).click();
 
   const tiles = page.getByTestId("category-tile");
   await expect(tiles).toHaveCount(8);
+  await snap(page, testInfo, "02-filter-panel");
   const restaurants = tiles.and(page.locator('[data-category="restaurants"]'));
 
   await expect(restaurants).toHaveAttribute("aria-pressed", "true");
@@ -40,18 +43,20 @@ test("filter panel toggles categories", async ({ page }) => {
   for (const tile of await tiles.all()) await expect(tile).toHaveAttribute("aria-pressed", "true");
 });
 
-test("What's New opens and switches tabs", async ({ page }) => {
+test("What's New opens and switches tabs", async ({ page }, testInfo) => {
   await openApp(page);
   const panel = await openWhatsNew(page);
 
   await expect(whatsNewRow(page, PINNED_EID)).toContainText(byEid(PINNED_EID).name);
   await expect(whatsNewRow(page, NO_PIN_EID)).toContainText("Location unavailable");
+  await snap(page, testInfo, "03-whats-new-violations");
 
   await panel.getByRole("button", { name: "Top Scores" }).click();
   await expect(whatsNewRow(page, PERFECT_EID)).toContainText(byEid(PERFECT_EID).name);
+  await snap(page, testInfo, "04-whats-new-top-scores");
 });
 
-test("a What's New row with no coordinates still opens the drawer", async ({ page }) => {
+test("a What's New row with no coordinates still opens the drawer", async ({ page }, testInfo) => {
   await openApp(page);
   const drawer = await openDrawerFromWhatsNew(page, NO_PIN_EID, byEid(NO_PIN_EID).name);
 
@@ -60,6 +65,7 @@ test("a What's New row with no coordinates still opens the drawer", async ({ pag
   );
   // No pin, so no map popup either: the map is left alone.
   await expect(page.locator(".maplibregl-popup")).toHaveCount(0);
+  await snap(page, testInfo, "05-drawer-no-location");
 });
 
 test("phone: the drawer is a bottom sheet that drags between peek and expanded", async ({
@@ -81,6 +87,7 @@ test("phone: the drawer is a bottom sheet that drags between peek and expanded",
   const peek = await height();
   const expanded = Math.round(viewport.height * 0.74); // EXPANDED_FRACTION in lib/bottomSheet.js
   expect(peek).toBeLessThan(expanded);
+  await snap(page, testInfo, "06-drawer-peek");
 
   const drag = async (dy) => {
     const b = await handle.boundingBox();
@@ -95,6 +102,7 @@ test("phone: the drawer is a bottom sheet that drags between peek and expanded",
   await drag(-(expanded - peek)); // up
   await expect.poll(height).toBeCloseTo(expanded, -1);
   await expect(handle).toHaveAttribute("aria-label", "Collapse details");
+  await snap(page, testInfo, "07-drawer-expanded");
 
   await drag(expanded - peek); // back down
   await expect.poll(height).toBeCloseTo(peek, -1);
@@ -119,4 +127,5 @@ test("opening and closing What's New does not close the drawer", async ({ page }
   await panel.getByRole("button", { name: "Top Scores" }).click();
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toBeVisible();
+  await snap(page, testInfo, "08-drawer-beside-whats-new");
 });
