@@ -952,3 +952,11 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     overflow-x: hidden;
   }
 }
+
+/* Phones and tablets: the collapsed card keeps the expanded card's width (set inline in
+   FilterSearch.jsx), so collapsing only hides the body and the side gaps stay even. */
+@media (max-width: 899px) {
+  .control-card.collapsed {
+    width: clamp(280px, calc(100vw - 32px), 420px) !important;
+  }
+}
