@@ -21,6 +21,8 @@ function FlameIcon({ className, style }) {
 function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
   return (
     <div
+      data-testid="whats-new-row"
+      data-eid={item.establishment_id}
       className="wn-card"
       onClick={() => onOpen?.(item.establishment_id, item)}
       onMouseEnter={() => onHover?.(item.establishment_id)}
@@ -225,6 +227,7 @@ export default function WhatsNew({
   return (
     <>
       <div
+        data-testid="whats-new-panel"
         className="wn-panel"
         style={!isMobile ? { "--wn-w": `${panelW}px` } : undefined}
         onPointerMove={!isMobile ? onResizeMove : undefined}

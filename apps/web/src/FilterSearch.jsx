@@ -227,6 +227,7 @@ export default function FilterSearch({
     <div className="controls">
       <div
         ref={cardRef}
+        data-testid="filter-panel"
         className={`control-card ${collapsed ? "collapsed" : ""}`}
         style={
           isDesktop
@@ -528,6 +529,8 @@ export default function FilterSearch({
                           <button
                             key={key}
                             type="button"
+                            data-testid="category-tile"
+                            data-category={key}
                             className="cat-tile"
                             data-checked={enabled}
                             aria-pressed={enabled}

@@ -80,6 +80,7 @@ function CurrentInspectionCard({
             <div className="inspect-card_sub">{address}</div>
             {noLocation && (
               <div
+                data-testid="drawer-no-location"
                 style={{
                   marginTop: 6,
                   fontSize: ".78rem",
@@ -652,6 +653,7 @@ export default function InfoDrawer({
   return (
     <div
       ref={sheetRef}
+      data-testid="info-drawer"
       className="info-drawer"
       onPointerDown={onBringToFront}
       style={{
@@ -702,6 +704,7 @@ export default function InfoDrawer({
       {/* Phone only: drag handle. Drag up to expand, down to collapse or close; a tap toggles. */}
       {isMobile && (
         <div
+          data-testid="drawer-handle"
           role="button"
           tabIndex={0}
           aria-label={snap === "peek" ? "Expand details" : "Collapse details"}
