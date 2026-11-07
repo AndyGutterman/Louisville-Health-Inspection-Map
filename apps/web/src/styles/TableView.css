@@ -16,7 +16,10 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 36px;
+  /* Fixed height so .wn-trigger (WhatsNew.css) can center on it. */
+  height: 56px;
+  box-sizing: border-box;
+  padding: 0 36px;
   background: rgba(24, 24, 28, 0.92);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);

@@ -1,7 +1,7 @@
-/* ── Collapsed trigger — aligns with Table View at bottom: 28px ── */
+/* ── Collapsed trigger — vertically centered on Table View (56px tall at bottom: 28px) ── */
 .wn-trigger {
   position: fixed;
-  bottom: 28px;
+  bottom: 30px; /* 28 + (56 - 52) / 2 */
   left: 16px;
   width: 52px;
   height: 52px;
@@ -335,7 +335,7 @@
 /* Mobile */
 @media (max-width: 599px) {
   .wn-trigger {
-    bottom: 28px;
+    bottom: 32px; /* 28 + (56 - 48) / 2 */
     left: 16px;
     width: 48px;
     height: 48px;
