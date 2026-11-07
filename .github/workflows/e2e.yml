@@ -8,10 +8,11 @@ name: E2E
 #            the preview isn't serving the PR's latest commit within 10 minutes.
 #   report   copies the screenshots to the e2e-screenshots branch and posts the comment.
 #            It doesn't run the PR's code, so it's the only job that can write.
-#   cleanup  deletes the PR's screenshots from that branch when the PR closes.
+#
+# Screenshots stay in the comment after the PR is merged or closed; the branch keeps the
+# 20 most recent PRs (.github/scripts/screenshots-branch.sh).
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
 
 concurrency:
   group: e2e-${{ github.event.pull_request.number }}
@@ -23,7 +24,6 @@ permissions:
 jobs:
   test:
     name: Playwright (desktop + phone)
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -114,7 +114,7 @@ jobs:
   report:
     name: Post results to the PR
     needs: test
-    if: always() && github.event.action != 'closed' && needs.test.result != 'cancelled'
+    if: always() && needs.test.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write # the e2e-screenshots branch
@@ -157,19 +157,3 @@ jobs:
           script: |
             const postE2eComment = require("./.github/scripts/e2e-comment.cjs");
             await postE2eComment({ github, context });
-
-  cleanup:
-    name: Remove the PR's screenshots
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # the e2e-screenshots branch
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/scripts
-
-      - name: Remove pr-${{ github.event.pull_request.number }}/ from the e2e-screenshots branch
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/screenshots-branch.sh remove "${{ github.event.pull_request.number }}"
