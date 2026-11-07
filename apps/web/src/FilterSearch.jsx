@@ -235,8 +235,8 @@ export default function FilterSearch({
               ? {} /* collapsed: let CSS (max-content) control width, no override */
               : { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
             : collapsed
-              ? { maxWidth: "calc(100vw - 24px)" }
-              : { width: "clamp(280px, calc(100vw - 24px), 420px)", maxWidth: "calc(100vw - 24px)" }
+              ? { maxWidth: "calc(100vw - 32px)" }
+              : { width: "clamp(280px, calc(100vw - 32px), 420px)", maxWidth: "calc(100vw - 32px)" }
         }
       >
         <div className="search-row">

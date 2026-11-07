@@ -43,6 +43,29 @@ test("filter panel toggles categories", async ({ page }, testInfo) => {
   for (const tile of await tiles.all()) await expect(tile).toHaveAttribute("aria-pressed", "true");
 });
 
+test("phone filter card has even side gaps, collapsed and expanded", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the card only spans the screen on phones");
+  await openApp(page);
+  const { width } = page.viewportSize();
+  const expectEvenGaps = async () => {
+    const card = await page.getByTestId("filter-panel").boundingBox();
+    expect(card.x).toBeCloseTo(width - (card.x + card.width), 0);
+  };
+
+  await expectEvenGaps(); // starts collapsed
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await expectEvenGaps();
+});
+
+test("What's New and Table View buttons line up", async ({ page }) => {
+  await openApp(page);
+  const centerY = async (name) => {
+    const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+    return box.y + box.height / 2;
+  };
+  expect(await centerY("What's New")).toBeCloseTo(await centerY("Open table view"), 0);
+});
+
 test("What's New opens and switches tabs", async ({ page }, testInfo) => {
   await openApp(page);
   const panel = await openWhatsNew(page);
