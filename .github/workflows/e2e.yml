@@ -1,13 +1,17 @@
 name: E2E
 
-# Playwright smoke tests (apps/web/e2e) on every pull request, desktop and phone.
-# Tests the PR's Netlify deploy preview when Netlify builds one. Falls back to building
-# the site here when the PR doesn't touch the website (Netlify skips the preview) or
-# the preview isn't serving the PR's latest commit within 10 minutes. Screenshots and
-# the HTML report are uploaded as artifacts and linked from one PR comment that is
-# updated on every push.
+# Playwright smoke tests (apps/web/e2e) on every pull request, desktop and phone, with
+# the screenshots shown inline in one PR comment that is updated on every push.
+#
+#   test     runs the tests against the PR's Netlify deploy preview, or builds the site
+#            here when the PR doesn't touch the website (Netlify skips the preview) or
+#            the preview isn't serving the PR's latest commit within 10 minutes.
+#   report   copies the screenshots to the e2e-screenshots branch and posts the comment.
+#            It doesn't run the PR's code, so it's the only job that can write.
+#   cleanup  deletes the PR's screenshots from that branch when the PR closes.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
 
 concurrency:
   group: e2e-${{ github.event.pull_request.number }}
@@ -15,11 +19,11 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write # the results comment
 
 jobs:
-  e2e:
+  test:
     name: Playwright (desktop + phone)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -28,6 +32,11 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PREVIEW_URL: https://deploy-preview-${{ github.event.pull_request.number }}--louisvillefoodsafe.netlify.app
+    outputs:
+      mode: ${{ steps.target.outputs.mode }}
+      url: ${{ steps.target.outputs.url }}
+      outcome: ${{ steps.tests.outcome }}
+      report-url: ${{ steps.report.outputs.artifact-url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,7 +91,6 @@ jobs:
         run: npx playwright test
 
       - name: Upload screenshots
-        id: shots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -103,47 +111,65 @@ jobs:
           retention-days: 14
           overwrite: true
 
+  report:
+    name: Post results to the PR
+    needs: test
+    if: always() && github.event.action != 'closed' && needs.test.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the e2e-screenshots branch
+      pull-requests: write # the results comment
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Download screenshots
+        continue-on-error: true # missing when the tests didn't get that far
+        uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
+      - name: Publish screenshots to the e2e-screenshots branch
+        id: publish
+        continue-on-error: true # the comment still links the run log
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -d shots ] && [ -n "$(ls -A shots)" ]; then
+            folder="${SHA::7}-${{ github.run_attempt }}"
+            bash .github/scripts/screenshots-branch.sh publish "$PR" "$folder" shots
+            echo "folder=$folder" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Comment on the PR
-        if: always()
         uses: actions/github-script@v7
         env:
-          OUTCOME: ${{ steps.tests.outcome }}
-          MODE: ${{ steps.target.outputs.mode }}
-          TARGET_URL: ${{ steps.target.outputs.url }}
-          SHOTS_URL: ${{ steps.shots.outputs.artifact-url }}
-          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
+          OUTCOME: ${{ needs.test.outputs.outcome }}
+          MODE: ${{ needs.test.outputs.mode }}
+          TARGET_URL: ${{ needs.test.outputs.url }}
+          REPORT_URL: ${{ needs.test.outputs.report-url }}
+          SHOTS_FOLDER: ${{ steps.publish.outputs.folder }}
         with:
           script: |
-            const { OUTCOME, MODE, TARGET_URL, SHOTS_URL, REPORT_URL } = process.env;
-            const marker = "<!-- e2e-results -->";
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const sha = context.payload.pull_request.head.sha.slice(0, 7);
-            const status =
-              OUTCOME === "success" ? "✅ passed" :
-              OUTCOME === "failure" ? "❌ failed" : `⚠️ ${OUTCOME || "did not run"}`;
-            const target = MODE === "preview"
-              ? `the [Netlify deploy preview](${TARGET_URL})`
-              : "a build made inside the job (no Netlify preview for this commit)";
-            const link = (url, text) => (url ? `[${text}](${url})` : "not uploaded");
-            const body = [
-              marker,
-              `### End-to-end tests ${status}`,
-              "",
-              `Commit \`${sha}\`, desktop and phone, against ${target}.`,
-              "",
-              `- Screenshots: ${link(SHOTS_URL, "download (zip)")}`,
-              `- HTML report: ${link(REPORT_URL, "download (zip)")}, then open \`index.html\``,
-              `- [Run log](${runUrl})`,
-            ].join("\n");
+            const postE2eComment = require("./.github/scripts/e2e-comment.cjs");
+            await postE2eComment({ github, context });
 
-            const { data: comments } = await github.rest.issues.listComments({
-              ...context.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find((c) => c.user.type === "Bot" && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
-            }
+  cleanup:
+    name: Remove the PR's screenshots
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the e2e-screenshots branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Remove pr-${{ github.event.pull_request.number }}/ from the e2e-screenshots branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/screenshots-branch.sh remove "${{ github.event.pull_request.number }}"
