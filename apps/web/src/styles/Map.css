@@ -68,7 +68,7 @@
 /* Collapsed: shrink to just hamburger + toggles */
 .control-card.collapsed {
   width: max-content !important;
-  max-width: calc(100vw - 24px);
+  max-width: calc(100vw - 32px);
   min-width: 0;
 }
 
@@ -891,13 +891,13 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 
   .control-card.collapsed {
     width: max-content !important;
-    max-width: calc(100vw - 24px);
+    max-width: calc(100vw - 32px);
     min-width: 0;
   }
 
   .control-card {
-    width: calc(100vw - 24px);
-    max-width: calc(100vw - 24px);
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
   }
 }
 
@@ -923,13 +923,13 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 
   .control-card {
     width: clamp(280px, 40vw, 400px);
-    max-width: calc(100vw - 24px);
+    max-width: calc(100vw - 32px);
     border-radius: 16px;
   }
 
   .control-card.collapsed {
     width: max-content !important;
-    max-width: calc(100vw - 24px);
+    max-width: calc(100vw - 32px);
     min-width: 0;
   }
 
