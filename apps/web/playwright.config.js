@@ -9,6 +9,10 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = process.env.BASE_URL || "";
 const LOCAL_URL = "http://localhost:4173";
 
+// Claude Code cloud sessions can't download Playwright's own browser, but come with
+// Chrome at CHROME_PATH. Use that there; everywhere else, Playwright's Chromium.
+const CLOUD_CHROME = process.env.CLAUDE_CODE_REMOTE === "true" ? process.env.CHROME_PATH : "";
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.js",
@@ -21,6 +25,7 @@ export default defineConfig({
     baseURL: BASE_URL || LOCAL_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    ...(CLOUD_CHROME ? { launchOptions: { executablePath: CLOUD_CHROME } } : {}),
   },
   projects: [
     {
@@ -40,5 +45,11 @@ export default defineConfig({
         url: LOCAL_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        // The tests answer every Supabase call themselves (e2e/support/mockSupabase.js),
+        // so the build only needs placeholders. The same on a laptop, in the cloud and in CI.
+        env: {
+          VITE_SUPABASE_URL: "https://example.supabase.co",
+          VITE_SUPABASE_ANON_KEY: "e2e-placeholder",
+        },
       },
 });

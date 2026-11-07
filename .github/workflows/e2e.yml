@@ -79,9 +79,6 @@ jobs:
         working-directory: apps/web
         env:
           BASE_URL: ${{ steps.target.outputs.url }} # empty = build and serve locally
-          # Only used by the local build. The tests mock every Supabase call.
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
         run: npx playwright test
 
       - name: Upload screenshots
