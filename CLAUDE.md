@@ -39,6 +39,7 @@ npm run lint        # 0 errors expected; 4 known warnings (see below)
 npm test            # website (vitest, 113 tests in 10 files) and pipeline (node --test, 54 tests)
 npm run build
 npm run format      # Prettier
+npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
 ```
 
 Workspace-specific: `npm run <script> -w apps/web` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
@@ -49,9 +50,24 @@ Workspace-specific: `npm run <script> -w apps/web` or `-w pipeline`. Env vars fo
 - Component CSS goes in `src/styles/<Component>.css`, imported by the component. No CSS inside JS template strings.
 - One concern per commit. Conventional-style messages: `fix(drawer): ...`, `refactor: ...`, `chore: ...`.
 - The whole repo is Prettier-formatted (commit `973b174`, listed in `.git-blame-ignore-revs`). Run `npm run format` on files you change.
-- Before committing: lint, test, build, and walk `docs/SMOKE_TEST.md` if the map, drawer, filters, or What's New changed.
+- Before committing: lint, test, build. If the map, drawer, filters, or What's New changed, also `npm run e2e` and the manual steps of `docs/SMOKE_TEST.md` it doesn't cover.
 - Git hygiene: use `git add -A` then `git status --short` before committing. Never `git commit -am` (it skips new files, which has already bitten this repo once). Always give the user commands to run from the repo root, using paths relative to it.
 - Reading from the working tree vs HEAD: use `git show HEAD:path` to see committed content.
+
+## Workflow: change requests from the owner's phone
+
+The owner sends change requests from a phone and reviews the result as a pull request, without a computer. For each request:
+
+1. Start from an up-to-date `main` and create a branch: `fix/...`, `feat/...`, `refactor/...`, `chore/...`, `docs/...` or `test/...`.
+2. Make the change, one concern per commit, following the conventions above.
+3. Verify before pushing: `npm run lint`, `npm test`, `npm run build`, `npm run e2e`. Look at the PNGs in `apps/web/e2e/screenshots/` for anything visual; you can read them as images.
+4. If the change touches the map, drawer, filters or What's New, add or update a test in `apps/web/e2e/smoke.spec.js`:
+   - Select by role or `data-testid`, never by canvas pins.
+   - Data comes from `apps/web/e2e/support/fixtures.js` (Supabase is mocked). A new Supabase call needs a fixture entry, or the load test fails on purpose.
+5. Push the branch and open a PR against `main` with `gh pr create`. If `gh` isn't available, push and give the owner this link to open it from the phone: `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
+6. The PR description says, in plain words: what changed and why; what you verified (commands and results); what you could not verify; anything the owner must do (SQL to run in Supabase, Netlify or GitHub settings, secrets).
+7. On the PR, `ci.yml` runs lint, tests and the build, and `e2e.yml` runs Playwright against the Netlify deploy preview (or a build inside the job when there is no preview). `e2e.yml` keeps one comment updated with the result and links to the screenshots and the HTML report (zip downloads). Netlify posts the preview link. The owner reviews and merges; merging to `main` deploys production.
+8. In this loop, don't push to `main` or merge your own PR. For database changes, add a migration in `supabase/migrations/` and tell the owner to run it; don't assume it has been run.
 
 ## Things that will bite you (learned the hard way)
 
