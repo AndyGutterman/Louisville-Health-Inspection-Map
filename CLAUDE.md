@@ -56,18 +56,28 @@ Workspace-specific: `npm run <script> -w apps/web` or `-w pipeline`. Env vars fo
 
 ## Workflow: change requests from the owner's phone
 
-The owner sends change requests from a phone and reviews the result as a pull request, without a computer. For each request:
+The owner asks for changes from the Claude app on a phone (a Claude Code **cloud session**, with the PC off) and reviews and merges the result as a pull request in the GitHub app. For each request:
 
 1. Start from an up-to-date `main` and create a branch: `fix/...`, `feat/...`, `refactor/...`, `chore/...`, `docs/...` or `test/...`.
 2. Make the change, one concern per commit, following the conventions above.
-3. Verify before pushing: `npm run lint`, `npm test`, `npm run build`, `npm run e2e`. Look at the PNGs in `apps/web/e2e/screenshots/` for anything visual; you can read them as images.
+3. Verify before pushing: `npm run lint`, `npm test`, `npm run build`, `npm run e2e`. Look at the JPEGs in `apps/web/e2e/screenshots/` for anything visual; you can read them as images.
 4. If the change touches the map, drawer, filters or What's New, add or update a test in `apps/web/e2e/smoke.spec.js`:
    - Select by role or `data-testid`, never by canvas pins.
    - Data comes from `apps/web/e2e/support/fixtures.js` (Supabase is mocked). A new Supabase call needs a fixture entry, or the load test fails on purpose.
-5. Push the branch and open a PR against `main` with `gh pr create`. If `gh` isn't available, push and give the owner this link to open it from the phone: `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
+5. Push the branch and open a PR against `main`:
+   - In a cloud session, use the built-in GitHub tools. `gh pr ...` is blocked there (GraphQL), but the REST API works: `gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/pulls -f title=... -f head=<branch> -f base=main -f body=...`.
+   - Locally, `gh pr create` if `gh` is installed; otherwise push and give the owner `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
 6. The PR description says, in plain words: what changed and why; what you verified (commands and results); what you could not verify; anything the owner must do (SQL to run in Supabase, Netlify or GitHub settings, secrets).
-7. On the PR, `ci.yml` runs lint, tests and the build, and `e2e.yml` runs Playwright against the Netlify deploy preview (or a build inside the job when there is no preview). `e2e.yml` keeps one comment updated with the result and links to the screenshots and the HTML report (zip downloads). Netlify posts the preview link. The owner reviews and merges; merging to `main` deploys production.
-8. In this loop, don't push to `main` or merge your own PR. For database changes, add a migration in `supabase/migrations/` and tell the owner to run it; don't assume it has been run.
+7. On the PR, `ci.yml` runs lint, tests and the build, and `e2e.yml` runs Playwright against the Netlify deploy preview (or a build inside the job when there is no preview). `e2e.yml` keeps one comment updated with the result and every screenshot inline, phone and desktop; the images live on the `e2e-screenshots` branch (one commit, cleaned up when the PR closes). Netlify posts the preview link.
+8. Wait for those checks (`gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/actions/runs?branch=<branch>`), then tell the owner in the chat: pass or fail, the PR link, and anything in the screenshots worth a look. If a check fails, fix it on the same branch.
+9. The owner reviews and merges; merging to `main` deploys production. In this loop, don't push to `main` or merge your own PR. For database changes, add a migration in `supabase/migrations/` and tell the owner to run it; don't assume it has been run.
+
+### Cloud sessions
+
+- `.claude/hooks/cloud-setup.mjs` runs at session start (a SessionStart hook in `.claude/settings.json`): it runs `npm ci` when `package-lock.json` changed, and says whether the map basemap is reachable. It does nothing locally.
+- Playwright uses the preinstalled Chrome (`CHROME_PATH`) in the cloud, and the e2e build gets placeholder Supabase values, so no `.env` is needed.
+- The cloud environment's network access must allow `*.cartocdn.com` (the basemap), or the e2e load test fails. If the setup hook reports it unreachable, tell the owner; the PR's e2e workflow still runs the tests.
+- There is no `.env` and no database password in the cloud. Anything that needs the real Supabase project (pipeline scripts, SQL) is for the owner to run.
 
 ## Things that will bite you (learned the hard way)
 
