@@ -21,7 +21,7 @@ export default function SplashScreen({ isLoading, timedOut }) {
   if (unmounted) return null;
 
   return (
-    <div className={`splash-screen ${fadeOut ? "fade-out" : ""}`}>
+    <div data-testid="splash-screen" className={`splash-screen ${fadeOut ? "fade-out" : ""}`}>
       <div className="splash-bg" />
       <div className="splash-content">
         <div className="splash-brand">

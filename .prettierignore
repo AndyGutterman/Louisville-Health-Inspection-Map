@@ -3,3 +3,7 @@ package-lock.json
 coverage
 dist
 supabase/migrations
+# Playwright output (also in apps/web/.gitignore, which Prettier doesn't read)
+apps/web/e2e/playwright-report
+apps/web/e2e/test-results
+apps/web/e2e/screenshots

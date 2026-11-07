@@ -1,6 +1,8 @@
 # Manual smoke test
 
 Run this before merging anything that touches `Map.jsx`, the drawer, the filters or What's New.
+
+Parts of steps 1, 4 and 9 are automated in `apps/web/e2e/` (`npm run e2e`, and on every pull request), along with the phone drawer's peek/expanded drag. Those tests use made-up data and never click map pins, so walk the full list by hand for anything they don't cover.
 It takes about five minutes. Do it once on desktop and once on a phone-sized window.
 
 1. **Load.** The map appears with pins, and the splash screen goes away.

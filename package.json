@@ -13,7 +13,8 @@
     "lint": "npm run lint -w apps/web",
     "test": "npm test --workspaces",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "e2e": "npm run e2e -w apps/web"
   },
   "devDependencies": {
     "prettier": "^3.9.10"

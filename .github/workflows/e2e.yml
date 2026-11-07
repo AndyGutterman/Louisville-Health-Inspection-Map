@@ -1,0 +1,175 @@
+name: E2E
+
+# Playwright smoke tests (apps/web/e2e) on every pull request, desktop and phone, with
+# the screenshots shown inline in one PR comment that is updated on every push.
+#
+#   test     runs the tests against the PR's Netlify deploy preview, or builds the site
+#            here when the PR doesn't touch the website (Netlify skips the preview) or
+#            the preview isn't serving the PR's latest commit within 10 minutes.
+#   report   copies the screenshots to the e2e-screenshots branch and posts the comment.
+#            It doesn't run the PR's code, so it's the only job that can write.
+#   cleanup  deletes the PR's screenshots from that branch when the PR closes.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Playwright (desktop + phone)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PREVIEW_URL: https://deploy-preview-${{ github.event.pull_request.number }}--louisvillefoodsafe.netlify.app
+    outputs:
+      mode: ${{ steps.target.outputs.mode }}
+      url: ${{ steps.target.outputs.url }}
+      outcome: ${{ steps.tests.outcome }}
+      report-url: ${{ steps.report.outputs.artifact-url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # to diff the PR against its base branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for the Netlify deploy preview
+        id: target
+        run: |
+          # Netlify only builds a preview when the PR touches what the site is built
+          # from: the same paths as the `ignore` rule in netlify.toml.
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- \
+               apps/web packages package.json package-lock.json .nvmrc netlify.toml; then
+            echo "This PR doesn't change the website, so Netlify won't build a preview."
+            echo "mode=local" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The build stamps its commit into <meta name="build-commit"> (vite.config.js).
+          for i in $(seq 1 40); do
+            served=$(curl -fsSL "$PREVIEW_URL/" 2>/dev/null \
+              | grep -o '<meta name="build-commit" content="[^"]*"' \
+              | sed 's/.*content="//; s/"$//' || true)
+            if [ "$served" = "$HEAD_SHA" ]; then
+              echo "The preview is serving $HEAD_SHA."
+              echo "mode=preview" >> "$GITHUB_OUTPUT"
+              echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Waiting for the preview ($i/40). It is serving: ${served:-nothing yet}"
+            sleep 15
+          done
+          echo "::warning::The Netlify preview didn't serve $HEAD_SHA within 10 minutes, so testing a local build instead."
+          echo "mode=local" >> "$GITHUB_OUTPUT"
+
+      - name: Run Playwright
+        id: tests
+        working-directory: apps/web
+        env:
+          BASE_URL: ${{ steps.target.outputs.url }} # empty = build and serve locally
+        run: npx playwright test
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: apps/web/e2e/screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+
+      - name: Upload HTML report
+        id: report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/e2e/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+
+  report:
+    name: Post results to the PR
+    needs: test
+    if: always() && github.event.action != 'closed' && needs.test.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the e2e-screenshots branch
+      pull-requests: write # the results comment
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Download screenshots
+        continue-on-error: true # missing when the tests didn't get that far
+        uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
+      - name: Publish screenshots to the e2e-screenshots branch
+        id: publish
+        continue-on-error: true # the comment still links the run log
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -d shots ] && [ -n "$(ls -A shots)" ]; then
+            folder="${SHA::7}-${{ github.run_attempt }}"
+            bash .github/scripts/screenshots-branch.sh publish "$PR" "$folder" shots
+            echo "folder=$folder" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on the PR
+        uses: actions/github-script@v7
+        env:
+          OUTCOME: ${{ needs.test.outputs.outcome }}
+          MODE: ${{ needs.test.outputs.mode }}
+          TARGET_URL: ${{ needs.test.outputs.url }}
+          REPORT_URL: ${{ needs.test.outputs.report-url }}
+          SHOTS_FOLDER: ${{ steps.publish.outputs.folder }}
+        with:
+          script: |
+            const postE2eComment = require("./.github/scripts/e2e-comment.cjs");
+            await postE2eComment({ github, context });
+
+  cleanup:
+    name: Remove the PR's screenshots
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the e2e-screenshots branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Remove pr-${{ github.event.pull_request.number }}/ from the e2e-screenshots branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/screenshots-branch.sh remove "${{ github.event.pull_request.number }}"

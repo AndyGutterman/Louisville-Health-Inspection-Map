@@ -6,47 +6,78 @@ Read this first. It was written on 2026-11-05 from a long chat session and cover
 
 An interactive map of health inspection scores for Louisville, KY restaurants and food service places. Live at https://louisvillefoodsafe.netlify.app. It is a solo, open-source project and the owner's flagship résumé project, so code quality, tests, CI and docs matter as much as features. The owner does not expect outside contributors, so do NOT add CONTRIBUTING files, issue or PR templates, or Dependabot.
 
-Data flow: Louisville Metro ArcGIS REST API -> Node ETL scripts (`etl/`) run by GitHub Actions -> Supabase (Postgres, Auth, one Edge Function) -> React site on Netlify.
+Data flow: Louisville Metro ArcGIS REST API -> Node pipeline scripts (`pipeline/`) run by GitHub Actions -> Supabase (Postgres, Auth, one Edge Function) -> React site on Netlify.
 
-Stack: React 19, Vite 7, MapLibre GL 5, Supabase (supabase-js), Geoapify (address search), Vitest, ESLint, Prettier (configured, not yet run), Netlify, GitHub Actions.
+Stack: React 19, Vite 7, MapLibre GL 5, Supabase (supabase-js), Geoapify (address search), Vitest, ESLint, Prettier, Netlify, GitHub Actions.
+
+A phased readability refactor is in progress: plan, decisions and known bugs are in `docs/REFACTOR_PLAN.md`. Phases 0 and 1 are done (2026-11-06).
 
 ## Repo layout (Windows, PowerShell; repo root is `Louisville-Health-Inspection-Map`)
 
+The root is an npm workspace (`apps/web`, `pipeline`) with one `package-lock.json`. Node 22 (`.nvmrc`).
+
 ```
-InspectionWebsite/        React app (all frontend commands run here)
+apps/web/                 React app (was InspectionWebsite/)
   src/lib/                PURE logic, no React, no map instance. Each file has a *.test.js beside it.
   src/hooks/              shared hooks (useMediaQuery)
   src/styles/             component stylesheets
   src/*.jsx               components. Map.jsx is the app shell and the map (~1,900 lines, being split up)
-etl/                      data pipeline (own package; tests in etl/tests, run with node --test)
-scripts/                  maintenance jobs (etl-accuracy-check.js, archive-old-inspections.js)
-supabase/                 migrations (views and functions only) and functions/submit-feedback
-docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist)
-.github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml
+pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
+supabase/                 migrations (full schema baseline + later changes) and functions/submit-feedback
+docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist), REFACTOR_PLAN.md
+.github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml, schema-dump.yml
 ```
 
 `src/lib/` modules: samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
 
-## Commands (from `InspectionWebsite/`)
+## Commands (from the repo root)
 
 ```
 npm ci
 npm run dev
 npm run lint        # 0 errors expected; 4 known warnings (see below)
-npm test            # vitest run; 113 tests across 10 files after the latest round
+npm test            # website (vitest, 113 tests in 10 files) and pipeline (node --test, 54 tests)
 npm run build
+npm run format      # Prettier
+npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
 ```
-ETL: `cd etl && npm test`. Needs Node 20.19+. Env vars (see `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values.
+
+Workspace-specific: `npm run <script> -w apps/web` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
 
 ## Conventions
 
-- New logic goes in `src/lib/` first, with a test next to it (`foo.js` + `foo.test.js`). Frontend tests are colocated; ETL tests live in `etl/tests/`. Keep that split.
+- New logic goes in `src/lib/` first, with a test next to it (`foo.js` + `foo.test.js`). Frontend tests are colocated; pipeline tests live in `pipeline/tests/`. Keep that split.
 - Component CSS goes in `src/styles/<Component>.css`, imported by the component. No CSS inside JS template strings.
 - One concern per commit. Conventional-style messages: `fix(drawer): ...`, `refactor: ...`, `chore: ...`.
-- Do not reformat files you are not changing. A Prettier pass is planned as its own commit.
-- Before committing: lint, test, build, and walk `docs/SMOKE_TEST.md` if the map, drawer, filters, or What's New changed.
+- The whole repo is Prettier-formatted (commit `973b174`, listed in `.git-blame-ignore-revs`). Run `npm run format` on files you change.
+- Before committing: lint, test, build. If the map, drawer, filters, or What's New changed, also `npm run e2e` and the manual steps of `docs/SMOKE_TEST.md` it doesn't cover.
 - Git hygiene: use `git add -A` then `git status --short` before committing. Never `git commit -am` (it skips new files, which has already bitten this repo once). Always give the user commands to run from the repo root, using paths relative to it.
 - Reading from the working tree vs HEAD: use `git show HEAD:path` to see committed content.
+
+## Workflow: change requests from the owner's phone
+
+The owner asks for changes from the Claude app on a phone (a Claude Code **cloud session**, with the PC off) and reviews and merges the result as a pull request in the GitHub app. For each request:
+
+1. Start from an up-to-date `main` and create a branch: `fix/...`, `feat/...`, `refactor/...`, `chore/...`, `docs/...` or `test/...`.
+2. Make the change, one concern per commit, following the conventions above.
+3. Verify before pushing: `npm run lint`, `npm test`, `npm run build`, `npm run e2e`. Look at the JPEGs in `apps/web/e2e/screenshots/` for anything visual; you can read them as images.
+4. If the change touches the map, drawer, filters or What's New, add or update a test in `apps/web/e2e/smoke.spec.js`:
+   - Select by role or `data-testid`, never by canvas pins.
+   - Data comes from `apps/web/e2e/support/fixtures.js` (Supabase is mocked). A new Supabase call needs a fixture entry, or the load test fails on purpose.
+5. Push the branch and open a PR against `main`:
+   - In a cloud session, use the built-in GitHub tools. `gh pr ...` is blocked there (GraphQL), but the REST API works: `gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/pulls -f title=... -f head=<branch> -f base=main -f body=...`.
+   - Locally, `gh pr create` if `gh` is installed; otherwise push and give the owner `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
+6. The PR description says, in plain words: what changed and why; what you verified (commands and results); what you could not verify; anything the owner must do (SQL to run in Supabase, Netlify or GitHub settings, secrets).
+7. On the PR, `ci.yml` runs lint, tests and the build, and `e2e.yml` runs Playwright against the Netlify deploy preview (or a build inside the job when there is no preview). `e2e.yml` keeps one comment updated with the result and every screenshot inline, phone and desktop; the images live on the `e2e-screenshots` branch (one commit, cleaned up when the PR closes). Netlify posts the preview link.
+8. Wait for those checks (`gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/actions/runs?branch=<branch>`), then tell the owner in the chat: pass or fail, the PR link, and anything in the screenshots worth a look. If a check fails, fix it on the same branch.
+9. The owner reviews and merges; merging to `main` deploys production. In this loop, don't push to `main` or merge your own PR. For database changes, add a migration in `supabase/migrations/` and tell the owner to run it; don't assume it has been run.
+
+### Cloud sessions
+
+- `.claude/hooks/cloud-setup.mjs` runs at session start (a SessionStart hook in `.claude/settings.json`): it runs `npm ci` when `package-lock.json` changed, and says whether the map basemap is reachable. It does nothing locally.
+- Playwright uses the preinstalled Chrome (`CHROME_PATH`) in the cloud, and the e2e build gets placeholder Supabase values, so no `.env` is needed.
+- The cloud environment's network access must allow `*.cartocdn.com` (the basemap), or the e2e load test fails. If the setup hook reports it unreachable, tell the owner; the PR's e2e workflow still runs the tests.
+- There is no `.env` and no database password in the cloud. Anything that needs the real Supabase project (pipeline scripts, SQL) is for the owner to run.
 
 ## Things that will bite you (learned the hard way)
 
@@ -77,25 +108,22 @@ ETL: `cd etl && npm test`. Needs Node 20.19+. Env vars (see `.env.example`): `VI
 - No contributor scaffolding (see above). Keep `docs/ARCHITECTURE.md` and `docs/SMOKE_TEST.md`.
 - Header label is "Saved" (alternatives considered: Watch, Account, My Places, Watchlist, Alerts).
 - Swipe-to-close on the phone drawer is on; the owner may turn it off.
-- Prettier: expect about 35% of lines to change. Recommended: format JS/JSX/JSON only (add `*.css` to `InspectionWebsite/.prettierignore`, because Prettier would explode compact one-line CSS rules).
+- Prettier: done for the whole repo in one commit, CSS and Markdown included (the earlier recommendation to skip CSS was not followed).
 
-## State at time of writing (verify with git)
+## State (verify with git)
 
-Applied and committed: lint cleanup, same-place extraction, scoring/categories/dates/dedupe/geocode extraction, shared `useMediaQuery`, phone bottom sheet and layering, outside-click fix for What's New, scaled pan limits, Vitest and CI.
-
-Delivered as "round 9" and possibly not yet applied: component CSS moved out of JS strings into `src/styles/`, four hook-warning fixes (lint went 9 -> 4 warnings), unused `CAT_COLORS` removed, `DATE_FILTER_OPTS` and geo-cache constants moved to `lib/constants.js`, a real root `README.md`, a coverage block in `vite.config.js`, and `Map.jsx` importing `./styles/Map.css`. **That last import needs `Map.css`, `Header.css` and `TableView.css` moved into `src/styles/` with `git mv` first** (Map.css `@import`s the other two by relative path, so move all three together).
+Applied and committed: lint cleanup, same-place extraction, scoring/categories/dates/dedupe/geocode extraction, shared `useMediaQuery`, phone bottom sheet and layering, outside-click fix for What's New, scaled pan limits, Vitest and CI, "round 9" (component CSS in `src/styles/`, constants in `lib/constants.js`, root README), refactor phases 0 and 1 (schema baseline in `supabase/migrations/`, workspace layout, Prettier), the feedback RLS fix and the nightly-backup fix.
 
 ## To do, in rough order
 
-1. Finish applying round 9 (see above), then run lint, test, build, and the smoke test.
-2. `git rm docs/good-first-issues.md`. Delete `src/App.css`, `src/assets/react.svg`, `public/vite.svg` only if `git grep -n "App.css\|react.svg\|vite.svg" InspectionWebsite` shows no real uses.
-3. Add a `LICENSE` file (MIT; README already says MIT) and `npm pkg set license=MIT` in `InspectionWebsite/`. Replace the two `<your-github-username>` placeholders in `README.md` (CI badge). Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
-4. Prettier pass as its own commit; record the commit hash in `.git-blame-ignore-revs`; then add `npm run format:check` to `ci.yml`.
-5. Coverage: `npm i -D @vitest/coverage-v8@5.1.0` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
-6. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
-7. Split Map.jsx into hooks, one small PR at a time: useFeatureData, useMapInstance, usePopups, useMapFilters, useDrawer (with a single `openEstablishment`), usePanels. Then an `api/` layer for the ~20 direct Supabase calls.
-8. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (the feature does not exist; check with `git grep -n -i "unsubscribe anytime\|placard alerts" InspectionWebsite/src`), and the dead unsubscribe-link handler in `AuthContext.jsx`.
-9. Later: consolidate the three backend `package.json` files (root, `etl/`, `scripts/`), consider TypeScript after the split.
+1. `git rm docs/good-first-issues.md`. Delete `apps/web/src/styles/App.css`, `apps/web/src/assets/react.svg`, `apps/web/public/vite.svg` only if `git grep -n "App.css\|react.svg\|vite.svg" apps/web` shows no real uses.
+2. Add a `LICENSE` file (MIT; README already says MIT). Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
+3. Add `npm run format:check` to `ci.yml`.
+4. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
+5. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
+6. Refactor phases 2 to 7 in `docs/REFACTOR_PLAN.md` (shared `packages/core`, pipeline restructure, `api/` layer, Map.jsx split into hooks one small PR at a time).
+7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (the feature does not exist; check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`), and the dead unsubscribe-link handler in `AuthContext.jsx` (`unsubscribe_by_token` does not exist in the database).
+8. Later: consider TypeScript after the split.
 
 ## Working with the owner
 
