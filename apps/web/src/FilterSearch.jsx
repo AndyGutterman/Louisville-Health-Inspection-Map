@@ -145,12 +145,10 @@ export default function FilterSearch({
   setShowGreenPins,
   showMissing,
   setShowMissing,
-  setFiltersOpen,
   catToggles,
   setCatToggles,
   CATEGORY_SPECS,
   buildInitialCatToggles,
-  onAdjustClick,
   adjustContent,
   dateFilterKey,
   setDateFilterKey,
@@ -183,10 +181,6 @@ export default function FilterSearch({
       root.style.removeProperty("--filter-bottom");
     };
   }, []);
-
-  React.useEffect(() => {
-    setFiltersOpen(tab === "filter");
-  }, [tab, setFiltersOpen]);
 
   const allOn = React.useMemo(
     () => Object.keys(CATEGORY_SPECS).every((k) => catToggles[k]?.enabled),
@@ -469,14 +463,7 @@ export default function FilterSearch({
             </div>
 
             <div className="filters">
-              <Tabs.Root
-                className="rx-tabs"
-                value={tab}
-                onValueChange={(v) => {
-                  setTab(v);
-                  if (v === "adjust") onAdjustClick?.();
-                }}
-              >
+              <Tabs.Root className="rx-tabs" value={tab} onValueChange={setTab}>
                 <Tabs.List className="rx-tabs-list" aria-label="Adjust or Filter">
                   <Tabs.Trigger className="rx-tab" value="adjust">
                     Adjust

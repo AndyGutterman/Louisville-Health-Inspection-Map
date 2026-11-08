@@ -145,7 +145,6 @@ export default function Map(props) {
   const [showRedPins, setShowRedPins] = useState(true);
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
-  const [, setFiltersOpen] = useState(false);
   const [catToggles, setCatToggles] = useState(buildInitialCatToggles());
 
   const [tableOpen, setTableOpen] = useState(false);
@@ -1976,12 +1975,10 @@ export default function Map(props) {
             setShowGreenPins={setShowGreenPins}
             showMissing={showMissing}
             setShowMissing={setShowMissing}
-            setFiltersOpen={setFiltersOpen}
             catToggles={catToggles}
             setCatToggles={setCatToggles}
             CATEGORY_SPECS={CATEGORY_SPECS}
             buildInitialCatToggles={buildInitialCatToggles}
-            onAdjustClick={() => {}}
             adjustContent={
               <ScoreThresholdInline
                 pins={pins}
