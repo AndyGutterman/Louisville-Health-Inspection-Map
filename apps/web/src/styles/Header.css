@@ -21,7 +21,9 @@
   align-items: center;
   justify-content: center;
   padding: 0 16px;
-  background: rgba(16, 16, 20, 0.92);
+  /* Solid: a translucent header shows whatever is behind it (a white page). The menus
+     and drawers use this same gray. */
+  background: rgb(35, 35, 38);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   height: auto;

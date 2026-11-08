@@ -658,7 +658,7 @@ export default function InfoDrawer({
       onPointerDown={onBringToFront}
       style={{
         ...outerStyle,
-        background: "rgba(18,18,22,0.97)",
+        background: "rgba(35,35,38,0.97)",
         backdropFilter: "blur(8px)",
         color: "#fff",
         zIndex: zIndex ?? 3000,
