@@ -97,6 +97,7 @@ export function useDrawer(getFeature) {
       // 3. "More info" details and the full address.
       const { data: fac, error: facErr } = await fetchFacilityDetails(eid);
       if (facErr) console.error("v_facility_details fetch error", facErr);
+      if (seq !== loadSeq.current) return; // another place was opened meanwhile
       const fullAddress = joinAddress({
         address: fac?.address || p.address,
         city: fac?.city,

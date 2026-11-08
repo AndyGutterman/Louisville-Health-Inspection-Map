@@ -74,3 +74,29 @@ test("What's New hover shows a popup and leaving hides it", async ({ page }, tes
   await page.mouse.move(640, 790);
   await expect(popup(page)).toHaveCount(0);
 });
+
+test("opening a second place before the first finishes loading shows the second", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "phone", "On phones the drawer covers the What's New rows.");
+
+  await openApp(page);
+  // Make the first place's "More info" details arrive late.
+  await page.route(/v_facility_details/, async (route) => {
+    if (route.request().url().includes(`eq.${PINNED_EID}`)) await page.waitForTimeout(1500);
+    await route.fallback();
+  });
+
+  await openWhatsNew(page);
+  await whatsNewRow(page, PINNED_EID).click();
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toBeVisible();
+
+  const second = byEid("100001");
+  await whatsNewRow(page, second.eid).click();
+  await expect(drawer.getByText(second.name, { exact: true })).toBeVisible();
+
+  await page.waitForTimeout(2000); // the first place's details arrive now
+  await expect(drawer.getByText(second.name, { exact: true })).toBeVisible();
+  await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toHaveCount(0);
+});
