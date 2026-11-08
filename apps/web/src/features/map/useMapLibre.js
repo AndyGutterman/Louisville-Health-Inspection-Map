@@ -1,0 +1,300 @@
+// Creates the MapLibre map once the pins have loaded, and owns what happens on it:
+// the pin layers and their filters, hovering and clicking pins, closing the drawer on a
+// click outside it, and nudging the map when the pointer rests at a screen edge.
+import { useEffect, useMemo, useRef, useState } from "react";
+import maplibregl from "maplibre-gl"; // its CSS is imported in Map.jsx, before Map.css
+import { PIN_COLORS } from "../../Colors.jsx";
+import { EDGE_ZONE, MIN_ZOOM } from "../../lib/constants.js";
+import { METRO_BOUNDS, looseBounds } from "../../lib/mapBounds.js";
+import { coordKey, worstFirst } from "../../lib/dedupe.js";
+import { useLatest } from "../../hooks/useLatest.js";
+import { PIN_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
+import { createPopups } from "./popups.jsx";
+
+const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+
+// Panels that work beside the drawer: a click inside one doesn't close it. Any new
+// floating panel or toggle must be added here.
+const KEEP_DRAWER_OPEN =
+  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn";
+// What's New also keeps the drawer open when a press only starts inside it (a resize).
+const WHATS_NEW = ".wn-panel, .wn-trigger";
+// The pointer resting near these doesn't auto-pan the map.
+const NO_EDGE_PAN = [".control-card", ".app-header", ".info-drawer", ".table-panel", ".wb2"];
+
+const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
+
+/**
+ * @param {object} o
+ * @param {React.RefObject} o.containerRef  the element the map renders into
+ * @param {object|null} o.geoData            pins to draw (useMapFeatures); the map waits for it
+ * @param {Function} o.getFeature            establishment id -> feature
+ * @param {React.RefObject<Map>} o.coordIndex  location key -> features at that spot
+ * @param {object} o.filters                 filter panel state (lib/mapFilters.js)
+ * @param {Set<string>} o.savedIds           saved places, for the popups' save buttons
+ * @param {boolean} o.drawerOpen
+ * @param {string} o.searchTerm
+ * @param {Function} o.onToggleSaved         (eid) save or unsave
+ * @param {Function} o.onOpenDrawer          (eid, props) open the info drawer
+ * @param {Function} o.onBackgroundClick     a click on empty map or outside the panels
+ * @param {Function} o.onReady               the map has loaded (dismisses the splash)
+ */
+export function useMapLibre(o) {
+  const { containerRef, geoData, getFeature, coordIndex, filters, savedIds } = o;
+  const mapRef = useRef(null);
+  const pinnedSlot = useRef(null); // the pinned popup, shared with the watch-area editor
+  const popupsRef = useRef(null);
+  const [mapReady, setMapReady] = useState(false);
+  const latest = useLatest(o);
+
+  useEffect(() => {
+    if (!geoData || mapRef.current) return;
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: BASEMAP,
+      center: [-85.75, 38.25],
+      zoom: MIN_ZOOM,
+      // Room to pan pins out from under the drawer and side panels (lib/mapBounds.js).
+      maxBounds: looseBounds(METRO_BOUNDS, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        zoom: MIN_ZOOM,
+      }),
+    });
+    mapRef.current = map;
+    let dragging = false;
+    let pressOnPin = false; // a press on a pin is the map's click, not an "outside" click
+    let lastDownTarget = null;
+
+    // The popup pointer takes the colour of the pin's score band.
+    const colorForScore = (score) => {
+      const [redMax, yellowMax] = latest.current.filters.pins;
+      if (score == null) return PIN_COLORS.null;
+      if (score === 0) return PIN_COLORS.zero;
+      if (score <= redMax) return PIN_COLORS.red;
+      if (score <= yellowMax) return PIN_COLORS.yellow;
+      return PIN_COLORS.green;
+    };
+
+    const popups = createPopups({
+      map,
+      pinnedSlot,
+      isSaved: (eid) => latest.current.savedIds.has(eid),
+      onToggleSaved: (eid) => latest.current.onToggleSaved(eid),
+      onOpenDrawer: (eid, props) => latest.current.onOpenDrawer(eid, props),
+      colorForScore,
+    });
+    popupsRef.current = popups;
+
+    const closeEverything = () => {
+      popups.clearAll();
+      latest.current.onBackgroundClick();
+    };
+
+    // ── Which pin a pointer means ────────────────────────────────────────────────
+    // Red pins and places with a critical violation beat yellow, which beats green, so a
+    // bad result is never hidden behind a good one beside it.
+    const priority = (f) => {
+      if (f.properties?.has_critical_violation || f.layer?.id === "points-red") return 10;
+      return f.layer?.id === "points-yellow" ? 5 : 0;
+    };
+    const screenDistance = (point, f) => {
+      const p = map.project(f.geometry.coordinates);
+      return Math.hypot(p.x - point.x, p.y - point.y);
+    };
+    // The pin under the pointer, and every pin drawn at the same screen spot.
+    const pinsAt = (point) => {
+      const hits = map.queryRenderedFeatures(
+        [
+          [point.x - 12, point.y - 12],
+          [point.x + 12, point.y + 12],
+        ],
+        { layers: PIN_LAYERS },
+      );
+      if (!hits.length) return { feature: null, group: [] };
+      let feature = hits[0];
+      for (const f of hits) {
+        if (
+          screenDistance(point, f) - priority(f) <
+          screenDistance(point, feature) - priority(feature)
+        ) {
+          feature = f;
+        }
+      }
+      const at = map.project(feature.geometry.coordinates);
+      const group = hits.filter((h) => screenDistance(at, h) < 0.9);
+      return { feature, group };
+    };
+    // Every place at a feature's location. Uses the stored feature's coordinates: rendered
+    // features can differ in the last decimal places and miss the index.
+    const placesAt = (f) =>
+      coordIndex.current.get(
+        coordKey((getFeature(f.properties.establishment_id) ?? f).geometry.coordinates),
+      );
+    // In a "1 of 3" popup, start on the place matching the search, if any.
+    const startIndex = (features) => {
+      const term = latest.current.searchTerm.trim().toLowerCase();
+      if (!term) return 0;
+      const i = features.findIndex(({ properties: p }) =>
+        `${p.name || ""} ${p.address_full || p.address || ""}`.toLowerCase().includes(term),
+      );
+      return Math.max(i, 0);
+    };
+
+    // ── Pin events ───────────────────────────────────────────────────────────────
+    const onPinClick = (e) => {
+      popups.closeWatchEditor();
+      popups.hideHover();
+      const { feature, group } = pinsAt(e.point);
+      if (!feature) return;
+
+      // Several places at exactly this spot (lib/dedupe.js draws one pin for them).
+      const sameSpot = placesAt(feature) || [];
+      if (sameSpot.length > 1) {
+        const sorted = sameSpot.slice().sort(worstFirst);
+        popups.showGroup(sorted, startIndex(sorted));
+        return;
+      }
+      // Different spots under one screen point: gather everything at each of them.
+      if (group.length > 1) {
+        const byEid = new Map();
+        for (const g of group) {
+          for (const f of placesAt(g) || [g]) {
+            const eid = f.properties?.establishment_id;
+            if (eid && !byEid.has(eid)) byEid.set(eid, f);
+          }
+        }
+        const sorted = (byEid.size ? [...byEid.values()] : group).slice().sort(worstFirst);
+        popups.showGroup(sorted, startIndex(sorted));
+        return;
+      }
+
+      popups.showPinned(feature);
+      // With the drawer already open, a click on another pin switches it (desktop only;
+      // on touch screens the popup is tapped to open the drawer).
+      if (latest.current.drawerOpen && isHoverDevice()) {
+        latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
+      }
+    };
+
+    map.on("load", () => {
+      addPinLayers(map, geoData, latest.current.filters.pins);
+      setMapReady(true);
+
+      for (const id of PIN_LAYERS) {
+        map.on("mousemove", id, (e) => {
+          const { feature, group } = pinsAt(e.point);
+          if (feature) popups.pointerOver(feature, group.length || 1);
+        });
+        map.on("mouseleave", id, () => popups.hideHover());
+        map.on("mousedown", id, () => (pressOnPin = true));
+        map.on("click", id, onPinClick);
+        map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
+      }
+      map.on("dragstart", () => (dragging = true));
+      map.on("dragend", () => (dragging = false));
+
+      // A click on empty map closes the drawer and the popups.
+      map.on("click", (e) => {
+        const onPin = map.queryRenderedFeatures(e.point, { layers: PIN_LAYERS }).length;
+        if (!onPin && !popups.contains(e.originalEvent.target)) closeEverything();
+      });
+
+      document.addEventListener("pointerdown", rememberPress, true);
+      document.addEventListener("click", closeOnOutsideClick, true);
+
+      applyFilters(map, latest.current.filters);
+      latest.current.onReady?.();
+    });
+
+    // So a press that starts in What's New and ends elsewhere (a resize) doesn't count.
+    function rememberPress(ev) {
+      lastDownTarget = ev.target;
+    }
+
+    // A click anywhere outside the drawer and the panels that work beside it closes it.
+    function closeOnOutsideClick(ev) {
+      if (pressOnPin) {
+        pressOnPin = false;
+        return;
+      }
+      const downTarget = lastDownTarget;
+      lastDownTarget = null;
+      if (ev.target.closest?.(WHATS_NEW) || downTarget?.closest?.(WHATS_NEW)) return;
+      if (dragging) return;
+      if (popups.contains(ev.target)) return;
+      if (ev.target.closest?.(KEEP_DRAWER_OPEN)) return;
+      closeEverything();
+    }
+
+    return () => {
+      document.removeEventListener("pointerdown", rememberPress, true);
+      document.removeEventListener("click", closeOnOutsideClick, true);
+      popups.clearAll();
+      popupsRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [geoData, containerRef, getFeature, coordIndex, latest]);
+
+  // Re-apply the filters whenever the filter panel changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (pinLayersReady(map)) applyFilters(map, filters);
+    else map.once("idle", () => pinLayersReady(map) && applyFilters(map, filters));
+  }, [filters]);
+
+  // Keep open popups' save buttons in step with the saved list (saving from the drawer,
+  // for example).
+  useEffect(() => {
+    popupsRef.current?.syncSaveButtons();
+  }, [savedIds]);
+
+  useEdgePan(mapRef);
+
+  // For panels outside the map: open or hover a place's popup, move the map.
+  const api = useMemo(
+    () => ({
+      openPopup: (feature) => popupsRef.current?.openFor(feature),
+      hoverPopup: (feature) => popupsRef.current?.hoverFor(feature),
+      endHover: () => popupsRef.current?.hideHover(),
+      showRowPopup: (feature) => popupsRef.current?.showRow(feature),
+      easeTo: (options) => mapRef.current?.easeTo(options),
+    }),
+    [],
+  );
+
+  return { mapRef, mapReady, pinnedSlot, ...api };
+}
+
+// The pointer resting at a screen edge pans the map a step, once per visit to the edge,
+// unless it's over a panel.
+function useEdgePan(mapRef) {
+  useEffect(() => {
+    let atEdge = false;
+    const overPanel = (x, y) =>
+      NO_EDGE_PAN.some((sel) => {
+        const r = document.querySelector(sel)?.getBoundingClientRect();
+        return r && x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
+      });
+    const onMove = (e) => {
+      const dx = e.clientX <= EDGE_ZONE ? -1 : e.clientX >= window.innerWidth - EDGE_ZONE ? 1 : 0;
+      const dy = e.clientY <= EDGE_ZONE ? -1 : e.clientY >= window.innerHeight - EDGE_ZONE ? 1 : 0;
+      const active =
+        (dx || dy) && mapRef.current && e.buttons === 0 && !overPanel(e.clientX, e.clientY);
+      if (active && !atEdge) mapRef.current.panBy([dx * 60, dy * 60], { duration: 240 });
+      atEdge = !!active;
+    };
+    const reset = () => (atEdge = false);
+    document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("mouseleave", reset);
+    window.addEventListener("blur", reset);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", reset);
+      window.removeEventListener("blur", reset);
+    };
+  }, [mapRef]);
+}

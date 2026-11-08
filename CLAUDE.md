@@ -21,7 +21,11 @@ apps/web/                 React app (was InspectionWebsite/)
   src/lib/                PURE logic, no React, no map instance. Each file has a *.test.js beside it.
   src/hooks/              shared hooks (useMediaQuery)
   src/styles/             component stylesheets
-  src/*.jsx               components. Map.jsx is the app shell and the map (~1,900 lines, being split up)
+  src/Map.jsx             the app shell (~400 lines): which panels are open, and the layout
+  src/features/map/       the map: useMapLibre (map, pin clicks, outside-click), popups, mapLayers,
+                          useMapFeatures (pins), useDrawer (drawer data), useWatchlist, AppHeader
+  src/api/                Supabase calls behind the map and drawer (other panels still call it directly)
+  src/*.jsx               the other components (InfoDrawer, TableView, WhatsNew, FilterSearch, ...)
 pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
 supabase/                 migrations (full schema baseline + later changes) and functions/submit-feedback
 docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist), REFACTOR_PLAN.md
@@ -35,7 +39,7 @@ docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (man
 ```
 npm ci
 npm run dev
-npm run lint        # 0 errors expected; 4 known warnings (see below)
+npm run lint        # 0 errors expected; 2 known warnings (see below)
 npm test            # website (vitest, 113 tests in 10 files) and pipeline (node --test, 54 tests)
 npm run build
 npm run format      # Prettier
@@ -81,10 +85,10 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## Things that will bite you (learned the hard way)
 
-- **Click-outside handler:** Map.jsx has a document-level capture `outsideClose` that closes the info drawer on any click outside an exempt list (control card, drawer, account panel, table panel, `.wn-panel`, `.wn-trigger`, a few buttons). Any new floating panel or toggle must be added to that list or it will close the drawer.
+- **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list (control card, drawer, account panel, table panel, What's New, a few buttons). Any new floating panel or toggle must be added to that list or it will close the drawer.
 - **Global CSS leaks into inline-styled elements.** `index.css` has a global `button` rule (padding, background). Inline-styled buttons must set `padding: 0` and sizing explicitly. A selector like `.info-drawer [style]` once forced padding onto every inline-styled element in the drawer and broke the bookmark button; never use broad `[style]` selectors.
 - **`!important` beats inline styles.** Check CSS files before debugging layout in JSX.
-- **Do not add `applyFilter` / `applyFilterWhenReady` to hook dependency arrays** in Map.jsx. They are recreated each render and would rebuild the map. The 4 remaining lint warnings (2 in Map.jsx, 2 in TableView.jsx: `onResize`, `selCats`) need a real restructure (the Map split), not a dependency tweak.
+- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The 2 remaining lint warnings are in TableView.jsx (`onResize`, `selCats`) and need a TableView restructure, not a dependency tweak.
 - **Same-place detection:** `lib/samePlaceDetection.js` tags both features with each other's info; it never hides or merges pins. The sub-tenant regex must use `\bat\b` style word boundaries (it once contained raw backspace characters, and an older copy matched any name containing "at"). Tests pin this.
 - Shell caveat: in the sandbox `sh` was used, so brace expansion and `<( )` fail; prefer explicit paths.
 
@@ -112,7 +116,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## State (verify with git)
 
-Applied and committed: lint cleanup, same-place extraction, scoring/categories/dates/dedupe/geocode extraction, shared `useMediaQuery`, phone bottom sheet and layering, outside-click fix for What's New, scaled pan limits, Vitest and CI, "round 9" (component CSS in `src/styles/`, constants in `lib/constants.js`, root README), refactor phases 0 and 1 (schema baseline in `supabase/migrations/`, workspace layout, Prettier), the feedback RLS fix and the nightly-backup fix.
+Applied and committed: lint cleanup, same-place extraction, scoring/categories/dates/dedupe/geocode extraction, shared `useMediaQuery`, phone bottom sheet and layering, outside-click fix for What's New, scaled pan limits, Vitest and CI, "round 9" (component CSS in `src/styles/`, constants in `lib/constants.js`, root README), refactor phases 0 and 1 (schema baseline in `supabase/migrations/`, workspace layout, Prettier), the feedback RLS fix, the nightly-backup fix, the phone PR workflow with Playwright, and the Map.jsx split into `features/map/` (2026-11-08).
 
 ## To do, in rough order
 
@@ -121,7 +125,7 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 3. Add `npm run format:check` to `ci.yml`.
 4. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
 5. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
-6. Refactor phases 2 to 7 in `docs/REFACTOR_PLAN.md` (shared `packages/core`, pipeline restructure, `api/` layer, Map.jsx split into hooks one small PR at a time).
+6. Refactor phases 2 to 4 and 6 to 7 in `docs/REFACTOR_PLAN.md` (shared `packages/core`, pipeline restructure, `api/` for the other panels). The Map.jsx split (phase 5) is done.
 7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (the feature does not exist; check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`), and the dead unsubscribe-link handler in `AuthContext.jsx` (`unsubscribe_by_token` does not exist in the database).
 8. Later: consider TypeScript after the split.
 
