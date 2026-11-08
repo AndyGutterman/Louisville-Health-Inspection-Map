@@ -84,7 +84,10 @@ The pipeline scripts use a Supabase service-role key (in `pipeline/.env` locally
 
 ```
 apps/web/            the website (React app)
-  src/lib/           pure logic (scoring, categories, duplicate detection, bottom-sheet rules...), each with tests
+  src/Map.jsx        the app shell: which panels are open, and the layout
+  src/features/map/  the map, its popups and the data behind it (hooks)
+  src/api/           Supabase calls
+  src/lib/           pure logic (scoring, categories, filters, duplicate detection, bottom-sheet rules...), each with tests
   src/hooks/         shared React hooks
   src/styles/        component stylesheets
 pipeline/            data pipeline, maintenance jobs (accuracy check, archiving) and their tests
