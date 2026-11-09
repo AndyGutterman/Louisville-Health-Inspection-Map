@@ -107,6 +107,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Auth:** Supabase email one-time **6-digit code** (not the magic link). `AuthContext.jsx` exposes the single client from `lib/supabase.js`. For local magic links to work, `http://localhost:5173/**` must be in Supabase Redirect URLs; the code flow avoids that.
 - **Feedback:** `FeedbackModal.jsx` posts to the `submit-feedback` edge function (IP rate limit, honeypot, cooldown).
 - **Date filter and map cache constants:** `lib/constants.js`.
+- **Bullitt County (branch `feat/bullitt-county`, not merged):** read `docs/BULLITT.md` first. Separate `bullitt_*` tables, `pipeline/regions/bullitt/`, a County picker in the filter card; per-county capabilities in `lib/regions.js` (`has`). Bullitt ids start with `bullitt-` (`lib/bullitt.js`).
 
 ## Decisions already made
 
