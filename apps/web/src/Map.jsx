@@ -22,6 +22,9 @@ import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { DATE_FILTER_OPTS } from "./lib/constants.js";
 import { PRESETS } from "./lib/scoring.js";
 import { CATEGORY_SPECS, buildInitialCatToggles } from "./lib/categories.js";
+import { DEFAULT_REGION, enabledRegions, regionById } from "./lib/regions.js";
+import { BULLITT, isBullittId } from "./lib/bullitt.js";
+import CountyPicker from "./features/map/CountyPicker.jsx";
 import AppHeader from "./features/map/AppHeader.jsx";
 import { useMapFeatures } from "./features/map/useMapFeatures.js";
 import { useDrawer } from "./features/map/useDrawer.js";
@@ -44,6 +47,10 @@ export default function Map({ onMapReady }) {
   const containerRef = useRef(null);
 
   // ── Filter panel ─────────────────────────────────────────────────────────────
+  // One county's pins at a time: their data differ (lib/regions.js), so filters that a
+  // county's data can't support (categories, dates) are left out for it.
+  const [county, setCounty] = useState(DEFAULT_REGION);
+  const region = regionById(county);
   const [searchTerm, setSearchTerm] = useState("");
   const [pins, setPins] = useState(PRESETS.balanced); // red/yellow score cut-offs
   const [preset, setPreset] = useState("balanced");
@@ -63,11 +70,14 @@ export default function Map({ onMapReady }) {
         green: showGreenPins,
         missing: showMissing,
       },
-      catToggles,
+      catToggles: region.has.categories ? catToggles : null,
       searchTerm,
-      cutoffDate,
+      cutoffDate: region.has.dates ? cutoffDate : null,
+      region: county,
     }),
     [
+      county,
+      region,
       pins,
       showRedPins,
       showYellowPins,
@@ -158,12 +168,35 @@ export default function Map({ onMapReady }) {
   });
 
   // ── Opening places from the panels ───────────────────────────────────────────
-  const { open: openDrawer } = drawer;
+  const { open: openDrawerRaw } = drawer;
   const { openPopup, hoverPopup, endHover, showRowPopup, easeTo } = map;
+
+  // A place opened from a panel switches the map to its county's pins.
+  const openDrawer = React.useCallback(
+    (eid, props) => {
+      setCounty(isBullittId(eid) ? BULLITT : DEFAULT_REGION);
+      openDrawerRaw(eid, props);
+    },
+    [openDrawerRaw],
+  );
 
   const closeDrawer = () => {
     drawer.close();
     setMobileTop("account"); // with the drawer gone, an open account page is on top again
+  };
+
+  // Picking a county closes what belongs to the other one and frames the new one.
+  const pickCounty = (id) => {
+    if (id === county) return;
+    setCounty(id);
+    closeDrawer();
+    map.closePopups();
+    map.fitBounds(regionById(id).bounds, {
+      padding: isMobile
+        ? { top: 150, bottom: 90, left: 16, right: 16 }
+        : { top: 90, bottom: 60, left: 60, right: 60 },
+      duration: 700,
+    });
   };
 
   // Hovering a What's New or Table View row shows the place's popup, without moving the map.
@@ -309,7 +342,10 @@ export default function Map({ onMapReady }) {
           watchlisted={
             !!drawer.selected && watchlist.savedIds.has(drawer.selected.establishment_id)
           }
-          onSaveToWatchlist={watchlist.toggleSaved}
+          // Saved places only cover Louisville's tables so far (lib/regions.js).
+          onSaveToWatchlist={
+            isBullittId(drawer.selected?.establishment_id) ? undefined : watchlist.toggleSaved
+          }
         />
       )}
 
@@ -339,6 +375,10 @@ export default function Map({ onMapReady }) {
             dateFilterKey={dateFilterKey}
             setDateFilterKey={setDateFilterKey}
             dateFilterOpts={DATE_FILTER_OPTS}
+            region={region}
+            countyPicker={
+              <CountyPicker regions={enabledRegions()} value={county} onChange={pickCounty} />
+            }
           />
 
           {!tableOpen && (

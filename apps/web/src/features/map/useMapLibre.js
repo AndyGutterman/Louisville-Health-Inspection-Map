@@ -255,6 +255,8 @@ export function useMapLibre(o) {
       endHover: () => popupsRef.current?.hideHover(),
       showRowPopup: (feature) => popupsRef.current?.showRow(feature),
       easeTo: (options) => mapRef.current?.easeTo(options),
+      fitBounds: (bounds, options) => mapRef.current?.fitBounds(bounds, options),
+      closePopups: () => popupsRef.current?.clearAll(),
     }),
     [],
   );

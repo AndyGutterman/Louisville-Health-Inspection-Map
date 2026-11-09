@@ -200,3 +200,31 @@ test("draws the county outline and credits its source", async ({ page }) => {
   // MapLibre adds a source's credit to the attribution control once the source is in use.
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Who's On First");
 });
+
+test("the county picker switches to Bullitt County and its filters", async ({ page }, testInfo) => {
+  const outline = page.waitForResponse((r) => r.url().endsWith("/regions/bullitt.geojson"));
+  const { consoleErrors, unmocked } = await openApp(page);
+  expect((await outline).status()).toBe(200);
+
+  const jefferson = page.getByRole("radio", { name: "Jefferson" });
+  const bullitt = page.getByRole("radio", { name: "Bullitt" });
+  const dateFilter = page.getByLabel("Filter pins by inspection date");
+  await expect(jefferson).toHaveAttribute("aria-checked", "true");
+  await expect(dateFilter).toBeVisible();
+
+  // Bullitt's data has no inspection dates and no facility types.
+  await bullitt.click();
+  await expect(bullitt).toHaveAttribute("aria-checked", "true");
+  await expect(dateFilter).toHaveCount(0);
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
+  await expect(page.getByTestId("category-tile")).toHaveCount(0);
+  await snap(page, testInfo, "09-bullitt-filters");
+
+  await jefferson.click();
+  await expect(page.getByTestId("category-tile")).toHaveCount(8);
+  await expect(dateFilter).toBeVisible();
+  expect(consoleErrors, "console errors").toEqual([]);
+  expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});

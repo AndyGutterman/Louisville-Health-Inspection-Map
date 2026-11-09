@@ -34,6 +34,7 @@ function CurrentInspectionCard({
     metaTitle,
     similarNearby,
     noLocation,
+    sourceNote,
   } = data;
   const gradeDisplay = grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum =
@@ -89,6 +90,11 @@ function CurrentInspectionCard({
                 }}
               >
                 No map location on file for this establishment.
+              </div>
+            )}
+            {sourceNote && (
+              <div className="inspect-source-note" data-testid="drawer-source-note">
+                {sourceNote}
               </div>
             )}
           </div>
@@ -311,7 +317,7 @@ function ViolationRow({ v }) {
 }
 
 function PastInspection({ row }) {
-  const date = formatDateSafe(row.inspection_date);
+  const date = row.date_label ?? formatDateSafe(row.inspection_date);
   const gradeDisplay =
     row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
 
@@ -759,6 +765,7 @@ export default function InfoDrawer({
             metaTitle: selected.metaTitle,
             similarNearby: selected.similarNearby,
             noLocation: selected.noLocation,
+            sourceNote: selected.sourceNote,
           }}
           details={facDetails}
           pins={pins}

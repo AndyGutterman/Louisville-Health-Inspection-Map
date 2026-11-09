@@ -5,6 +5,7 @@ import maplibregl from "maplibre-gl";
 import OverlapNav from "./OverlapNav.jsx";
 import { formatDateSafe } from "../../lib/dates.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
+import { regionById } from "../../lib/regions.js";
 
 const POPUP_OPTIONS = {
   anchor: "bottom",
@@ -25,6 +26,9 @@ const esc = (s) =>
 
 const scoreText = (p) => (p.score === 0 || p.score == null ? "N/A" : p.score);
 const gradeText = (p) => (p.grade ? ` (${esc(p.grade)})` : "");
+// Bullitt County has no inspection dates, and its places can't be saved yet (lib/regions.js).
+const dateText = (p) => p.date_text ?? formatDateSafe(p.date);
+const canSave = (p) => regionById(p.region).has.saving;
 
 function saveButtonHTML(eid, saved) {
   return `<button
@@ -56,10 +60,10 @@ export function popupHTML(p, { saved = false, overlapCount = 0 } = {}) {
   return `<div class="popup-content" style="font-size:14px;max-width:240px">
     <strong>${esc(p.name)}</strong><br/>
     <small>${esc(p.address_full || p.address)}</small><br/>
-    <small>Inspected: ${esc(formatDateSafe(p.date))}</small><br/>
+    <small>Inspected: ${esc(dateText(p))}</small><br/>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:1px">
       <span>Score: ${scoreText(p)}${gradeText(p)}</span>
-      ${saveButtonHTML(p.establishment_id, saved)}
+      ${canSave(p) ? saveButtonHTML(p.establishment_id, saved) : ""}
     </div>
     ${aliasNote}
     ${overlap}

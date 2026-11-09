@@ -4,6 +4,7 @@ import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
+import { DEFAULT_REGION } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
 export const HIDDEN = ["==", ["get", "score"], "__none__"];
@@ -66,19 +67,31 @@ export function categoryExpression(catToggles) {
   return ["boolean", false];
 }
 
+// Pins in one county (lib/regions.js). Pins without a region are Louisville's (older
+// cached data has no region property). null shows every county.
+export function regionExpression(regionId) {
+  if (!regionId) return null;
+  return ["==", ["coalesce", ["get", "region"], DEFAULT_REGION], regionId];
+}
+
 /**
  * Filter expression for every pin and ring layer, keyed by layer id.
  * @param {object} filters
  * @param {[number, number]} filters.pins  red and yellow cut-offs (lib/scoring.js)
  * @param {{red: boolean, yellow: boolean, green: boolean, missing: boolean}} filters.show
  *   which score bands are switched on ("missing" covers zero and no score)
- * @param {object} filters.catToggles  category filter state (lib/categories.js)
+ * @param {object|null} filters.catToggles  category filter state (lib/categories.js), or
+ *   null for a county without categories
  * @param {string} filters.searchTerm
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
+ * @param {string} [filters.region]  show only this county's pins
  */
-export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDate }) {
+export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDate, region }) {
   const bands = bandExprs(pins);
-  const shared = [categoryExpression(catToggles)];
+  const shared = [];
+  const inRegion = regionExpression(region);
+  if (inRegion) shared.push(inRegion);
+  if (catToggles) shared.push(categoryExpression(catToggles));
   const search = searchExpression(searchTerm);
   if (search) shared.push(search);
   const date = dateExpression(cutoffDate);

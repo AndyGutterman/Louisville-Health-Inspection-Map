@@ -4,6 +4,7 @@ import {
   buildLayerFilters,
   categoryExpression,
   dateExpression,
+  regionExpression,
   searchExpression,
 } from "./mapFilters.js";
 import { buildInitialCatToggles } from "./categories.js";
@@ -125,6 +126,33 @@ describe("buildLayerFilters", () => {
     });
     expect(f["points-violation-ring"]).not.toEqual(HIDDEN);
     expect(f["points-violation-ring"][1]).toEqual(["==", ["get", "has_any_violation"], true]);
+  });
+});
+
+describe("regionExpression", () => {
+  it("is null when no county is picked", () => expect(regionExpression(null)).toBeNull());
+
+  it("counts pins without a region as Jefferson County's", () => {
+    expect(regionExpression("bullitt")).toEqual([
+      "==",
+      ["coalesce", ["get", "region"], "jefferson"],
+      "bullitt",
+    ]);
+  });
+});
+
+describe("buildLayerFilters by county", () => {
+  it("shows only the picked county's pins and rings", () => {
+    const f = buildLayerFilters({ ...base, region: "bullitt" });
+    for (const id of ["points-green", "points-violation-ring"]) {
+      expect(f[id]).toContainEqual(regionExpression("bullitt"));
+    }
+  });
+
+  it("skips the category filter for a county without categories", () => {
+    const f = buildLayerFilters({ ...base, region: "bullitt", catToggles: null });
+    expect(f["points-red"]).not.toContainEqual(categoryExpression(base.catToggles));
+    expect(f["points-red"]).toHaveLength(3); // "all", the band, the county
   });
 });
 

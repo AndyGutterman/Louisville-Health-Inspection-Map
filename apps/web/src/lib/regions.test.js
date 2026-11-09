@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { REGIONS, enabledRegions, outlineLayers, outlineSourceId } from "./regions.js";
+import {
+  DEFAULT_REGION,
+  REGIONS,
+  enabledRegions,
+  outlineLayers,
+  outlineSourceId,
+  regionById,
+} from "./regions.js";
 
 const publicFile = (url) => fileURLToPath(new URL(`../../public${url}`, import.meta.url));
 
@@ -24,8 +31,28 @@ describe("REGIONS", () => {
     expect(region.attribution).toBeTruthy();
   });
 
-  it("covers Jefferson County today", () => {
-    expect(enabledRegions().map((r) => r.id)).toEqual(["jefferson"]);
+  it("covers Jefferson and Bullitt counties", () => {
+    expect(enabledRegions().map((r) => r.id)).toEqual(["jefferson", "bullitt"]);
+  });
+
+  // The map flies to `bounds` when a county is picked, so they must frame the outline.
+  it.each(REGIONS)("$id bounds frame its outline", (region) => {
+    const geo = JSON.parse(readFileSync(publicFile(region.boundaryUrl), "utf8"));
+    const points = geo.features.flatMap((f) => f.geometry.coordinates.flat(2));
+    const [[w, s], [e, n]] = region.bounds;
+    for (let i = 0; i < points.length; i += 2) {
+      const [lon, lat] = [points[i], points[i + 1]];
+      expect(lon).toBeGreaterThanOrEqual(w - 0.001);
+      expect(lon).toBeLessThanOrEqual(e + 0.001);
+      expect(lat).toBeGreaterThanOrEqual(s - 0.001);
+      expect(lat).toBeLessThanOrEqual(n + 0.001);
+    }
+  });
+
+  it.each(REGIONS)("$id says what its data can show", (region) => {
+    for (const key of ["categories", "dates", "grades", "saving"]) {
+      expect(typeof region.has[key]).toBe("boolean");
+    }
   });
 });
 
@@ -54,5 +81,12 @@ describe("outlineLayers", () => {
     const a = outlineLayers("a").map((l) => l.id);
     const b = outlineLayers("b").map((l) => l.id);
     expect(a.some((id) => b.includes(id))).toBe(false);
+  });
+});
+
+describe("regionById", () => {
+  it("finds a county, and falls back to the default one", () => {
+    expect(regionById("bullitt").id).toBe("bullitt");
+    expect(regionById("nowhere").id).toBe(DEFAULT_REGION);
   });
 });
