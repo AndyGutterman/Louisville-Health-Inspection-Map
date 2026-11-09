@@ -57,6 +57,22 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps();
 });
 
+test("the page itself never scrolls", async ({ page }) => {
+  await openApp(page);
+  // Phone browsers can make the page taller than the screen (100vh ignores the address
+  // bar). Playwright has no address bar, so force the page taller and try to scroll it.
+  await page.evaluate(() => {
+    const filler = document.createElement("div");
+    filler.style.height = "3000px";
+    document.body.appendChild(filler);
+  });
+  const header = await page.getByRole("banner").boundingBox();
+  await page.mouse.move(header.x + 8, header.y + 8);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("What's New and Table View buttons line up", async ({ page }) => {
   await openApp(page);
   const centerY = async (name) => {

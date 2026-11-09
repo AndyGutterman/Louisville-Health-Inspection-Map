@@ -23,12 +23,21 @@ a:hover {
   color: #535bf2;
 }
 
+/* The whole app lives on one screen; panels scroll inside themselves. Lock the page so
+   it can never scroll. (It used to: body had min-height: 100vh, and phone browsers
+   measure 100vh with the address bar hidden, so the page was a bar's height too tall.) */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
-  min-height: 100vh;
 }
 
 h1 {

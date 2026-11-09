@@ -935,7 +935,7 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 
   .filters,
   .rgb-toggles {
-    max-height: calc(100vh - 190px);
+    max-height: calc(100dvh - 190px);
     overflow: auto;
     padding: 8px 8px 10px;
   }
