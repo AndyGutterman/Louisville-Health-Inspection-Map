@@ -1,0 +1,36 @@
+# Daily Bullitt County load: the health department's public sheet -> Supabase, then
+# geocoding. Writes only the bullitt_* tables (supabase/migrations/20261110000000_bullitt_county.sql
+# must have been run). See docs/BULLITT.md.
+name: Ingest Bullitt County -> Supabase
+on:
+  workflow_dispatch: {}
+  schedule:
+    # The department says it updates weekly; daily is cheap (one CSV) and catches it soon.
+    - cron: "45 8 * * *"
+concurrency: bullitt-ingest
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # the first run geocodes ~250 places at 1 a second
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        working-directory: .
+        run: npm ci -w pipeline
+
+      - name: Test
+        run: npm test
+
+      - name: Load and geocode
+        run: node regions/bullitt/ingest.js
