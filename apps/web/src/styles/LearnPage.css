@@ -742,19 +742,6 @@
   align-items: flex-start;
 }
 
-/* Three violation kinds (Priority, Priority foundation, Core) */
-.ln-vthree {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 12px;
-}
-@media (max-width: 640px) {
-  .ln-vthree {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* The score table has only two columns; keep both on phones (the rule above hides the
    last column of the placard table). */
 @media (max-width: 480px) {

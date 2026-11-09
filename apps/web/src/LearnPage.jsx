@@ -1,3 +1,4 @@
+import { summarizeViolations } from "./lib/violationSummary.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import "./styles/LearnPage.css";
@@ -437,7 +438,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState("all"); // "all" | "crit" | "non"
   const [timeline, setTimeline] = useState("all"); // TIMELINE_OPTS key
   const [showAll, setShowAll] = useState(false);
 
@@ -512,41 +512,32 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           throw err;
         }
 
-        const mapped = (data || []).map((r) => ({
-          desc: r.violation_desc,
-          critical: (r.critical_yn ?? "").toLowerCase().startsWith("y"),
-          count: Number(r.cnt),
-        }));
-
-        setRows(mapped);
+        setRows(
+          summarizeViolations((data || []).map((r) => ({ desc: r.violation_desc, count: r.cnt }))),
+        );
         setError(null);
       } catch (e) {
         if (e.message === "MIGRATION_PENDING") {
           // Fallback: paginated direct query (pre-RPC behavior)
           try {
             const BATCH = 1000;
-            const acc = new Map();
+            const acc = [];
             let offset = 0;
             while (true) {
               let q = supabase
                 .from("inspection_violations")
-                .select("violation_desc, critical_yn")
+                .select("violation_desc")
                 .not("violation_desc", "is", null);
               if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
               q = q.range(offset, offset + BATCH - 1);
               const { data, error: qErr } = await q;
               if (qErr) throw qErr;
               if (!data || data.length === 0) break;
-              for (const r of data) {
-                const isCrit = (r.critical_yn ?? "").toLowerCase().startsWith("y");
-                const key = r.violation_desc + "||" + (isCrit ? "Y" : "N");
-                if (acc.has(key)) acc.get(key).count++;
-                else acc.set(key, { desc: r.violation_desc, critical: isCrit, count: 1 });
-              }
+              for (const r of data) acc.push({ desc: r.violation_desc, count: 1 });
               if (data.length < BATCH) break;
               offset += BATCH;
             }
-            setRows([...acc.values()].sort((a, b) => b.count - a.count));
+            setRows(summarizeViolations(acc));
             setError(null);
           } catch (fallbackErr) {
             setError(fallbackErr.message || "Failed to load violations");
@@ -574,17 +565,13 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
-        if (tab === "crit" && !r.critical) return false;
-        if (tab === "non" && r.critical) return false;
         if (searchRegex && !searchRegex.test(r.desc)) return false;
         return true;
       }),
-    [rows, searchRegex, tab],
+    [rows, searchRegex],
   );
 
   const visible = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
-  const critCount = rows.filter((r) => r.critical).length;
-  const nonCount = rows.filter((r) => !r.critical).length;
   const totalCitations = rows.reduce((s, r) => s + r.count, 0);
   const scopeNote = TIMELINE_OPTS.find((o) => o.key === timeline)?.note ?? "";
 
@@ -634,7 +621,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
             onClick={() => {
               setTimeline(opt.key);
               setSearch("");
-              setTab("all");
             }}
           >
             {opt.label}
@@ -658,12 +644,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
               <strong>{rows.length.toLocaleString()}</strong> distinct violation types
             </span>
             <span className="ln-vdb-stat">
-              <strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical
-            </span>
-            <span className="ln-vdb-stat">
-              <strong>{nonCount}</strong> non-critical
-            </span>
-            <span className="ln-vdb-stat">
               <strong>{totalCitations.toLocaleString()}</strong> total citations
               {timeline !== "all" && (
                 <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>
@@ -671,7 +651,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
             </span>
           </div>
 
-          {/* Search + severity tabs */}
+          {/* Search */}
           <div className="ln-vdb-header">
             <div className="ln-vdb-search-wrap">
               <svg className="ln-vdb-search-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -691,45 +671,15 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                 }}
               />
             </div>
-            <div className="ln-vdb-tabs">
-              <button
-                className={"ln-vdb-tab " + (tab === "all" ? "active-all" : "")}
-                onClick={() => {
-                  setTab("all");
-                  setShowAll(false);
-                }}
-              >
-                All
-              </button>
-              <button
-                className={"ln-vdb-tab " + (tab === "crit" ? "active-crit" : "")}
-                onClick={() => {
-                  setTab("crit");
-                  setShowAll(false);
-                }}
-              >
-                ⚠ Critical
-              </button>
-              <button
-                className={"ln-vdb-tab " + (tab === "non" ? "active-non" : "")}
-                onClick={() => {
-                  setTab("non");
-                  setShowAll(false);
-                }}
-              >
-                Non-critical
-              </button>
-            </div>
           </div>
 
           {/* List */}
           {filtered.length === 0 ? (
             <div className="ln-vdb-loading">
-              No violations match "{search}"
-              {tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.
+              No violations match "{search}".
               <br />
               <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>
-                Try a broader term or switch to All.
+                Try a broader term.
               </span>
             </div>
           ) : (
@@ -739,11 +689,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                 return (
                   <React.Fragment key={i}>
                     <div
-                      className={
-                        "ln-vdb-row" +
-                        (r.critical ? " is-crit" : "") +
-                        (isExpanded ? " expanded" : "")
-                      }
+                      className={"ln-vdb-row" + (isExpanded ? " expanded" : "")}
                       onClick={() => handleRowClick(r.desc)}
                       title="Click to see establishments with this violation"
                       role="button"
@@ -752,17 +698,11 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                         if (e.key === "Enter" || e.key === " ") handleRowClick(r.desc);
                       }}
                     >
-                      <div
-                        className={"ln-vdb-dot " + (r.critical ? "crit" : "non")}
-                        title={r.critical ? "Critical violation" : "Non-critical"}
-                      />
+                      <div className="ln-vdb-dot non" />
                       <div className="ln-vdb-desc">
                         <Highlighted text={toTitleCase(r.desc)} />
-                        {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
                       </div>
-                      <div className={"ln-vdb-count" + (r.critical ? " crit" : "")}>
-                        {r.count.toLocaleString()}×
-                      </div>
+                      <div className="ln-vdb-count">{r.count.toLocaleString()}×</div>
                     </div>
 
                     {isExpanded && (
@@ -945,10 +885,9 @@ export default function LearnPage({
             </p>
             <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
               Pin colors on the map show the <strong>score only</strong>, and you can adjust them. A
-              red ring means Louisville Metro&apos;s data flags at least one violation from the
-              latest inspection as critical (see below); a blue ring means violations were recorded
-              but none was flagged critical. Rings are not placards: the grade in a place&apos;s
-              details is the one the health department recorded.
+              blue ring means at least one violation was cited on the latest inspection. Rings are
+              not placards: the grade in a place&apos;s details is the one the health department
+              recorded.
             </p>
           </div>
 
@@ -1036,51 +975,18 @@ export default function LearnPage({
             </tbody>
           </table>
 
-          {/* Violation tiers (2013 FDA Food Code, adopted by Kentucky in 2019) */}
-          <div className="ln-sh">Three kinds of violations</div>
-          <div className="ln-vthree">
-            <div className="ln-vcard crit">
-              <span className="ln-vchip crit">Priority</span>
-              <div className="ln-vtitle">Directly controls a hazard</div>
-              <p className="ln-vdesc">
-                A rule that directly prevents or reduces a foodborne illness or injury hazard, with
-                no other rule controlling it more directly. Think cooking and cooling temperatures,
-                or handwashing. One of these means a C placard.
-              </p>
-            </div>
-            <div className="ln-vcard">
-              <span className="ln-vchip non">Priority foundation</span>
-              <div className="ln-vtitle">Makes priority rules possible</div>
-              <p className="ln-vdesc">
-                A rule that supports a priority one: staff training, the right equipment (like a
-                working thermometer, or soap at the hand sink), records and labels.
-              </p>
-            </div>
-            <div className="ln-vcard">
-              <span className="ln-vchip non">Core</span>
-              <div className="ln-vtitle">General sanitation and upkeep</div>
-              <p className="ln-vdesc">
-                Everything else: general cleaning, maintenance, and how the facility and equipment
-                are built.
-              </p>
-            </div>
-          </div>
-          <p className="ln-table-note">
-            Kentucky adopted these three kinds, from the 2013 FDA Food Code, in 2019. They replaced
-            the old &ldquo;critical&rdquo; and &ldquo;non-critical&rdquo; labels. Louisville&apos;s
-            placard policy names only priority violations as an automatic C; the others lower the
-            score.
-          </p>
-
-          {/* What the data's critical flag is, and isn't */}
-          <div className="ln-sh">The &ldquo;critical&rdquo; flag in our data</div>
+          {/* Violations */}
+          <div className="ln-sh">Violations</div>
           <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 32 }}>
-            Louisville Metro&apos;s published inspection data still marks each violation with a
-            yes-or-no &ldquo;critical&rdquo; flag. It doesn&apos;t say which of the three kinds a
-            violation is, so this site can&apos;t tell a priority violation from a priority
-            foundation one. Wherever you see &ldquo;critical&rdquo; here (the violation database
-            below, the red rings, a place&apos;s details), it is that flag exactly as published. We
-            never set it ourselves.
+            Inspectors cite each problem against a section of the Kentucky Food Code, and each one
+            takes points off the score. The placard policy treats a <strong>priority</strong>{" "}
+            violation as an automatic C. It defines one as breaking a rule &ldquo;whose application
+            contributes directly to the elimination, prevention or reduction to an acceptable level,
+            hazards associated with foodborne illness or injury and there is no other provision that
+            more directly controls the hazard.&rdquo; The public data this site uses doesn&apos;t
+            clearly mark which violations were priority ones, so we list every citation simply as a
+            violation. A place&apos;s score and grade come straight from the health
+            department&apos;s records.
           </p>
 
           {/* Violations database */}
@@ -1124,7 +1030,7 @@ export default function LearnPage({
             >
               Kentucky Food Code, 902 KAR 45:005
             </a>
-            ; and the 2013 FDA Food Code, which it adopts.
+            .
           </div>
         </div>
       </div>
