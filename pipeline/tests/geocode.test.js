@@ -10,6 +10,24 @@ describe("stripSuite", () => {
   it("drops a unit marker", () => assert.equal(stripSuite("9 ELM AVE # 2"), "9 ELM AVE"));
   it("leaves a plain street alone", () =>
     assert.equal(stripSuite("100 W MAIN ST"), "100 W MAIN ST"));
+  it("drops a building", () =>
+    assert.equal(stripSuite("5122 NORTH PRESTON BLDG E"), "5122 NORTH PRESTON"));
+  it("drops a unit number after a #", () =>
+    assert.equal(stripSuite("6434 NORTH PRESTON HIGHWAY #4"), "6434 NORTH PRESTON HIGHWAY"));
+
+  // These once lost everything after the house number ("123 FLOYD ST" -> "123").
+  for (const street of [
+    "123 FLOYD ST",
+    "500 STEWART AVE",
+    "1 UNITY WAY",
+    "9 BOXWOOD LN",
+    "6434 NORTH PRESTON HWY",
+    "77 NOBLE DR",
+    "12 APTOS CT",
+    "4 ROOMS RD",
+  ]) {
+    it(`keeps "${street}" whole`, () => assert.equal(stripSuite(street), street));
+  }
 });
 
 describe("buildQuery", () => {

@@ -15,10 +15,14 @@ export const DELAY_MS = 1100;
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Strip suite/unit qualifiers that confuse geocoders
-// "123 MAIN ST STE 104" → "123 MAIN ST"
+// "123 MAIN ST STE 104" → "123 MAIN ST". Only whole words count: "123 FLOYD ST" and
+// "6434 NORTH PRESTON HWY" keep their street names.
 export function stripSuite(addr) {
   return addr
-    .replace(/\s+(STE|SUITE|APT|UNIT|#|BLDG|FL|FLOOR|RM|ROOM|BOX|PMB|NUM|NO\.?)[\s#\w&-]*/gi, "")
+    .replace(
+      /\s+(?:#|(?:STE|SUITE|APT|UNIT|BLDG|FL|FLOOR|RM|ROOM|BOX|PMB|NUM|NO)\b\.?)[\s#\w&-]*/gi,
+      "",
+    )
     .trim();
 }
 
