@@ -11,6 +11,7 @@ import { useLatest } from "../../hooks/useLatest.js";
 import { CLICKABLE_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
 import { pickPin, uniqueHits } from "../../lib/pinPicking.js";
 import { createPopups } from "./popups.jsx";
+import { addRegionOutlines } from "./regionOutlines.js";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
@@ -167,6 +168,7 @@ export function useMapLibre(o) {
 
     map.on("load", () => {
       addPinLayers(map, geoData, latest.current.filters.pins);
+      addRegionOutlines(map);
       setMapReady(true);
 
       // One listener for all of them: a ringed pin is on three layers (pin, ring, tap

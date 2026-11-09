@@ -960,3 +960,12 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     width: clamp(280px, calc(100vw - 32px), 420px) !important;
   }
 }
+
+/* Phones: keep the map credits above the Table View and What's New buttons (56px tall at
+   bottom: 28px, see TableView.css) instead of underneath them. MapLibre folds the credits
+   into an "i" button after the first drag. */
+@media (max-width: 600px) {
+  .maplibregl-ctrl-bottom-right {
+    bottom: 92px;
+  }
+}
