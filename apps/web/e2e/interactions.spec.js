@@ -100,3 +100,28 @@ test("opening a second place before the first finishes loading shows the second"
   await expect(drawer.getByText(second.name, { exact: true })).toBeVisible();
   await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toHaveCount(0);
 });
+
+test("a place with violations can be tapped just outside its ring", async ({ page }, testInfo) => {
+  await openApp(page);
+  const drawer = await openDrawerFromWhatsNew(page, PINNED_EID, byEid(PINNED_EID).name);
+  await page.getByRole("button", { name: "Close What's New" }).click();
+
+  // Where the pin is, from its popup: the pointer's tip sits 14px above the pin's centre
+  // (popups.jsx, offset [0, -14]).
+  await page.waitForTimeout(600); // let any easing finish
+  const tip = await popup(page).locator(".maplibregl-popup-tip").boundingBox();
+  const pin = { x: tip.x + tip.width / 2, y: tip.y + tip.height + 14 };
+
+  // Close the drawer and popup by clicking empty map (as in the test above).
+  const spot = testInfo.project.name === "phone" ? { x: 40, y: 420 } : { x: 300, y: 600 };
+  await page.mouse.click(spot.x, spot.y);
+  await expect(drawer).toHaveCount(0);
+
+  // At the start zoom the pin reaches about 12.5px (10 on phones) and the ring 14.5px
+  // (12); the tap target around a ringed place reaches 20px (17.5). Tap in between.
+  const out = testInfo.project.name === "phone" ? 15 : 17;
+  await page.mouse.click(pin.x + out, pin.y);
+  // A tap on a pin opens its popup (the drawer opens from there).
+  await expect(popup(page)).toHaveCount(1);
+  await expect(popup(page)).toContainText(byEid(PINNED_EID).name);
+});
