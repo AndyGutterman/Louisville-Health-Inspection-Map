@@ -12,7 +12,8 @@
     "overlay": "node overlay_geometry.js",
     "geo": "node geocode_missing.js",
     "archive": "node archive-old-inspections.js",
-    "accuracy-check": "node etl-accuracy-check.js"
+    "accuracy-check": "node etl-accuracy-check.js",
+    "bullitt": "node regions/bullitt/ingest.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",

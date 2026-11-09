@@ -9,6 +9,7 @@ import fetch from "node-fetch";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const CENSUS = "https://geocoding.geo.census.gov/geocoder/locations/address";
+const CENSUS_LINE = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress";
 export const USER_AGENT = "LouisvilleFoodSafe/1.0 (louisvillefoodsafe.netlify.app)";
 export const DELAY_MS = 1100;
 
@@ -89,6 +90,32 @@ export async function geocodeCensus(row, { city = "", state = "" } = {}) {
   const match = json?.result?.addressMatches?.[0];
   if (!match) return null;
 
+  return {
+    lon: match.coordinates.x,
+    lat: match.coordinates.y,
+    confidence: 1.0,
+    provider: "census",
+    raw: match,
+  };
+}
+
+/**
+ * Census geocoder from one line of text, for when the town may be wrong ("6340 HWY 44 E,
+ * KY"). Several places can match; `accept` ({ lon, lat } -> boolean) picks the first
+ * one it approves.
+ */
+export async function geocodeCensusLine(text, { accept = () => true } = {}) {
+  const url = `${CENSUS_LINE}?${new URLSearchParams({ address: text, benchmark: "Public_AR_Current", format: "json" })}`;
+  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) {
+    console.error(`Census HTTP ${res.status} for "${text}"`);
+    return null;
+  }
+  const json = await res.json();
+  const match = (json?.result?.addressMatches || []).find((m) =>
+    accept({ lon: m.coordinates.x, lat: m.coordinates.y }),
+  );
+  if (!match) return null;
   return {
     lon: match.coordinates.x,
     lat: match.coordinates.y,
