@@ -1016,8 +1016,8 @@ export default function LearnPage({
               <div className="ln-vtitle">Operational or structural</div>
               <p className="ln-vdesc">
                 Violations related to upkeep, documentation, or equipment. These lower your score
-                but don't automatically trigger a C. Enough of them can push you below 85 into B
-                territory.
+                but don't automatically trigger a C. Enough of them can still drop the score below
+                85, which also means a C.
               </p>
             </div>
           </div>
