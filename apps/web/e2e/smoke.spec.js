@@ -79,6 +79,19 @@ test("What's New opens and switches tabs", async ({ page }, testInfo) => {
   await snap(page, testInfo, "04-whats-new-top-scores");
 });
 
+test("violations are listed without a critical label", async ({ page }) => {
+  await openApp(page);
+  // The data's yes/no critical flag can't tell the Food Code's kinds of violation apart,
+  // so the site shows every citation simply as a violation.
+  const drawer = await openDrawerFromWhatsNew(page, PINNED_EID, byEid(PINNED_EID).name);
+  await expect(whatsNewRow(page, PINNED_EID)).toContainText("2 violations");
+  await expect(page.getByTestId("whats-new-panel")).not.toContainText(/critical/i);
+
+  await drawer.getByText("2 violations").first().click();
+  await expect(drawer.getByText("Food held at improper temperature")).toBeVisible();
+  await expect(drawer).not.toContainText(/critical/i);
+});
+
 test("a What's New row with no coordinates still opens the drawer", async ({ page }, testInfo) => {
   await openApp(page);
   const drawer = await openDrawerFromWhatsNew(page, NO_PIN_EID, byEid(NO_PIN_EID).name);

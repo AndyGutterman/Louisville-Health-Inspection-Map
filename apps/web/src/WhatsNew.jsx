@@ -49,9 +49,9 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
             </>
           )}
         </div>
-        {item.critical_count > 0 && (
-          <div className="wn-crit">
-            {item.critical_count} critical {item.critical_count === 1 ? "violation" : "violations"}
+        {item.violation_count > 0 && (
+          <div className="wn-viol">
+            {item.violation_count} {item.violation_count === 1 ? "violation" : "violations"}
           </div>
         )}
       </div>

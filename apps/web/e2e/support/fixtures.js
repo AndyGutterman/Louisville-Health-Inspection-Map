@@ -199,7 +199,7 @@ export const TABLES = {
     has_critical: !!p.critical,
     has_any: !!p.critical,
   })),
-  // Flagged first (score under 85 or a critical violation), then newest, like the SQL.
+  // Failing first (grade C or score under 85), then newest, like the SQL.
   "rpc/get_whats_new": [PLACES[1], PLACES[5], PLACES[4], PLACES[0]].map((p) => ({
     establishment_id: p.eid,
     premise_name: p.name,
@@ -207,6 +207,7 @@ export const TABLES = {
     score: p.score,
     grade: p.grade,
     inspection_date: daysAgo(p.days),
-    critical_count: p.critical ? 1 : 0,
+    critical_count: p.critical ? 1 : 0, // deprecated column, still returned
+    violation_count: p.critical ? 2 : 0,
   })),
 };
