@@ -22,13 +22,10 @@ describe("coordKey", () => {
 });
 
 describe("worstFirst", () => {
-  it("puts critical violations before everything else", () => {
-    const crit = feature("crit", HERE, { has_critical_violation: true, grade: "A", score: 99 });
-    const bad = feature("bad", HERE, { grade: "C", score: 50 });
-    expect([bad, crit].sort(worstFirst).map((f) => f.properties.establishment_id)).toEqual([
-      "crit",
-      "bad",
-    ]);
+  it("ignores the data's critical flag: an A with violations stays behind a C", () => {
+    const a = feature("a", HERE, { has_any_violation: true, grade: "A", score: 99 });
+    const c = feature("c", HERE, { grade: "C", score: 80 });
+    expect([a, c].sort(worstFirst).map((f) => f.properties.establishment_id)).toEqual(["c", "a"]);
   });
 
   it("orders by grade (C, then B, then A), then unknown grades last", () => {
@@ -76,17 +73,11 @@ describe("deduplicateForRender", () => {
 
   it("flags the pin if any establishment there has violations", () => {
     const clean = feature("clean", HERE, { grade: "C", score: 70 });
-    const crit = feature("crit", HERE, {
-      grade: "A",
-      score: 99,
-      has_critical_violation: false,
-      has_any_violation: true,
-    });
-    const withCrit = { ...crit, properties: { ...crit.properties, has_critical_violation: true } };
+    const cited = feature("cited", HERE, { grade: "A", score: 99, has_any_violation: true });
 
-    const [rep] = deduplicateForRender([clean, withCrit]);
+    const [rep] = deduplicateForRender([clean, cited]);
 
-    expect(rep.properties.has_critical_violation).toBe(true);
+    expect(rep.properties.establishment_id).toBe("clean"); // the C is the worst
     expect(rep.properties.has_any_violation).toBe(true);
   });
 

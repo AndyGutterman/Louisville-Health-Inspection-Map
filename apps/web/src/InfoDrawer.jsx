@@ -275,10 +275,6 @@ function CurrentInspectionCard({
 }
 
 function ViolationRow({ v }) {
-  const yn = String(v.critical_yn || "")
-    .trim()
-    .toLowerCase();
-  const isCrit = yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
   const title = v.violation_desc || "Violation";
   const body = (v.insp_viol_comments || "").trim();
   const count = v._count || 1;
@@ -288,11 +284,10 @@ function ViolationRow({ v }) {
   const shown = open || !hasMore ? body : body.slice(0, maxLen) + "…";
 
   return (
-    <li className={`viol-card ${isCrit ? "crit" : ""}`}>
+    <li className="viol-card">
       <div className="viol-rail" />
       <div className="viol-body">
         <div className="viol-header">
-          {isCrit && <span className="viol-chip crit">Critical</span>}
           <span className="viol-title">{title}</span>
           {count > 1 && <span className="viol-count-badge">×{count}</span>}
         </div>
@@ -331,13 +326,6 @@ function PastInspection({ row }) {
     scoreNum == null ? "na" : scoreNum >= 95 ? "ok" : scoreNum >= 85 ? "warn" : "bad";
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
-  const isCrit = (v) => {
-    const yn = String(v.critical_yn || "")
-      .trim()
-      .toLowerCase();
-    return yn === "y" || yn === "yes" || yn === "true" || yn === "t" || yn === "1";
-  };
-
   // Deduplicate by violation_desc: same type cited multiple times (per food item) → one row + ×N count
   const byDesc = {};
   rawViols.forEach((v) => {
@@ -354,14 +342,14 @@ function PastInspection({ row }) {
       if (c && !byDesc[key]._comments.includes(c)) byDesc[key]._comments.push(c);
     }
   });
-  const viols = Object.values(byDesc)
-    .map((v) => ({ ...v, insp_viol_comments: v._comments.join(" | ") }))
-    .sort((a, b) => (isCrit(b) ? 1 : 0) - (isCrit(a) ? 1 : 0));
+  const viols = Object.values(byDesc).map((v) => ({
+    ...v,
+    insp_viol_comments: v._comments.join(" | "),
+  }));
 
   const [open, setOpen] = React.useState(false);
   const showToggle = viols.length > 0;
   const list = viols;
-  const anyCrit = viols.some(isCrit);
 
   const listRef = useRef(null);
   const [maxH, setMaxH] = useState(0);
@@ -389,7 +377,7 @@ function PastInspection({ row }) {
         {viols.length > 0 && (
           <button
             type="button"
-            className={`viol-count ${anyCrit ? "crit" : ""} ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
+            className={`viol-count ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
             onClick={showToggle ? () => setOpen((x) => !x) : undefined}
             aria-expanded={open}
             title={

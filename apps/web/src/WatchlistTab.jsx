@@ -9,24 +9,25 @@ const PAGE = 25;
 const SORTS = [
   { key: "distance", label: "Distance" },
   { key: "score", label: "Score" },
-  { key: "critical", label: "Critical" },
+  { key: "attention", label: "Needs attention" },
 ];
 
 const scoreClass = (s) =>
   s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor";
 // Distance: nearest first. Score: highest first.
-// Critical: failing first, then most critical violations, then lowest score.
-// ("Priority" is the health department's new name for "critical", so there is one sort for both.)
+// Needs attention: failing grade first, then most violations in 6 months, then lowest score.
 function sortPlaces(rows, key) {
   const hi = (r) => (r.score == null || r.score === 0 ? -1 : r.score);
   const lo = (r) => (r.score == null || r.score === 0 ? 999 : r.score);
   const copy = [...rows];
   if (key === "distance") copy.sort((a, b) => (a.distance_mi ?? 1e9) - (b.distance_mi ?? 1e9));
   if (key === "score") copy.sort((a, b) => hi(b) - hi(a));
-  if (key === "critical")
+  if (key === "attention")
     copy.sort(
       (a, b) =>
-        Number(b.failing) - Number(a.failing) || b.critical_6mo - a.critical_6mo || lo(a) - lo(b),
+        Number(b.failing) - Number(a.failing) ||
+        (b.violations_6mo ?? 0) - (a.violations_6mo ?? 0) ||
+        lo(a) - lo(b),
     );
   return copy;
 }
@@ -64,7 +65,11 @@ function PlaceRow({ p, active, onOpen }) {
         {p.inspection_date && (
           <div className="wl-place-date">{formatLongDate(p.inspection_date)}</div>
         )}
-        {p.critical_6mo > 0 && <div className="wl-crit">{p.critical_6mo} critical · 6 mo</div>}
+        {p.violations_6mo > 0 && (
+          <div className="wl-viol">
+            {p.violations_6mo} {p.violations_6mo === 1 ? "violation" : "violations"} · 6 mo
+          </div>
+        )}
       </div>
     </div>
   );
@@ -315,9 +320,10 @@ export default function WatchlistTab({
                       {item.inspection_date && (
                         <span className="dt"> · {formatLongDate(item.inspection_date)}</span>
                       )}
-                      {item.critical_6mo > 0 && (
-                        <div className="wl-crit" style={{ marginTop: 3 }}>
-                          ⚠ {item.critical_6mo} critical · 6 mo
+                      {item.violations_6mo > 0 && (
+                        <div className="wl-viol" style={{ marginTop: 3 }}>
+                          {item.violations_6mo}{" "}
+                          {item.violations_6mo === 1 ? "violation" : "violations"} · 6 mo
                         </div>
                       )}
                     </div>
@@ -349,7 +355,7 @@ export default function WatchlistTab({
         <div className="wl-list" style={{ marginBottom: areas.length ? 18 : 0 }}>
           {areas.map((area) => {
             const z = zones[area.id];
-            const sortKey = zoneSort[area.id] || "critical";
+            const sortKey = zoneSort[area.id] || "attention";
             const rows = z?.rows ? sortPlaces(z.rows, sortKey) : [];
             const shown = zoneShown[area.id] || PAGE;
             return (

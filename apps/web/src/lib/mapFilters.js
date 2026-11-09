@@ -1,5 +1,6 @@
 // MapLibre filter expressions for the pin and violation-ring layers, built from the
 // filter panel's state. Pure: no React, no map. features/map/mapLayers.js applies them.
+import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
@@ -94,17 +95,9 @@ export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDa
   for (const key of DRAW_ORDER) {
     filters[`points-${key}`] = bandOn[key] ? ["all", bands[key], ...shared] : HIDDEN;
   }
-  // Violation rings follow the same category, search and date filters as the pins.
-  filters["points-critical-ring"] = [
-    "all",
-    ["==", ["get", "has_critical_violation"], true],
-    ...shared,
-  ];
-  filters["points-noncritical-ring"] = [
-    "all",
-    ["==", ["get", "has_any_violation"], true],
-    ["==", ["get", "has_critical_violation"], false],
-    ...shared,
-  ];
+  // The violation ring follows the same category, search and date filters as the pins.
+  filters[RING_LAYER] = ["all", ["==", ["get", "has_any_violation"], true], ...shared];
+  // The ringed places' wider tap target follows the ring exactly.
+  filters[HIT_LAYER] = filters[RING_LAYER];
   return filters;
 }

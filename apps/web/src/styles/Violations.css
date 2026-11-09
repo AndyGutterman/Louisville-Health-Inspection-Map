@@ -20,14 +20,9 @@
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.2px;
-  color: #eaeaea;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-.viol-count.crit {
   color: #111;
   background: #ffb9b9;
-  border-color: #ff9a9a;
+  border: 1px solid #ff9a9a;
 }
 .viol-count.clickable {
   cursor: pointer;
@@ -98,9 +93,6 @@
   border-color: rgba(255, 255, 255, 0.13);
 }
 .viol-card .viol-rail {
-  background: linear-gradient(180deg, #7f8cff, #5ad0ff);
-}
-.viol-card.crit .viol-rail {
   background: linear-gradient(180deg, #ff6b6b, #ff3d3d);
 }
 
@@ -115,27 +107,6 @@
   align-items: flex-start;
   gap: 6px;
   min-width: 0;
-}
-
-.viol-chip {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.15px;
-  color: #eaeaea;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  white-space: nowrap;
-}
-.viol-chip.crit {
-  color: #111;
-  background: #ffb9b9;
-  border-color: #ff9a9a;
 }
 
 .viol-title {
@@ -179,20 +150,15 @@
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.75rem;
-  color: #d7efff;
-  background: rgba(90, 208, 255, 0.12);
-  border: 1px solid rgba(90, 208, 255, 0.28);
+  color: #2b0e0e;
+  background: rgba(255, 107, 107, 0.16);
+  border: 1px solid rgba(255, 61, 61, 0.32);
   transition:
     transform 0.12s ease,
     0.12s ease,
     border-color 0.12s ease;
 }
-.viol-card.crit .viol-toggle {
-  color: #2b0e0e;
-  background: rgba(255, 107, 107, 0.16);
-  border-color: rgba(255, 61, 61, 0.32);
-}
-.viol-card.crit .viol-toggle:hover {
+.viol-toggle:hover {
   background: rgba(255, 107, 107, 0.22);
   border-color: rgba(255, 61, 61, 0.4);
 }

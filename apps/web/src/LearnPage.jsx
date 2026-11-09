@@ -1,3 +1,4 @@
+import { summarizeViolations } from "./lib/violationSummary.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import "./styles/LearnPage.css";
@@ -437,7 +438,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState("all"); // "all" | "crit" | "non"
   const [timeline, setTimeline] = useState("all"); // TIMELINE_OPTS key
   const [showAll, setShowAll] = useState(false);
 
@@ -512,41 +512,32 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           throw err;
         }
 
-        const mapped = (data || []).map((r) => ({
-          desc: r.violation_desc,
-          critical: (r.critical_yn ?? "").toLowerCase().startsWith("y"),
-          count: Number(r.cnt),
-        }));
-
-        setRows(mapped);
+        setRows(
+          summarizeViolations((data || []).map((r) => ({ desc: r.violation_desc, count: r.cnt }))),
+        );
         setError(null);
       } catch (e) {
         if (e.message === "MIGRATION_PENDING") {
           // Fallback: paginated direct query (pre-RPC behavior)
           try {
             const BATCH = 1000;
-            const acc = new Map();
+            const acc = [];
             let offset = 0;
             while (true) {
               let q = supabase
                 .from("inspection_violations")
-                .select("violation_desc, critical_yn")
+                .select("violation_desc")
                 .not("violation_desc", "is", null);
               if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
               q = q.range(offset, offset + BATCH - 1);
               const { data, error: qErr } = await q;
               if (qErr) throw qErr;
               if (!data || data.length === 0) break;
-              for (const r of data) {
-                const isCrit = (r.critical_yn ?? "").toLowerCase().startsWith("y");
-                const key = r.violation_desc + "||" + (isCrit ? "Y" : "N");
-                if (acc.has(key)) acc.get(key).count++;
-                else acc.set(key, { desc: r.violation_desc, critical: isCrit, count: 1 });
-              }
+              for (const r of data) acc.push({ desc: r.violation_desc, count: 1 });
               if (data.length < BATCH) break;
               offset += BATCH;
             }
-            setRows([...acc.values()].sort((a, b) => b.count - a.count));
+            setRows(summarizeViolations(acc));
             setError(null);
           } catch (fallbackErr) {
             setError(fallbackErr.message || "Failed to load violations");
@@ -574,17 +565,13 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
-        if (tab === "crit" && !r.critical) return false;
-        if (tab === "non" && r.critical) return false;
         if (searchRegex && !searchRegex.test(r.desc)) return false;
         return true;
       }),
-    [rows, searchRegex, tab],
+    [rows, searchRegex],
   );
 
   const visible = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
-  const critCount = rows.filter((r) => r.critical).length;
-  const nonCount = rows.filter((r) => !r.critical).length;
   const totalCitations = rows.reduce((s, r) => s + r.count, 0);
   const scopeNote = TIMELINE_OPTS.find((o) => o.key === timeline)?.note ?? "";
 
@@ -634,7 +621,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
             onClick={() => {
               setTimeline(opt.key);
               setSearch("");
-              setTab("all");
             }}
           >
             {opt.label}
@@ -658,12 +644,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
               <strong>{rows.length.toLocaleString()}</strong> distinct violation types
             </span>
             <span className="ln-vdb-stat">
-              <strong style={{ color: "#ff9a9a" }}>{critCount}</strong> critical
-            </span>
-            <span className="ln-vdb-stat">
-              <strong>{nonCount}</strong> non-critical
-            </span>
-            <span className="ln-vdb-stat">
               <strong>{totalCitations.toLocaleString()}</strong> total citations
               {timeline !== "all" && (
                 <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>
@@ -671,7 +651,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
             </span>
           </div>
 
-          {/* Search + severity tabs */}
+          {/* Search */}
           <div className="ln-vdb-header">
             <div className="ln-vdb-search-wrap">
               <svg className="ln-vdb-search-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -691,45 +671,15 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                 }}
               />
             </div>
-            <div className="ln-vdb-tabs">
-              <button
-                className={"ln-vdb-tab " + (tab === "all" ? "active-all" : "")}
-                onClick={() => {
-                  setTab("all");
-                  setShowAll(false);
-                }}
-              >
-                All
-              </button>
-              <button
-                className={"ln-vdb-tab " + (tab === "crit" ? "active-crit" : "")}
-                onClick={() => {
-                  setTab("crit");
-                  setShowAll(false);
-                }}
-              >
-                ⚠ Critical
-              </button>
-              <button
-                className={"ln-vdb-tab " + (tab === "non" ? "active-non" : "")}
-                onClick={() => {
-                  setTab("non");
-                  setShowAll(false);
-                }}
-              >
-                Non-critical
-              </button>
-            </div>
           </div>
 
           {/* List */}
           {filtered.length === 0 ? (
             <div className="ln-vdb-loading">
-              No violations match "{search}"
-              {tab !== "all" ? ` in the ${tab === "crit" ? "critical" : "non-critical"} tab` : ""}.
+              No violations match "{search}".
               <br />
               <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>
-                Try a broader term or switch to All.
+                Try a broader term.
               </span>
             </div>
           ) : (
@@ -739,11 +689,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                 return (
                   <React.Fragment key={i}>
                     <div
-                      className={
-                        "ln-vdb-row" +
-                        (r.critical ? " is-crit" : "") +
-                        (isExpanded ? " expanded" : "")
-                      }
+                      className={"ln-vdb-row" + (isExpanded ? " expanded" : "")}
                       onClick={() => handleRowClick(r.desc)}
                       title="Click to see establishments with this violation"
                       role="button"
@@ -752,17 +698,11 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
                         if (e.key === "Enter" || e.key === " ") handleRowClick(r.desc);
                       }}
                     >
-                      <div
-                        className={"ln-vdb-dot " + (r.critical ? "crit" : "non")}
-                        title={r.critical ? "Critical violation" : "Non-critical"}
-                      />
+                      <div className="ln-vdb-dot non" />
                       <div className="ln-vdb-desc">
                         <Highlighted text={toTitleCase(r.desc)} />
-                        {r.critical && <span className="ln-vdb-crit-badge">critical</span>}
                       </div>
-                      <div className={"ln-vdb-count" + (r.critical ? " crit" : "")}>
-                        {r.count.toLocaleString()}×
-                      </div>
+                      <div className="ln-vdb-count">{r.count.toLocaleString()}×</div>
                     </div>
 
                     {isExpanded && (
@@ -866,12 +806,12 @@ export default function LearnPage({
           <div className="ln-hero">
             <h1 className="ln-hero-title">Understanding Louisville Food Inspections</h1>
             <p className="ln-hero-sub">
-              This is how the Louisville Health Department uses scores and violations to determine
-              the resulting placard.
+              How Louisville Metro Public Health and Wellness scores an inspection and decides which
+              placard a place has to post.
             </p>
           </div>
 
-          {/* Grade cards */}
+          {/* Grade cards (Placard Issuance Policy, June 7, 2019) */}
           <div className="ln-sh">The three placards</div>
           <div className="ln-trio">
             <div className="ln-gcard ga">
@@ -885,9 +825,9 @@ export default function LearnPage({
                   <div className="ln-gfield-val">85 – 100</div>
                 </div>
                 <div>
-                  <div className="ln-gfield-lbl">Condition</div>
+                  <div className="ln-gfield-lbl">And</div>
                   <ul className="ln-gcriteria">
-                    <li>No critical violations</li>
+                    <li>No priority violations</li>
                   </ul>
                 </div>
               </div>
@@ -900,15 +840,15 @@ export default function LearnPage({
               </div>
               <div className="ln-gbody">
                 <div>
-                  <div className="ln-gfield-lbl">Score</div>
-                  <div className="ln-gfield-val">Not score-based</div>
+                  <div className="ln-gfield-lbl">Based on</div>
+                  <div className="ln-gfield-val">Recent history</div>
                 </div>
                 <div>
-                  <div className="ln-gfield-lbl">Condition</div>
+                  <div className="ln-gfield-lbl">After any of these</div>
                   <ul className="ln-gcriteria">
-                    <li>2 consecutive failed inspections</li>
-                    <li>Failed follow-up inspection</li>
-                    <li>Emergency closure</li>
+                    <li>Failing 2 inspections in a row</li>
+                    <li>A closure for an imminent health hazard</li>
+                    <li>A regular inspection scored below 60</li>
                   </ul>
                 </div>
               </div>
@@ -922,12 +862,12 @@ export default function LearnPage({
               <div className="ln-gbody">
                 <div>
                   <div className="ln-gfield-lbl">Score</div>
-                  <div className="ln-gfield-val">84 or below</div>
+                  <div className="ln-gfield-val">Below 85</div>
                 </div>
                 <div>
                   <div className="ln-gfield-lbl">Or</div>
                   <ul className="ln-gcriteria">
-                    <li>Any critical violation, regardless of score</li>
+                    <li>One or more priority violations, whatever the score</li>
                   </ul>
                 </div>
               </div>
@@ -936,17 +876,18 @@ export default function LearnPage({
 
           {/* Key callout */}
           <div className="ln-callout">
-            <div className="ln-callout-label">⚠ Score alone does not determine the grade</div>
+            <div className="ln-callout-label">⚠ Score alone does not decide the placard</div>
             <p>
-              A facility scoring 90 with a critical violation still receives a{" "}
-              <strong>C (red) placard</strong>. The B grade is not a score range — it is issued
-              based on inspection history (repeated failures or emergency closures), not the numeric
-              score. The grade reflects both score and violation severity together.
+              A place can score 90 and still get a <strong>C (red) placard</strong> if the inspector
+              found a priority violation. A B placard is about history: it is posted once a place
+              passes its follow-up and reopens after a closure, a score below 60, or two failed
+              inspections in a row.
             </p>
             <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
-              Note: Pin colors on the map reflect <strong>score only</strong> and can be customized.
-              The red ring on a pin indicates a critical violation was cited on the most recent
-              inspection, which means that facility received a C placard regardless of its score.
+              Pin colors on the map show the <strong>score only</strong>, and you can adjust them. A
+              blue ring means at least one violation was cited on the latest inspection. Rings are
+              not placards: the grade in a place&apos;s details is the one the health department
+              recorded.
             </p>
           </div>
 
@@ -957,8 +898,8 @@ export default function LearnPage({
               <tr>
                 <th>Grade</th>
                 <th>Color</th>
-                <th>Duration</th>
-                <th>What ends it</th>
+                <th>Posted for</th>
+                <th>What comes next</th>
               </tr>
             </thead>
             <tbody>
@@ -967,65 +908,85 @@ export default function LearnPage({
                   <span className="ln-grade-cell ga">A</span>
                 </td>
                 <td>Green</td>
-                <td>Until next routine inspection</td>
-                <td>Next scheduled routine visit</td>
+                <td>Until the next regular inspection</td>
+                <td>The next regular inspection</td>
               </tr>
               <tr>
                 <td>
                   <span className="ln-grade-cell gb">B</span>
                 </td>
                 <td>Blue</td>
-                <td>3 To 6 Months</td>
-                <td>
-                  The health department forces a mandatory regular inspection within this window.
-                </td>
+                <td>At least 3 months, at most 6</td>
+                <td>A regular inspection within 3 to 6 months of reopening</td>
               </tr>
               <tr>
                 <td>
                   <span className="ln-grade-cell gc">C</span>
                 </td>
                 <td>Red</td>
-                <td>Min 7 days, max 10 days</td>
-                <td>Follow-up inspection required; new placard posted after</td>
+                <td>At least 7 days, at most 10</td>
+                <td>A follow-up inspection within 7 to 10 days</td>
               </tr>
             </tbody>
           </table>
           <p className="ln-table-note">
-            Per official policy, B remains posted "until the facility passes their next regular
-            inspection." Routine frequency varies by facility risk level and is not defined in the
-            placard policy. Interim visits don't change the posted placard.
+            A placard is issued after every scored inspection except opening and survey inspections.
+            A place that moves, covers or alters a B or C placard must keep it up 7 more days. Two
+            failed inspections in a row mean more frequent inspections; three in a row lead to a
+            state hearing and a notice of intent to suspend the permit.
           </p>
 
-          {/* Violation types */}
-          <div className="ln-sh">Critical vs. non-critical violations</div>
-          <div className="ln-vtwo">
-            <div className="ln-vcard crit">
-              <span className="ln-vchip crit">⚠ Critical</span>
-              <div className="ln-vtitle">Direct foodborne illness risk</div>
-              <p className="ln-vdesc">
-                A violation of a Kentucky Food Code provision that directly eliminates, prevents, or
-                reduces a foodborne illness hazard with no other provision more directly controlling
-                it.
-                <br />
-                <br />
-                Any critical violation = C placard, regardless of score.
-              </p>
-            </div>
-            <div className="ln-vcard">
-              <span className="ln-vchip non">Non-critical</span>
-              <div className="ln-vtitle">Operational or structural</div>
-              <p className="ln-vdesc">
-                Violations related to upkeep, documentation, or equipment. These lower your score
-                but don't automatically trigger a C. Enough of them can push you below 85 into B
-                territory.
-              </p>
-            </div>
-          </div>
-          <p className="ln-table-note">
-            Note: While the health department legally changed the term "Critical Violation" to
-            "Priority Violation" (and "Non-Critical" to "Core Violation"), the basic rules remain
-            the same. We prefer the traditional terms, though both refer to the exact same food
-            safety risks.
+          {/* Score rules (902 KAR 45:005, Section 6 and 7) */}
+          <div className="ln-sh">How the score works</div>
+          <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 10 }}>
+            Every inspection starts at 100. Each violation takes off the points the state inspection
+            form sets for that item. Whatever the score, priority violations must be fixed within 10
+            days.
+          </p>
+          <table className="ln-ptable ln-ptable--all-cols">
+            <thead>
+              <tr>
+                <th>Score</th>
+                <th>What happens</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>85 – 100</td>
+                <td>
+                  Passes (unless there is a priority violation). One-point items are due by the next
+                  regular inspection.
+                </td>
+              </tr>
+              <tr>
+                <td>70 – 84</td>
+                <td>Fails, C placard. One-point items must be fixed within 30 days.</td>
+              </tr>
+              <tr>
+                <td>Below 70</td>
+                <td>The state issues a notice of intent to suspend the permit.</td>
+              </tr>
+              <tr>
+                <td>Below 60</td>
+                <td>
+                  The permit is suspended immediately, as it is for an imminent health hazard.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Violations */}
+          <div className="ln-sh">Violations</div>
+          <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 32 }}>
+            Inspectors cite each problem against a section of the Kentucky Food Code, and each one
+            takes points off the score. The placard policy treats a <strong>priority</strong>{" "}
+            violation as an automatic C. It defines one as breaking a rule &ldquo;whose application
+            contributes directly to the elimination, prevention or reduction to an acceptable level,
+            hazards associated with foodborne illness or injury and there is no other provision that
+            more directly controls the hazard.&rdquo; The public data this site uses doesn&apos;t
+            clearly mark which violations were priority ones, so we list every citation simply as a
+            violation. A place&apos;s score and grade come straight from the health
+            department&apos;s records.
           </p>
 
           {/* Violations database */}
@@ -1038,19 +999,38 @@ export default function LearnPage({
             onOpenEstablishment={onOpenEstablishment}
           />
 
+          {/* About the data */}
+          <div className="ln-sh">About this data</div>
+          <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 16 }}>
+            This site is an independent project and is not affiliated with Louisville Metro
+            Government. Inspection data comes from{" "}
+            <a href="https://data.louisvilleky.gov/" target="_blank" rel="noopener noreferrer">
+              Louisville Metro Open Data
+            </a>
+            . It is refreshed regularly but can lag behind the latest inspections, and it may
+            contain errors. The placard posted at the business and the official inspection report
+            are the final word.
+          </p>
+
           {/* Source */}
           <div className="ln-src">
-            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Source:</strong> Louisville Metro
-            Health Dept. ABC Placard Issuance Policy (effective March 14, 2016, updated June 7,
-            2019) and Kentucky Food Code. All information is derived directly from the official
-            policy document.{" "}
+            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Sources:</strong>{" "}
             <a
               href="https://louisvilleky.gov/sites/default/files/2021-12/abc-placard-issuance_pol_env_20190607.pdf"
               target="_blank"
               rel="noopener noreferrer"
             >
-              View official policy →
+              Louisville Metro Placard Issuance Policy
+            </a>{" "}
+            (approved June 7, 2019);{" "}
+            <a
+              href="https://apps.legislature.ky.gov/law/kar/titles/902/045/005/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Kentucky Food Code, 902 KAR 45:005
             </a>
+            .
           </div>
         </div>
       </div>

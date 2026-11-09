@@ -8,7 +8,8 @@ import { EDGE_ZONE, MIN_ZOOM } from "../../lib/constants.js";
 import { METRO_BOUNDS, looseBounds } from "../../lib/mapBounds.js";
 import { coordKey, worstFirst } from "../../lib/dedupe.js";
 import { useLatest } from "../../hooks/useLatest.js";
-import { PIN_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
+import { CLICKABLE_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
+import { pickPin, uniqueHits } from "../../lib/pinPicking.js";
 import { createPopups } from "./popups.jsx";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -91,36 +92,23 @@ export function useMapLibre(o) {
       latest.current.onBackgroundClick();
     };
 
-    // ── Which pin a pointer means ────────────────────────────────────────────────
-    // Red pins and places with a critical violation beat yellow, which beats green, so a
-    // bad result is never hidden behind a good one beside it.
-    const priority = (f) => {
-      if (f.properties?.has_critical_violation || f.layer?.id === "points-red") return 10;
-      return f.layer?.id === "points-yellow" ? 5 : 0;
-    };
+    // ── Which pin a pointer means (lib/pinPicking.js) ────────────────────────────
     const screenDistance = (point, f) => {
       const p = map.project(f.geometry.coordinates);
       return Math.hypot(p.x - point.x, p.y - point.y);
     };
     // The pin under the pointer, and every pin drawn at the same screen spot.
     const pinsAt = (point) => {
-      const hits = map.queryRenderedFeatures(
+      const raw = map.queryRenderedFeatures(
         [
           [point.x - 12, point.y - 12],
           [point.x + 12, point.y + 12],
         ],
-        { layers: PIN_LAYERS },
+        { layers: CLICKABLE_LAYERS },
       );
-      if (!hits.length) return { feature: null, group: [] };
-      let feature = hits[0];
-      for (const f of hits) {
-        if (
-          screenDistance(point, f) - priority(f) <
-          screenDistance(point, feature) - priority(feature)
-        ) {
-          feature = f;
-        }
-      }
+      const hits = uniqueHits(raw);
+      const feature = pickPin(hits, (f) => screenDistance(point, f));
+      if (!feature) return { feature: null, group: [] };
       const at = map.project(feature.geometry.coordinates);
       const group = hits.filter((h) => screenDistance(at, h) < 0.9);
       return { feature, group };
@@ -181,23 +169,26 @@ export function useMapLibre(o) {
       addPinLayers(map, geoData, latest.current.filters.pins);
       setMapReady(true);
 
-      for (const id of PIN_LAYERS) {
-        map.on("mousemove", id, (e) => {
-          const { feature, group } = pinsAt(e.point);
-          if (feature) popups.pointerOver(feature, group.length || 1);
-        });
-        map.on("mouseleave", id, () => popups.hideHover());
-        map.on("mousedown", id, () => (pressOnPin = true));
-        map.on("click", id, onPinClick);
-        map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
-      }
+      // One listener for all of them: a ringed pin is on three layers (pin, ring, tap
+      // target), and a click must run once, not once per layer.
+      const layers = CLICKABLE_LAYERS;
+      map.on("mousemove", layers, (e) => {
+        const { feature, group } = pinsAt(e.point);
+        if (feature) popups.pointerOver(feature, group.length || 1);
+      });
+      map.on("mousedown", layers, () => (pressOnPin = true));
+      map.on("click", layers, onPinClick);
+      map.on("mouseenter", layers, () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", layers, () => {
+        popups.hideHover();
+        map.getCanvas().style.cursor = "";
+      });
       map.on("dragstart", () => (dragging = true));
       map.on("dragend", () => (dragging = false));
 
       // A click on empty map closes the drawer and the popups.
       map.on("click", (e) => {
-        const onPin = map.queryRenderedFeatures(e.point, { layers: PIN_LAYERS }).length;
+        const onPin = map.queryRenderedFeatures(e.point, { layers: CLICKABLE_LAYERS }).length;
         if (!onPin && !popups.contains(e.originalEvent.target)) closeEverything();
       });
 

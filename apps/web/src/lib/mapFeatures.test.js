@@ -60,7 +60,6 @@ describe("buildMapFeatures", () => {
       facility_type: 605,
       subtype: 11,
       cat: "restaurants",
-      has_critical_violation: false,
       has_any_violation: false,
     });
   });
@@ -75,11 +74,11 @@ describe("buildMapFeatures", () => {
     expect(console.warn).toHaveBeenCalled();
   });
 
-  it("copies the violation flags", () => {
+  it("copies the violation flag and ignores the critical one", () => {
     const flags = new Map([["1", { has_critical: true, has_any: true }]]);
     const [f] = buildMapFeatures([row()], meta(), flags);
-    expect(f.properties.has_critical_violation).toBe(true);
     expect(f.properties.has_any_violation).toBe(true);
+    expect(f.properties).not.toHaveProperty("has_critical_violation");
   });
 
   it("marks places with no type as unknown and falls back to the feed's address", () => {

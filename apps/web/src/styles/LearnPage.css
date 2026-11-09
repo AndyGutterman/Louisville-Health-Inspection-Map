@@ -741,3 +741,15 @@
   gap: 7px;
   align-items: flex-start;
 }
+
+/* The score table has only two columns; keep both on phones (the rule above hides the
+   last column of the placard table). */
+@media (max-width: 480px) {
+  .ln-ptable.ln-ptable--all-cols th:last-child,
+  .ln-ptable.ln-ptable--all-cols td:last-child {
+    display: table-cell;
+  }
+}
+.ln-ptable--all-cols td:first-child {
+  white-space: nowrap;
+}

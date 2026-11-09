@@ -226,9 +226,9 @@
   color: rgba(255, 255, 255, 0.4);
   margin-top: 1px;
 }
-.wl-crit {
+.wl-viol {
   font-size: 0.64rem;
-  color: #ff9a9a;
+  color: rgba(255, 255, 255, 0.5);
   margin-top: 2px;
 }
 .wl-click {

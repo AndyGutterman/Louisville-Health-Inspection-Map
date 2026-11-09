@@ -78,13 +78,13 @@ describe("categoryExpression", () => {
 });
 
 describe("buildLayerFilters", () => {
-  it("returns a filter for all five score bands and both ring layers", () => {
+  it("returns a filter for all five score bands, the ring and its tap target", () => {
     expect(Object.keys(buildLayerFilters(base)).sort()).toEqual([
-      "points-critical-ring",
       "points-green",
-      "points-noncritical-ring",
       "points-null",
       "points-red",
+      "points-violation-hit",
+      "points-violation-ring",
       "points-yellow",
       "points-zero",
     ]);
@@ -112,7 +112,7 @@ describe("buildLayerFilters", () => {
 
   it("adds search and date to the pins and the rings", () => {
     const f = buildLayerFilters({ ...base, searchTerm: "taco", cutoffDate: "2026-01-01" });
-    for (const id of ["points-green", "points-critical-ring", "points-noncritical-ring"]) {
+    for (const id of ["points-green", "points-violation-ring", "points-violation-hit"]) {
       expect(f[id]).toContainEqual(searchExpression("taco"));
       expect(f[id]).toContainEqual(dateExpression("2026-01-01"));
     }
@@ -123,7 +123,14 @@ describe("buildLayerFilters", () => {
       ...base,
       show: { red: false, yellow: false, green: false, missing: false },
     });
-    expect(f["points-critical-ring"]).not.toEqual(HIDDEN);
-    expect(f["points-critical-ring"][1]).toEqual(["==", ["get", "has_critical_violation"], true]);
+    expect(f["points-violation-ring"]).not.toEqual(HIDDEN);
+    expect(f["points-violation-ring"][1]).toEqual(["==", ["get", "has_any_violation"], true]);
+  });
+});
+
+describe("violation tap target", () => {
+  it("follows the ring's filter exactly, so hidden places can't be tapped", () => {
+    const f = buildLayerFilters({ ...base, searchTerm: "taco", cutoffDate: "2026-01-01" });
+    expect(f["points-violation-hit"]).toEqual(f["points-violation-ring"]);
   });
 });

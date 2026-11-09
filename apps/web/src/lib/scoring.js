@@ -9,7 +9,7 @@ export function clampPins([r, y]) {
   y = Math.max(r + 1, Math.min(YEL_CAP, Math.round(y)));
   return [r, y];
 }
-// Louisville grading: C = score ≤ 84 (or critical violation), A = score ≥ 85.
+// Louisville grading: C = score ≤ 84 (or a priority violation), A = score ≥ 85.
 // "balanced" default aligns with the official 84/85 threshold so red = C territory.
 export const PRESETS = {
   loose: clampPins([75, 89]),

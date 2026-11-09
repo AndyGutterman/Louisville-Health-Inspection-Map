@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import maplibregl from "maplibre-gl";
 import { buildWatchCollection, openWatchEditor } from "../../watchAreaLayer.js";
 import { useLatest } from "../../hooks/useLatest.js";
-import { PIN_LAYERS } from "./mapLayers.js";
+import { CLICKABLE_LAYERS } from "./mapLayers.js";
 
 const CIRCLE_COLOR = "#ff9f1c";
 
@@ -38,8 +38,8 @@ export function useWatchAreaLayer(o) {
         addCircleLayers(map);
 
         map.on("click", "watch-areas-fill", (e) => {
-          // A tap on a pin is never also a tap on the circle under it.
-          const pinLayers = PIN_LAYERS.filter((id) => map.getLayer(id));
+          // A tap on a pin (or its violation ring) is never also a tap on the circle under it.
+          const pinLayers = CLICKABLE_LAYERS.filter((id) => map.getLayer(id));
           if (map.queryRenderedFeatures(e.point, { layers: pinLayers }).length) return;
           const id = e.features?.[0]?.properties?.id;
           const area = latest.current.watchAreas.find((a) => a.id === id);
