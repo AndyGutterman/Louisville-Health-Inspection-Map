@@ -17,7 +17,7 @@ const hasCoordinates = (r) => Number.isFinite(r.lon) && Number.isFinite(r.lat);
  * and logged, so a missing pin can be traced.
  * @param {object[]} feedRows   rows from v_facility_map_feed
  * @param {Map<string, object>} metaById  establishment id -> { ft, st, address, city, state, zip }
- * @param {Map<string, object>} flagsById establishment id -> { has_critical, has_any }
+ * @param {Map<string, object>} flagsById establishment id -> { has_any }
  */
 export function buildMapFeatures(feedRows, metaById, flagsById) {
   const rows = feedRows
@@ -67,7 +67,6 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
         facility_type: ft,
         subtype: st,
         cat,
-        has_critical_violation: flags.has_critical ?? false,
         has_any_violation: flags.has_any ?? false,
       },
     };

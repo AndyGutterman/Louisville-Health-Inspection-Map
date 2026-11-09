@@ -11,8 +11,8 @@ export const PIN_LAYERS = DRAW_ORDER.map((k) => `points-${k}`);
 // Circle radius that grows with the zoom level. stops: [[zoom, radius], ...]
 const radiusByZoom = (stops) => ["interpolate", ["linear"], ["zoom"], ...stops.flat()];
 
-// Adds the "facilities" source, a circle layer per score band, and the two violation
-// ring layers. pins: the red/yellow cut-offs the bands start with.
+// Adds the "facilities" source, a circle layer per score band, and the violation
+// ring layer. pins: the red/yellow cut-offs the bands start with.
 export function addPinLayers(map, geoData, pins) {
   const phone = window.innerWidth <= 600; // smaller pins on phones
   map.addSource("facilities", { type: "geojson", data: geoData });
@@ -41,8 +41,9 @@ export function addPinLayers(map, geoData, pins) {
     });
   }
 
-  // Violation rings sit above the pins. Blue (non-critical only) goes first, so the red
-  // critical ring wins where both could apply.
+  // A ring above a pin marks violations on the place's latest inspection. (Louisville's
+  // data also has a yes/no "critical" flag, but it can't tell the Food Code's kinds of
+  // violation apart, so the site doesn't use it.)
   const ringRadius = radiusByZoom([
     [8, phone ? 5.5 : 7.5],
     [11, phone ? 9.5 : 12],
@@ -63,20 +64,10 @@ export function addPinLayers(map, geoData, pins) {
       },
     });
   ring(
-    "points-noncritical-ring",
-    [
-      "all",
-      ["==", ["get", "has_any_violation"], true],
-      ["==", ["get", "has_critical_violation"], false],
-    ],
+    "points-violation-ring",
+    ["==", ["get", "has_any_violation"], true],
     2,
     "rgba(58,134,255,0.80)",
-  );
-  ring(
-    "points-critical-ring",
-    ["==", ["get", "has_critical_violation"], true],
-    2.5,
-    "rgba(234,67,53,0.90)", // the red pin colour
   );
 }
 

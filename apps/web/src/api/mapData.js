@@ -33,7 +33,8 @@ export async function fetchMapFeed() {
   return rows;
 }
 
-// establishment id -> { has_critical, has_any } for each place's latest inspection
+// establishment id -> { has_any } for each place's latest inspection (the RPC's has_critical
+// column is not used: see mapLayers.js)
 // (the red and blue rings). Stops quietly on an error.
 export async function fetchViolationFlags() {
   const flags = new Map();

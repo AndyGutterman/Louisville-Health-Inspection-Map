@@ -94,17 +94,7 @@ export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDa
   for (const key of DRAW_ORDER) {
     filters[`points-${key}`] = bandOn[key] ? ["all", bands[key], ...shared] : HIDDEN;
   }
-  // Violation rings follow the same category, search and date filters as the pins.
-  filters["points-critical-ring"] = [
-    "all",
-    ["==", ["get", "has_critical_violation"], true],
-    ...shared,
-  ];
-  filters["points-noncritical-ring"] = [
-    "all",
-    ["==", ["get", "has_any_violation"], true],
-    ["==", ["get", "has_critical_violation"], false],
-    ...shared,
-  ];
+  // The violation ring follows the same category, search and date filters as the pins.
+  filters["points-violation-ring"] = ["all", ["==", ["get", "has_any_violation"], true], ...shared];
   return filters;
 }

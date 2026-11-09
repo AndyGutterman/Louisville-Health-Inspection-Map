@@ -9,15 +9,11 @@ const GRADE_SEVERITY = { C: 0, B: 1, A: 2 };
 export function worstFirst(a, b) {
   const pa = a.properties || {},
     pb = b.properties || {};
-  // 1. Critical violation present → absolute worst (drives the visible red ring)
-  const ca = pa.has_critical_violation ? 0 : 1;
-  const cb = pb.has_critical_violation ? 0 : 1;
-  if (ca !== cb) return ca - cb;
-  // 2. Grade (C=0 worst → A=2 best)
+  // 1. Grade (C=0 worst → A=2 best)
   const ga = GRADE_SEVERITY[pa.grade] ?? 3;
   const gb = GRADE_SEVERITY[pb.grade] ?? 3;
   if (ga !== gb) return ga - gb;
-  // 3. Lower score first within the same grade
+  // 2. Lower score first within the same grade
   return (pa.score ?? 100) - (pb.score ?? 100);
 }
 
@@ -48,7 +44,6 @@ export function deduplicateForRender(featureList) {
         address: f.properties.address,
         score: f.properties.score,
         grade: f.properties.grade,
-        has_critical_violation: f.properties.has_critical_violation,
       })),
     );
     // Bake every co-located establishment's name + address into the
@@ -65,7 +60,6 @@ export function deduplicateForRender(featureList) {
       ...rep,
       properties: {
         ...rep.properties,
-        has_critical_violation: feats.some((f) => f.properties.has_critical_violation),
         has_any_violation: feats.some((f) => f.properties.has_any_violation),
         colocated_search: colocatedSearch,
       },

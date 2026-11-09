@@ -92,10 +92,10 @@ export function useMapLibre(o) {
     };
 
     // ── Which pin a pointer means ────────────────────────────────────────────────
-    // Red pins and places with a critical violation beat yellow, which beats green, so a
-    // bad result is never hidden behind a good one beside it.
+    // Red pins beat yellow, which beats green, so a bad result is never hidden behind a
+    // good one beside it.
     const priority = (f) => {
-      if (f.properties?.has_critical_violation || f.layer?.id === "points-red") return 10;
+      if (f.layer?.id === "points-red") return 10;
       return f.layer?.id === "points-yellow" ? 5 : 0;
     };
     const screenDistance = (point, f) => {
