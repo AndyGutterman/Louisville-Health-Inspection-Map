@@ -57,6 +57,14 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps();
 });
 
+test("draws the county outline and credits its source", async ({ page }) => {
+  const outline = page.waitForResponse((r) => r.url().endsWith("/regions/jefferson.geojson"));
+  await openApp(page);
+  expect((await outline).status()).toBe(200);
+  // MapLibre adds a source's credit to the attribution control once the source is in use.
+  await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Who's On First");
+});
+
 test("What's New and Table View buttons line up", async ({ page }) => {
   await openApp(page);
   const centerY = async (name) => {
