@@ -3,33 +3,34 @@
     "Pins placed by hand for addresses no geocoder finds. Every run applies them before geocoding, and nothing overwrites them.",
     "query: copy it from the job's '✗ no match' line, the part after the dash.",
     "at: on openstreetmap.org, right-click the building, choose 'Show address', and copy the 'latitude, longitude' from the search box.",
-    "Leave 'at' empty until you know the spot. Removing an entry later does not remove a pin already placed."
+    "The entries below were placed on Kentucky's 911 road centerlines (kygisserver.ky.gov, Ky_911_Road_Centerlines), by the house-number range of the road segment.",
+    "Leave 'at' empty to leave a place off the map. Removing an entry later does not remove a pin already placed."
   ],
   "places": [
     {
       "query": "150 BROOKS WAY, BROOKS, KY",
-      "at": "",
-      "note": "El Maguey (#5) and Little Village Learning Center (Ste 8). State 911 data has only 263 Brooks Way."
+      "at": "38.06013, -85.70516",
+      "note": "El Maguey (Ste 4-5) and Little Village Learning Center (Ste 8). On the 911 centerline: Brooks Way, numbers 100-220."
     },
     {
       "query": "321 EAST BROOKE PKWY, MOUNT WASHINGTON, KY",
-      "at": "38.05784, -85.53755",
-      "note": "Paris Banh Mi. Approximate: Eastbrooke Pkwy as OpenStreetMap places it, north of the Kroger at 234 (state 911 data has only 234 and 240). Move it onto the building if you know it."
+      "at": "38.05824, -85.53728",
+      "note": "Paris Banh Mi. On the 911 centerline: Eastbrooke Pkwy, start of the 321-425 segment."
     },
     {
       "query": "156 EAST BROOKE POINTE DR, MOUNT WASHINGTON, KY",
-      "at": "38.05519, -85.53449",
-      "note": "Travelin Tom's Coffee. Approximate: the 226 Eastbrooke Pointe Dr address point, the nearest on file (state 911 data has only 226 and 327). Move it onto the building if you know it."
+      "at": "38.05461, -85.53333",
+      "note": "Travelin Tom's Coffee. On the 911 centerline: Eastbrooke Pointe Dr, numbers 100-286."
     },
     {
       "query": "296 WOOD CREEK DR, SHEPHERDSVILLE, KY",
       "at": "",
-      "note": "For the Love of Juice. State 911 data has only 117 and 120 Wood Creek Dr."
+      "note": "For the Love of Juice. Left off the map on purpose: a residential street and no public listing, so most likely a home base (food truck or home-based vendor). To pin it anyway, use 38.00481, -85.64757 (911 centerline, numbers 100-368)."
     },
     {
       "query": "127 PEREGRINE RD, MOUNT WASHINGTON, KY",
       "at": "",
-      "note": "Tacos La Catrina. Street not in the state 911 data yet."
+      "note": "Tacos La Catrina. Left off the map on purpose: a residential subdivision street and no public listing, so most likely a food truck's home base. To pin it anyway, use 38.05573, -85.51251 (911 centerline, numbers 101-153)."
     }
   ]
 }
