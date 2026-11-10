@@ -127,6 +127,10 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
    hidden. Should undated places count as recent, or only once history builds up?
 3. **Which score the pin shows.** The MVP uses the routine inspection's score, like the
    department's "Last Inspection Score". The follow-up score is in the drawer.
+   The violation ring follows the latest record, by the same rule as Louisville: a
+   follow-up still on the sheet decides it by its listed violations, otherwise the routine
+   inspection's (`latestHasViolations` in `lib/bullitt.js`; the follow-up's count comes from
+   migration `20261112000000`, and before it runs the follow-up's score below 100 stands in).
 4. **Categories.** No facility types. Options: leave them off, guess from names
    ("ELEMENTARY", "SCHOOL", "DAY CARE", "@ KROGER"), or ask the department.
 5. **Grades and standards.** Kentucky's satisfactory mark is 85 with no critical

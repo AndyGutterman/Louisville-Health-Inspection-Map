@@ -5,6 +5,7 @@ import {
   bullittHistory,
   buildBullittFeatures,
   isBullittId,
+  latestHasViolations,
 } from "./bullitt.js";
 
 const feedRow = {
@@ -41,7 +42,7 @@ describe("buildBullittFeatures", () => {
       score: 94,
       grade: null,
       cat: "unknown",
-      has_any_violation: true,
+      has_any_violation: false, // the follow-up scored 100
       follow_up_score: 100,
       region: "bullitt",
     });
@@ -63,6 +64,34 @@ describe("buildBullittFeatures", () => {
     ]);
     expect(f.properties.score).toBeNull();
     expect(f.properties.has_any_violation).toBe(false);
+  });
+});
+
+describe("latestHasViolations (the ring)", () => {
+  const withCount = (n, score = 100) => ({
+    ...feedRow,
+    follow_up_score: score,
+    follow_up_violation_count: n,
+  });
+
+  it("follows the follow-up's listed violations, like Louisville's latest inspection", () => {
+    expect(latestHasViolations(withCount(0))).toBe(false);
+    expect(latestHasViolations(withCount(2))).toBe(true);
+    // The list decides, not the score: the same rule as Louisville.
+    expect(latestHasViolations(withCount(0, 96))).toBe(false);
+    expect(latestHasViolations(withCount("1"))).toBe(true);
+  });
+
+  it("uses the follow-up's score until the feed has its count (before the migration)", () => {
+    expect(latestHasViolations(feedRow)).toBe(false); // 100
+    expect(latestHasViolations({ ...feedRow, follow_up_score: 96 })).toBe(true);
+  });
+
+  it("uses the routine inspection when there is no follow-up, or nothing to go on", () => {
+    const noFollowUp = { ...feedRow, follow_up_date: null, follow_up_score: null };
+    expect(latestHasViolations(noFollowUp)).toBe(true);
+    expect(latestHasViolations({ ...noFollowUp, violation_count_recent: 0 })).toBe(false);
+    expect(latestHasViolations({ ...feedRow, follow_up_score: null })).toBe(true);
   });
 });
 

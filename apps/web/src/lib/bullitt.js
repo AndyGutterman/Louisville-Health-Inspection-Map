@@ -15,6 +15,24 @@ export const NO_DATE = "Date not published";
 const toNumber = (v) => (v == null || v === "" ? null : Number(v));
 
 /**
+ * Whether a place's latest record lists violations: the ring on its pin, by the same rule
+ * as Louisville's. A follow-up still on the sheet is the latest record, so its violations
+ * decide; otherwise the routine inspection's do.
+ * Before migration 20261112000000 the feed has no follow_up_violation_count, only the
+ * follow-up's score, so a score below 100 stands in until then.
+ * @param {object} r  a v_bullitt_map_feed row
+ */
+export function latestHasViolations(r) {
+  if (r.follow_up_date) {
+    const listed = toNumber(r.follow_up_violation_count);
+    if (Number.isFinite(listed)) return listed > 0;
+    const score = toNumber(r.follow_up_score);
+    if (Number.isFinite(score)) return score < 100;
+  }
+  return (toNumber(r.violation_count_recent) ?? 0) > 0;
+}
+
+/**
  * Map features from v_bullitt_map_feed rows: the same properties as Louisville's
  * (lib/mapFeatures.js), with no date, grade or category, plus `region`.
  * @param {object[]} rows
@@ -39,7 +57,7 @@ export function buildBullittFeatures(rows) {
         facility_type: null,
         subtype: null,
         cat: "unknown",
-        has_any_violation: (r.violation_count_recent ?? 0) > 0,
+        has_any_violation: latestHasViolations(r),
         follow_up_date: r.follow_up_date ?? null,
         follow_up_score: toNumber(r.follow_up_score),
         region: BULLITT,

@@ -9,9 +9,9 @@ export async function fetchBullittFeed() {
     return await readAllPages((from, to) =>
       supabase
         .from("v_bullitt_map_feed")
-        .select(
-          "establishment_id,premise_name,address,city,lon,lat,score_recent,violation_count_recent,follow_up_date,follow_up_score",
-        )
+        // Every column: follow_up_violation_count only exists once migration
+        // 20261112000000 has run, and naming it before then would fail the whole read.
+        .select("*")
         .order("establishment_id")
         .range(from, to),
     );

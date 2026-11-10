@@ -314,6 +314,7 @@ export const TABLES = {
     violation_count_recent: p.violations.length,
     follow_up_date: p.followUp ? daysAgo(p.followUp.days) : null,
     follow_up_score: p.followUp?.score ?? null,
+    follow_up_violation_count: p.followUp ? 0 : null,
   })),
   bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row
