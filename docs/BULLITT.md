@@ -67,8 +67,12 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
 - **Geocoding:** the same providers as `geocode_missing.js` (Nominatim, then Census, from
   the shared `pipeline/lib/geocode.js`) and the same `geocode_cache` table. Nominatim
   searches only a box around the county, and a third try asks the Census without the town
-  (the sheet sometimes has the mailing town). A match outside the county outline is kept
-  but flagged (`geocode_outside_county`).
+  (the sheet sometimes has the mailing town). What those miss goes to Kentucky's statewide
+  **911 address points** (`pipeline/lib/ky911.js`, public, no key; one point per addressed
+  building, so new subdivisions are there first). `pipeline/lib/addressPoints.js` matches
+  loosely spelled streets ("HIGH POINTE CT" is High Point Court). A house number with no
+  point of its own goes between its neighbours and is stored as `ky911-approx`. A match
+  outside the county outline is kept but flagged (`geocode_outside_county`).
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
 - **Website:** a County picker at the top of the filter card (Jefferson | Bullitt). Picking
@@ -82,10 +86,14 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
 
 - 250 places on the sheet; **221 pinned inside the county** (142 by Nominatim, 79 by the
   Census), none outside it.
-- **29 not found:** 3 PO boxes (food trucks and mobile vendors, which have no fixed
-  place) and 26 street addresses, mostly in newer subdivisions (East Brooke, Keystone
-  Crossing, Plaza Park, Hubbards Crossing) that neither OpenStreetMap nor the Census has
-  yet. They get no pin; see decision 9.
+- **29 not found** by Nominatim and the Census: 3 PO boxes (food trucks and mobile
+  vendors, which have no fixed place) and 26 street addresses, mostly in newer
+  subdivisions (East Brooke, Keystone Crossing, Plaza Park, Hubbards Crossing) or
+  misspelled in the sheet.
+- The **911 address points** then matched 21 of the 27 distinct missed addresses: 12
+  exactly, 9 placed between neighbouring house numbers. The 6 left: the PO boxes, Peregrine
+  Rd (not in the state's data yet), and 4 addresses with no point within 50 house numbers,
+  where a guess would be worse than no pin.
 - The first dry run found a bug in the shared `stripSuite`: unit words matched the
   start of street names, so "135 NORTH POPLAR" was looked up as "135" and got a wrong
   pin. Fixed for both counties.
@@ -115,10 +123,11 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
    Louisville query and pipeline job would need checking first.
 8. **Toggle or both at once.** The MVP shows one county at a time because the filters
    differ. Showing both needs an answer to 2 and 4.
-9. **Better geocoding.** The free providers miss new subdivisions. Geoapify (the site's
-   address-search provider) found 3 of 6 sample misses with full confidence, but also
-   gave two confident wrong answers, so it would need a confidence cut-off and a
-   `GEOAPIFY_KEY` secret. Or fix the last few by hand.
+9. **Geocoding order.** The 911 address points are the county's own records, so they
+   could go first instead of last (and could serve Louisville too). The MVP keeps them
+   last so pins Nominatim and the Census already placed don't move. Should approximate
+   (`ky911-approx`) pins look different on the map? Geoapify was also tried: 3 of 6 sample
+   misses found, but two confident wrong answers, so it is not used.
 
 ## Known limits
 

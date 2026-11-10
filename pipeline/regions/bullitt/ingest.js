@@ -7,7 +7,8 @@
  *   3. Record each establishment's current inspections. A changed score or violation
  *      list is a new row, so history builds up from the first load on.
  *   4. Geocode places without coordinates the way geocode_missing.js does (Nominatim,
- *      then Census, sharing geocode_cache), and flag matches outside the county.
+ *      then Census, sharing geocode_cache), then Kentucky's 911 address points for what
+ *      those miss (new streets, misspelled ones). Flag matches outside the county.
  *
  * Usage (from pipeline/):
  *   node regions/bullitt/ingest.js                    # the daily job
@@ -20,6 +21,7 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import fetch from "node-fetch";
+import { buildStreetIndex, matchAddress } from "../../lib/addressPoints.js";
 import { bbox, containsPoint } from "../../lib/geo.js";
 import {
   DELAY_MS,
@@ -32,6 +34,7 @@ import {
   sleep,
   stripSuite,
 } from "../../lib/geocode.js";
+import { fetchCountyAddressPoints } from "../../lib/ky911.js";
 import { parseSheet } from "./parse.js";
 
 // The sheet behind the drop-down on https://www.bullitthealth.org/food. The plain CSV
@@ -80,9 +83,28 @@ async function downloadSheet() {
   return text;
 }
 
+// The county's 911 address points, downloaded the first time a place needs them (about
+// 10 requests). Null if the state's server is down: that step is then skipped.
+const COUNTY_911 = "Bullitt County";
+let streets = null;
+function addressPointStreets() {
+  streets ??= fetchCountyAddressPoints(COUNTY_911)
+    .then((points) => {
+      const index = buildStreetIndex(points);
+      console.log(`  KY 911 address points: ${points.length} on ${index.length} streets`);
+      return index;
+    })
+    .catch((e) => {
+      console.error(`  KY 911 address points unavailable: ${e.message}`);
+      return null;
+    });
+  return streets;
+}
+
 // Nominatim inside the county's box, then Census, then Census without the town (the
-// sheet sometimes has the mailing town, not the one the Census knows). A match inside
-// the county outline wins; otherwise the first match is kept and flagged.
+// sheet sometimes has the mailing town, not the one the Census knows), then the 911
+// address points. A match inside the county outline wins; otherwise the first match is
+// kept and flagged.
 async function geocode(row) {
   const query = buildQuery(row, DEFAULTS);
   const inCounty = (r) => !!r && containsPoint(OUTLINE, [r.lon, r.lat]);
@@ -90,6 +112,12 @@ async function geocode(row) {
     () => geocodeNominatim(query, { viewbox: SEARCH_BOX }),
     () => geocodeCensus(row, DEFAULTS),
     () => geocodeCensusLine(`${stripSuite(row.address || "")}, KY`, { accept: inCounty }),
+    async () => {
+      const index = await addressPointStreets();
+      return (
+        index && matchAddress(index, { address: stripSuite(row.address || ""), city: row.city })
+      );
+    },
   ];
   let first = null;
   for (const attempt of attempts) {
