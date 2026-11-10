@@ -39,7 +39,7 @@ docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (man
 ```
 npm ci
 npm run dev
-npm run lint        # 0 errors expected; 2 known warnings (see below)
+npm run lint        # 0 errors expected; 1 known warning (see below)
 npm test            # website (vitest, 113 tests in 10 files) and pipeline (node --test, 54 tests)
 npm run build
 npm run format      # Prettier
@@ -88,7 +88,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list (control card, drawer, account panel, table panel, What's New, a few buttons). Any new floating panel or toggle must be added to that list or it will close the drawer.
 - **Global CSS leaks into inline-styled elements.** `index.css` has a global `button` rule (padding, background). Inline-styled buttons must set `padding: 0` and sizing explicitly. A selector like `.info-drawer [style]` once forced padding onto every inline-styled element in the drawer and broke the bookmark button; never use broad `[style]` selectors.
 - **`!important` beats inline styles.** Check CSS files before debugging layout in JSX.
-- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The 2 remaining lint warnings are in TableView.jsx (`onResize`, `selCats`) and need a TableView restructure, not a dependency tweak.
+- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The remaining lint warning is in TableView.jsx (`onResize`) and needs a TableView restructure, not a dependency tweak.
 - **No "critical" labels:** the data's `critical_yn` flag can't tell the Food Code's three kinds of violation (priority, priority foundation, core) apart, so the site shows every citation as a plain violation and never decides anything from the flag (owner's call, 2026-11-09, for accuracy and liability). Don't bring back critical chips, red rings or critical-first sorting. The database still stores the column; `critical_count`/`critical_6mo` in the functions are deprecated.
 - **Same-place detection:** `lib/samePlaceDetection.js` tags both features with each other's info; it never hides or merges pins. The sub-tenant regex must use `\bat\b` style word boundaries (it once contained raw backspace characters, and an older copy matched any name containing "at"). Tests pin this.
 - Shell caveat: in the sandbox `sh` was used, so brace expansion and `<( )` fail; prefer explicit paths.
@@ -102,12 +102,14 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Records with no map pin:** What's New rows with no coordinates still open the drawer (flagged `noLocation`, shows "No map location on file"), and the map does not move.
 - **Phone layering:** `mobileTop` state in Map.jsx ("account" or "drawer"). Opening Saved goes over the map and over any open drawer; tapping a record in Saved opens the drawer on top and replaces any drawer already open; closing the drawer leaves Saved open. Account page z-index is 3300 when on top, 50 otherwise.
 - **Header button** says "Saved" (class `header-nav-btn--account`); the panel title still says "My Account".
-- **Watch areas:** `watchAreaLayer.js` (circles, editor popup with drag handles). Clicking the popup card (not its buttons) opens the Saved panel scrolled to that area (`openWatchPanelRef`, `focusArea`). Default sort in a watch area is "Needs attention" (failing grade, then most violations in 6 months).
+- **Watch areas:** `watchAreaLayer.js` (circles, editor popup with drag handles). Clicking the popup card (not its buttons) opens the Saved panel scrolled to that area (`openWatchPanelRef`, `focusArea`). Default sort in a watch area is "Violations" (most violations first, then failing grade; `lib/watchAreaSort.js`). Watch areas and saved places cover both counties (migration `20261111000000_both_counties.sql`).
 - **Pan limits:** `lib/mapBounds.js` widens the old fixed box by an amount that scales with the window, so pins under side panels can be panned into view.
 - **Auth:** Supabase email one-time **6-digit code** (not the magic link). `AuthContext.jsx` exposes the single client from `lib/supabase.js`. For local magic links to work, `http://localhost:5173/**` must be in Supabase Redirect URLs; the code flow avoids that.
 - **Feedback:** `FeedbackModal.jsx` posts to the `submit-feedback` edge function (IP rate limit, honeypot, cooldown).
 - **Date filter and map cache constants:** `lib/constants.js`.
-- **Bullitt County (branch `feat/bullitt-county`, not merged):** read `docs/BULLITT.md` first. Separate `bullitt_*` tables, `pipeline/regions/bullitt/`, a County picker in the filter card; per-county capabilities in `lib/regions.js` (`has`). Bullitt ids start with `bullitt-` (`lib/bullitt.js`).
+- **Bullitt County:** read `docs/BULLITT.md` first. Separate `bullitt_*` tables, `pipeline/regions/bullitt/`. Both counties' pins show at once (no toggle); Bullitt pins pass the date filter and count as "Other" (`lib/mapFilters.js`). Per-county capabilities, agency and data sources in `lib/regions.js` (`has`, `agency`, `sources`; the Learn page lists the sources). Bullitt ids start with `bullitt-` (`lib/bullitt.js`).
+- **Table View:** reads `v_table_latest` / `v_table_inspections` (both counties). It loads nothing until first opened and asks for a row count only when filters change (`lib/tableQuery.js`). On phones, filters fold behind a button and rows are cards.
+- **Map popups** sit under every panel: `.map-container` has `z-index: 0`, so it is its own stacking context.
 
 ## Decisions already made
 
