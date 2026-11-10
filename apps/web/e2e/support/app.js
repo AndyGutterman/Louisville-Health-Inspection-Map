@@ -17,6 +17,19 @@ export async function openApp(page) {
   await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>
     route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
   );
+  // Some previews still inject the toolbar's iframe (bottom right), where it covers the
+  // Table View's page buttons. Hide it before the page's own scripts run.
+  await page.addInitScript(() => {
+    const hide = () => {
+      const style = document.createElement("style");
+      style.textContent =
+        '[data-netlify-deploy-id], iframe[title="Netlify Drawer"] { display: none !important; }';
+      (document.head || document.documentElement).appendChild(style);
+    };
+    // Init scripts can run before the document exists (about:blank, early navigation).
+    if (document.documentElement) hide();
+    else document.addEventListener("DOMContentLoaded", hide, { once: true });
+  });
   await page.goto("/");
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
   return { consoleErrors, unmocked: mock.unmocked };
