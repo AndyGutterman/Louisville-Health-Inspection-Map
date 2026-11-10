@@ -972,3 +972,18 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     bottom: 92px;
   }
 }
+
+/* Desktop: the card is as wide as its top row (menu button, pin switches, date menu),
+   open or closed. The open body fills that width without widening it: width 0 plus
+   min-width 100% keeps it out of the card's max-content size. */
+@media (min-width: 900px) {
+  .control-card {
+    width: max-content;
+    max-width: calc(100vw - 32px);
+  }
+
+  .control-card .control-content {
+    width: 0;
+    min-width: 100%;
+  }
+}
