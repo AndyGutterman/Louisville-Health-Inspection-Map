@@ -231,13 +231,21 @@ export function useMapLibre(o) {
     };
   }, [geoData, containerRef, getFeature, coordIndex, latest]);
 
-  // Re-apply the filters whenever the filter panel changes.
+  // Re-apply the filters whenever the filter panel changes. When the map is busy the change
+  // waits for it to go idle, and then applies the filters as they are at that moment: a
+  // waiting copy of older filters once undid newer ones (pins snapped back to their old
+  // colours after the score sliders moved).
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (pinLayersReady(map)) applyFilters(map, filters);
-    else map.once("idle", () => pinLayersReady(map) && applyFilters(map, filters));
-  }, [filters]);
+    if (!map) return undefined;
+    if (pinLayersReady(map)) {
+      applyFilters(map, filters);
+      return undefined;
+    }
+    const applyLatest = () => pinLayersReady(map) && applyFilters(map, latest.current.filters);
+    map.once("idle", applyLatest);
+    return () => map.off("idle", applyLatest);
+  }, [filters, latest]);
 
   // Keep open popups' save buttons in step with the saved list (saving from the drawer,
   // for example).
