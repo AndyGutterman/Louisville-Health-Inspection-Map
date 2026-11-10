@@ -223,6 +223,8 @@ test("both counties show at once, with every filter", async ({ page }, testInfo)
   await page.getByRole("tab", { name: "Filter" }).click();
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
   await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
+  // Narrowing the categories hides Bullitt pins (no facility types); the note says so.
+  await expect(page.getByTestId("county-note")).toContainText("only while every category is on");
   await snap(page, testInfo, "12-both-counties-filters");
 
   expect(consoleErrors, "console errors").toEqual([]);

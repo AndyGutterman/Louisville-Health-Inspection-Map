@@ -62,3 +62,11 @@ export function buildInitialCatToggles() {
   }
   return obj;
 }
+
+// True when every category and every subtype in it is switched on (the default).
+export function allCategoriesOn(catToggles) {
+  return Object.entries(CATEGORY_SPECS).every(([key, spec]) => {
+    const t = catToggles?.[key];
+    return !!t?.enabled && spec.subs.every((p) => t.subs?.[`${p.ft}:${p.st}`]);
+  });
+}
