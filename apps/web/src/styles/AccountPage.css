@@ -153,3 +153,41 @@
     animation: none;
   }
 }
+
+/* Weekly digest email toggle, under the account header */
+.acct-digest {
+  margin: -14px 0 24px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.acct-digest-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.acct-digest-row input {
+  margin: 3px 0 0;
+  accent-color: #34a853;
+  flex-shrink: 0;
+}
+.acct-digest-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #f0f0f3;
+}
+.acct-digest-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+}
+.acct-digest-error {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: #ff9a9a;
+}
