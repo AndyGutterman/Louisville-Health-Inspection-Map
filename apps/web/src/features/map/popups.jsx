@@ -91,7 +91,6 @@ function paintSaveButton(btn, saved) {
  * watch-area editor shares that slot, so only one dialog is open at a time.
  *   isSaved(eid), onToggleSaved(eid): the saved-places state
  *   onOpenDrawer(eid, props): clicking a popup opens the info drawer
- *   onGroupShow(feature): a "1 of 3" popup shows this place (opened, or stepped to)
  *   colorForScore(score): the popup's pointer takes the pin's colour
  */
 export function createPopups({
@@ -100,7 +99,6 @@ export function createPopups({
   isSaved,
   onToggleSaved,
   onOpenDrawer,
-  onGroupShow,
   colorForScore,
 }) {
   let hover = null; // the hover popup
@@ -198,7 +196,6 @@ export function createPopups({
     }
     el.focus({ preventScroll: true });
     wire(pinnedSlot.current, f);
-    onGroupShow?.(f);
   }
 
   function step(direction) {

@@ -79,9 +79,9 @@ export function useMapLibre(o) {
     };
 
     // With the drawer already open, the place a click lands on replaces the one in it,
-    // whether the pin stands alone or the popup is a "1 of 3" (and stepping through that
-    // popup switches it too). Desktop only: on touch screens the popup is tapped to open
-    // the drawer.
+    // whether the pin stands alone or the popup is a "1 of 3" (stepping through that popup
+    // doesn't: the popup is clicked to load the next place). Desktop only: on touch
+    // screens the popup is tapped to open the drawer.
     const switchDrawerTo = (feature) => {
       if (latest.current.drawerOpen && isHoverDevice()) {
         latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
@@ -94,7 +94,6 @@ export function useMapLibre(o) {
       isSaved: (eid) => latest.current.savedIds.has(eid),
       onToggleSaved: (eid) => latest.current.onToggleSaved(eid),
       onOpenDrawer: (eid, props) => latest.current.onOpenDrawer(eid, props),
-      onGroupShow: switchDrawerTo,
       colorForScore,
     });
     popupsRef.current = popups;
@@ -152,7 +151,9 @@ export function useMapLibre(o) {
       const sameSpot = placesAt(feature) || [];
       if (sameSpot.length > 1) {
         const sorted = sameSpot.slice().sort(worstFirst);
-        popups.showGroup(sorted, startIndex(sorted));
+        const i = startIndex(sorted);
+        popups.showGroup(sorted, i);
+        switchDrawerTo(sorted[i]);
         return;
       }
       // Different spots under one screen point: gather everything at each of them.
@@ -165,7 +166,9 @@ export function useMapLibre(o) {
           }
         }
         const sorted = (byEid.size ? [...byEid.values()] : group).slice().sort(worstFirst);
-        popups.showGroup(sorted, startIndex(sorted));
+        const i = startIndex(sorted);
+        popups.showGroup(sorted, i);
+        switchDrawerTo(sorted[i]);
         return;
       }
 
