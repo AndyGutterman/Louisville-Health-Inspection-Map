@@ -14,6 +14,9 @@
   position: absolute;
   inset: 0;
   top: var(--header-h, var(--mobile-header-h, 0px));
+  /* Its own stacking context: popups' z-index only orders them within the map, so a
+     popup always sits under the header, the filter card and every panel. */
+  z-index: 0;
 }
 
 /* ── Popups ── */
@@ -26,7 +29,7 @@
   border-top-color: #1b1b1f;
 }
 
-/* Keep hover/pinned popups behind table panel (1300) and info drawer (3000) */
+/* Above the map's own markers (watch-area handles); under every panel (.map-container) */
 .maplibregl-popup {
   z-index: 1200;
 }

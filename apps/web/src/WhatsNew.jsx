@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { formatMonthDay } from "./lib/dates.js";
+import { whatsNewDate } from "./lib/whatsNew.js";
 import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
@@ -37,15 +37,14 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
       <div className="wn-info">
         <div className="wn-name">{item.premise_name || item.establishment_id}</div>
         <div className="wn-sub">
+          {/* First, so it survives the line's ellipsis */}
+          {item.region === "bullitt" && <span className="wn-county">Bullitt</span>}
           {item.address ? (
-            [item.address, formatMonthDay(item.inspection_date || item.inspection_date_recent)]
-              .filter(Boolean)
-              .join(" · ")
+            [item.address, whatsNewDate(item)].filter(Boolean).join(" · ")
           ) : (
             <>
               <span className="wn-noloc">Location unavailable</span>
-              {formatMonthDay(item.inspection_date || item.inspection_date_recent) &&
-                ` · ${formatMonthDay(item.inspection_date || item.inspection_date_recent)}`}
+              {whatsNewDate(item) && ` · ${whatsNewDate(item)}`}
             </>
           )}
         </div>
@@ -104,16 +103,11 @@ export default function WhatsNew({
     if (!open || (!isWide && tab !== "perfect") || !supabase || loadedRef.current.perfect) return;
     loadedRef.current.perfect = true;
     setPerfectLoading(true);
-    supabase
-      .from("v_facility_map_feed")
-      .select("establishment_id, premise_name, address, score_recent, inspection_date_recent")
-      .eq("score_recent", 100)
-      .order("inspection_date_recent", { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        setPerfect(data || []);
-        setPerfectLoading(false);
-      });
+    // Both counties' latest 100s (get_top_scores).
+    supabase.rpc("get_top_scores", { limit_n: 20 }).then(({ data }) => {
+      setPerfect(data || []);
+      setPerfectLoading(false);
+    });
   }, [open, tab, supabase, isWide]);
 
   // Resize handle
@@ -209,8 +203,8 @@ export default function WhatsNew({
         {visible.map((item, i) => (
           <ScoreCard
             key={`${item.establishment_id}-${i}`}
-            item={{ ...item, inspection_date: item.inspection_date_recent }}
-            score={item.score_recent}
+            item={item}
+            score={item.score}
             badgeClass="perfect"
             onOpen={onOpenEstablishment}
             onHover={onHoverEstablishment}
@@ -302,8 +296,8 @@ export default function WhatsNew({
                   perfect.map((item, i) => (
                     <ScoreCard
                       key={`${item.establishment_id}-${i}`}
-                      item={{ ...item, inspection_date: item.inspection_date_recent }}
-                      score={item.score_recent}
+                      item={item}
+                      score={item.score}
                       badgeClass="perfect"
                       onOpen={onOpenEstablishment}
                       onHover={onHoverEstablishment}

@@ -7,7 +7,9 @@ import {
   enabledRegions,
   outlineLayers,
   outlineSourceId,
+  SHARED_SOURCES,
   regionById,
+  undatedRegionIds,
 } from "./regions.js";
 
 const publicFile = (url) => fileURLToPath(new URL(`../../public${url}`, import.meta.url));
@@ -88,5 +90,27 @@ describe("regionById", () => {
   it("finds a county, and falls back to the default one", () => {
     expect(regionById("bullitt").id).toBe("bullitt");
     expect(regionById("nowhere").id).toBe(DEFAULT_REGION);
+  });
+});
+
+describe("data sources (the Learn page lists these)", () => {
+  it.each(REGIONS)("$id names its agency and at least one https source", (region) => {
+    expect(region.agency.name).toBeTruthy();
+    expect(region.agency.url).toMatch(/^https:\/\//);
+    expect(region.sources.length).toBeGreaterThan(0);
+    for (const s of region.sources) {
+      expect(s.name).toBeTruthy();
+      expect(s.url).toMatch(/^https:\/\//);
+    }
+  });
+
+  it("shared sources are https links too", () => {
+    for (const s of SHARED_SOURCES) expect(s.url).toMatch(/^https:\/\//);
+  });
+});
+
+describe("undatedRegionIds", () => {
+  it("lists counties whose data has no inspection dates", () => {
+    expect(undatedRegionIds()).toEqual(["bullitt"]);
   });
 });

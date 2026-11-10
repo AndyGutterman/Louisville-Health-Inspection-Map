@@ -54,13 +54,16 @@ export function useWatchlist({ user, similarEids, onSignInNeeded }) {
       }
       const saved = latest.current.savedIds;
       if (saved.has(eid)) {
-        await unsavePlace(user.id, eid);
+        const { error } = await unsavePlace(user.id, eid);
+        if (error) return console.error("unsave failed", error);
         setSavedIds((prev) => withoutId(prev, eid));
         return;
       }
       const toAdd = [eid, ...similarEids(eid)].filter((e) => !saved.has(e));
       if (!toAdd.length) return;
-      await savePlaces(user.id, toAdd);
+      // Only show it saved once the database has it (e.g. the 30-place cap).
+      const { error } = await savePlaces(user.id, toAdd);
+      if (error) return console.error("save failed", error);
       setSavedIds((prev) => new Set([...prev, ...toAdd]));
     },
     [user, similarEids, latest],

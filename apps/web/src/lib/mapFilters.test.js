@@ -4,7 +4,6 @@ import {
   buildLayerFilters,
   categoryExpression,
   dateExpression,
-  regionExpression,
   searchExpression,
 } from "./mapFilters.js";
 import { buildInitialCatToggles } from "./categories.js";
@@ -17,6 +16,7 @@ const base = {
   catToggles: buildInitialCatToggles(),
   searchTerm: "",
   cutoffDate: null,
+  undatedRegions: [],
 };
 
 describe("searchExpression", () => {
@@ -129,30 +129,35 @@ describe("buildLayerFilters", () => {
   });
 });
 
-describe("regionExpression", () => {
-  it("is null when no county is picked", () => expect(regionExpression(null)).toBeNull());
-
-  it("counts pins without a region as Jefferson County's", () => {
-    expect(regionExpression("bullitt")).toEqual([
-      "==",
-      ["coalesce", ["get", "region"], "jefferson"],
-      "bullitt",
+describe("dateExpression with undated counties", () => {
+  it("is the plain cutoff when every county has dates", () => {
+    expect(dateExpression("2026-01-01", [])).toEqual([
+      ">=",
+      ["coalesce", ["get", "date"], "0000-00-00"],
+      "2026-01-01",
     ]);
   });
-});
 
-describe("buildLayerFilters by county", () => {
-  it("shows only the picked county's pins and rings", () => {
-    const f = buildLayerFilters({ ...base, region: "bullitt" });
-    for (const id of ["points-green", "points-violation-ring"]) {
-      expect(f[id]).toContainEqual(regionExpression("bullitt"));
-    }
+  it("lets an undated county's pins through, counting no region as Jefferson", () => {
+    expect(dateExpression("2026-01-01", ["bullitt"])).toEqual([
+      "any",
+      ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]],
+      dateExpression("2026-01-01"),
+    ]);
   });
 
-  it("skips the category filter for a county without categories", () => {
-    const f = buildLayerFilters({ ...base, region: "bullitt", catToggles: null });
-    expect(f["points-red"]).not.toContainEqual(categoryExpression(base.catToggles));
-    expect(f["points-red"]).toHaveLength(3); // "all", the band, the county
+  it("is still null for all time", () => expect(dateExpression(null, ["bullitt"])).toBeNull());
+});
+
+describe("buildLayerFilters with both counties", () => {
+  it("lets Bullitt pins past the date filter by default", () => {
+    const f = buildLayerFilters({ ...base, cutoffDate: "2026-01-01", undatedRegions: undefined });
+    expect(f["points-green"]).toContainEqual(dateExpression("2026-01-01", ["bullitt"]));
+  });
+
+  it("never filters by county", () => {
+    const f = buildLayerFilters(base);
+    expect(JSON.stringify(f["points-green"])).not.toContain('"region"');
   });
 });
 

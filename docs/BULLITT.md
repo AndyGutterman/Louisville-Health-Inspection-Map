@@ -81,12 +81,14 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   outside the county outline is kept but flagged (`geocode_outside_county`).
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
-- **Website:** a County picker at the top of the filter card (Jefferson | Bullitt). Picking
-  Bullitt shows only Bullitt pins and flies to the county; the date filter and the
-  category tiles are hidden, since its data has neither. The drawer explains the source.
-  Saving a Bullitt place is off (the saved-places table has a foreign key to `facilities`).
-  Table View, What's New and the Learn page are still Louisville only. County capabilities
-  live in `apps/web/src/lib/regions.js` (`has: { categories, dates, grades, saving }`).
+- **Website:** both counties' pins show together (the County picker is gone). The date
+  filter lets Bullitt's undated pins through, and the category filter files them under
+  "Other" (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
+  and Table View cover Bullitt once `supabase/migrations/20261111000000_both_counties.sql`
+  has run. What's New covers Bullitt once `20261111010000_whats_new_both_counties.sql` has
+  run: dated follow-ups, plus routine scores that changed on the sheet in the last 30 days
+  (shown as "posted <date>", never as an inspection date; the first load doesn't count). County capabilities, agency and data
+  sources live in `apps/web/src/lib/regions.js`; the Learn page lists the sources from there.
 
 ## Geocoding results (dry run, November 2026)
 
@@ -127,8 +129,8 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
    tables with a `region` column (the refactor plan's idea). Shared tables would give
    Bullitt What's New, Table View, saved places and watch areas for free, but every
    Louisville query and pipeline job would need checking first.
-8. **Toggle or both at once.** The MVP shows one county at a time because the filters
-   differ. Showing both needs an answer to 2 and 4.
+8. **Toggle or both at once.** Decided: both at once (November 2026). Undated Bullitt pins
+   always pass the date filter (2) and count as "Other" (4).
 9. **Geocoding order.** The 911 address points are the county's own records, so they
    could go first instead of last (and could serve Louisville too). The MVP keeps them
    last so pins Nominatim and the Census already placed don't move. Should approximate

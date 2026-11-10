@@ -1,4 +1,17 @@
+// Table View: every inspection in both counties, searchable and sortable, read a page at
+// a time from v_table_latest / v_table_inspections. On phones the filters fold away and
+// rows become cards, so the list gets the room.
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import { enabledRegions } from "./lib/regions.js";
+import {
+  FACILITY_CATS,
+  FACILITY_CAT_KEYS,
+  combineOr,
+  countKey,
+  facilityFilter,
+  searchFilter,
+} from "./lib/tableQuery.js";
 
 const PAGE_SIZES = [10, 25, 50, 100, 500];
 
@@ -9,8 +22,9 @@ function scoreClass(s) {
   return "bad";
 }
 
-function fmt(val) {
-  if (!val) return "—";
+// Bullitt County publishes no date for the latest inspection (lib/bullitt.js).
+function fmt(val, region) {
+  if (!val) return region === "bullitt" ? "Not published" : "—";
   const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return String(val);
   return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString(undefined, {
@@ -25,7 +39,7 @@ function useDragH(savedH) {
   const defaultH = () =>
     savedH != null
       ? savedH
-      : Math.round(window.innerHeight * (window.innerWidth <= 600 ? 0.42 : 0.5));
+      : Math.round(window.innerHeight * (window.innerWidth <= 600 ? 0.58 : 0.5));
   const [h, setH] = useState(defaultH);
   const d = useRef({});
   // Top edge: drag up = taller (y decreases)
@@ -112,51 +126,8 @@ function useCornerDrag(setH, setW) {
   return { downCorner: down, moveCorner: move, upCorner: up };
 }
 
-// Facility category definitions — ft/st pairs matching Map.jsx CATEGORY_SPECS
-const FACILITY_CATS = {
-  restaurants: { label: "Restaurants", pairs: [[605, 11]] },
-  schools: { label: "Schools", pairs: [[605, 33]] },
-  daycare: { label: "Daycare", pairs: [[605, 31]] },
-  hospitals: { label: "Healthcare", pairs: [[605, 32]] },
-  concessions: {
-    label: "Concessions",
-    pairs: [
-      [603, 51],
-      [603, 53],
-    ],
-  },
-  caterers_commissary: {
-    label: "Kitchens",
-    pairs: [
-      [605, 42],
-      [605, 43],
-    ],
-  },
-  retail: {
-    label: "Retail",
-    pairs: [
-      [610, 61],
-      [610, 62],
-      [610, 63],
-      [610, 64],
-      [610, 65],
-      [610, 73],
-      [610, 212],
-      [607, 54],
-      [607, 55],
-      [605, 54],
-    ],
-  },
-  unknown: {
-    label: "Other",
-    pairs: [
-      [605, 36],
-      [604, 16],
-      [605, 52],
-    ],
-  },
-};
-const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
+const REGIONS = enabledRegions();
+const regionShort = (id) => REGIONS.find((r) => r.id === id)?.shortName ?? "";
 
 export default function TableView({
   supabase,
@@ -171,6 +142,7 @@ export default function TableView({
   zIndex,
   onBringToFront,
 }) {
+  const isPhone = useMediaQuery("(max-width: 600px)");
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -192,16 +164,19 @@ export default function TableView({
 
   // Facility category multiselect (null = All)
   const [selCats, setSelCats] = useState(null);
-  // Resolved establishment_ids for the current cat selection
-  const [catEids, setCatEids] = useState(null); // null = no filter
 
+  const [county, setCounty] = useState(null); // null = both counties
   const [latestOnly, setLatestOnly] = useState(true);
   const [hideNA, setHideNA] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false); // phones: the chip rows
+  const activeFilters = (county ? 1 : 0) + (selTypes ? 1 : 0) + (selCats ? 1 : 0);
 
   const { h, setH, downH, downHBottom, moveH, upH } = useDragH(savedH);
   const { w, setW, downW, moveW, upW } = useDragW(savedW);
   const { downCorner, moveCorner, upCorner } = useCornerDrag(setH, setW);
   const bodyRef = useRef(null);
+  // The filters the current `total` was counted for (lib/tableQuery.js countKey).
+  const countedFor = useRef(null);
 
   // Notify parent of dimension changes so they survive close/reopen
   useEffect(() => {
@@ -234,15 +209,19 @@ export default function TableView({
   // Reset page on filter/sort change
   useEffect(() => {
     setPage(1);
-  }, [sortAxis, sortDir, dbSearch, selTypes, catEids, latestOnly, pageSize, hideNA]);
+  }, [sortAxis, sortDir, dbSearch, selTypes, selCats, county, latestOnly, pageSize, hideNA]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [page]);
 
-  // Fetch inspection type list once
+  // Fetch inspection type list once, the first time the table opens.
+  const [typesWanted, setTypesWanted] = useState(false);
   useEffect(() => {
-    if (!supabase) return;
+    if (!hidden) setTypesWanted(true);
+  }, [hidden]);
+  useEffect(() => {
+    if (!supabase || !typesWanted) return;
     supabase
       .from("v_inspection_types")
       .select("ins_type_desc, cnt")
@@ -253,82 +232,47 @@ export default function TableView({
         }
         setTypes((data || []).map((r) => ({ type: r.ins_type_desc, count: Number(r.cnt) })));
       });
-  }, [supabase]);
+  }, [supabase, typesWanted]);
 
-  // Resolve facility category → establishment_ids via facilities table
-  // The inspection views don't carry facility_type/subtype, so we pre-fetch
-  // the matching establishment_ids and then filter by them.
+  // Main data fetch. Nothing loads until the table is first opened, and the row count is
+  // only asked for when the filters change, not on every page.
   useEffect(() => {
-    if (!supabase || selCats === null) {
-      setCatEids(null);
-      return;
-    }
-    const pairs = [...selCats].flatMap((k) => FACILITY_CATS[k]?.pairs ?? []);
-    if (pairs.length === 0) {
-      setCatEids(null);
-      return;
-    }
-
-    // Build OR filter: (facility_type=X AND subtype=Y) OR ...
-    const orParts = pairs
-      .map(([ft, st]) => `and(facility_type.eq.${ft},subtype.eq.${st})`)
-      .join(",");
-
-    supabase
-      .from("facilities")
-      .select("establishment_id")
-      .or(orParts)
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn("facility cat filter:", error.message);
-          setCatEids(null);
-          return;
-        }
-        const ids = (data || []).map((r) => r.establishment_id);
-        setCatEids(ids.length > 0 ? ids : []);
-      });
-  }, [supabase, selCats]);
-
-  // Main data fetch
-  useEffect(() => {
-    if (!supabase) return;
-    // If a category filter is active but IDs haven't resolved yet, wait
-    if (selCats !== null && catEids === undefined) return;
+    if (!supabase || !typesWanted) return;
 
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const view = latestOnly ? "v_latest_insp_per_type" : "v_inspection_table";
+    const view = latestOnly ? "v_table_latest" : "v_table_inspections";
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     const col = sortAxis === "score" ? "score" : sortAxis === "name" ? "name" : "inspection_date";
     const asc = sortDir === "asc";
+    const key = countKey({
+      view,
+      region: county,
+      hideNA,
+      types: selTypes,
+      cats: selCats,
+      search: dbSearch,
+    });
+    const wantCount = countedFor.current !== key;
 
     let q = supabase
       .from(view)
       .select(
-        "inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, zip",
-        { count: "exact" },
+        "region, inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, city, zip",
+        wantCount ? { count: "exact" } : undefined,
       )
       .order(col, { ascending: asc, nullsFirst: false })
+      .order("inspection_id", { ascending: false })
       .range(from, to);
 
+    if (county) q = q.eq("region", county);
     if (hideNA) q = q.gt("score", 0);
     if (selTypes) q = q.in("ins_type_desc", [...selTypes]);
-    if (dbSearch)
-      q = q.or(`name.ilike.%${dbSearch}%,address.ilike.%${dbSearch}%,zip.ilike.%${dbSearch}%`);
-    // Category filter: restrict to resolved establishment_ids
-    if (catEids !== null) {
-      if (catEids.length === 0) {
-        // No facilities match — return empty result immediately
-        setRows([]);
-        setTotal(0);
-        setLoading(false);
-        return;
-      }
-      q = q.in("establishment_id", catEids);
-    }
+    const or = combineOr(searchFilter(dbSearch), facilityFilter(selCats));
+    if (or) q = q.or(or);
 
     q.then(({ data, error, count }) => {
       if (cancelled) return;
@@ -338,7 +282,10 @@ export default function TableView({
         return;
       }
       setRows(data || []);
-      setTotal(count ?? 0);
+      if (wantCount) {
+        setTotal(count ?? 0);
+        countedFor.current = key;
+      }
       setLoading(false);
     });
     return () => {
@@ -346,13 +293,15 @@ export default function TableView({
     };
   }, [
     supabase,
+    typesWanted,
     page,
     pageSize,
     sortAxis,
     sortDir,
     dbSearch,
     selTypes,
-    catEids,
+    selCats,
+    county,
     latestOnly,
     hideNA,
   ]);
@@ -426,9 +375,22 @@ export default function TableView({
     return out;
   })();
 
+  const openRow = (row) =>
+    onRowClick?.({
+      establishment_id: row.establishment_id,
+      name: row.name,
+      address: row.address,
+      date: row.inspection_date,
+      score: row.score,
+      grade: row.grade,
+    });
+  const rowKey = (row) => `${row.region}-${row.inspection_id}`;
+  const showFilters = !isPhone || filtersOpen;
+
   return (
     <div
-      className="table-panel"
+      className={`table-panel${isPhone ? " table-panel--phone" : ""}`}
+      data-testid="table-panel"
       style={{ height: h, width: w, display: hidden ? "none" : undefined, zIndex: zIndex ?? 2900 }}
       onPointerDown={onBringToFront}
       onPointerMove={onPanelMove}
@@ -453,7 +415,7 @@ export default function TableView({
       {/* header */}
       <div className="table-panel-header">
         <span className="table-panel-title">Inspection Scores</span>
-        <button className="table-panel-close" onClick={onClose}>
+        <button className="table-panel-close" onClick={onClose} aria-label="Close table view">
           ✕
         </button>
       </div>
@@ -474,11 +436,23 @@ export default function TableView({
           </svg>
           <input
             type="text"
-            placeholder="Search all current records"
+            placeholder={isPhone ? "Search both counties" : "Search name, address, city or zip"}
+            aria-label="Search the table"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {isPhone && (
+          <button
+            className={`tbl-pill-btn ${filtersOpen || activeFilters ? "active" : ""}`}
+            aria-expanded={filtersOpen}
+            data-testid="table-filters-toggle"
+            onClick={() => setFiltersOpen((v) => !v)}
+          >
+            Filters{activeFilters ? ` · ${activeFilters}` : ""}
+          </button>
+        )}
 
         <div className="tbl-toolbar-right">
           <button
@@ -517,52 +491,81 @@ export default function TableView({
         </div>
       </div>
 
-      {/* Inspection type chips */}
-      {types.length > 0 && (
-        <div className="table-filter-row">
-          <span className="table-filter-label">Type</span>
-          <div className="table-type-chips">
-            <button
-              className={`table-chip ${selTypes === null ? "active" : ""}`}
-              onClick={() => setSelTypes(null)}
-            >
-              All
-            </button>
-            {types.map((t) => (
+      {showFilters && (
+        <div className="table-filters" data-testid="table-filters">
+          {/* County chips */}
+          <div className="table-filter-row">
+            <span className="table-filter-label">County</span>
+            <div className="table-type-chips">
               <button
-                key={t.type}
-                className={`table-chip ${selTypes?.has(t.type) ? "active" : ""}`}
-                onClick={() => toggleType(t.type)}
-                title={`${t.count.toLocaleString()} inspections`}
+                className={`table-chip ${county === null ? "active" : ""}`}
+                onClick={() => setCounty(null)}
               >
-                {t.type}
+                Both
               </button>
-            ))}
+              {REGIONS.map((r) => (
+                <button
+                  key={r.id}
+                  data-testid={`table-county-${r.id}`}
+                  className={`table-chip ${county === r.id ? "active" : ""}`}
+                  onClick={() => setCounty((c) => (c === r.id ? null : r.id))}
+                  title={r.name}
+                >
+                  {r.shortName}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Inspection type chips */}
+          {types.length > 0 && (
+            <div className="table-filter-row">
+              <span className="table-filter-label">Type</span>
+              <div className="table-type-chips">
+                <button
+                  className={`table-chip ${selTypes === null ? "active" : ""}`}
+                  onClick={() => setSelTypes(null)}
+                >
+                  All
+                </button>
+                {types.map((t) => (
+                  <button
+                    key={t.type}
+                    className={`table-chip ${selTypes?.has(t.type) ? "active" : ""}`}
+                    onClick={() => toggleType(t.type)}
+                    title={`${t.count.toLocaleString()} inspections`}
+                  >
+                    {t.type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Facility category chips */}
+          <div className="table-filter-row">
+            <span className="table-filter-label">Facility</span>
+            <div className="table-type-chips">
+              <button
+                className={`table-chip ${selCats === null ? "active" : ""}`}
+                onClick={() => setSelCats(null)}
+              >
+                All
+              </button>
+              {Object.entries(FACILITY_CATS).map(([key, spec]) => (
+                <button
+                  key={key}
+                  className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
+                  onClick={() => toggleCat(key)}
+                  title={spec.untyped ? "Includes every Bullitt County place" : undefined}
+                >
+                  {spec.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
-
-      {/* Facility category chips */}
-      <div className="table-filter-row">
-        <span className="table-filter-label">Facility</span>
-        <div className="table-type-chips">
-          <button
-            className={`table-chip ${selCats === null ? "active" : ""}`}
-            onClick={() => setSelCats(null)}
-          >
-            All
-          </button>
-          {Object.entries(FACILITY_CATS).map(([key, spec]) => (
-            <button
-              key={key}
-              className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
-              onClick={() => toggleCat(key)}
-            >
-              {spec.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* table */}
       <div className="table-body" ref={bodyRef}>
@@ -570,154 +573,231 @@ export default function TableView({
           <div className="tbl-error">
             ⚠ {error}
             <br />
-            <small>Re-run supabase_table_views.sql to create missing views.</small>
+            <small>
+              Run supabase/migrations/20261111000000_both_counties.sql to create the table views.
+            </small>
           </div>
         )}
-        <table className="table-grid" style={{ minWidth: 560 }}>
-          <thead>
-            <tr>
-              <th className={sortAxis === "score" ? "sorted" : ""} onClick={handleScoreSort}>
-                Score{" "}
-                <span className="sort-icon">
-                  {sortAxis === "score" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-                </span>
-              </th>
-              <th className="tbl-col-type">Type</th>
-              <th
-                className={sortAxis === "name" ? "sorted" : ""}
-                onClick={handleNameSort}
-                style={{ cursor: "pointer" }}
-              >
-                Place{" "}
-                <span className="sort-icon">
-                  {sortAxis === "name" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-                </span>
-              </th>
-              <th className="tbl-col-addr">Address</th>
-              <th className="tbl-col-zip">Zip</th>
-              <th className={sortAxis === "date" ? "sorted" : ""} onClick={handleDateSort}>
-                Date{" "}
-                <span className="sort-icon">
-                  {sortAxis === "date" ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
-                </span>
-              </th>
-              <th className="tbl-col-grade">Grade</th>
-            </tr>
-          </thead>
-          <tbody>
+        {isPhone ? (
+          <ul className="tbl-cards" aria-label="Inspections">
             {loading && (
-              <tr>
-                <td colSpan={7} className="tbl-loading">
-                  <span className="tbl-spinner" /> Loading…
-                </td>
-              </tr>
+              <li className="tbl-loading">
+                <span className="tbl-spinner" /> Loading…
+              </li>
             )}
             {!loading &&
-              rows.map((row) => {
-                const cls = scoreClass(row.score);
-                const scoreText = row.score || "N/A";
-                const gradeDisp = row.grade?.trim() || "—";
-                return (
-                  <tr
-                    key={row.inspection_id}
-                    className="tbl-row"
-                    onPointerEnter={() => onRowHover?.(row.establishment_id, row)}
-                    onPointerLeave={() => onRowHoverEnd?.()}
-                    onClick={() =>
-                      onRowClick?.({
-                        establishment_id: row.establishment_id,
-                        name: row.name,
-                        address: row.address,
-                        date: row.inspection_date,
-                        score: row.score,
-                        grade: row.grade,
-                      })
-                    }
+              rows.map((row) => (
+                <li key={rowKey(row)}>
+                  <button
+                    type="button"
+                    className="tbl-card"
+                    data-testid="table-row"
+                    onClick={() => openRow(row)}
                   >
-                    <td>
-                      <span className={`tbl-score-badge ${cls}`}>{scoreText}</span>
-                    </td>
-                    <td className="tbl-col-type">
-                      <div className="tbl-type">{row.ins_type_desc || "—"}</div>
-                    </td>
-                    <td>
-                      <div className="tbl-name">{row.name || "Unknown"}</div>
-                    </td>
-                    <td className="tbl-col-addr">
-                      <div className="tbl-addr">{row.address || "—"}</div>
-                    </td>
-                    <td className="tbl-col-zip">
-                      <div className="tbl-zip">{row.zip || "—"}</div>
-                    </td>
-                    <td className="tbl-col-date">{fmt(row.inspection_date)}</td>
-                    <td className="tbl-col-grade">
-                      <span className={`tbl-grade ${gradeDisp === "—" ? "muted" : ""}`}>
-                        {gradeDisp}
+                    <span className={`tbl-score-badge ${scoreClass(row.score)}`}>
+                      {row.score || "N/A"}
+                    </span>
+                    <span className="tbl-card-main">
+                      <span className="tbl-name">{row.name || "Unknown"}</span>
+                      <span className="tbl-addr">
+                        {[row.address, row.city].filter(Boolean).join(", ") || "—"}
                       </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            {!loading && !error && rows.length === 0 && (
+                      <span className="tbl-card-meta">
+                        {row.ins_type_desc || "—"} · {fmt(row.inspection_date, row.region)}
+                        {row.grade?.trim() ? ` · Grade ${row.grade.trim()}` : ""}
+                        {row.region === "bullitt" && (
+                          <span className="tbl-county-tag">{regionShort(row.region)}</span>
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            {!loading && !error && rows.length === 0 && <li className="tbl-empty">No results</li>}
+          </ul>
+        ) : (
+          <table className="table-grid" style={{ minWidth: 560 }}>
+            <thead>
               <tr>
-                <td colSpan={7} className="tbl-empty">
-                  No results
-                </td>
+                <th className={sortAxis === "score" ? "sorted" : ""} onClick={handleScoreSort}>
+                  Score{" "}
+                  <span className="sort-icon">
+                    {sortAxis === "score" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                  </span>
+                </th>
+                <th className="tbl-col-type">Type</th>
+                <th
+                  className={sortAxis === "name" ? "sorted" : ""}
+                  onClick={handleNameSort}
+                  style={{ cursor: "pointer" }}
+                >
+                  Place{" "}
+                  <span className="sort-icon">
+                    {sortAxis === "name" ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                  </span>
+                </th>
+                <th className="tbl-col-addr">Address</th>
+                <th className="tbl-col-zip">Zip</th>
+                <th className={sortAxis === "date" ? "sorted" : ""} onClick={handleDateSort}>
+                  Date{" "}
+                  <span className="sort-icon">
+                    {sortAxis === "date" ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
+                  </span>
+                </th>
+                <th className="tbl-col-grade">Grade</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="tbl-loading">
+                    <span className="tbl-spinner" /> Loading…
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                rows.map((row) => {
+                  const gradeDisp = row.grade?.trim() || "—";
+                  return (
+                    <tr
+                      key={rowKey(row)}
+                      className="tbl-row"
+                      data-testid="table-row"
+                      onPointerEnter={() => onRowHover?.(row.establishment_id, row)}
+                      onPointerLeave={() => onRowHoverEnd?.()}
+                      onClick={() => openRow(row)}
+                    >
+                      <td>
+                        <span className={`tbl-score-badge ${scoreClass(row.score)}`}>
+                          {row.score || "N/A"}
+                        </span>
+                      </td>
+                      <td className="tbl-col-type">
+                        <div className="tbl-type">{row.ins_type_desc || "—"}</div>
+                      </td>
+                      <td>
+                        <div className="tbl-name">{row.name || "Unknown"}</div>
+                      </td>
+                      <td className="tbl-col-addr">
+                        <div className="tbl-addr">
+                          {row.address || "—"}
+                          {row.region === "bullitt" && row.city ? `, ${row.city}` : ""}
+                        </div>
+                      </td>
+                      <td className="tbl-col-zip">
+                        <div className="tbl-zip">{row.zip || "—"}</div>
+                      </td>
+                      <td className="tbl-col-date">{fmt(row.inspection_date, row.region)}</td>
+                      <td className="tbl-col-grade">
+                        <span className={`tbl-grade ${gradeDisp === "—" ? "muted" : ""}`}>
+                          {gradeDisp}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {!loading && !error && rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="tbl-empty">
+                    No results
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* footer */}
-      <div className="table-footer">
-        <span className="table-result-count">
-          {total === 0 ? "No results" : `${startRow}–${endRow} of ${total.toLocaleString()}`}
-        </span>
-        <div className="table-page-size">
-          <span>Per page</span>
-          {PAGE_SIZES.map((n) => (
+      {isPhone ? (
+        <div className="table-footer table-footer--phone">
+          <span className="table-result-count">
+            {total === 0 ? "No results" : `${startRow}–${endRow} of ${total.toLocaleString()}`}
+          </span>
+          <div className="table-pagination">
             <button
-              key={n}
-              className={`tbl-size-btn ${pageSize === n ? "active" : ""}`}
-              onClick={() => setPageSize(n)}
+              className="tbl-pg-btn"
+              aria-label="Previous page"
+              disabled={safePage === 1}
+              onClick={() => setPage((p) => p - 1)}
             >
-              {n}
+              ‹
             </button>
-          ))}
-        </div>
-        <div className="table-pagination">
-          <button
-            className="tbl-pg-btn"
-            disabled={safePage === 1}
-            onClick={() => setPage((p) => p - 1)}
+            <span className="tbl-pg-of">
+              {safePage} / {totalPages.toLocaleString()}
+            </span>
+            <button
+              className="tbl-pg-btn"
+              aria-label="Next page"
+              disabled={safePage === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              ›
+            </button>
+          </div>
+          <select
+            className="tbl-size-select"
+            aria-label="Rows per page"
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
           >
-            ‹
-          </button>
-          {pageButtons.map((p, i) =>
-            p === "…" ? (
-              <span key={`e${i}`} className="tbl-pg-ellipsis">
-                …
-              </span>
-            ) : (
+            {PAGE_SIZES.map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="table-footer">
+          <span className="table-result-count">
+            {total === 0 ? "No results" : `${startRow}–${endRow} of ${total.toLocaleString()}`}
+          </span>
+          <div className="table-page-size">
+            <span>Per page</span>
+            {PAGE_SIZES.map((n) => (
               <button
-                key={p}
-                className={`tbl-pg-btn ${safePage === p ? "active" : ""}`}
-                onClick={() => setPage(p)}
+                key={n}
+                className={`tbl-size-btn ${pageSize === n ? "active" : ""}`}
+                onClick={() => setPageSize(n)}
               >
-                {p}
+                {n}
               </button>
-            ),
-          )}
-          <button
-            className="tbl-pg-btn"
-            disabled={safePage === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            ›
-          </button>
+            ))}
+          </div>
+          <div className="table-pagination">
+            <button
+              className="tbl-pg-btn"
+              disabled={safePage === 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              ‹
+            </button>
+            {pageButtons.map((p, i) =>
+              p === "…" ? (
+                <span key={`e${i}`} className="tbl-pg-ellipsis">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  className={`tbl-pg-btn ${safePage === p ? "active" : ""}`}
+                  onClick={() => setPage(p)}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              className="tbl-pg-btn"
+              disabled={safePage === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              ›
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

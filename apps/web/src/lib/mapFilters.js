@@ -4,7 +4,7 @@ import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
-import { DEFAULT_REGION } from "./regions.js";
+import { DEFAULT_REGION, undatedRegionIds } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
 export const HIDDEN = ["==", ["get", "score"], "__none__"];
@@ -32,14 +32,23 @@ export function searchExpression(searchTerm) {
   return [">=", ["index-of", term, haystack], 0];
 }
 
+// A pin's county. Pins without a region are Louisville's (older cached data has none).
+const regionOf = ["coalesce", ["get", "region"], DEFAULT_REGION];
+
 // Hides pins inspected before the cutoff (YYYY-MM-DD). Pins with no date are hidden
-// whenever a cutoff is set. null for "All time".
-export function dateExpression(cutoffDate) {
-  return cutoffDate ? [">=", ["coalesce", ["get", "date"], "0000-00-00"], cutoffDate] : null;
+// whenever a cutoff is set, except in counties whose data publishes no dates at all
+// (undatedRegions, e.g. Bullitt): their pins show the latest inspection, so they stay.
+// null for "All time".
+export function dateExpression(cutoffDate, undatedRegions = []) {
+  if (!cutoffDate) return null;
+  const recent = [">=", ["coalesce", ["get", "date"], "0000-00-00"], cutoffDate];
+  if (!undatedRegions.length) return recent;
+  return ["any", ["in", regionOf, ["literal", undatedRegions]], recent];
 }
 
 // Pins whose facility type/subtype pair is switched on in the category filter, plus
-// uncategorised pins when "Other / Unknown" is on.
+// uncategorised pins when "Other / Unknown" is on. Counties without facility types
+// (Bullitt) have only uncategorised pins, so they follow "Other".
 export function categoryExpression(catToggles) {
   const selectedPairs = [];
   for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
@@ -67,13 +76,6 @@ export function categoryExpression(catToggles) {
   return ["boolean", false];
 }
 
-// Pins in one county (lib/regions.js). Pins without a region are Louisville's (older
-// cached data has no region property). null shows every county.
-export function regionExpression(regionId) {
-  if (!regionId) return null;
-  return ["==", ["coalesce", ["get", "region"], DEFAULT_REGION], regionId];
-}
-
 /**
  * Filter expression for every pin and ring layer, keyed by layer id.
  * @param {object} filters
@@ -84,17 +86,23 @@ export function regionExpression(regionId) {
  *   null for a county without categories
  * @param {string} filters.searchTerm
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
- * @param {string} [filters.region]  show only this county's pins
+ * @param {string[]} [filters.undatedRegions]  counties the date filter lets through
+ *   (defaults to those whose data has no dates, lib/regions.js)
  */
-export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDate, region }) {
+export function buildLayerFilters({
+  pins,
+  show,
+  catToggles,
+  searchTerm,
+  cutoffDate,
+  undatedRegions = undatedRegionIds(),
+}) {
   const bands = bandExprs(pins);
   const shared = [];
-  const inRegion = regionExpression(region);
-  if (inRegion) shared.push(inRegion);
   if (catToggles) shared.push(categoryExpression(catToggles));
   const search = searchExpression(searchTerm);
   if (search) shared.push(search);
-  const date = dateExpression(cutoffDate);
+  const date = dateExpression(cutoffDate, undatedRegions);
   if (date) shared.push(date);
 
   const bandOn = {
