@@ -10,6 +10,7 @@
  * and are backfilled by backfill_types.js which runs after this in the workflow.
  */
 import { supa } from "./lib/db.js";
+import { selectAll } from "./lib/paging.js";
 import { startRun, finishRun, failRun } from "./lib/import_runs.js";
 import { normId, toISODate } from "./lib/utils.js";
 import { paginateArcGIS } from "./lib/arcgis.js";
@@ -59,9 +60,10 @@ const IS_RECOVERY = !!FORCED_SINCE;
 
   try {
     // Pre-load facility IDs for FK guard
-    const { data: facRows, error: e2 } = await supa.from("facilities").select("establishment_id");
-    if (e2) throw e2;
-    const haveFacility = new Set((facRows || []).map((r) => r.establishment_id));
+    const facRows = await selectAll(supa, "facilities", "establishment_id", {
+      order: "establishment_id",
+    });
+    const haveFacility = new Set(facRows.map((r) => r.establishment_id));
 
     let totalRead = 0,
       totalNew = 0,

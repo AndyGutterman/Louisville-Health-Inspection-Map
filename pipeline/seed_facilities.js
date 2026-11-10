@@ -1,6 +1,7 @@
 import { supa } from "./lib/db.js";
 import { normText } from "./lib/utils.js";
 import { paginateArcGIS } from "./lib/arcgis.js";
+import { selectAll } from "./lib/paging.js";
 
 // Note: FoodServiceData does NOT have EstType or Subtype fields.
 // facility_type and subtype are backfilled separately by backfill_types.js
@@ -16,10 +17,9 @@ const FS_BASE =
   "https://services1.arcgis.com/79kfd2K6fskCAkyg/ArcGIS/rest/services/FoodServiceData/FeatureServer/0";
 
 (async function run() {
-  const { data: existingRows, error: loadErr } = await supa
-    .from("facilities")
-    .select("establishment_id");
-  if (loadErr) throw loadErr;
+  const existingRows = await selectAll(supa, "facilities", "establishment_id", {
+    order: "establishment_id",
+  });
   const existing = new Set(existingRows.map((r) => r.establishment_id));
   console.log(`Existing facilities: ${existing.size}`);
 

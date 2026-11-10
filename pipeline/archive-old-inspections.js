@@ -17,6 +17,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { writeFile, unlink } from "fs/promises";
 import { gzipSync } from "zlib";
 import "dotenv/config";
+import { readAllPages, selectAll } from "./lib/paging.js";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -56,22 +57,10 @@ function log(...args) {
   console.log(new Date().toISOString(), ...args);
 }
 
-async function fetchAll(query) {
-  const PAGE = 1000;
-  let offset = 0;
-  let all = [];
-  while (true) {
-    const { data, error } = await query(offset, offset + PAGE - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    all = all.concat(data);
-    if (data.length < PAGE) break;
-    offset += PAGE;
-  }
-  return all;
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
+// Every read goes through readAllPages: PostgREST caps a response at 1,000 rows without an
+// error, and a read error throws, so nothing is uploaded or deleted unless every row was
+// read. The deletes come last.
 async function main() {
   const stats = { archived: 0, deleted: 0, skipped: 0, errors: 0 };
 
@@ -79,11 +68,9 @@ async function main() {
 
   // Step 1: Find establishments with 10+ inspections
   log("Finding establishments with 10+ inspections...");
-  const { data: candidates, error: candidateErr } = await supa
-    .from("inspections")
-    .select("establishment_id")
-    .order("establishment_id");
-  if (candidateErr) throw candidateErr;
+  const candidates = await selectAll(supa, "inspections", "establishment_id", {
+    order: "establishment_id",
+  });
 
   const countByEid = {};
   for (const row of candidates) {
@@ -108,19 +95,18 @@ async function main() {
   for (let i = 0; i < eligibleEids.length; i += BATCH) {
     const batch = eligibleEids.slice(i, i + BATCH);
 
-    const { data: oldInsp, error: oldErr } = await supa
-      .from("inspections")
-      .select("inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, raw")
-      .in("establishment_id", batch)
-      .lt("inspection_date", THREE_YEARS_AGO)
-      .order("inspection_date", { ascending: true });
-
-    if (oldErr) {
-      log("Error fetching old inspections:", oldErr);
-      stats.errors++;
-      continue;
-    }
-    if (!oldInsp || oldInsp.length === 0) continue;
+    const oldInsp = await readAllPages((from, to) =>
+      supa
+        .from("inspections")
+        .select(
+          "inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, raw",
+        )
+        .in("establishment_id", batch)
+        .lt("inspection_date", THREE_YEARS_AGO)
+        .order("inspection_id")
+        .range(from, to),
+    );
+    if (oldInsp.length === 0) continue;
 
     // Group by eid
     const byEid = {};
@@ -130,19 +116,16 @@ async function main() {
     }
 
     // For each eid, verify a newer inspection exists
-    const { data: newerCheck, error: newErr } = await supa
-      .from("inspections")
-      .select("establishment_id")
-      .in("establishment_id", batch)
-      .gte("inspection_date", THREE_YEARS_AGO);
-
-    if (newErr) {
-      log("Error checking newer inspections:", newErr);
-      stats.errors++;
-      continue;
-    }
-
-    const hasNewer = new Set((newerCheck || []).map((r) => r.establishment_id));
+    const newerCheck = await readAllPages((from, to) =>
+      supa
+        .from("inspections")
+        .select("establishment_id")
+        .in("establishment_id", batch)
+        .gte("inspection_date", THREE_YEARS_AGO)
+        .order("inspection_id")
+        .range(from, to),
+    );
+    const hasNewer = new Set(newerCheck.map((r) => r.establishment_id));
 
     for (const [eid, rows] of Object.entries(byEid)) {
       if (!hasNewer.has(eid)) {
@@ -169,17 +152,20 @@ async function main() {
   const VIO_BATCH = 500;
   for (let i = 0; i < inspIds.length; i += VIO_BATCH) {
     const batch = inspIds.slice(i, i + VIO_BATCH);
-    const { data: viols, error: vErr } = await supa
-      .from("inspection_violations")
-      .select("*")
-      .in("inspection_id", batch);
-    if (vErr) {
-      log("Error fetching violations:", vErr);
-      stats.errors++;
-    } else allViolations.push(...(viols || []));
+    allViolations.push(
+      ...(await readAllPages((from, to) =>
+        supa
+          .from("inspection_violations")
+          .select("*")
+          .in("inspection_id", batch)
+          .order("violation_oid")
+          .range(from, to),
+      )),
+    );
   }
 
   log(`${allViolations.length} violation rows to archive`);
+  if (stats.errors) throw new Error(`${stats.errors} read error(s): not uploading or deleting`);
 
   // Step 4: Build archive JSON
   const archivePayload = {
