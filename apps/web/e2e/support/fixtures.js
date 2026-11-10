@@ -133,7 +133,12 @@ const violations = PLACES.filter((p) => p.critical).flatMap((p, i) => {
       establishment_id: p.eid,
       inspection_date: insp.inspection_date,
       violation_desc: "Food held at improper temperature",
-      insp_viol_comments: "Cold-holding unit at 48F.",
+      // Over 240 characters, so the drawer cuts it short and shows "Read more".
+      insp_viol_comments:
+        "Cold-holding unit at 48F. Rice, cooked chicken and cut tomatoes in the reach-in " +
+        "cooler measured between 46F and 50F. The person in charge said the unit was serviced " +
+        "last week. All items were discarded and the unit was turned colder; it will be " +
+        "rechecked at the follow-up inspection.",
       critical_yn: "Y",
     },
     {

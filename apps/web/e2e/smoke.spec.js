@@ -95,7 +95,7 @@ test("What's New opens and switches tabs", async ({ page }, testInfo) => {
   await snap(page, testInfo, "04-whats-new-top-scores");
 });
 
-test("violations are listed without a critical label", async ({ page }) => {
+test("violations are listed without a critical label", async ({ page }, testInfo) => {
   await openApp(page);
   // The data's yes/no critical flag can't tell the Food Code's kinds of violation apart,
   // so the site shows every citation simply as a violation.
@@ -106,6 +106,17 @@ test("violations are listed without a critical label", async ({ page }) => {
   await drawer.getByText("2 violations").first().click();
   await expect(drawer.getByText("Food held at improper temperature")).toBeVisible();
   await expect(drawer).not.toContainText(/critical/i);
+
+  // Long notes are cut short behind a "Read more" button, in white so it reads on the
+  // dark card (it was dark red and nearly invisible).
+  const readMore = drawer.getByRole("button", { name: "Read more" }).first();
+  await expect(readMore).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(drawer).not.toContainText("rechecked at the follow-up inspection.");
+  await snap(page, testInfo, "11-drawer-read-more");
+  await readMore.click();
+  await expect(drawer).toContainText("rechecked at the follow-up inspection.");
+  await drawer.getByRole("button", { name: "Show less" }).first().click();
+  await expect(drawer.getByRole("button", { name: "Read more" }).first()).toBeVisible();
 });
 
 test("a What's New row with no coordinates still opens the drawer", async ({ page }, testInfo) => {
