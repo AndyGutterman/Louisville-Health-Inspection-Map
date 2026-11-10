@@ -814,6 +814,10 @@ export default function LearnPage({
 
           {/* Grade cards (Placard Issuance Policy, June 7, 2019) */}
           <div className="ln-sh">The three placards</div>
+          <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 14 }}>
+            Placards are Louisville Metro&apos;s program. Bullitt County posts scores but no letter
+            grades, so its places show a score only.
+          </p>
           <div className="ln-trio">
             <div className="ln-gcard ga">
               <div className="ln-gtop">
@@ -1010,13 +1014,17 @@ export default function LearnPage({
             and the official inspection report are the final word.
           </p>
 
-          {/* Data sources, one group per county (lib/regions.js) */}
+          {/* Data sources: one link per county and what its data includes (lib/regions.js) */}
           <div className="ln-sh">Data sources</div>
+          <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 12 }}>
+            Each county publishes its inspections differently, so the same details aren&apos;t
+            available everywhere.
+          </p>
           <DataSources />
 
           {/* Source */}
           <div className="ln-src">
-            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Sources:</strong>{" "}
+            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Rules cited above:</strong>{" "}
             <a
               href="https://louisvilleky.gov/sites/default/files/2021-12/abc-placard-issuance_pol_env_20190607.pdf"
               target="_blank"

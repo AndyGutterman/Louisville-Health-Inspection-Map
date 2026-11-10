@@ -7,7 +7,6 @@ import {
   enabledRegions,
   outlineLayers,
   outlineSourceId,
-  SHARED_SOURCES,
   regionById,
   undatedRegionIds,
 } from "./regions.js";
@@ -93,19 +92,13 @@ describe("regionById", () => {
   });
 });
 
-describe("data sources (the Learn page lists these)", () => {
-  it.each(REGIONS)("$id names its agency and at least one https source", (region) => {
+describe("data sources (the Learn page shows these)", () => {
+  it.each(REGIONS)("$id has one https source link and a note on its data", (region) => {
     expect(region.agency.name).toBeTruthy();
     expect(region.agency.url).toMatch(/^https:\/\//);
-    expect(region.sources.length).toBeGreaterThan(0);
-    for (const s of region.sources) {
-      expect(s.name).toBeTruthy();
-      expect(s.url).toMatch(/^https:\/\//);
-    }
-  });
-
-  it("shared sources are https links too", () => {
-    for (const s of SHARED_SOURCES) expect(s.url).toMatch(/^https:\/\//);
+    expect(region.source.name).toBeTruthy();
+    expect(region.source.url).toMatch(/^https:\/\//);
+    expect(region.dataNote.length).toBeGreaterThan(20);
   });
 });
 

@@ -316,15 +316,17 @@ test("What's New includes Bullitt County, labelled by the day its score was post
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
-test("the Learn page links every data source, grouped by county", async ({ page }) => {
+test("the Learn page links one data source per county and says how they differ", async ({
+  page,
+}) => {
   await openApp(page);
   await page.getByRole("button", { name: "Learn" }).click();
   const sources = page.getByTestId("data-sources");
-  await expect(sources).toContainText("Jefferson County (Louisville Metro)");
-  await expect(sources).toContainText("Bullitt County");
-  await sources.getByText("Bullitt County", { exact: true }).click(); // expand its group
+  await expect(sources.getByRole("listitem")).toHaveCount(2);
+  await expect(sources.getByRole("link")).toHaveCount(2);
   await expect(
     sources.getByRole("link", { name: "Bullitt County Health Department" }),
   ).toHaveAttribute("href", "https://www.bullitthealth.org/food");
   await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
+  await expect(sources).toContainText("no inspection date");
 });

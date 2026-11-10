@@ -1,51 +1,23 @@
-// The Learn page's "Data sources" list: one expandable group per county, then the sources
-// every county shares. Built from lib/regions.js, so a county added there (with its
-// `agency` and `sources`) shows up here with no other change.
-import { SHARED_SOURCES, enabledRegions } from "./lib/regions.js";
+// The Learn page's "Data sources" list: one link per county and a line on what its data
+// includes, since the counties publish different things (Bullitt has no inspection dates,
+// grades or inspector comments). Built from lib/regions.js, so a county added there with
+// a `source` and `dataNote` shows up here with no other change.
+import { enabledRegions } from "./lib/regions.js";
 
-function SourceList({ sources }) {
+export default function DataSources({ regions = enabledRegions() }) {
   return (
-    <ul className="ln-sources-list">
-      {sources.map((s) => (
-        <li key={s.url + s.name}>
-          <a href={s.url} target="_blank" rel="noopener noreferrer">
-            {s.name}
-          </a>
-          {s.about && <span className="ln-sources-about">{s.about}</span>}
+    <ul className="ln-sources" data-testid="data-sources">
+      {regions.map((r) => (
+        <li key={r.id} className="ln-sources-item">
+          <div className="ln-sources-head">
+            <span className="ln-sources-name">{r.name}</span>
+            <a href={r.source.url} target="_blank" rel="noopener noreferrer">
+              {r.source.name}
+            </a>
+          </div>
+          <p className="ln-sources-note">{r.dataNote}</p>
         </li>
       ))}
     </ul>
-  );
-}
-
-export default function DataSources({ regions = enabledRegions(), shared = SHARED_SOURCES }) {
-  return (
-    <div className="ln-sources" data-testid="data-sources">
-      {regions.map((r, i) => (
-        <details key={r.id} className="ln-sources-group" open={i === 0}>
-          <summary>
-            <span className="ln-sources-name">{r.name}</span>
-            <span className="ln-sources-count">
-              {r.sources.length} {r.sources.length === 1 ? "source" : "sources"}
-            </span>
-          </summary>
-          <p className="ln-sources-agency">
-            Inspections by the{" "}
-            <a href={r.agency.url} target="_blank" rel="noopener noreferrer">
-              {r.agency.name}
-            </a>
-            .
-          </p>
-          <SourceList sources={r.sources} />
-        </details>
-      ))}
-      <details className="ln-sources-group">
-        <summary>
-          <span className="ln-sources-name">Map and locations</span>
-          <span className="ln-sources-count">{shared.length} sources</span>
-        </summary>
-        <SourceList sources={shared} />
-      </details>
-    </div>
   );
 }
