@@ -39,9 +39,29 @@ export function cacheKey(query) {
   return query.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+// Nominatim answers an address it can't find with the nearest thing it can: the street,
+// the town, the zip code. Those points are nowhere near the place (every address on a
+// road gets the same pin), so only a match on the building itself counts: a house, a
+// building, or a shop or other place at that address.
+const NOT_A_BUILDING = new Set([
+  "highway",
+  "boundary",
+  "landuse",
+  "natural",
+  "waterway",
+  "railway",
+]);
+export function isBuildingMatch(hit) {
+  if (!hit) return false;
+  if (NOT_A_BUILDING.has(hit.class)) return false;
+  if (hit.class === "place") return hit.type === "house";
+  return true;
+}
+
 /**
  * Nominatim search. With `viewbox` ([west, south, east, north]) only results inside
- * that box are returned.
+ * that box are returned. Street-, town- and zip-level answers count as no match
+ * (isBuildingMatch).
  */
 export async function geocodeNominatim(query, { viewbox } = {}) {
   const params = { q: query, format: "json", limit: "1", countrycodes: "us", addressdetails: "0" };
@@ -58,6 +78,7 @@ export async function geocodeNominatim(query, { viewbox } = {}) {
   if (!Array.isArray(json) || !json.length) return null;
 
   const hit = json[0];
+  if (!isBuildingMatch(hit)) return null;
   return {
     lon: parseFloat(hit.lon),
     lat: parseFloat(hit.lat),
@@ -123,4 +144,25 @@ export async function geocodeCensusLine(text, { accept = () => true } = {}) {
     provider: "census",
     raw: match,
   };
+}
+
+/**
+ * Tries each geocoder in turn and returns the first result inside the area
+ * (`inside(result)`). If none is inside, the first result found at all, so it can be
+ * pinned and flagged. A geocoder that throws counts as no match.
+ * @param {Array<() => Promise<object|null>>} attempts
+ */
+export async function firstInside(attempts, inside, { onError = () => {} } = {}) {
+  let first = null;
+  for (const attempt of attempts) {
+    let result = null;
+    try {
+      result = await attempt();
+    } catch (e) {
+      onError(e);
+    }
+    if (result && inside(result)) return result;
+    first ??= result;
+  }
+  return first;
 }
