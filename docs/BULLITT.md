@@ -85,7 +85,9 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   filter lets Bullitt's undated pins through, and the category filter files them under
   "Other" (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
   and Table View cover Bullitt once `supabase/migrations/20261111000000_both_counties.sql`
-  has run. What's New is still Louisville only. County capabilities, agency and data
+  has run. What's New covers Bullitt once `20261111010000_whats_new_both_counties.sql` has
+  run: dated follow-ups, plus routine scores that changed on the sheet in the last 30 days
+  (shown as "posted <date>", never as an inspection date; the first load doesn't count). County capabilities, agency and data
   sources live in `apps/web/src/lib/regions.js`; the Learn page lists the sources from there.
 
 ## Geocoding results (dry run, November 2026)
