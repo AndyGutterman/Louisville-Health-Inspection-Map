@@ -15,8 +15,8 @@ export const NO_DATE = "Date not published";
 
 // Shown wherever an estimated date is (drawer and popup).
 export const ESTIMATE_NOTE =
-  'Dates marked "By" are estimates: the day this site first saw the result on the ' +
-  "department's list. The inspection was on or before that day.";
+  '"By" dates are estimates: the first day this site saw the result. The inspection was ' +
+  "that day or earlier.";
 
 // Under each list of violations: the sheet has the inspection form's item names only.
 export const VIOLATIONS_NOTE =
