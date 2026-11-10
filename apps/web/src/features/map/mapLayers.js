@@ -18,6 +18,11 @@ const HIT_PADDING = 8;
 
 // Amber: stands out from the red, yellow and green pins.
 export const RING_COLOR = "rgba(249,115,22,0.90)";
+// Bullitt County's sheet lists every inspection-form item marked at a visit, so its rings are
+// far more common than Louisville's and mean less (docs/BULLITT.md). A cooler colour keeps
+// the two from being read on the same scale.
+export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
+const ringColor = ["match", ["get", "region"], "bullitt", BULLITT_RING_COLOR, RING_COLOR];
 
 // Circle radius that grows with the zoom level. stops: [[zoom, radius], ...]
 const radiusByZoom = (stops) => ["interpolate", ["linear"], ["zoom"], ...stops.flat()];
@@ -76,7 +81,7 @@ export function addPinLayers(map, geoData, pins) {
       },
     });
   const hasViolations = ["==", ["get", "has_any_violation"], true];
-  ring(RING_LAYER, hasViolations, 2.5, RING_COLOR);
+  ring(RING_LAYER, hasViolations, 2.5, ringColor);
 
   // Invisible (opacity 0, but still found by MapLibre's hit testing), drawn under the pins.
   map.addLayer(
