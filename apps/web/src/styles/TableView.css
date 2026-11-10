@@ -988,3 +988,10 @@
 .tbl-size-select option {
   background: #1b1b1f;
 }
+
+/* Facility row for a county whose data has no facility types (Bullitt) */
+.table-filter-note {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}

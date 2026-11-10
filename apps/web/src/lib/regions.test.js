@@ -9,6 +9,7 @@ import {
   outlineSourceId,
   regionById,
   undatedRegionIds,
+  untypedRegionIds,
 } from "./regions.js";
 
 const publicFile = (url) => fileURLToPath(new URL(`../../public${url}`, import.meta.url));
@@ -105,5 +106,11 @@ describe("data sources (the Learn page shows these)", () => {
 describe("undatedRegionIds", () => {
   it("lists counties whose data has no inspection dates", () => {
     expect(undatedRegionIds()).toEqual(["bullitt"]);
+  });
+});
+
+describe("untypedRegionIds", () => {
+  it("lists counties whose data has no facility types", () => {
+    expect(untypedRegionIds()).toEqual(["bullitt"]);
   });
 });

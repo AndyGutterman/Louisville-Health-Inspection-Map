@@ -3,6 +3,7 @@ import {
   HIDDEN,
   buildLayerFilters,
   categoryExpression,
+  categoryFilter,
   dateExpression,
   searchExpression,
 } from "./mapFilters.js";
@@ -17,6 +18,7 @@ const base = {
   searchTerm: "",
   cutoffDate: null,
   undatedRegions: [],
+  untypedRegions: [],
 };
 
 describe("searchExpression", () => {
@@ -165,5 +167,37 @@ describe("violation tap target", () => {
   it("follows the ring's filter exactly, so hidden places can't be tapped", () => {
     const f = buildLayerFilters({ ...base, searchTerm: "taco", cutoffDate: "2026-01-01" });
     expect(f["points-violation-hit"]).toEqual(f["points-violation-ring"]);
+  });
+});
+
+describe("categoryFilter with counties that have no facility types", () => {
+  const schoolsOnly = () => {
+    const t = buildInitialCatToggles();
+    for (const [k, v] of Object.entries(t)) if (k !== "schools") t[k] = { ...v, enabled: false };
+    return t;
+  };
+
+  it("lets Bullitt pins through while every category is on", () => {
+    const all = buildInitialCatToggles();
+    expect(categoryFilter(all, ["bullitt"])).toEqual(categoryExpression(all));
+  });
+
+  it("hides Bullitt pins once the categories are narrowed", () => {
+    expect(categoryFilter(schoolsOnly(), ["bullitt"])).toEqual([
+      "all",
+      ["!", ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]]],
+      categoryExpression(schoolsOnly()),
+    ]);
+  });
+
+  it("is the plain category expression when every county has types", () => {
+    expect(categoryFilter(schoolsOnly(), [])).toEqual(categoryExpression(schoolsOnly()));
+  });
+
+  it("applies to pins and rings by default", () => {
+    const f = buildLayerFilters({ ...base, catToggles: schoolsOnly(), untypedRegions: undefined });
+    for (const id of ["points-green", "points-violation-ring"]) {
+      expect(f[id]).toContainEqual(categoryFilter(schoolsOnly(), ["bullitt"]));
+    }
   });
 });

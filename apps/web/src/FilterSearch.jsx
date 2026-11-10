@@ -543,8 +543,8 @@ export default function FilterSearch({
                       {untyped.map((r, i) => (
                         <React.Fragment key={r.id}>
                           {i > 0 && " "}
-                          {r.name}&apos;s data has no facility types, so its places count as
-                          &ldquo;Other&rdquo; and ignore the date filter: the{" "}
+                          {r.name}&apos;s data has no facility types, so its places show only while
+                          every category is on. They also ignore the date filter: the{" "}
                           <a href={r.agency.url} target="_blank" rel="noopener noreferrer">
                             {r.agency.name}
                           </a>{" "}

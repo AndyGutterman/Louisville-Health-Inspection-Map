@@ -2,9 +2,9 @@
 // filter panel's state. Pure: no React, no map. features/map/mapLayers.js applies them.
 import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
-import { CATEGORY_SPECS } from "./categories.js";
+import { CATEGORY_SPECS, allCategoriesOn } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
-import { DEFAULT_REGION, undatedRegionIds } from "./regions.js";
+import { DEFAULT_REGION, undatedRegionIds, untypedRegionIds } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
 export const HIDDEN = ["==", ["get", "score"], "__none__"];
@@ -47,8 +47,8 @@ export function dateExpression(cutoffDate, undatedRegions = []) {
 }
 
 // Pins whose facility type/subtype pair is switched on in the category filter, plus
-// uncategorised pins when "Other / Unknown" is on. Counties without facility types
-// (Bullitt) have only uncategorised pins, so they follow "Other".
+// uncategorised pins when "Other / Unknown" is on. (Counties without facility types are
+// handled by categoryFilter.)
 export function categoryExpression(catToggles) {
   const selectedPairs = [];
   for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
@@ -76,6 +76,16 @@ export function categoryExpression(catToggles) {
   return ["boolean", false];
 }
 
+// The category filter for every county. Counties whose data has no facility types
+// (untypedRegions, e.g. Bullitt) can't say whether a place is a school or a restaurant,
+// so their pins show only while every category is on: with "Schools" picked, a Bullitt
+// restaurant must not look like a school.
+export function categoryFilter(catToggles, untypedRegions = []) {
+  const expr = categoryExpression(catToggles);
+  if (!untypedRegions.length || allCategoriesOn(catToggles)) return expr;
+  return ["all", ["!", ["in", regionOf, ["literal", untypedRegions]]], expr];
+}
+
 /**
  * Filter expression for every pin and ring layer, keyed by layer id.
  * @param {object} filters
@@ -88,6 +98,8 @@ export function categoryExpression(catToggles) {
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
  * @param {string[]} [filters.undatedRegions]  counties the date filter lets through
  *   (defaults to those whose data has no dates, lib/regions.js)
+ * @param {string[]} [filters.untypedRegions]  counties shown only while every category is
+ *   on (defaults to those whose data has no facility types)
  */
 export function buildLayerFilters({
   pins,
@@ -96,10 +108,11 @@ export function buildLayerFilters({
   searchTerm,
   cutoffDate,
   undatedRegions = undatedRegionIds(),
+  untypedRegions = untypedRegionIds(),
 }) {
   const bands = bandExprs(pins);
   const shared = [];
-  if (catToggles) shared.push(categoryExpression(catToggles));
+  if (catToggles) shared.push(categoryFilter(catToggles, untypedRegions));
   const search = searchExpression(searchTerm);
   if (search) shared.push(search);
   const date = dateExpression(cutoffDate, undatedRegions);

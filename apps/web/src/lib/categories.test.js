@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { CATEGORY_SPECS, classifyCategory, buildInitialCatToggles } from "./categories.js";
+import {
+  CATEGORY_SPECS,
+  allCategoriesOn,
+  buildInitialCatToggles,
+  classifyCategory,
+} from "./categories.js";
 
 describe("CATEGORY_SPECS", () => {
   it("gives every category a label and at least one (facility type, subtype) pair", () => {
@@ -67,5 +72,17 @@ describe("buildInitialCatToggles", () => {
 
   it("returns a fresh object each time", () => {
     expect(buildInitialCatToggles()).not.toBe(toggles);
+  });
+});
+
+describe("allCategoriesOn", () => {
+  it("is true for the starting toggles and false once anything is off", () => {
+    const t = buildInitialCatToggles();
+    expect(allCategoriesOn(t)).toBe(true);
+    expect(allCategoriesOn({ ...t, schools: { ...t.schools, enabled: false } })).toBe(false);
+    const sub = Object.keys(t.retail.subs)[0];
+    expect(
+      allCategoriesOn({ ...t, retail: { ...t.retail, subs: { ...t.retail.subs, [sub]: false } } }),
+    ).toBe(false);
   });
 });

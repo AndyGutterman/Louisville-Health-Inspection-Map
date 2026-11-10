@@ -103,3 +103,7 @@ export const enabledRegions = (regions = REGIONS) => regions.filter((r) => r.ena
 // Regions whose data has no inspection dates: the date filter lets their pins through.
 export const undatedRegionIds = (regions = enabledRegions()) =>
   regions.filter((r) => !r.has.dates).map((r) => r.id);
+
+// Regions whose data has no facility types: the category filter can't place their pins.
+export const untypedRegionIds = (regions = enabledRegions()) =>
+  regions.filter((r) => !r.has.categories).map((r) => r.id);

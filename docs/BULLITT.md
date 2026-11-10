@@ -92,8 +92,8 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
 - **Website:** both counties' pins show together (the County picker is gone). The date
-  filter lets Bullitt's undated pins through, and the category filter files them under
-  "Other" (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
+  filter lets Bullitt's undated pins through, and they show only while every category is
+  on, since they have no facility types (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
   and Table View cover Bullitt once `supabase/migrations/20261111000000_both_counties.sql`
   has run. What's New covers Bullitt once `20261111010000_whats_new_both_counties.sql` has
   run: dated follow-ups, plus routine scores that changed on the sheet in the last 30 days
@@ -140,7 +140,7 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
    Bullitt What's New, Table View, saved places and watch areas for free, but every
    Louisville query and pipeline job would need checking first.
 8. **Toggle or both at once.** Decided: both at once (November 2026). Undated Bullitt pins
-   always pass the date filter (2) and count as "Other" (4).
+   always pass the date filter (2) and show only while every map category is on, and Table View's facility chips switch to Jefferson (4).
 9. **Geocoding order.** Decided: 911 address points first (November 2026), after
    Nominatim's street-level answers put several places on the wrong spot. Should
    approximate (`ky911-approx`) pins look different on the map? Geoapify was also tried: 3

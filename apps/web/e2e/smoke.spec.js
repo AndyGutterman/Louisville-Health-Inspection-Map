@@ -223,6 +223,8 @@ test("both counties show at once, with every filter", async ({ page }, testInfo)
   await page.getByRole("tab", { name: "Filter" }).click();
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
   await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
+  // Narrowing the categories hides Bullitt pins (no facility types); the note says so.
+  await expect(page.getByTestId("county-note")).toContainText("only while every category is on");
   await snap(page, testInfo, "12-both-counties-filters");
 
   expect(consoleErrors, "console errors").toEqual([]);
@@ -261,6 +263,36 @@ test("Table View lists both counties and searches across them", async ({ page },
 
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
+test("Table View: facility chips only filter Jefferson County", async ({ page }, testInfo) => {
+  await openApp(page);
+  await page.getByRole("button", { name: "Open table view" }).click();
+  const panel = page.getByTestId("table-panel");
+  await expect(panel.getByTestId("table-row").first()).toBeVisible();
+  if (testInfo.project.name === "phone") await panel.getByTestId("table-filters-toggle").click();
+
+  // Bullitt's data has no facility types: the row says so instead of offering chips.
+  await panel.getByTestId("table-county-bullitt").click();
+  await expect(panel.getByTestId("table-facility-note")).toContainText("Bullitt County");
+  await expect(panel.getByRole("button", { name: "Restaurants" })).toHaveCount(0);
+
+  // With both counties, picking a facility switches the County chips to Jefferson.
+  await panel.getByRole("button", { name: "Both", exact: true }).click();
+  const filtered = page.waitForRequest(
+    (r) => r.url().includes("region=eq.jefferson") && r.url().includes("facility_type"),
+  );
+  await panel.getByRole("button", { name: "Restaurants" }).click();
+  await filtered;
+  await expect(panel.getByTestId("table-county-jefferson")).toHaveClass(/active/);
+
+  // Going back to Bullitt clears the facility pick.
+  await panel.getByTestId("table-county-bullitt").click();
+  await expect(panel.getByTestId("table-facility-note")).toBeVisible();
+  await panel.getByRole("button", { name: "Both", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "All", exact: true }).last()).toHaveClass(
+    /active/,
+  );
 });
 
 test("Table View asks for a row count only when the filters change", async ({ page }, testInfo) => {

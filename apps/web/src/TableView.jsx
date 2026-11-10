@@ -9,8 +9,11 @@ import {
   FACILITY_CAT_KEYS,
   combineOr,
   countKey,
+  countyForFacility,
+  facilityAppliesTo,
   facilityFilter,
   searchFilter,
+  typedCounties,
 } from "./lib/tableQuery.js";
 
 const PAGE_SIZES = [10, 25, 50, 100, 500];
@@ -128,6 +131,7 @@ function useCornerDrag(setH, setW) {
 
 const REGIONS = enabledRegions();
 const regionShort = (id) => REGIONS.find((r) => r.id === id)?.shortName ?? "";
+const regionName = (id) => REGIONS.find((r) => r.id === id)?.name ?? "";
 
 export default function TableView({
   supabase,
@@ -271,7 +275,10 @@ export default function TableView({
     if (county) q = q.eq("region", county);
     if (hideNA) q = q.gt("score", 0);
     if (selTypes) q = q.in("ins_type_desc", [...selTypes]);
-    const or = combineOr(searchFilter(dbSearch), facilityFilter(selCats));
+    // Facility chips only cover counties with facility types (see toggleCat).
+    const cats = facilityAppliesTo(county, REGIONS) ? selCats : null;
+    if (cats && !county) q = q.in("region", typedCounties(REGIONS));
+    const or = combineOr(searchFilter(dbSearch), facilityFilter(cats));
     if (or) q = q.or(or);
 
     q.then(({ data, error, count }) => {
@@ -317,15 +324,27 @@ export default function TableView({
     });
   };
 
+  // Facility types only exist in Jefferson's data (lib/regions.js), so picking a facility
+  // with both counties shown switches the County chips to Jefferson, where it means
+  // something, instead of silently dropping every Bullitt place.
   const toggleCat = (key) => {
-    setSelCats((prev) => {
-      if (prev === null) return new Set([key]);
-      const next = new Set(prev);
+    let next;
+    if (selCats === null) next = new Set([key]);
+    else {
+      next = new Set(selCats);
       next.has(key) ? next.delete(key) : next.add(key);
-      if (next.size === 0 || next.size === FACILITY_CAT_KEYS.length) return null;
-      return next;
-    });
+      if (next.size === 0 || next.size === FACILITY_CAT_KEYS.length) next = null;
+    }
+    setSelCats(next);
+    if (next) setCounty((c) => countyForFacility(c, REGIONS));
   };
+
+  // Picking a county without facility types clears the facility filter.
+  const pickCounty = (id) => {
+    setCounty(id);
+    if (!facilityAppliesTo(id, REGIONS)) setSelCats(null);
+  };
+  const facilityOn = facilityAppliesTo(county, REGIONS);
 
   /* ── sort toggle handlers ── */
   const handleDateSort = () => {
@@ -499,7 +518,7 @@ export default function TableView({
             <div className="table-type-chips">
               <button
                 className={`table-chip ${county === null ? "active" : ""}`}
-                onClick={() => setCounty(null)}
+                onClick={() => pickCounty(null)}
               >
                 Both
               </button>
@@ -508,7 +527,7 @@ export default function TableView({
                   key={r.id}
                   data-testid={`table-county-${r.id}`}
                   className={`table-chip ${county === r.id ? "active" : ""}`}
-                  onClick={() => setCounty((c) => (c === r.id ? null : r.id))}
+                  onClick={() => pickCounty(county === r.id ? null : r.id)}
                   title={r.name}
                 >
                   {r.shortName}
@@ -542,27 +561,33 @@ export default function TableView({
             </div>
           )}
 
-          {/* Facility category chips */}
+          {/* Facility category chips: Jefferson only (its data is the one with types) */}
           <div className="table-filter-row">
             <span className="table-filter-label">Facility</span>
-            <div className="table-type-chips">
-              <button
-                className={`table-chip ${selCats === null ? "active" : ""}`}
-                onClick={() => setSelCats(null)}
-              >
-                All
-              </button>
-              {Object.entries(FACILITY_CATS).map(([key, spec]) => (
+            {facilityOn ? (
+              <div className="table-type-chips">
                 <button
-                  key={key}
-                  className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
-                  onClick={() => toggleCat(key)}
-                  title={spec.untyped ? "Includes every Bullitt County place" : undefined}
+                  className={`table-chip ${selCats === null ? "active" : ""}`}
+                  onClick={() => setSelCats(null)}
                 >
-                  {spec.label}
+                  All
                 </button>
-              ))}
-            </div>
+                {Object.entries(FACILITY_CATS).map(([key, spec]) => (
+                  <button
+                    key={key}
+                    className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
+                    onClick={() => toggleCat(key)}
+                    title="Jefferson County only: Bullitt's data has no facility types"
+                  >
+                    {spec.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="table-filter-note" data-testid="table-facility-note">
+                {regionName(county)}&apos;s data has no facility types
+              </span>
+            )}
           </div>
         </div>
       )}
