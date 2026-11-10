@@ -343,6 +343,13 @@ test("What's New includes Bullitt County, labelled by the day its score was post
   await whatsNewRow(page, BULLITT_EID).click();
   const drawer = page.getByTestId("info-drawer");
   await expect(drawer.getByText(BULLITT_NAME, { exact: true })).toBeVisible();
+  // Its routine result appeared after the first load, so the date is an estimate, and
+  // the violations are explained as form items.
+  await expect(drawer.getByText("Date (estimated)")).toBeVisible();
+  await expect(drawer.getByTestId("drawer-source-note")).toContainText("estimates");
+  await drawer.getByRole("button", { name: /2 violations/ }).click();
+  await expect(drawer.getByTestId("violations-note")).toContainText("inspection form");
+  await snap(page, testInfo, "16-bullitt-drawer");
 
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);

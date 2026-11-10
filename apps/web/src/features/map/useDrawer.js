@@ -4,7 +4,13 @@
 import { useCallback, useRef, useState } from "react";
 import { fetchFacilityDetails, fetchInspections, fetchViolations } from "../../api/mapData.js";
 import { fetchBullittInspections } from "../../api/bullitt.js";
-import { BULLITT, bullittHeader, bullittHistory, isBullittId } from "../../lib/bullitt.js";
+import {
+  BULLITT,
+  ESTIMATE_NOTE,
+  bullittHeader,
+  bullittHistory,
+  isBullittId,
+} from "../../lib/bullitt.js";
 import { regionById } from "../../lib/regions.js";
 import {
   attachViolations,
@@ -20,6 +26,7 @@ const HEADER_NOTE =
 const BULLITT_NOTE =
   `From the ${regionById(BULLITT).agency.name}, which publishes each place's latest ` +
   "inspection without its date. Earlier ones appear here as this site records them.";
+const ESTIMATED = "Date (estimated)";
 
 // getFeature: establishment id -> map feature, or nothing when the place has no pin.
 export function useDrawer(getFeature) {
@@ -39,26 +46,34 @@ export function useDrawer(getFeature) {
   }, []);
 
   // Bullitt County: one table, no details, and the header is the current routine
-  // inspection (lib/bullitt.js).
-  const loadBullitt = useCallback(async (eid, seq) => {
-    const { data, error } = await fetchBullittInspections(eid);
-    if (seq !== loadSeq.current) return;
-    if (error) console.error("Bullitt history fetch error", error);
-    const rows = bullittHistory(data);
-    const header = bullittHeader(rows);
-    setSelected((s) => ({
-      ...s,
-      inspectionDate: header
-        ? (header.date_label ?? formatDateSafe(header.inspection_date))
-        : s.inspectionDate,
-      score: header?.score ?? s.score,
-      _displayedInspectionId: header?.inspection_id ?? null,
-      sourceNote: BULLITT_NOTE,
-    }));
-    setHistory(rows);
-    setDetails(null);
-    setLoading(false);
-  }, []);
+  // inspection (lib/bullitt.js). Results that appeared after the first load get an
+  // estimated date, and the source note then explains what "By" means.
+  const loadBullitt = useCallback(
+    async (eid, seq, p) => {
+      const { data, error } = await fetchBullittInspections(eid);
+      if (seq !== loadSeq.current) return;
+      if (error) console.error("Bullitt history fetch error", error);
+      // Opened from a list, the row may not carry the feed's first-load date: the pin does.
+      const trackingSince = p.tracking_since ?? getFeature(eid)?.properties?.tracking_since ?? null;
+      const rows = bullittHistory(data, { trackingSince });
+      const header = bullittHeader(rows);
+      const anyEstimate = rows.some((r) => r.date_estimated);
+      setSelected((s) => ({
+        ...s,
+        inspectionDate: header
+          ? (header.date_label ?? formatDateSafe(header.inspection_date))
+          : s.inspectionDate,
+        dateCaption: header?.date_estimated ? ESTIMATED : undefined,
+        score: header?.score ?? s.score,
+        _displayedInspectionId: header?.inspection_id ?? null,
+        sourceNote: anyEstimate ? `${BULLITT_NOTE} ${ESTIMATE_NOTE}` : BULLITT_NOTE,
+      }));
+      setHistory(rows);
+      setDetails(null);
+      setLoading(false);
+    },
+    [getFeature],
+  );
 
   const open = useCallback(
     async (eid, p) => {
@@ -75,6 +90,7 @@ export function useDrawer(getFeature) {
         name: p.name,
         address: p.address_full || p.address,
         inspectionDate: p.date_text ?? formatDateSafe(p.date),
+        dateCaption: p.date_estimated ? ESTIMATED : undefined,
         score: p.score ?? null,
         grade: p.grade ?? null,
         _displayedInspectionId: null,
@@ -84,7 +100,7 @@ export function useDrawer(getFeature) {
       });
 
       if (isBullittId(eid)) {
-        await loadBullitt(eid, seq);
+        await loadBullitt(eid, seq, p);
         return;
       }
 

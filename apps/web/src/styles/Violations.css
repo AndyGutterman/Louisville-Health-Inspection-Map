@@ -171,3 +171,14 @@
   background: rgba(255, 107, 107, 0.22);
   border-color: rgba(255, 61, 61, 0.4);
 }
+
+/* Above a list of violations whose source says less than its names suggest (Bullitt
+   County: form headings only, see lib/bullitt.js). */
+.viol-source-note {
+  list-style: none;
+  padding: 0 2px 2px;
+  font-size: 0.76rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}

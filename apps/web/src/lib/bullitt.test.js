@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   NO_DATE,
+  VIOLATIONS_NOTE,
   bullittHeader,
   bullittHistory,
   buildBullittFeatures,
+  estimateLabel,
+  estimatedDate,
   isBullittId,
   latestHasViolations,
 } from "./bullitt.js";
+import { formatDateSafe } from "./dates.js";
+
+const TRACKING_SINCE = "2026-11-09"; // the first load in these mocks
 
 const feedRow = {
   establishment_id: "bullitt-f8d92cd7e863",
@@ -27,6 +33,22 @@ describe("isBullittId", () => {
     expect(isBullittId("100001")).toBe(false);
     expect(isBullittId(null)).toBe(false);
   });
+});
+
+describe("estimatedDate", () => {
+  it("dates a result first seen after the first load to that day", () =>
+    expect(estimatedDate("2026-11-12", TRACKING_SINCE)).toBe("2026-11-12"));
+
+  it("can't date a result that was already there at the first load", () =>
+    expect(estimatedDate(TRACKING_SINCE, TRACKING_SINCE)).toBeNull());
+
+  it("needs both dates", () => {
+    expect(estimatedDate(null, TRACKING_SINCE)).toBeNull();
+    expect(estimatedDate("2026-11-12", null)).toBeNull();
+  });
+
+  it('labels an estimate "By <date>"', () =>
+    expect(estimateLabel("2026-11-12")).toBe(`By ${formatDateSafe("2026-11-12")}`));
 });
 
 describe("buildBullittFeatures", () => {
@@ -56,6 +78,24 @@ describe("buildBullittFeatures", () => {
     const features = buildBullittFeatures(rows);
     expect(features).toHaveLength(1);
     expect(features[0].properties.score).toBe(88);
+  });
+
+  it("estimates the date of a result that changed after the first load", () => {
+    const [changed, original] = buildBullittFeatures([
+      { ...feedRow, routine_first_seen: "2026-11-12", tracking_since: TRACKING_SINCE },
+      { ...feedRow, routine_first_seen: TRACKING_SINCE, tracking_since: TRACKING_SINCE },
+    ]);
+    expect(changed.properties).toMatchObject({
+      date: null, // never mistaken for a published date (the date filter skips Bullitt)
+      date_text: estimateLabel("2026-11-12"),
+      date_estimated: true,
+    });
+    expect(original.properties).toMatchObject({ date_text: NO_DATE, date_estimated: false });
+  });
+
+  it("works with the feed from before the estimated-dates migration", () => {
+    const [f] = buildBullittFeatures([feedRow]); // no routine_first_seen / tracking_since
+    expect(f.properties).toMatchObject({ date_text: NO_DATE, date_estimated: false });
   });
 
   it("leaves an unscored place without a score or a ring", () => {
@@ -143,13 +183,38 @@ describe("bullittHistory", () => {
     });
   });
 
-  it("turns each form item into a violation", () => {
+  it("turns each form item into a violation, all in capitals like Louisville's", () => {
     const routine = bullittHistory(rows)[1];
     expect(routine.violations.map((v) => v.violation_desc)).toEqual([
       "PROPER COLD HOLDING TEMPERATURES",
-      "Food stored covered",
+      "FOOD STORED COVERED",
     ]);
     expect(new Set(routine.violations.map((v) => v.violation_oid)).size).toBe(2);
+  });
+
+  it("explains that the items are form headings, not the inspector's notes", () => {
+    const [followUp, routine] = bullittHistory(rows);
+    expect(routine.violations_note).toBe(VIOLATIONS_NOTE);
+    expect(followUp.violations_note).toBeNull(); // no violations, no note
+  });
+
+  // A place on the first load (first_seen 11/9), re-inspected and changed on 11/17.
+  it("estimates dates only for results that appeared after the first load", () => {
+    const tracked = [
+      { ...rows[0], first_seen: TRACKING_SINCE, last_seen: "2026-11-16" },
+      { ...rows[1], first_seen: "2026-11-17", last_seen: "2026-11-24" },
+    ];
+    const [current, original] = bullittHistory(tracked, { trackingSince: TRACKING_SINCE });
+    expect(current).toMatchObject({
+      date_label: estimateLabel("2026-11-17"),
+      date_estimated: true,
+    });
+    expect(original).toMatchObject({ date_label: NO_DATE, date_estimated: false });
+  });
+
+  it("never estimates a follow-up, which has its own date", () => {
+    const [followUp] = bullittHistory(rows, { trackingSince: TRACKING_SINCE });
+    expect(followUp).toMatchObject({ date_label: null, date_estimated: false });
   });
 
   it("puts the current routine inspection in the header", () => {
