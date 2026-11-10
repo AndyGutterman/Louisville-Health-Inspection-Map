@@ -622,7 +622,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  /* Right padding clears the 32px resize corner, which would cover the last page button */
+  padding: 7px 36px 7px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   flex-wrap: wrap;
@@ -832,4 +833,158 @@
   .table-type-row {
     padding: 7px 12px;
   }
+}
+
+/* ══════════════════════════════════════════════════
+   PHONES (.table-panel--phone, TableView.jsx): filters fold behind a button, rows are
+   cards, and the footer is one line, so the list gets most of the panel.
+   ══════════════════════════════════════════════════ */
+.tbl-county-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fbbf24;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.table-panel--phone .table-toolbar {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.table-panel--phone .table-search {
+  flex: 1 1 0;
+}
+.table-panel--phone .table-search input {
+  height: 34px;
+  font-size: 16px; /* 16px stops iOS zooming in on focus */
+}
+.table-panel--phone .tbl-pill-btn {
+  height: 32px;
+}
+.table-panel--phone .tbl-toolbar-right {
+  flex: 1 0 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.table-panel--phone .tbl-toolbar-right::-webkit-scrollbar {
+  display: none;
+}
+.table-panel--phone .tbl-sort-switch {
+  height: 32px;
+  margin-left: auto;
+}
+
+/* Each chip row scrolls sideways instead of wrapping onto three lines */
+.table-panel--phone .table-filters {
+  flex-shrink: 0;
+  max-height: 40%;
+  overflow-y: auto;
+}
+.table-panel--phone .table-type-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.table-panel--phone .table-chip {
+  padding: 6px 11px;
+}
+
+.tbl-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tbl-cards > li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.tbl-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.tbl-card:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.tbl-card .tbl-score-badge {
+  flex-shrink: 0;
+  min-width: 46px;
+  text-align: center;
+}
+.tbl-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tbl-card .tbl-name,
+.tbl-card .tbl-addr {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.tbl-card-meta {
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+.tbl-cards .tbl-loading,
+.tbl-cards .tbl-empty {
+  display: block;
+  padding: 18px 14px;
+}
+
+.table-footer--phone {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+}
+.table-footer--phone .table-result-count {
+  min-width: 0;
+  font-size: 0.74rem;
+  opacity: 0.75;
+}
+.table-footer--phone .table-pagination {
+  margin-left: 0;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.table-footer--phone .tbl-pg-btn {
+  min-width: 36px;
+  height: 34px;
+  font-size: 1rem;
+}
+.tbl-pg-of {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+.tbl-size-select {
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.tbl-size-select option {
+  background: #1b1b1f;
 }
