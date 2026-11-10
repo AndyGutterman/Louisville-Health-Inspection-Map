@@ -5,6 +5,7 @@ import {
   bullittHistory,
   buildBullittFeatures,
   isBullittId,
+  latestHasViolations,
 } from "./bullitt.js";
 
 const feedRow = {
@@ -41,7 +42,7 @@ describe("buildBullittFeatures", () => {
       score: 94,
       grade: null,
       cat: "unknown",
-      has_any_violation: true,
+      has_any_violation: false, // the follow-up scored 100
       follow_up_score: 100,
       region: "bullitt",
     });
@@ -63,6 +64,24 @@ describe("buildBullittFeatures", () => {
     ]);
     expect(f.properties.score).toBeNull();
     expect(f.properties.has_any_violation).toBe(false);
+  });
+});
+
+describe("latestHasViolations (the ring)", () => {
+  it("follows a clean follow-up over the routine inspection's violations", () => {
+    expect(latestHasViolations(feedRow)).toBe(false);
+  });
+
+  it("keeps the ring when the follow-up lost points", () => {
+    expect(latestHasViolations({ ...feedRow, follow_up_score: 96 })).toBe(true);
+    expect(latestHasViolations({ ...feedRow, follow_up_score: "96" })).toBe(true);
+  });
+
+  it("uses the routine inspection when there is no follow-up, or it has no score", () => {
+    const noFollowUp = { ...feedRow, follow_up_date: null, follow_up_score: null };
+    expect(latestHasViolations(noFollowUp)).toBe(true);
+    expect(latestHasViolations({ ...noFollowUp, violation_count_recent: 0 })).toBe(false);
+    expect(latestHasViolations({ ...feedRow, follow_up_score: null })).toBe(true);
   });
 });
 
