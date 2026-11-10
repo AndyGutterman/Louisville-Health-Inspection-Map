@@ -78,12 +78,23 @@ export function useMapLibre(o) {
       return PIN_COLORS.green;
     };
 
+    // With the drawer already open, the place a click lands on replaces the one in it,
+    // whether the pin stands alone or the popup is a "1 of 3" (and stepping through that
+    // popup switches it too). Desktop only: on touch screens the popup is tapped to open
+    // the drawer.
+    const switchDrawerTo = (feature) => {
+      if (latest.current.drawerOpen && isHoverDevice()) {
+        latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
+      }
+    };
+
     const popups = createPopups({
       map,
       pinnedSlot,
       isSaved: (eid) => latest.current.savedIds.has(eid),
       onToggleSaved: (eid) => latest.current.onToggleSaved(eid),
       onOpenDrawer: (eid, props) => latest.current.onOpenDrawer(eid, props),
+      onGroupShow: switchDrawerTo,
       colorForScore,
     });
     popupsRef.current = popups;
@@ -159,11 +170,7 @@ export function useMapLibre(o) {
       }
 
       popups.showPinned(feature);
-      // With the drawer already open, a click on another pin switches it (desktop only;
-      // on touch screens the popup is tapped to open the drawer).
-      if (latest.current.drawerOpen && isHoverDevice()) {
-        latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
-      }
+      switchDrawerTo(feature);
     };
 
     map.on("load", () => {
