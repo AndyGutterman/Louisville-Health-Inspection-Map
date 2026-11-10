@@ -791,6 +791,13 @@ button.rx-switch[data-state="checked"] .rx-thumb {
   transition: none;
 }
 
+/* While a handle is dragged nothing animates, so the coloured bars and the other handles
+   stay under the pointer. The animation is for the preset buttons. */
+.wb2.dragging .wb2-handle,
+.wb2.dragging .wb2-fill {
+  transition: none;
+}
+
 .wb2-fill {
   transition:
     left 0.35s cubic-bezier(0.4, 0, 0.2, 1),

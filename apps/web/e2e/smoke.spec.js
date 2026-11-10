@@ -369,3 +369,46 @@ test("the Learn page links one data source per county and says how they differ",
   await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
   await expect(sources).toContainText("no inspection date");
 });
+
+test("score sliders: the coloured bar stays under the handle while it is dragged", async ({
+  page,
+}, testInfo) => {
+  const { consoleErrors } = await openApp(page);
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  const handle = page.getByRole("slider", { name: "red handle" });
+  const bar = page.locator(".wb2-fill.red");
+  await expect(handle).toHaveAttribute("aria-valuenow", "84");
+  await expect(page.getByRole("button", { name: "Balanced" })).toHaveClass(/active/);
+
+  // Where the handle's centre and the bar's right end are, in pixels.
+  const edges = async () => {
+    const h = await handle.boundingBox();
+    const b = await bar.boundingBox();
+    return { handle: h.x + h.width / 2, bar: b.x + b.width };
+  };
+
+  const start = await handle.boundingBox();
+  const y = start.y + start.height / 2;
+  await page.mouse.move(start.x + start.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(start.x - 60, y, { steps: 6 });
+  // Still held down: one frame later the bar must already be at the handle (it used to
+  // trail behind on a 0.35s animation).
+  await page.waitForTimeout(50);
+  const mid = await edges();
+  expect(Math.abs(mid.handle - mid.bar)).toBeLessThan(2);
+  await snap(page, testInfo, "17-slider-dragging");
+  await page.mouse.up();
+
+  const value = Number(await handle.getAttribute("aria-valuenow"));
+  expect(value).toBeLessThan(84);
+  // A custom value is no preset.
+  await expect(page.getByRole("button", { name: "Balanced" })).not.toHaveClass(/active/);
+
+  // The value holds once the map has caught up, and the arrow keys still step by one.
+  await page.waitForTimeout(1200);
+  await expect(handle).toHaveAttribute("aria-valuenow", String(value));
+  await handle.press("ArrowRight");
+  await expect(handle).toHaveAttribute("aria-valuenow", String(value + 1));
+  expect(consoleErrors, "console errors").toEqual([]);
+});
