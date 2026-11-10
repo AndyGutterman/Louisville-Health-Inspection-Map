@@ -6,13 +6,16 @@
  *   2. Add or update each establishment; ones no longer on the sheet become inactive.
  *   3. Record each establishment's current inspections. A changed score or violation
  *      list is a new row, so history builds up from the first load on.
- *   4. Geocode places without coordinates the way geocode_missing.js does (Nominatim,
- *      then Census, sharing geocode_cache), then Kentucky's 911 address points for what
- *      those miss (new streets, misspelled ones). Flag matches outside the county.
+ *   4. Geocode places without coordinates: Kentucky's 911 address points first (the
+ *      county's own record of every addressed building), then the Census, then
+ *      Nominatim (building-level matches only), then an approximate 911 point between
+ *      neighbouring house numbers. Flag matches outside the county.
  *
  * Usage (from pipeline/):
  *   node regions/bullitt/ingest.js                    # the daily job
  *   node regions/bullitt/ingest.js --retry-failures   # also retry addresses that failed
+ *   node regions/bullitt/ingest.js --redo-geocoding   # geocode every place again (not
+ *                                                     # hand-placed ones), ignoring the cache
  *   node regions/bullitt/ingest.js --dry-run          # download and parse only, no database
  *   node regions/bullitt/ingest.js --dry-run --preview=bullitt.geojson
  *                                                     # ...and geocode everything into a file
@@ -31,6 +34,7 @@ import {
   geocodeCensus,
   geocodeCensusLine,
   geocodeNominatim,
+  firstInside,
   sleep,
   stripSuite,
 } from "../../lib/geocode.js";
@@ -66,6 +70,12 @@ const CHUNK = 500;
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const RETRY_FAILURES = args.includes("--retry-failures");
+const REDO_GEOCODING = args.includes("--redo-geocoding");
+
+// Bullitt's own geocode_cache keys. The sheet often has the mailing town (Hillview
+// addresses say LOUISVILLE), so without a prefix a Louisville lookup of the same text
+// could stand in for a Bullitt one.
+const bullittKey = (row) => `bullitt|${cacheKey(buildQuery(row, DEFAULTS))}`;
 const PREVIEW = args.find((a) => a.startsWith("--preview="))?.slice("--preview=".length);
 
 // Today in Louisville, as YYYY-MM-DD.
@@ -78,6 +88,14 @@ const chunks = (list, n = CHUNK) =>
 const must = ({ data, error }, what) => {
   if (error) throw new Error(`${what}: ${error.message}`);
   return data;
+};
+
+// Straight-line distance between two { lon, lat } points, in km (fine at county scale).
+const distanceKm = (a, b) => {
+  const kmPerDeg = 111.32;
+  const dx = (a.lon - b.lon) * kmPerDeg * Math.cos((a.lat * Math.PI) / 180);
+  const dy = (a.lat - b.lat) * kmPerDeg;
+  return Math.hypot(dx, dy);
 };
 
 async function downloadSheet() {
@@ -107,10 +125,14 @@ function addressPointStreets() {
   return streets;
 }
 
-// Nominatim inside the county's box, then Census, then Census without the town (the
-// sheet sometimes has the mailing town, not the one the Census knows), then the 911
-// address points. A match inside the county outline wins; otherwise the first match is
-// kept and flagged.
+// In order, the first match inside the county wins (lib/geocode.js firstInside):
+//   1. an exact 911 address point: the county's record of that building;
+//   2. the Census, which places the number along its street's address range;
+//   3. Nominatim inside the county's box, only when it matched the building itself (a
+//      street-level answer once put every address on Old Preston Hwy on one spot);
+//   4. the Census without the town (the sheet sometimes has the mailing town);
+//   5. a 911 point between neighbouring house numbers (ky911-approx).
+// If nothing lands inside the county, the first match is kept and flagged.
 async function geocode(row) {
   const query = buildQuery(row, DEFAULTS);
   const fixed = overrideFor(OVERRIDES, row, DEFAULTS);
@@ -119,29 +141,28 @@ async function geocode(row) {
     return { query, result: { lon, lat, provider: "manual", confidence: 1, raw: { note } } };
   }
   const inCounty = (r) => !!r && containsPoint(OUTLINE, [r.lon, r.lat]);
-  const attempts = [
-    () => geocodeNominatim(query, { viewbox: SEARCH_BOX }),
-    () => geocodeCensus(row, DEFAULTS),
-    () => geocodeCensusLine(`${stripSuite(row.address || "")}, KY`, { accept: inCounty }),
-    async () => {
-      const index = await addressPointStreets();
-      return (
-        index && matchAddress(index, { address: stripSuite(row.address || ""), city: row.city })
-      );
-    },
-  ];
-  let first = null;
-  for (const attempt of attempts) {
-    let result = null;
-    try {
-      result = await attempt();
-    } catch (e) {
-      console.error(`  geocode error for "${query}": ${e.message}`);
-    }
-    if (inCounty(result)) return { query, result };
-    first ??= result;
-  }
-  return { query, result: first };
+  const street = stripSuite(row.address || "");
+  let approx911 = null;
+  const result = await firstInside(
+    [
+      async () => {
+        const index = await addressPointStreets();
+        const m = index && matchAddress(index, { address: street, city: row.city });
+        if (m?.provider === "ky911-approx") {
+          approx911 = m; // a guess between neighbours: only if nothing better turns up
+          return null;
+        }
+        return m;
+      },
+      () => geocodeCensus(row, DEFAULTS),
+      () => geocodeNominatim(query, { viewbox: SEARCH_BOX }),
+      () => geocodeCensusLine(`${street}, KY`, { accept: inCounty }),
+      async () => approx911,
+    ],
+    inCounty,
+    { onError: (e) => console.error(`  geocode error for "${query}": ${e.message}`) },
+  );
+  return { query, result };
 }
 
 // --dry-run: no database. With --preview, geocode every place into a GeoJSON file.
@@ -325,18 +346,23 @@ async function applyOverrides(supa) {
   console.log(`Hand-placed pins: ${OVERRIDES.size} in overrides.json, ${updated} places updated.`);
 }
 
+// Places with no pin yet (and, with --retry-failures, ones that failed before). With
+// --redo-geocoding, every active place except hand-placed ones, ignoring the cache.
 async function geocodeMissing(supa) {
   let q = supa
     .from("bullitt_establishments")
-    .select("id, name, address, city, state")
-    .is("lon", null)
+    .select("id, name, address, city, state, lon, lat")
     .eq("active", true);
-  if (!RETRY_FAILURES) q = q.is("geocoded_at", null);
+  if (REDO_GEOCODING) q = q.or("geocode_provider.is.null,geocode_provider.neq.manual");
+  else {
+    q = q.is("lon", null);
+    if (!RETRY_FAILURES) q = q.is("geocoded_at", null);
+  }
   const todo = must(await q, "read places to geocode");
-  console.log(`Places to geocode: ${todo.length}`);
+  console.log(`Places to geocode: ${todo.length}${REDO_GEOCODING ? " (redoing all)" : ""}`);
   if (!todo.length) return;
 
-  const keys = todo.map((r) => cacheKey(buildQuery(r, DEFAULTS)));
+  const keys = todo.map(bullittKey);
   const cached = new Map();
   for (const part of chunks([...new Set(keys)], 100)) {
     must(
@@ -348,9 +374,10 @@ async function geocodeMissing(supa) {
   let hits = 0;
   let outside = 0;
   let misses = 0;
+  let moved = 0;
   for (const row of todo) {
-    const key = cacheKey(buildQuery(row, DEFAULTS));
-    let result = cached.get(key);
+    const key = bullittKey(row);
+    let result = REDO_GEOCODING ? null : cached.get(key);
     let query = buildQuery(row, DEFAULTS);
     if (!result || (result.lon == null && RETRY_FAILURES)) {
       ({ query, result } = await geocode(row));
@@ -386,6 +413,15 @@ async function geocodeMissing(supa) {
         .eq("id", row.id),
       "save coordinates",
     );
+    if (REDO_GEOCODING && row.lon != null) {
+      const km = found ? distanceKm(row, result) : null;
+      if (km == null || km > 0.05) {
+        moved++;
+        console.log(
+          `  moved: ${row.name} — ${km == null ? "pin removed (no match)" : `${km.toFixed(2)} km`} (${result?.provider ?? "none"})`,
+        );
+      }
+    }
     if (!found) {
       misses++;
       console.warn(`  ✗ no match: ${row.name} — ${query}`);
@@ -395,7 +431,8 @@ async function geocodeMissing(supa) {
     } else hits++;
   }
   console.log(
-    `Geocoded ${hits} in the county, ${outside} outside it (still pinned), ${misses} not found.`,
+    `Geocoded ${hits} in the county, ${outside} outside it (still pinned), ${misses} not found.` +
+      (REDO_GEOCODING ? ` ${moved} pins moved more than 50 m or were removed.` : ""),
   );
 }
 

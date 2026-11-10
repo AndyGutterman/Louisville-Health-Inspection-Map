@@ -3,7 +3,12 @@
 # must have been run). See docs/BULLITT.md.
 name: Ingest Bullitt County -> Supabase
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      redo_geocoding:
+        description: "Geocode every place again (not hand-placed pins), ignoring the cache"
+        type: boolean
+        default: false
   schedule:
     # The department says it updates weekly; daily is cheap (one CSV) and catches it soon.
     - cron: "45 8 * * *"
@@ -33,4 +38,6 @@ jobs:
         run: npm test
 
       - name: Load and geocode
-        run: node regions/bullitt/ingest.js
+        env:
+          REDO: ${{ inputs.redo_geocoding && '--redo-geocoding' || '' }}
+        run: node regions/bullitt/ingest.js $REDO
