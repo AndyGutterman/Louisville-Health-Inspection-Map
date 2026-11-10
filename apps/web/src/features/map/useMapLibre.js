@@ -78,6 +78,16 @@ export function useMapLibre(o) {
       return PIN_COLORS.green;
     };
 
+    // With the drawer already open, the place a click lands on replaces the one in it,
+    // whether the pin stands alone or the popup is a "1 of 3" (stepping through that popup
+    // doesn't: the popup is clicked to load the next place). Desktop only: on touch
+    // screens the popup is tapped to open the drawer.
+    const switchDrawerTo = (feature) => {
+      if (latest.current.drawerOpen && isHoverDevice()) {
+        latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
+      }
+    };
+
     const popups = createPopups({
       map,
       pinnedSlot,
@@ -141,7 +151,9 @@ export function useMapLibre(o) {
       const sameSpot = placesAt(feature) || [];
       if (sameSpot.length > 1) {
         const sorted = sameSpot.slice().sort(worstFirst);
-        popups.showGroup(sorted, startIndex(sorted));
+        const i = startIndex(sorted);
+        popups.showGroup(sorted, i);
+        switchDrawerTo(sorted[i]);
         return;
       }
       // Different spots under one screen point: gather everything at each of them.
@@ -154,16 +166,14 @@ export function useMapLibre(o) {
           }
         }
         const sorted = (byEid.size ? [...byEid.values()] : group).slice().sort(worstFirst);
-        popups.showGroup(sorted, startIndex(sorted));
+        const i = startIndex(sorted);
+        popups.showGroup(sorted, i);
+        switchDrawerTo(sorted[i]);
         return;
       }
 
       popups.showPinned(feature);
-      // With the drawer already open, a click on another pin switches it (desktop only;
-      // on touch screens the popup is tapped to open the drawer).
-      if (latest.current.drawerOpen && isHoverDevice()) {
-        latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
-      }
+      switchDrawerTo(feature);
     };
 
     map.on("load", () => {
