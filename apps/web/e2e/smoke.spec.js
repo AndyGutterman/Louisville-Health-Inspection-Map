@@ -3,7 +3,7 @@
 // basemap loads for real. Tests check the DOM around the map, never canvas pins.
 import { test, expect } from "@playwright/test";
 import { openApp, openWhatsNew, whatsNewRow, openDrawerFromWhatsNew } from "./support/app.js";
-import { byEid, NO_PIN_EID, PINNED_EID, PERFECT_EID } from "./support/fixtures.js";
+import { byEid, BULLITT_NAME, NO_PIN_EID, PINNED_EID, PERFECT_EID } from "./support/fixtures.js";
 import { snap } from "./support/screenshots.js";
 
 test("loads with no console errors", async ({ page }, testInfo) => {
@@ -201,30 +201,99 @@ test("draws the county outline and credits its source", async ({ page }) => {
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Who's On First");
 });
 
-test("the county picker switches to Bullitt County and its filters", async ({ page }, testInfo) => {
-  const outline = page.waitForResponse((r) => r.url().endsWith("/regions/bullitt.geojson"));
+test("both counties show at once, with every filter", async ({ page }, testInfo) => {
+  const jefferson = page.waitForResponse((r) => r.url().endsWith("/regions/jefferson.geojson"));
+  const bullitt = page.waitForResponse((r) => r.url().endsWith("/regions/bullitt.geojson"));
   const { consoleErrors, unmocked } = await openApp(page);
-  expect((await outline).status()).toBe(200);
+  expect((await jefferson).status()).toBe(200);
+  expect((await bullitt).status()).toBe(200);
 
-  const jefferson = page.getByRole("radio", { name: "Jefferson" });
-  const bullitt = page.getByRole("radio", { name: "Bullitt" });
-  const dateFilter = page.getByLabel("Filter pins by inspection date");
-  await expect(jefferson).toHaveAttribute("aria-checked", "true");
-  await expect(dateFilter).toBeVisible();
-
-  // Bullitt's data has no inspection dates and no facility types.
-  await bullitt.click();
-  await expect(bullitt).toHaveAttribute("aria-checked", "true");
-  await expect(dateFilter).toHaveCount(0);
+  // No county toggle any more: the date filter and the categories are always there, and
+  // the Filter tab explains how Bullitt's undated, untyped places are handled.
+  await expect(page.getByRole("radio", { name: "Bullitt" })).toHaveCount(0);
+  await expect(page.getByLabel("Filter pins by inspection date")).toBeVisible();
   await page.getByRole("button", { name: "Expand controls" }).click();
   await page.getByRole("tab", { name: "Filter" }).click();
-  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
-  await expect(page.getByTestId("category-tile")).toHaveCount(0);
-  await snap(page, testInfo, "12-bullitt-filters");
-
-  await jefferson.click();
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
-  await expect(dateFilter).toBeVisible();
+  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
+  await snap(page, testInfo, "12-both-counties-filters");
+
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
+test("Table View lists both counties and searches across them", async ({ page }, testInfo) => {
+  const { consoleErrors, unmocked } = await openApp(page);
+  await page.getByRole("button", { name: "Open table view" }).click();
+  const panel = page.getByTestId("table-panel");
+  const rows = panel.getByTestId("table-row");
+  await expect(rows.filter({ hasText: byEid(PINNED_EID).name }).first()).toBeVisible();
+  await expect(rows.filter({ hasText: BULLITT_NAME }).first()).toBeVisible();
+  // Bullitt's routine inspection has no date.
+  await expect(rows.filter({ hasText: "Not published" }).first()).toBeVisible();
+
+  // One search covers both counties: name, street, city and zip in the same view.
+  const searched = page.waitForRequest(
+    (r) => r.url().includes("/rest/v1/v_table_latest") && r.url().includes("city.ilike"),
+  );
+  await panel.getByLabel("Search the table").fill("Shepherdsville");
+  const url = decodeURIComponent((await searched).url());
+  expect(url).toContain("name.ilike.*Shepherdsville*");
+  expect(url).not.toContain("region=eq.");
+  await snap(page, testInfo, "13-table-view-search");
+
+  // The county chips narrow it. On phones they fold behind the Filters button.
+  if (testInfo.project.name === "phone") {
+    await expect(panel.getByTestId("table-filters")).toHaveCount(0);
+    await panel.getByTestId("table-filters-toggle").click();
+  }
+  const narrowed = page.waitForRequest((r) => r.url().includes("region=eq.bullitt"));
+  await panel.getByTestId("table-county-bullitt").click();
+  await narrowed;
+  await snap(page, testInfo, "14-table-view-filters");
+
+  expect(consoleErrors, "console errors").toEqual([]);
+  expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
+test("Table View asks for a row count only when the filters change", async ({ page }, testInfo) => {
+  await openApp(page);
+  const counted = []; // one entry per request: did it ask for a count?
+  page.on("request", (r) => {
+    if (r.url().includes("/rest/v1/v_table_latest")) {
+      counted.push(/count=exact/.test(r.headers()["prefer"] || ""));
+    }
+  });
+  await page.getByRole("button", { name: "Open table view" }).click();
+  const panel = page.getByTestId("table-panel");
+  await expect(panel.getByTestId("table-row").first()).toBeVisible();
+  expect(counted).toEqual([true]);
+
+  // 21 fixture rows: at 10 a page there is a page 2. Neither step changes the count.
+  if (testInfo.project.name === "phone") {
+    await panel.getByLabel("Rows per page").selectOption("10");
+  } else {
+    await panel.getByRole("button", { name: "10", exact: true }).click();
+  }
+  await expect.poll(() => counted.length).toBe(2);
+  await panel.getByRole("button", { name: /^(›|Next page)$/ }).click();
+  await expect.poll(() => counted.length).toBe(3);
+  expect(counted).toEqual([true, false, false]);
+
+  // A filter does.
+  await panel.getByRole("button", { name: "Hide N/A" }).click();
+  await expect.poll(() => counted.at(-1)).toBe(true);
+});
+
+test("the Learn page links every data source, grouped by county", async ({ page }) => {
+  await openApp(page);
+  await page.getByRole("button", { name: "Learn" }).click();
+  const sources = page.getByTestId("data-sources");
+  await expect(sources).toContainText("Jefferson County (Louisville Metro)");
+  await expect(sources).toContainText("Bullitt County");
+  await sources.getByText("Bullitt County", { exact: true }).click(); // expand its group
+  await expect(
+    sources.getByRole("link", { name: "Bullitt County Health Department" }),
+  ).toHaveAttribute("href", "https://www.bullitthealth.org/food");
+  await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
 });

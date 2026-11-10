@@ -104,6 +104,7 @@ export default function AppHeader(p) {
           <button
             className={`header-nav-btn${p.page === "learn" ? " active" : ""}`}
             onClick={p.onOpenLearn}
+            aria-label="Learn"
           >
             <Icon>
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />

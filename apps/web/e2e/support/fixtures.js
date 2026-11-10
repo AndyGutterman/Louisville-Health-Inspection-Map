@@ -209,6 +209,38 @@ const bullittInspections = BULLITT_PLACES.flatMap((p, i) => [
     : []),
 ]);
 
+// Table View rows: Louisville's inspections, then Bullitt's (routine rows have no date).
+const tableRows = [
+  ...inspections.map((r) => {
+    const p = byEid(r.establishment_id);
+    return {
+      region: "jefferson",
+      ...r,
+      name: p.name,
+      address: p.address,
+      city: p.address ? "LOUISVILLE" : null,
+      zip: p.address ? "40202" : null,
+    };
+  }),
+  ...bullittInspections.map((r) => {
+    const p = BULLITT_PLACES.find((b) => b.eid === r.establishment_id);
+    return {
+      region: "bullitt",
+      inspection_id: r.id,
+      establishment_id: r.establishment_id,
+      inspection_date: r.inspection_date,
+      score: r.score,
+      grade: null,
+      ins_type_desc: r.kind === "follow_up" ? "FOLLOWUP" : "REGULAR",
+      name: p.name,
+      address: p.address,
+      city: p.city,
+      zip: null,
+    };
+  }),
+];
+export const BULLITT_NAME = BULLITT_PLACES[0].name;
+
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
 export const TABLES = {
   v_facility_map_feed: pinned.map((p) => ({
@@ -249,10 +281,10 @@ export const TABLES = {
     { ins_type_desc: "REGULAR", cnt: 12 },
     { ins_type_desc: "FOLLOWUP", cnt: 6 },
   ],
-  v_latest_insp_per_type: inspections.map((r) => {
-    const p = byEid(r.establishment_id);
-    return { ...r, name: p.name, address: p.address, zip: p.address ? "40202" : null };
-  }),
+  // Table View (both counties). The mock ignores or=/region filters, so every row comes
+  // back whatever is searched; tests check the request for the filter itself.
+  v_table_latest: tableRows,
+  v_table_inspections: tableRows,
   "rpc/get_violation_flags": pinned.map((p) => ({
     establishment_id: p.eid,
     has_critical: !!p.critical,
