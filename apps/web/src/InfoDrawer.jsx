@@ -381,6 +381,10 @@ function PastInspection({ row }) {
         </div>
 
         {viols.length > 0 && (
+        {/* The pill sits in a fixed-width column, so every row's pill is the same size and
+            in the same place, however long the date is; an empty slot keeps the grade
+            aligned when there are no violations. */}
+        {viols.length === 0 && <span className="viol-count-slot" aria-hidden="true" />}
           <button
             type="button"
             className={`viol-count ${open ? "open" : ""} ${showToggle ? "clickable" : ""}`}
