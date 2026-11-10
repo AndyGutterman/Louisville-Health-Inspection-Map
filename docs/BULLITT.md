@@ -67,18 +67,28 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   `--`. Quote it as `'--'`).
   It skips everything when the sheet hasn't changed, refuses to run if the sheet suddenly
   has under half the places of the last load, and stops if the columns change.
-- **Geocoding:** the same providers as `geocode_missing.js` (Nominatim, then Census, from
-  the shared `pipeline/lib/geocode.js`) and the same `geocode_cache` table. Nominatim
-  searches only a box around the county, and a third try asks the Census without the town
-  (the sheet sometimes has the mailing town). What those miss goes to Kentucky's statewide
-  **911 address points** (`pipeline/lib/ky911.js`, public, no key; one point per addressed
-  building, so new subdivisions are there first). `pipeline/lib/addressPoints.js` matches
-  loosely spelled streets ("HIGH POINTE CT" is High Point Court). A house number with no
-  point of its own goes between its neighbours and is stored as `ky911-approx`. The last
-  few are placed by hand in `pipeline/regions/bullitt/overrides.json` (provider `manual`;
-  instructions are in the file). Every run applies those first, and a test checks that each
-  hand-placed pin is inside the county. A match
-  outside the county outline is kept but flagged (`geocode_outside_county`).
+- **Geocoding** (`geocode()` in `ingest.js`, order changed November 2026). The first match
+  inside the county outline wins:
+  1. Kentucky's statewide **911 address points** (`pipeline/lib/ky911.js`, public, no key):
+     the county's own record of every addressed building. `pipeline/lib/addressPoints.js`
+     matches loosely spelled streets ("HIGH POINTE CT" is High Point Court).
+  2. The **Census** geocoder (house number placed along the street's address range).
+  3. **Nominatim**, searching only a box around the county, and only when it matched the
+     building itself. It used to come first and accept any answer: for an address it
+     didn't have, it returned the road, so every address on Old Preston Hwy got the same
+     pin, and 6434 N Preston Hwy landed on the county line.
+  4. The Census without the town (the sheet sometimes has the mailing town).
+  5. A 911 point between neighbouring house numbers (`ky911-approx`).
+
+  The last few are placed by hand in `pipeline/regions/bullitt/overrides.json` (provider
+  `manual`; instructions are in the file); every run applies those first, and a test checks
+  each is inside the county. A match outside the outline is kept but flagged
+  (`geocode_outside_county`). Bullitt's `geocode_cache` keys start with `bullitt|`, so a
+  Louisville lookup of the same text ("..., LOUISVILLE, KY") can't stand in for one.
+  **Redoing pins:** `npm run bullitt:redo -w pipeline`, or run the workflow by hand with
+  "Redo geocoding" ticked, geocodes every place again except hand-placed ones and logs
+  each pin that moved.
+
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
 - **Website:** both counties' pins show together (the County picker is gone). The date
@@ -131,11 +141,10 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
    Louisville query and pipeline job would need checking first.
 8. **Toggle or both at once.** Decided: both at once (November 2026). Undated Bullitt pins
    always pass the date filter (2) and count as "Other" (4).
-9. **Geocoding order.** The 911 address points are the county's own records, so they
-   could go first instead of last (and could serve Louisville too). The MVP keeps them
-   last so pins Nominatim and the Census already placed don't move. Should approximate
-   (`ky911-approx`) pins look different on the map? Geoapify was also tried: 3 of 6 sample
-   misses found, but two confident wrong answers, so it is not used.
+9. **Geocoding order.** Decided: 911 address points first (November 2026), after
+   Nominatim's street-level answers put several places on the wrong spot. Should
+   approximate (`ky911-approx`) pins look different on the map? Geoapify was also tried: 3
+   of 6 sample misses found, but two confident wrong answers, so it is not used.
 
 ## Known limits
 
