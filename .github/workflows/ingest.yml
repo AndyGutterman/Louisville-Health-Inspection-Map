@@ -72,16 +72,6 @@ jobs:
             gh workflow enable "$wf" -R "$GITHUB_REPOSITORY"
           done
 
-      # Dead-man's switch, outside GitHub: a healthchecks.io check that emails the owner
-      # when a day passes with no ping, whatever stopped the run. Skipped until the
-      # HEALTHCHECKS_URL secret exists. Only on success, so a failing load also trips it.
-      - name: Ping the dead-man's switch
-        if: success() && env.HEALTHCHECKS_URL != ''
-        working-directory: .
-        env:
-          HEALTHCHECKS_URL: ${{ secrets.HEALTHCHECKS_URL }}
-        run: curl -fsS -m 10 --retry 3 "$HEALTHCHECKS_URL" > /dev/null
-
       # Belt and braces: GitHub documents the 60-day rule in terms of commits, so if the
       # last commit on main is over 45 days old, push one empty commit. Nothing else
       # changes; it's the only thing GitHub promises will reset the clock.
