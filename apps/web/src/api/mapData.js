@@ -4,78 +4,77 @@ import { supabase } from "../lib/supabase.js";
 // PostgREST returns at most 1,000 rows per request, so big tables are read in pages.
 const PAGE = 1000;
 
+// Reads every row of a query, a page at a time, stopping at the first short page. (No
+// separate count request: an exact count runs the whole view or table one more time.)
+// page(from, to) returns a Supabase query. Resolves to the rows, or throws the error.
+export async function readAllPages(page, pageSize = PAGE) {
+  let rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await page(from, from + pageSize - 1);
+    if (error) throw error;
+    rows = rows.concat(data || []);
+    if (!data || data.length < pageSize) return rows;
+  }
+}
+
 // Every row of v_facility_map_feed (one per place with coordinates: name, address,
 // latest score). Returns null if a request fails, so the caller can stop.
 export async function fetchMapFeed() {
-  const { count, error: headErr } = await supabase
-    .from("v_facility_map_feed")
-    .select("*", { head: true, count: "exact" });
-  if (headErr) {
-    console.error(headErr);
+  try {
+    return await readAllPages((from, to) =>
+      supabase
+        .from("v_facility_map_feed")
+        .select(
+          "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
+        )
+        .order("establishment_id")
+        .range(from, to),
+    );
+  } catch (e) {
+    console.error(e);
     return null;
   }
-
-  let rows = [];
-  for (let offset = 0; offset < count; offset += PAGE) {
-    const to = Math.min(count - 1, offset + PAGE - 1);
-    const { data, error } = await supabase
-      .from("v_facility_map_feed")
-      .select(
-        "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
-      )
-      .range(offset, to);
-    if (error) {
-      console.error(error);
-      return null;
-    }
-    rows = rows.concat(data);
-  }
-  return rows;
 }
 
-// establishment id -> { has_any } for each place's latest inspection (the RPC's has_critical
-// column is not used: see mapLayers.js)
-// (the red and blue rings). Stops quietly on an error.
+// establishment id -> { has_any } for each place's latest inspection (the violation ring;
+// the RPC's has_critical column is not used: see mapLayers.js). Empty on an error.
 export async function fetchViolationFlags() {
   const flags = new Map();
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.rpc("get_violation_flags").range(from, from + PAGE - 1);
-    if (error || !data?.length) break;
-    for (const r of data) flags.set(r.establishment_id, r);
-    if (data.length < PAGE) break;
+  try {
+    const rows = await readAllPages((from, to) =>
+      supabase.rpc("get_violation_flags").range(from, to),
+    );
+    for (const r of rows) flags.set(r.establishment_id, r);
+  } catch (e) {
+    console.error("violation flags fetch error", e);
   }
   return flags;
 }
 
 // establishment id -> { ft, st, address, city, state, zip } from facilities (type and
-// subtype drive the category filter). Returns what it has so far on an error.
+// subtype drive the category filter). Empty on an error.
 export async function fetchFacilityMeta() {
   const metaById = new Map();
   try {
-    const { count } = await supabase.from("facilities").select("*", { head: true, count: "exact" });
-    for (let offset = 0; offset < (count || 0); offset += PAGE) {
-      const to = Math.min((count || 0) - 1, offset + PAGE - 1);
-      const { data, error } = await supabase
+    const rows = await readAllPages((from, to) =>
+      supabase
         .from("facilities")
         .select("establishment_id, facility_type, subtype, address, city, state, zip")
-        .range(offset, to);
-      if (error) {
-        console.error("facilities meta fetch error", error);
-        break;
-      }
-      for (const f of data || []) {
-        metaById.set(f.establishment_id, {
-          ft: f.facility_type,
-          st: f.subtype,
-          zip: f.zip || null,
-          address: f.address || null,
-          city: f.city || null,
-          state: f.state || null,
-        });
-      }
+        .order("establishment_id")
+        .range(from, to),
+    );
+    for (const f of rows) {
+      metaById.set(f.establishment_id, {
+        ft: f.facility_type,
+        st: f.subtype,
+        zip: f.zip || null,
+        address: f.address || null,
+        city: f.city || null,
+        state: f.state || null,
+      });
     }
   } catch (e) {
-    console.error("facilities meta lookup failed", e);
+    console.error("facilities meta fetch error", e);
   }
   return metaById;
 }

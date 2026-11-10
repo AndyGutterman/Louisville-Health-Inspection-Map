@@ -1,5 +1,7 @@
 // Loads every establishment as a map pin, from a session cache when it's fresh. Every
-// county's pins share one list; the filter panel's county picker hides the others.
+// county's pins share one list and show together. The four reads run side by side and
+// the result is cached for the session (lib/constants.js GEO_CACHE_TTL), so a visitor
+// costs the database one load per session.
 //   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js)
 //   getFeature  establishment id -> its feature, over the FULL list, including places
 //               that share a pin with another place
@@ -36,14 +38,16 @@ function writeCache(features) {
 }
 
 async function loadFeatures() {
-  const bullittPromise = fetchBullittFeed(); // [] when the database has no Bullitt data
-  const rows = await fetchMapFeed();
+  const [rows, meta, flags, bullitt] = await Promise.all([
+    fetchMapFeed(),
+    fetchFacilityMeta(),
+    fetchViolationFlags(),
+    fetchBullittFeed(), // [] when the database has no Bullitt data
+  ]);
   if (!rows) return null;
-  const flagsPromise = fetchViolationFlags(); // loads while the facility details do
-  const meta = await fetchFacilityMeta();
   const features = combineRegions(
-    buildMapFeatures(rows, meta, await flagsPromise),
-    buildBullittFeatures(await bullittPromise),
+    buildMapFeatures(rows, meta, flags),
+    buildBullittFeatures(bullitt),
   );
   writeCache(features);
   return features;
