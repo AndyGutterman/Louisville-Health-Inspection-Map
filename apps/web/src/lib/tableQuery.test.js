@@ -4,7 +4,10 @@ import {
   cleanSearch,
   combineOr,
   countKey,
+  countyForFacility,
+  facilityAppliesTo,
   facilityFilter,
+  typedCounties,
   searchFilter,
 } from "./tableQuery.js";
 import { CATEGORY_SPECS } from "./categories.js";
@@ -34,9 +37,8 @@ describe("facilityFilter", () => {
   it("matches each type and subtype pair", () => {
     expect(facilityFilter(new Set(["schools"]))).toBe("and(facility_type.eq.605,subtype.eq.33)");
   });
-  it("puts untyped places (all of Bullitt) under Other", () => {
-    expect(facilityFilter(new Set(["unknown"]))).toContain("facility_type.is.null");
-    expect(facilityFilter(new Set(["restaurants"]))).not.toContain("is.null");
+  it("never matches untyped places: Bullitt isn't lumped into Other", () => {
+    expect(facilityFilter(new Set(["unknown"]))).not.toContain("is.null");
   });
   it("uses the same pairs as the map's categories", () => {
     for (const [key, spec] of Object.entries(FACILITY_CATS)) {
@@ -64,5 +66,32 @@ describe("countKey", () => {
   it("changes with any filter", () => {
     expect(countKey(base)).not.toBe(countKey({ ...base, region: "bullitt" }));
     expect(countKey(base)).not.toBe(countKey({ ...base, view: "v_table_inspections" }));
+  });
+});
+
+describe("facility chips and counties", () => {
+  const regions = [
+    { id: "jefferson", has: { categories: true } },
+    { id: "bullitt", has: { categories: false } },
+  ];
+
+  it("knows which counties have facility types", () => {
+    expect(typedCounties(regions)).toEqual(["jefferson"]);
+  });
+
+  it("applies to Jefferson or to both, never to Bullitt alone", () => {
+    expect(facilityAppliesTo(null, regions)).toBe(true);
+    expect(facilityAppliesTo("jefferson", regions)).toBe(true);
+    expect(facilityAppliesTo("bullitt", regions)).toBe(false);
+  });
+
+  it("switches both counties to Jefferson when a facility is picked", () => {
+    expect(countyForFacility(null, regions)).toBe("jefferson");
+    expect(countyForFacility("jefferson", regions)).toBe("jefferson");
+  });
+
+  it("stays on every county when several have facility types", () => {
+    const two = [...regions, { id: "oldham", has: { categories: true } }];
+    expect(countyForFacility(null, two)).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 // PostgREST filter strings for Table View (TableView.jsx), which reads v_table_latest or
 // v_table_inspections (supabase/migrations/20261111000000_both_counties.sql). Pure.
 
-// Facility chips: (facility type, subtype) pairs, as in lib/categories.js. "Other" also
-// takes places with no type at all, which is every Bullitt County place.
+// Facility chips: (facility type, subtype) pairs, as in lib/categories.js. Only counties
+// whose data has facility types (lib/regions.js has.categories) can be filtered by them.
 export const FACILITY_CATS = {
   restaurants: { label: "Restaurants", pairs: [[605, 11]] },
   schools: { label: "Schools", pairs: [[605, 33]] },
@@ -44,7 +44,6 @@ export const FACILITY_CATS = {
       [604, 16],
       [605, 52],
     ],
-    untyped: true,
   },
 };
 export const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
@@ -72,9 +71,25 @@ export function facilityFilter(selected) {
     const spec = FACILITY_CATS[key];
     if (!spec) continue;
     for (const [ft, st] of spec.pairs) parts.push(`and(facility_type.eq.${ft},subtype.eq.${st})`);
-    if (spec.untyped) parts.push("facility_type.is.null");
   }
   return parts.length ? parts.join(",") : null;
+}
+
+// Counties whose data has facility types, so the Facility chips can filter them.
+export const typedCounties = (regions) => regions.filter((r) => r.has.categories).map((r) => r.id);
+
+// Whether the Facility chips apply to the County chip's choice (null = every county).
+// With every county picked they apply once the county switches (countyForFacility).
+export const facilityAppliesTo = (county, regions) =>
+  county == null || typedCounties(regions).includes(county);
+
+// The County choice after a Facility chip is picked. A facility filter can only cover
+// counties with facility types, so "every county" narrows to the one that has them
+// (Jefferson); with several, it stays and the query limits itself to them.
+export function countyForFacility(county, regions) {
+  if (county != null) return county;
+  const typed = typedCounties(regions);
+  return typed.length === 1 ? typed[0] : null;
 }
 
 // One value for supabase-js's .or(): PostgREST takes a single `or` parameter, so two
