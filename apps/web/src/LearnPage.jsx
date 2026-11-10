@@ -890,9 +890,11 @@ export default function LearnPage({
             </p>
             <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
               Pin colors on the map show the <strong>score only</strong>, and you can adjust them. A
-              blue ring means at least one violation was cited on the latest inspection. Rings are
+              amber ring means at least one violation was cited on the latest inspection. Rings are
               not placards: the grade in a place&apos;s details is the one the health department
-              recorded.
+              recorded. Bullitt County&apos;s rings are light blue: its sheet lists every form item
+              marked at a visit, including routine ones Louisville&apos;s data doesn&apos;t publish,
+              so rings are far more common there and don&apos;t mean a place is worse.
             </p>
           </div>
 

@@ -114,6 +114,9 @@ still ignores estimates (`date` stays null).
 
 ## Why Bullitt seems to have more violations
 
+On the map, Bullitt's violation rings are light blue instead of amber (`BULLITT_RING_COLOR`
+in `features/map/mapLayers.js`), so the two counties aren't read on one scale.
+
 It doesn't; the two sources list different things. Measured in November 2026:
 
 | Score band | Louisville inspections (last 12 months) with violations listed | Bullitt routine inspections with items listed |
