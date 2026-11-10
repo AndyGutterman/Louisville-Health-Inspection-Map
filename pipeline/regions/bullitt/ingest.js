@@ -35,6 +35,7 @@ import {
   stripSuite,
 } from "../../lib/geocode.js";
 import { fetchCountyAddressPoints } from "../../lib/ky911.js";
+import { overrideFor, parseOverrides } from "./overrides.js";
 import { parseSheet } from "./parse.js";
 
 // The sheet behind the drop-down on https://www.bullitthealth.org/food. The plain CSV
@@ -52,6 +53,11 @@ const OUTLINE = JSON.parse(
 const [W, S, E, N] = bbox(OUTLINE);
 const SEARCH_BOX = [W - 0.02, S - 0.02, E + 0.02, N + 0.02]; // about 2 km of slack
 const DEFAULTS = { city: "Shepherdsville", state: "KY" };
+
+// Pins placed by hand for addresses no geocoder finds. They win over every geocoder.
+const OVERRIDES = parseOverrides(
+  JSON.parse(readFileSync(new URL("./overrides.json", import.meta.url), "utf8")),
+);
 
 // A sheet with less than half the places of the last one is more likely broken than real.
 const MIN_SHARE_OF_LAST = 0.5;
@@ -107,6 +113,11 @@ function addressPointStreets() {
 // kept and flagged.
 async function geocode(row) {
   const query = buildQuery(row, DEFAULTS);
+  const fixed = overrideFor(OVERRIDES, row, DEFAULTS);
+  if (fixed) {
+    const { lon, lat, note } = fixed;
+    return { query, result: { lon, lat, provider: "manual", confidence: 1, raw: { note } } };
+  }
   const inCounty = (r) => !!r && containsPoint(OUTLINE, [r.lon, r.lat]);
   const attempts = [
     () => geocodeNominatim(query, { viewbox: SEARCH_BOX }),
@@ -279,6 +290,41 @@ async function load(supa, csv, establishments) {
   );
 }
 
+// Every run, before geocoding: put each hand-placed pin (overrides.json) on its places,
+// including ones a geocoder already pinned.
+async function applyOverrides(supa) {
+  if (!OVERRIDES.size) return;
+  const rows = must(
+    await supa
+      .from("bullitt_establishments")
+      .select("id, address, city, state, lon, lat, geocode_provider"),
+    "read places for hand-placed pins",
+  );
+  let updated = 0;
+  for (const row of rows) {
+    const o = overrideFor(OVERRIDES, row, DEFAULTS);
+    if (!o || (row.geocode_provider === "manual" && row.lon === o.lon && row.lat === o.lat)) {
+      continue;
+    }
+    must(
+      await supa
+        .from("bullitt_establishments")
+        .update({
+          lon: o.lon,
+          lat: o.lat,
+          geocode_provider: "manual",
+          geocode_query: buildQuery(row, DEFAULTS),
+          geocode_outside_county: !containsPoint(OUTLINE, [o.lon, o.lat]),
+          geocoded_at: new Date().toISOString(),
+        })
+        .eq("id", row.id),
+      "save hand-placed pin",
+    );
+    updated++;
+  }
+  console.log(`Hand-placed pins: ${OVERRIDES.size} in overrides.json, ${updated} places updated.`);
+}
+
 async function geocodeMissing(supa) {
   let q = supa
     .from("bullitt_establishments")
@@ -363,6 +409,7 @@ async function geocodeMissing(supa) {
 
   const { supa } = await import("../../lib/db.js"); // only now: --dry-run needs no credentials
   await load(supa, csv, establishments);
+  await applyOverrides(supa);
   await geocodeMissing(supa);
 })().catch((err) => {
   console.error("Bullitt ingest failed:", err.message);

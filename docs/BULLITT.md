@@ -74,7 +74,10 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   **911 address points** (`pipeline/lib/ky911.js`, public, no key; one point per addressed
   building, so new subdivisions are there first). `pipeline/lib/addressPoints.js` matches
   loosely spelled streets ("HIGH POINTE CT" is High Point Court). A house number with no
-  point of its own goes between its neighbours and is stored as `ky911-approx`. A match
+  point of its own goes between its neighbours and is stored as `ky911-approx`. The last
+  few are placed by hand in `pipeline/regions/bullitt/overrides.json` (provider `manual`;
+  instructions are in the file). Every run applies those first, and a test checks that each
+  hand-placed pin is inside the county. A match
   outside the county outline is kept but flagged (`geocode_outside_county`).
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
