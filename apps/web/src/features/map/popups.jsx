@@ -26,8 +26,9 @@ const esc = (s) =>
 
 const scoreText = (p) => (p.score === 0 || p.score == null ? "N/A" : p.score);
 const gradeText = (p) => (p.grade ? ` (${esc(p.grade)})` : "");
-// Bullitt County has no inspection dates (lib/regions.js).
-const dateText = (p) => p.date_text ?? formatDateSafe(p.date);
+// Bullitt County publishes no inspection dates; some are estimated (lib/bullitt.js).
+const dateText = (p) =>
+  (p.date_text ?? formatDateSafe(p.date)) + (p.date_estimated ? " (estimated)" : "");
 const canSave = (p) => regionById(p.region).has.saving;
 
 function saveButtonHTML(eid, saved) {

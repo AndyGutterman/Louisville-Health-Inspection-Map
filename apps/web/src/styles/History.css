@@ -122,11 +122,21 @@
   border-bottom: none;
 }
 
+/* Score and date | violations pill | grade. The pill column has one fixed width, so every
+   pill is the same size and in the same place whatever the date's length; a long date
+   wraps instead of squeezing the pill. */
 .hist-head {
-  display: flex;
+  --viol-pill-w: 8.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--viol-pill-w) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
+}
+@media (max-width: 600px) {
+  .hist-head {
+    --viol-pill-w: 7.75rem;
+    gap: 8px;
+  }
 }
 
 .hist-left {

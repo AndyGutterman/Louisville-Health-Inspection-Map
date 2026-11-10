@@ -100,6 +100,34 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   (shown as "posted <date>", never as an inspection date; the first load doesn't count). County capabilities, agency and data
   sources live in `apps/web/src/lib/regions.js`; the Learn page lists the sources from there.
 
+## Estimated dates
+
+The sheet never dates the latest routine inspection, but the job loads it daily, so a
+result that first appears after the first load was posted that day: the inspection was
+that day or earlier. The site shows that as **"By 11/12/2026"** (popup: "(estimated)";
+drawer header: "Date (estimated)"), with a disclaimer in the drawer. Results already on the
+sheet at the first load stay "Date not published". The rule is `estimatedDate` in
+`apps/web/src/lib/bullitt.js`; the feed columns it needs come from migration
+`20261113000000_bullitt_estimated_dates.sql`. `pipeline/regions/bullitt/versions.js`
+decides which results are new, tested over a week of mocked daily sheets. The date filter
+still ignores estimates (`date` stays null).
+
+## Why Bullitt seems to have more violations
+
+It doesn't; the two sources list different things. Measured in November 2026:
+
+| Score band | Louisville inspections (last 12 months) with violations listed | Bullitt routine inspections with items listed |
+| ---------- | -------------------------------------------------------------- | --------------------------------------------- |
+| 95–99      | 1% (of 5,358)                                                  | 97% (of 119), 2.0 items on average            |
+| 85–94      | 28% (of 671)                                                   | 98% (of 46), 5.5 items on average             |
+| 1–84       | 80% (of 41)                                                    | 100% (of 1)                                   |
+
+Louisville's violations come from the ArcGIS layer "Inspection Violations of Failed
+Restaurants" (`pipeline/seed_violations.js`), so a Louisville inspection that lost points
+but passed usually shows no violations at all. Bullitt lists every marked form item. A
+violation ring therefore means less in Louisville than it looks. Open question: say so in
+the drawer for those Louisville inspections, or find a source with every violation.
+
 ## Geocoding results (dry run, November 2026)
 
 - 250 places on the sheet; **221 pinned inside the county** (142 by Nominatim, 79 by the

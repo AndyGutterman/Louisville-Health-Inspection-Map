@@ -190,7 +190,7 @@ const bullittInspections = BULLITT_PLACES.flatMap((p, i) => [
     inspection_date: null,
     score: p.score,
     violations: p.violations,
-    first_seen: daysAgo(20),
+    first_seen: daysAgo(p.followUp ? 20 : 30),
     last_seen: daysAgo(1),
   },
   ...(p.followUp
@@ -315,6 +315,10 @@ export const TABLES = {
     follow_up_date: p.followUp ? daysAgo(p.followUp.days) : null,
     follow_up_score: p.followUp?.score ?? null,
     follow_up_violation_count: p.followUp ? 0 : null,
+    // The sheet was first loaded 30 days ago; the diner's result appeared 20 days ago, so
+    // its date is estimated. The grill's was there from the start (no estimate).
+    routine_first_seen: daysAgo(p.followUp ? 20 : 30),
+    tracking_since: daysAgo(30),
   })),
   bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row

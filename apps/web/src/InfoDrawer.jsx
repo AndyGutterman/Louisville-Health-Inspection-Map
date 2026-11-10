@@ -35,6 +35,7 @@ function CurrentInspectionCard({
     similarNearby,
     noLocation,
     sourceNote,
+    dateCaption,
   } = data;
   const gradeDisplay = grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum =
@@ -242,7 +243,7 @@ function CurrentInspectionCard({
 
         <div className="inspect-stat">
           <div className="inspect-date">{inspectionDate}</div>
-          <div className="inspect-stat_label">Date</div>
+          <div className="inspect-stat_label">{dateCaption ?? "Date"}</div>
         </div>
 
         <div className="inspect-stat">
@@ -380,6 +381,10 @@ function PastInspection({ row }) {
           </div>
         </div>
 
+        {/* The pill sits in a fixed-width column, so every row's pill is the same size and
+            in the same place, however long the date is; an empty slot keeps the grade
+            aligned when there are no violations. */}
+        {viols.length === 0 && <span className="viol-count-slot" aria-hidden="true" />}
         {viols.length > 0 && (
           <button
             type="button"
@@ -411,6 +416,11 @@ function PastInspection({ row }) {
           <div className="viol-group-header" />
           <div className={`viol-collapse ${open ? "open" : ""}`} style={{ maxHeight: maxH }}>
             <ul ref={listRef} className="viol-list">
+              {row.violations_note && (
+                <li className="viol-source-note" data-testid="violations-note">
+                  {row.violations_note}
+                </li>
+              )}
               {list.map((v) => (
                 <ViolationRow
                   key={v.violation_oid ?? `${row.inspection_id}-${v.violation_desc}`}
@@ -766,6 +776,7 @@ export default function InfoDrawer({
             similarNearby: selected.similarNearby,
             noLocation: selected.noLocation,
             sourceNote: selected.sourceNote,
+            dateCaption: selected.dateCaption,
           }}
           details={facDetails}
           pins={pins}

@@ -11,11 +11,16 @@
   gap: 10px;
 }
 
+/* Fills the history row's fixed-width pill column (History.css), on one line. */
 .viol-count {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  white-space: nowrap;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 800;
@@ -26,6 +31,10 @@
 }
 .viol-count.clickable {
   cursor: pointer;
+}
+/* Holds the pill column when a row has no violations. */
+.viol-count-slot {
+  display: block;
 }
 .viol-count .chev {
   transform: translateY(1px) rotate(0);
@@ -161,4 +170,15 @@
 .viol-toggle:hover {
   background: rgba(255, 107, 107, 0.22);
   border-color: rgba(255, 61, 61, 0.4);
+}
+
+/* Above a list of violations whose source says less than its names suggest (Bullitt
+   County: form headings only, see lib/bullitt.js). */
+.viol-source-note {
+  list-style: none;
+  padding: 0 2px 2px;
+  font-size: 0.76rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
 }

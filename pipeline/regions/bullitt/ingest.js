@@ -41,6 +41,7 @@ import {
 import { fetchCountyAddressPoints } from "../../lib/ky911.js";
 import { overrideFor, parseOverrides } from "./overrides.js";
 import { parseSheet } from "./parse.js";
+import { planVersions, versionKey } from "./versions.js";
 
 // The sheet behind the drop-down on https://www.bullitthealth.org/food. The plain CSV
 // export returns cells as shown (Google's gviz endpoint guesses types and can blank them).
@@ -280,23 +281,14 @@ async function load(supa, csv, establishments) {
         .range(from, from + 999),
       "read inspections",
     );
-    rows.forEach((r) => seen.add(`${r.establishment_id}|${r.kind}|${r.content_hash}`));
+    rows.forEach((r) => seen.add(versionKey(r)));
     if (rows.length < 1000) break;
   }
-  const current = establishments.flatMap((e) =>
-    [e.routine, e.follow_up]
-      .filter(Boolean)
-      .map((i) => ({ establishment_id: e.id, ...i, last_seen: day })),
-  );
-  const isNew = (i) => !seen.has(`${i.establishment_id}|${i.kind}|${i.content_hash}`);
-  const fresh = current.filter(isNew);
+  const { fresh, kept: stored } = planVersions(establishments, seen, day);
   for (const part of chunks(fresh)) {
-    must(
-      await supa.from("bullitt_inspections").insert(part.map((i) => ({ ...i, first_seen: day }))),
-      "add inspections",
-    );
+    must(await supa.from("bullitt_inspections").insert(part), "add inspections");
   }
-  for (const part of chunks(current.filter((i) => !isNew(i)))) {
+  for (const part of chunks(stored)) {
     must(
       await supa
         .from("bullitt_inspections")
