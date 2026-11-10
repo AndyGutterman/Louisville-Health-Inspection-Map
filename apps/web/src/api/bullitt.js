@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 
 const PAGE = 1000;
 
-// Every row of v_bullitt_map_feed (one per place with a pin). Returns [] on an error, so
+// Every row of v_bullitt_map_feed (one per place with a pin). Returns null on an error, so
 // a database without the Bullitt tables still shows Louisville. Selects every column: the
 // estimated-dates migration (20261111000000) adds two, and the map works with or without.
 export async function fetchBullittFeed() {
@@ -15,7 +15,7 @@ export async function fetchBullittFeed() {
       .range(from, from + PAGE - 1);
     if (error) {
       console.warn("Bullitt County data unavailable", error.message);
-      return [];
+      return null;
     }
     rows = rows.concat(data);
     if (data.length < PAGE) return rows;

@@ -19,6 +19,9 @@ export const DATE_FILTER_OPTS = [
   { key: "all", label: "All time", days: null },
 ];
 
-// Map data is cached in localStorage. Change the key to force everyone to reload.
-export const GEO_CACHE_KEY = "lfs_geodata_v5"; // bumped: pins now include Bullitt County
+// The pins are cached in sessionStorage; change a key to make everyone reload. Louisville's
+// load at once; Bullitt County's only once the map shows it or a search needs it
+// (features/map/useMapFeatures.js), so they have a cache of their own.
+export const GEO_CACHE_KEY = "lfs_geodata_v6"; // bumped: Louisville's pins only again
+export const BULLITT_CACHE_KEY = "lfs_bullitt_v1";
 export const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours

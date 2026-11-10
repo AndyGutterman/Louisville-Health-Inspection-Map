@@ -1,9 +1,11 @@
 // The areas this site has inspection data for: how their outlines are drawn on the map,
-// where the map goes when one is picked, and what each one's data can show. Pure data and
-// layer specs; features/map/regionOutlines.js puts the outlines on the map.
+// where they are (a county's pins load once the map shows its bounds), and what each one's
+// data can show. Every county's pins are on the map together; a filter its data can't
+// support leaves its pins alone (lib/mapFilters.js). Pure data and layer specs;
+// features/map/regionOutlines.js puts the outlines on the map.
 //
 // To cover another county: add its outline to public/regions/<id>.geojson and an entry
-// here, plus a loader for its data (see lib/bullitt.js).
+// here, plus a loader for its data (see lib/bullitt.js, features/map/useMapFeatures.js).
 
 // Who's On First outlines are CC-BY: the credit shows in the map's attribution control.
 const WOF_CREDIT =
@@ -13,7 +15,6 @@ export const REGIONS = [
   {
     id: "jefferson",
     name: "Jefferson County (Louisville Metro)",
-    shortName: "Jefferson",
     boundaryUrl: "/regions/jefferson.geojson",
     enabled: true,
     attribution: WOF_CREDIT,
@@ -22,12 +23,11 @@ export const REGIONS = [
       [-85.405, 38.38],
     ],
     // Louisville Metro's data has facility types, dated inspections and A/B/C placards.
-    has: { categories: true, dates: true, grades: true, saving: true },
+    has: { categories: true, dates: true, grades: true, saving: true, rings: true },
   },
   {
     id: "bullitt",
     name: "Bullitt County",
-    shortName: "Bullitt",
     boundaryUrl: "/regions/bullitt.geojson",
     enabled: true,
     attribution: WOF_CREDIT,
@@ -37,7 +37,11 @@ export const REGIONS = [
     ],
     // The health department's sheet has no facility types, no date for the latest
     // inspection and no placards. Saved places only cover Louisville tables for now.
-    has: { categories: false, dates: false, grades: false, saving: false },
+    // No violation rings: Bullitt lists every marked form item, while Louisville's open
+    // data lists violations almost only for failing inspections, so a ring would mark
+    // most Bullitt places and few Louisville ones for the same kind of result
+    // (docs/BULLITT.md).
+    has: { categories: false, dates: false, grades: false, saving: false, rings: false },
     source: {
       name: "Bullitt County Health Department",
       url: "https://www.bullitthealth.org/food",

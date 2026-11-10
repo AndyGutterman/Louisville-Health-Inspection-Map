@@ -201,30 +201,45 @@ test("draws the county outline and credits its source", async ({ page }) => {
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Who's On First");
 });
 
-test("the county picker switches to Bullitt County and its filters", async ({ page }, testInfo) => {
+test("both counties share the map; Bullitt's pins load only once the map reaches it", async ({
+  page,
+}, testInfo) => {
+  const feedRequests = []; // when the app asked for Bullitt's pins
+  page.on("request", (r) => {
+    if (r.url().includes("/rest/v1/v_bullitt_map_feed")) feedRequests.push(Date.now());
+  });
   const outline = page.waitForResponse((r) => r.url().endsWith("/regions/bullitt.geojson"));
   const { consoleErrors, unmocked } = await openApp(page);
   expect((await outline).status()).toBe(200);
 
-  const jefferson = page.getByRole("radio", { name: "Jefferson" });
-  const bullitt = page.getByRole("radio", { name: "Bullitt" });
-  const dateFilter = page.getByLabel("Filter pins by inspection date");
-  await expect(jefferson).toHaveAttribute("aria-checked", "true");
-  await expect(dateFilter).toBeVisible();
+  // The opening view is downtown Louisville, north of Bullitt: zoom out with the keyboard
+  // (no pins are clicked) until it's in view. The one request comes after that.
+  const zoomedAt = Date.now();
+  await page.locator(".maplibregl-canvas").focus();
+  await page.keyboard.press("Minus");
+  await page.keyboard.press("Minus");
+  await expect.poll(() => feedRequests.length).toBe(1);
+  expect(feedRequests[0], "asked for Bullitt before the map reached it").toBeGreaterThan(zoomedAt);
+  // One more step out so the screenshot shows both counties' pins. Key presses during a
+  // zoom animation merge into it, hence the wait before and after.
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Minus");
+  await page.waitForTimeout(800);
+  await snap(page, testInfo, "12-both-counties");
 
-  // Bullitt's data has no inspection dates and no facility types.
-  await bullitt.click();
-  await expect(bullitt).toHaveAttribute("aria-checked", "true");
-  await expect(dateFilter).toHaveCount(0);
+  // One filter panel for both: Louisville's categories and dates, and a note that they
+  // leave Bullitt's pins alone. The card keeps its width when it opens.
+  const card = page.getByTestId("filter-panel");
+  const closedWidth = (await card.boundingBox()).width;
+  await expect(page.getByLabel("Filter pins by inspection date")).toBeVisible();
   await page.getByRole("button", { name: "Expand controls" }).click();
   await page.getByRole("tab", { name: "Filter" }).click();
-  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
-  await expect(page.getByTestId("category-tile")).toHaveCount(0);
-  await snap(page, testInfo, "12-bullitt-filters");
-
-  await jefferson.click();
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
-  await expect(dateFilter).toBeVisible();
+  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
+  expect((await card.boundingBox()).width).toBeCloseTo(closedWidth, 0);
+  await snap(page, testInfo, "13-filter-note");
+  expect(feedRequests, "asked for Bullitt again").toHaveLength(1);
+
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });

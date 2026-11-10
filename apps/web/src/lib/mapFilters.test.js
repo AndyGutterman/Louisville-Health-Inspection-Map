@@ -1,14 +1,21 @@
 import { describe, it, expect } from "vitest";
+import { featureFilter } from "@maplibre/maplibre-gl-style-spec";
 import {
   HIDDEN,
   buildLayerFilters,
+  capabilityExpression,
   categoryExpression,
   dateExpression,
-  regionExpression,
+  inRegions,
   searchExpression,
 } from "./mapFilters.js";
-import { buildInitialCatToggles } from "./categories.js";
+import { CATEGORY_SPECS, buildInitialCatToggles } from "./categories.js";
+import { enabledRegions } from "./regions.js";
 import { PRESETS, bandExprs } from "./scoring.js";
+
+// Whether MapLibre would draw a feature with these properties under a layer filter.
+const draws = (filter, properties) =>
+  featureFilter(filter).filter({ zoom: 11 }, { type: 1, properties, geometry: [] });
 
 const allOn = { red: true, yellow: true, green: true, missing: true };
 const base = {
@@ -95,7 +102,12 @@ describe("buildLayerFilters", () => {
     const f = buildLayerFilters(base);
     expect(f["points-red"][0]).toBe("all");
     expect(f["points-red"][1]).toEqual(bandExprs(PRESETS.balanced).red);
-    expect(f["points-red"][2]).toEqual(categoryExpression(base.catToggles));
+    expect(f["points-red"][2]).toEqual(
+      capabilityExpression(enabledRegions(), {
+        category: categoryExpression(base.catToggles),
+        date: null,
+      }),
+    );
     expect(f["points-red"]).toHaveLength(3);
   });
 
@@ -113,9 +125,13 @@ describe("buildLayerFilters", () => {
 
   it("adds search and date to the pins and the rings", () => {
     const f = buildLayerFilters({ ...base, searchTerm: "taco", cutoffDate: "2026-01-01" });
+    const capability = capabilityExpression(enabledRegions(), {
+      category: categoryExpression(base.catToggles),
+      date: dateExpression("2026-01-01"),
+    });
     for (const id of ["points-green", "points-violation-ring", "points-violation-hit"]) {
       expect(f[id]).toContainEqual(searchExpression("taco"));
-      expect(f[id]).toContainEqual(dateExpression("2026-01-01"));
+      expect(f[id]).toContainEqual(capability);
     }
   });
 
@@ -129,30 +145,77 @@ describe("buildLayerFilters", () => {
   });
 });
 
-describe("regionExpression", () => {
-  it("is null when no county is picked", () => expect(regionExpression(null)).toBeNull());
-
-  it("counts pins without a region as Jefferson County's", () => {
-    expect(regionExpression("bullitt")).toEqual([
-      "==",
-      ["coalesce", ["get", "region"], "jefferson"],
-      "bullitt",
-    ]);
+describe("inRegions", () => {
+  it("counts pins without a region as Jefferson County's (older cached pins)", () => {
+    expect(draws(inRegions(["jefferson"]), {})).toBe(true);
+    expect(draws(inRegions(["bullitt"]), {})).toBe(false);
+    expect(draws(inRegions(["bullitt"]), { region: "bullitt" })).toBe(true);
   });
 });
 
-describe("buildLayerFilters by county", () => {
-  it("shows only the picked county's pins and rings", () => {
-    const f = buildLayerFilters({ ...base, region: "bullitt" });
-    for (const id of ["points-green", "points-violation-ring"]) {
-      expect(f[id]).toContainEqual(regionExpression("bullitt"));
-    }
+describe("capabilityExpression", () => {
+  it("is null when no category or date filter is set", () =>
+    expect(capabilityExpression(enabledRegions(), { category: null, date: null })).toBeNull());
+});
+
+// Both counties on one map: what MapLibre actually draws for each kind of pin.
+describe("buildLayerFilters with both counties", () => {
+  const [catKey, catSpec] = Object.entries(CATEGORY_SPECS).find(([k]) => k !== "unknown");
+  const { ft, st } = catSpec.subs[0];
+  const louisville = {
+    region: "jefferson",
+    name: "LOUISVILLE TEST CAFE",
+    score: 97,
+    date: "2026-10-01",
+    facility_type: ft,
+    subtype: st,
+    cat: catKey,
+    has_any_violation: true,
+  };
+  const bullitt = {
+    region: "bullitt",
+    name: "SHEPHERDSVILLE TEST DINER",
+    score: 97,
+    date: null,
+    facility_type: null,
+    subtype: null,
+    cat: "unknown",
+    has_any_violation: true,
+  };
+  const allOff = Object.fromEntries(
+    Object.entries(buildInitialCatToggles()).map(([k, v]) => [k, { ...v, enabled: false }]),
+  );
+
+  it("draws both with the default filters", () => {
+    const f = buildLayerFilters({ ...base, cutoffDate: "2025-11-01" });
+    expect(draws(f["points-green"], louisville)).toBe(true);
+    expect(draws(f["points-green"], bullitt)).toBe(true);
   });
 
-  it("skips the category filter for a county without categories", () => {
-    const f = buildLayerFilters({ ...base, region: "bullitt", catToggles: null });
-    expect(f["points-red"]).not.toContainEqual(categoryExpression(base.catToggles));
-    expect(f["points-red"]).toHaveLength(3); // "all", the band, the county
+  it("leaves Bullitt pins alone when every category is off (its data has none)", () => {
+    const f = buildLayerFilters({ ...base, catToggles: allOff });
+    expect(draws(f["points-green"], louisville)).toBe(false);
+    expect(draws(f["points-green"], bullitt)).toBe(true);
+  });
+
+  it("applies the date filter to Louisville only (Bullitt publishes no dates)", () => {
+    const f = buildLayerFilters({ ...base, cutoffDate: "2026-10-15" });
+    expect(draws(f["points-green"], louisville)).toBe(false); // inspected 10/1
+    expect(draws(f["points-green"], bullitt)).toBe(true);
+  });
+
+  it("applies search and the score bands to both", () => {
+    const f = buildLayerFilters({ ...base, searchTerm: "diner" });
+    expect(draws(f["points-green"], bullitt)).toBe(true);
+    expect(draws(f["points-green"], louisville)).toBe(false);
+    const greenOff = buildLayerFilters({ ...base, show: { ...allOn, green: false } });
+    expect(draws(greenOff["points-green"], bullitt)).toBe(false);
+  });
+
+  it("rings Louisville's places only", () => {
+    const ring = buildLayerFilters(base)["points-violation-ring"];
+    expect(draws(ring, louisville)).toBe(true);
+    expect(draws(ring, bullitt)).toBe(false);
   });
 });
 

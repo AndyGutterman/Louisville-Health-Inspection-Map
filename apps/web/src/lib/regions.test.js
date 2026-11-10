@@ -35,7 +35,7 @@ describe("REGIONS", () => {
     expect(enabledRegions().map((r) => r.id)).toEqual(["jefferson", "bullitt"]);
   });
 
-  // The map flies to `bounds` when a county is picked, so they must frame the outline.
+  // A county's pins load once the map view reaches `bounds`, so they must frame the outline.
   it.each(REGIONS)("$id bounds frame its outline", (region) => {
     const geo = JSON.parse(readFileSync(publicFile(region.boundaryUrl), "utf8"));
     const points = geo.features.flatMap((f) => f.geometry.coordinates.flat(2));
@@ -50,7 +50,7 @@ describe("REGIONS", () => {
   });
 
   it.each(REGIONS)("$id says what its data can show", (region) => {
-    for (const key of ["categories", "dates", "grades", "saving"]) {
+    for (const key of ["categories", "dates", "grades", "saving", "rings"]) {
       expect(typeof region.has[key]).toBe("boolean");
     }
   });

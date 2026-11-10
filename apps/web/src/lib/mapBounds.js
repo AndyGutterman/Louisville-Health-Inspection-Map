@@ -22,6 +22,12 @@ export function panMargin(px, zoom, { fraction = 0.6, min = 0.3, max = 0.9 } = {
   return Math.min(max, Math.max(min, degreesAcross(px, zoom) * fraction));
 }
 
+// True when two [[west, south], [east, north]] boxes overlap (touching counts). The map
+// loads a county's pins once its view overlaps the county's bounds (lib/regions.js).
+export function boundsOverlap([[aw, as], [ae, an]], [[bw, bs], [be, bn]]) {
+  return aw <= be && bw <= ae && as <= bn && bs <= an;
+}
+
 // The core box with slack on every side. A pixel spans fewer degrees of latitude than of
 // longitude, so the vertical slack is scaled by cos(latitude).
 export function looseBounds(core, { width, height, zoom, latitude = 38.25 }) {

@@ -40,6 +40,8 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
  * @param {Function} o.onOpenDrawer          (eid, props) open the info drawer
  * @param {Function} o.onBackgroundClick     a click on empty map or outside the panels
  * @param {Function} o.onReady               the map has loaded (dismisses the splash)
+ * @param {Function} [o.onViewChange]        ([[west, south], [east, north]]) after the map
+ *                                           loads and after every move
  */
 export function useMapLibre(o) {
   const { containerRef, geoData, getFeature, coordIndex, filters, savedIds } = o;
@@ -48,9 +50,13 @@ export function useMapLibre(o) {
   const popupsRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const latest = useLatest(o);
+  // The map is built once, when the first pins arrive. Pins that arrive later (a county
+  // loaded on demand) go into the same source below, without rebuilding the map.
+  const hasData = !!geoData;
+  const shownData = useRef(null); // what the pin source holds now
 
   useEffect(() => {
-    if (!geoData || mapRef.current) return;
+    if (!hasData || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASEMAP,
@@ -166,10 +172,21 @@ export function useMapLibre(o) {
       }
     };
 
+    const reportView = () => {
+      const b = map.getBounds();
+      latest.current.onViewChange?.([
+        [b.getWest(), b.getSouth()],
+        [b.getEast(), b.getNorth()],
+      ]);
+    };
+
     map.on("load", () => {
-      addPinLayers(map, geoData, latest.current.filters.pins);
+      shownData.current = latest.current.geoData;
+      addPinLayers(map, shownData.current, latest.current.filters.pins);
       addRegionOutlines(map);
       setMapReady(true);
+      map.on("moveend", reportView);
+      reportView();
 
       // One listener for all of them: a ringed pin is on three layers (pin, ring, tap
       // target), and a click must run once, not once per layer.
@@ -229,7 +246,15 @@ export function useMapLibre(o) {
       map.remove();
       mapRef.current = null;
     };
-  }, [geoData, containerRef, getFeature, coordIndex, latest]);
+  }, [hasData, containerRef, getFeature, coordIndex, latest]);
+
+  // New pins (another county's, loaded on demand) replace the source's data in place.
+  useEffect(() => {
+    const source = mapReady && geoData ? mapRef.current?.getSource("facilities") : null;
+    if (!source || geoData === shownData.current) return;
+    shownData.current = geoData;
+    source.setData(geoData);
+  }, [geoData, mapReady]);
 
   // Re-apply the filters whenever the filter panel changes.
   useEffect(() => {
@@ -255,8 +280,6 @@ export function useMapLibre(o) {
       endHover: () => popupsRef.current?.hideHover(),
       showRowPopup: (feature) => popupsRef.current?.showRow(feature),
       easeTo: (options) => mapRef.current?.easeTo(options),
-      fitBounds: (bounds, options) => mapRef.current?.fitBounds(bounds, options),
-      closePopups: () => popupsRef.current?.clearAll(),
     }),
     [],
   );

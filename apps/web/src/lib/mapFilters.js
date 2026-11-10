@@ -4,7 +4,7 @@ import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
-import { DEFAULT_REGION } from "./regions.js";
+import { DEFAULT_REGION, enabledRegions } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
 export const HIDDEN = ["==", ["get", "score"], "__none__"];
@@ -67,11 +67,30 @@ export function categoryExpression(catToggles) {
   return ["boolean", false];
 }
 
-// Pins in one county (lib/regions.js). Pins without a region are Louisville's (older
-// cached data has no region property). null shows every county.
-export function regionExpression(regionId) {
-  if (!regionId) return null;
-  return ["==", ["coalesce", ["get", "region"], DEFAULT_REGION], regionId];
+// Pins in any of these counties (lib/regions.js). Pins without a region are Louisville's
+// (older cached data has no region property).
+export const inRegions = (ids) => [
+  "in",
+  ["coalesce", ["get", "region"], DEFAULT_REGION],
+  ["literal", ids],
+];
+
+/**
+ * The category and date filters, each applied only to the counties whose data has it
+ * (`has.categories`, `has.dates`): Bullitt County's has neither, so its pins stay on the
+ * map whatever those two say. null when neither filter is set.
+ * @param {object[]} regions
+ * @param {{ category: Array|null, date: Array|null }} exprs
+ */
+export function capabilityExpression(regions, { category, date }) {
+  if (!category && !date) return null;
+  const perRegion = regions.map((r) => {
+    const parts = [];
+    if (category && r.has.categories) parts.push(category);
+    if (date && r.has.dates) parts.push(date);
+    return parts.length ? ["all", inRegions([r.id]), ...parts] : inRegions([r.id]);
+  });
+  return ["any", ...perRegion];
 }
 
 /**
@@ -80,22 +99,28 @@ export function regionExpression(regionId) {
  * @param {[number, number]} filters.pins  red and yellow cut-offs (lib/scoring.js)
  * @param {{red: boolean, yellow: boolean, green: boolean, missing: boolean}} filters.show
  *   which score bands are switched on ("missing" covers zero and no score)
- * @param {object|null} filters.catToggles  category filter state (lib/categories.js), or
- *   null for a county without categories
+ * @param {object} filters.catToggles  category filter state (lib/categories.js)
  * @param {string} filters.searchTerm
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
- * @param {string} [filters.region]  show only this county's pins
+ * @param {object[]} [filters.regions]  the counties on the map (lib/regions.js)
  */
-export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDate, region }) {
+export function buildLayerFilters({
+  pins,
+  show,
+  catToggles,
+  searchTerm,
+  cutoffDate,
+  regions = enabledRegions(),
+}) {
   const bands = bandExprs(pins);
   const shared = [];
-  const inRegion = regionExpression(region);
-  if (inRegion) shared.push(inRegion);
-  if (catToggles) shared.push(categoryExpression(catToggles));
+  const capability = capabilityExpression(regions, {
+    category: catToggles ? categoryExpression(catToggles) : null,
+    date: dateExpression(cutoffDate),
+  });
+  if (capability) shared.push(capability);
   const search = searchExpression(searchTerm);
   if (search) shared.push(search);
-  const date = dateExpression(cutoffDate);
-  if (date) shared.push(date);
 
   const bandOn = {
     red: show.red,
@@ -108,8 +133,15 @@ export function buildLayerFilters({ pins, show, catToggles, searchTerm, cutoffDa
   for (const key of DRAW_ORDER) {
     filters[`points-${key}`] = bandOn[key] ? ["all", bands[key], ...shared] : HIDDEN;
   }
-  // The violation ring follows the same category, search and date filters as the pins.
-  filters[RING_LAYER] = ["all", ["==", ["get", "has_any_violation"], true], ...shared];
+  // The violation ring follows the same category, search and date filters as the pins, in
+  // the counties that draw rings (lib/regions.js explains why Bullitt doesn't).
+  const ringed = regions.filter((r) => r.has.rings).map((r) => r.id);
+  filters[RING_LAYER] = [
+    "all",
+    ["==", ["get", "has_any_violation"], true],
+    inRegions(ringed),
+    ...shared,
+  ];
   // The ringed places' wider tap target follows the ring exactly.
   filters[HIT_LAYER] = filters[RING_LAYER];
   return filters;

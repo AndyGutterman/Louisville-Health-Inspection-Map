@@ -1,7 +1,60 @@
 import { describe, it, expect } from "vitest";
-import { METRO_BOUNDS, degreesAcross, panMargin, looseBounds } from "./mapBounds.js";
+import { METRO_BOUNDS, boundsOverlap, degreesAcross, panMargin, looseBounds } from "./mapBounds.js";
+import { MIN_ZOOM } from "./constants.js";
+import { regionById } from "./regions.js";
 
 const ZOOM = 11;
+
+describe("boundsOverlap", () => {
+  const box = [
+    [0, 0],
+    [10, 10],
+  ];
+  it("is true for overlapping or touching boxes", () => {
+    expect(
+      boundsOverlap(box, [
+        [5, 5],
+        [15, 15],
+      ]),
+    ).toBe(true);
+    expect(
+      boundsOverlap(box, [
+        [10, 0],
+        [20, 10],
+      ]),
+    ).toBe(true);
+  });
+  it("is false for separate boxes", () => {
+    expect(
+      boundsOverlap(box, [
+        [11, 0],
+        [20, 10],
+      ]),
+    ).toBe(false);
+    expect(
+      boundsOverlap(box, [
+        [0, 11],
+        [10, 20],
+      ]),
+    ).toBe(false);
+  });
+
+  // Bullitt's pins load once the view overlaps its bounds. The map opens over downtown
+  // Louisville (useMapLibre.js), which on a laptop or phone stops just north of Bullitt.
+  it.each([
+    ["laptop", 1280, 800],
+    ["phone", 390, 844],
+  ])("the opening view on a %s doesn't reach Bullitt County", (_, width, height) => {
+    const [lon, lat] = [-85.75, 38.25];
+    const halfLon = degreesAcross(width / 2, MIN_ZOOM);
+    const halfLat = degreesAcross(height / 2, MIN_ZOOM) * Math.cos((lat * Math.PI) / 180);
+    const view = [
+      [lon - halfLon, lat - halfLat],
+      [lon + halfLon, lat + halfLat],
+    ];
+    expect(boundsOverlap(view, regionById("bullitt").bounds)).toBe(false);
+  });
+});
 
 describe("degreesAcross", () => {
   it("covers about 0.42 degrees of longitude across a 1237px window at zoom 11", () => {

@@ -4,6 +4,27 @@ import * as Tabs from "@radix-ui/react-tabs";
 import "./styles/AdjustFilter.css";
 import "./styles/ToggleRow.css";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import { enabledRegions } from "./lib/regions.js";
+
+// Under the category tiles: counties whose data these filters can't apply to, so their
+// pins stay on the map (lib/mapFilters.js). Today that's Bullitt County.
+function UnfilteredCountiesNote() {
+  return enabledRegions()
+    .filter((r) => !r.has.categories || !r.has.dates)
+    .map((r) => {
+      const filters = [!r.has.categories && "these filters", !r.has.dates && "the date menu"];
+      const missing = [!r.has.categories && "facility types", !r.has.dates && "inspection dates"];
+      return (
+        <p key={r.id} className="county-note" data-testid="county-note">
+          {r.name} places stay on the map whatever {filters.filter(Boolean).join(" and ")} say: the{" "}
+          <a href={r.source.url} target="_blank" rel="noopener noreferrer">
+            {r.source.name}
+          </a>{" "}
+          publishes no {missing.filter(Boolean).join(" or ")}.
+        </p>
+      );
+    });
+}
 
 function Icon({ k, active }) {
   const stroke = active ? "var(--tile-accent, #5aa8ff)" : "rgba(255,255,255,.45)";
@@ -153,10 +174,7 @@ export default function FilterSearch({
   dateFilterKey,
   setDateFilterKey,
   dateFilterOpts,
-  countyPicker, // shown above everything else (features/map/CountyPicker.jsx)
-  region, // the picked county (lib/regions.js): its data decides which filters apply
 }) {
-  const has = region?.has ?? { categories: true, dates: true };
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMediaQuery("(min-width: 900px)");
@@ -234,7 +252,6 @@ export default function FilterSearch({
               : { width: "clamp(280px, calc(100vw - 32px), 420px)", maxWidth: "calc(100vw - 32px)" }
         }
       >
-        {countyPicker}
         <div className="search-row">
           <div className="search-bar">
             <button
@@ -309,7 +326,7 @@ export default function FilterSearch({
             </div>
 
             {/* Date range filter — compact horizontal "Since" pill */}
-            {dateFilterOpts && has.dates && (
+            {dateFilterOpts && (
               <div
                 style={{
                   display: "flex",
@@ -480,74 +497,63 @@ export default function FilterSearch({
                 </Tabs.Content>
 
                 <Tabs.Content className="rx-tab-content" value="filter">
-                  {!has.categories && (
-                    <p className="county-note" data-testid="county-note">
-                      {region.name}&apos;s data has no facility types yet, so every place is shown.
-                      Scores and violations come from the{" "}
-                      <a href={region.source.url} target="_blank" rel="noopener noreferrer">
-                        {region.source.name}
-                      </a>
-                      , which updates them weekly and publishes no date for the latest inspection.
-                    </p>
-                  )}
-                  {has.categories && (
-                    <div className="cat-filters" aria-label="Filters">
-                      <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
-                        <div
-                          className="seg-toggle"
-                          role="radiogroup"
-                          aria-label="Toggle all categories"
-                          style={{ margin: "0 auto" }}
+                  <div className="cat-filters" aria-label="Filters">
+                    <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
+                      <div
+                        className="seg-toggle"
+                        role="radiogroup"
+                        aria-label="Toggle all categories"
+                        style={{ margin: "0 auto" }}
+                      >
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={allOff}
+                          className={`seg-option ${allOff ? "checked" : ""}`}
+                          onClick={handleAllOff}
                         >
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={allOff}
-                            className={`seg-option ${allOff ? "checked" : ""}`}
-                            onClick={handleAllOff}
-                          >
-                            All off
-                          </button>
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={allOn}
-                            className={`seg-option ${allOn ? "checked" : ""}`}
-                            onClick={handleAllOn}
-                          >
-                            All on
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="cat-grid">
-                        {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
-                          const enabled = !!catToggles[key]?.enabled;
-                          const label = shortLabel(spec.label);
-                          const accent = CAT_ACCENT;
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              data-testid="category-tile"
-                              data-category={key}
-                              className="cat-tile"
-                              data-checked={enabled}
-                              aria-pressed={enabled}
-                              onClick={() => toggleCategory(key, spec, !enabled)}
-                              title={spec.label}
-                              style={{ "--tile-accent": accent }}
-                            >
-                              <span className="cat-icon">
-                                <Icon k={key} active={enabled} />
-                              </span>
-                              <span className="cat-label">{label}</span>
-                            </button>
-                          );
-                        })}
+                          All off
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={allOn}
+                          className={`seg-option ${allOn ? "checked" : ""}`}
+                          onClick={handleAllOn}
+                        >
+                          All on
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    <div className="cat-grid">
+                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
+                        const enabled = !!catToggles[key]?.enabled;
+                        const label = shortLabel(spec.label);
+                        const accent = CAT_ACCENT;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            data-testid="category-tile"
+                            data-category={key}
+                            className="cat-tile"
+                            data-checked={enabled}
+                            aria-pressed={enabled}
+                            onClick={() => toggleCategory(key, spec, !enabled)}
+                            title={spec.label}
+                            style={{ "--tile-accent": accent }}
+                          >
+                            <span className="cat-icon">
+                              <Icon k={key} active={enabled} />
+                            </span>
+                            <span className="cat-label">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <UnfilteredCountiesNote />
                 </Tabs.Content>
               </Tabs.Root>
             </div>

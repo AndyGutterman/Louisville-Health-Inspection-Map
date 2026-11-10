@@ -377,3 +377,15 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Filter tab: a county these filters don't apply to (FilterSearch.jsx). */
+.county-note {
+  margin: 10px 2px 2px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.county-note a {
+  color: #fbbf24;
+}
