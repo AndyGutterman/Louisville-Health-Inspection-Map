@@ -3,7 +3,14 @@
 // basemap loads for real. Tests check the DOM around the map, never canvas pins.
 import { test, expect } from "@playwright/test";
 import { openApp, openWhatsNew, whatsNewRow, openDrawerFromWhatsNew } from "./support/app.js";
-import { byEid, BULLITT_NAME, NO_PIN_EID, PINNED_EID, PERFECT_EID } from "./support/fixtures.js";
+import {
+  byEid,
+  BULLITT_EID,
+  BULLITT_NAME,
+  NO_PIN_EID,
+  PINNED_EID,
+  PERFECT_EID,
+} from "./support/fixtures.js";
 import { snap } from "./support/screenshots.js";
 
 test("loads with no console errors", async ({ page }, testInfo) => {
@@ -283,6 +290,30 @@ test("Table View asks for a row count only when the filters change", async ({ pa
   // A filter does.
   await panel.getByRole("button", { name: "Hide N/A" }).click();
   await expect.poll(() => counted.at(-1)).toBe(true);
+});
+
+test("What's New includes Bullitt County, labelled by the day its score was posted", async ({
+  page,
+}, testInfo) => {
+  const { consoleErrors, unmocked } = await openApp(page);
+  const panel = await openWhatsNew(page);
+  const row = whatsNewRow(page, BULLITT_EID);
+  await expect(row).toContainText(BULLITT_NAME);
+  await expect(row).toContainText("Bullitt");
+  // No inspection date is published for it, so it never shows one.
+  await expect(row).toContainText("posted");
+  await snap(page, testInfo, "15-whats-new-bullitt");
+
+  await panel.getByRole("button", { name: "Top Scores" }).click();
+  await expect(page.locator('[data-testid="whats-new-row"][data-eid^="bullitt-"]')).toHaveCount(1);
+
+  await panel.getByRole("button", { name: "Violations", exact: true }).click();
+  await whatsNewRow(page, BULLITT_EID).click();
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer.getByText(BULLITT_NAME, { exact: true })).toBeVisible();
+
+  expect(consoleErrors, "console errors").toEqual([]);
+  expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
 test("the Learn page links every data source, grouped by county", async ({ page }) => {

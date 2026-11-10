@@ -241,6 +241,19 @@ const tableRows = [
 ];
 export const BULLITT_NAME = BULLITT_PLACES[0].name;
 
+const whatsNewRow = (p) => ({
+  establishment_id: p.eid,
+  premise_name: p.name,
+  address: p.address,
+  score: p.score,
+  grade: p.grade,
+  inspection_date: daysAgo(p.days),
+  critical_count: p.critical ? 1 : 0, // deprecated column, still returned
+  violation_count: p.critical ? 2 : 0,
+  region: "jefferson",
+  posted_date: null,
+});
+
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
 export const TABLES = {
   v_facility_map_feed: pinned.map((p) => ({
@@ -303,15 +316,42 @@ export const TABLES = {
     follow_up_score: p.followUp?.score ?? null,
   })),
   bullitt_inspections: bullittInspections,
-  // Failing first (grade C or score under 85), then newest, like the SQL.
-  "rpc/get_whats_new": [PLACES[1], PLACES[5], PLACES[4], PLACES[0]].map((p) => ({
-    establishment_id: p.eid,
-    premise_name: p.name,
-    address: p.address,
-    score: p.score,
-    grade: p.grade,
-    inspection_date: daysAgo(p.days),
-    critical_count: p.critical ? 1 : 0, // deprecated column, still returned
-    violation_count: p.critical ? 2 : 0,
-  })),
+  // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row
+  // is a routine score posted to the sheet, so it has no inspection date.
+  "rpc/get_whats_new": [
+    ...[PLACES[1], PLACES[5]].map(whatsNewRow),
+    {
+      establishment_id: BULLITT_PLACES[0].eid,
+      premise_name: BULLITT_PLACES[0].name,
+      address: BULLITT_PLACES[0].address,
+      score: 84,
+      grade: null,
+      inspection_date: null,
+      critical_count: 0,
+      violation_count: 2,
+      region: "bullitt",
+      posted_date: daysAgo(4),
+    },
+    ...[PLACES[4], PLACES[0]].map(whatsNewRow),
+  ],
+  "rpc/get_top_scores": [
+    ...PLACES.filter((p) => p.score === 100 && p.lon != null).map((p) => ({
+      establishment_id: p.eid,
+      premise_name: p.name,
+      address: p.address,
+      score: 100,
+      inspection_date: daysAgo(p.days),
+      region: "jefferson",
+      posted_date: null,
+    })),
+    {
+      establishment_id: BULLITT_PLACES[1].eid,
+      premise_name: BULLITT_PLACES[1].name,
+      address: BULLITT_PLACES[1].address,
+      score: 100,
+      inspection_date: null,
+      region: "bullitt",
+      posted_date: daysAgo(6),
+    },
+  ],
 };

@@ -349,3 +349,17 @@
     max-height: max(220px, calc(100dvh - 90px - var(--filter-bottom, 0px) - 12px));
   }
 }
+
+/* Bullitt County rows (the county's data has no routine inspection dates) */
+.wn-county {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fbbf24;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
