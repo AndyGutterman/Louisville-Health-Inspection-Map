@@ -61,7 +61,10 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   `v_bullitt_map_feed`. They are separate from `facilities`/`inspections` on purpose: the
   live site reads those everywhere, so Bullitt rows there would go live before the design
   is settled.
-- **Pipeline:** `pipeline/regions/bullitt/ingest.js` (run with `npm run bullitt -w pipeline`).
+- **Pipeline:** `pipeline/regions/bullitt/ingest.js` (run with `npm run bullitt -w pipeline`;
+  `npm run bullitt:retry -w pipeline` also retries addresses that failed before. In
+  PowerShell, `npm run bullitt -w pipeline -- --flag` drops the flag: PowerShell eats the
+  `--`. Quote it as `'--'`).
   It skips everything when the sheet hasn't changed, refuses to run if the sheet suddenly
   has under half the places of the last load, and stops if the columns change.
 - **Geocoding:** the same providers as `geocode_missing.js` (Nominatim, then Census, from
