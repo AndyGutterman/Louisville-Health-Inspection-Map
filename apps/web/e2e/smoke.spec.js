@@ -412,3 +412,14 @@ test("score sliders: the coloured bar stays under the handle while it is dragged
   await expect(handle).toHaveAttribute("aria-valuenow", String(value + 1));
   expect(consoleErrors, "console errors").toEqual([]);
 });
+
+test("a digest email link (/?eid=...) opens that place and cleans the URL", async ({
+  page,
+}, testInfo) => {
+  await openApp(page, { path: `/?eid=${PINNED_EID}` });
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toBeVisible();
+  await expect(page).not.toHaveURL(/eid=/);
+  await snap(page, testInfo, "18-digest-deep-link");
+});
