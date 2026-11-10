@@ -7,6 +7,10 @@ concurrency: ingest
 jobs:
   run:
     runs-on: ubuntu-latest
+    # actions: write lets the last step re-enable the schedules (see below).
+    permissions:
+      contents: write # the keep-alive commit below
+      actions: write
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -53,3 +57,35 @@ jobs:
 
       - name: Seed categories
         run: node seed_categories.js
+
+      # GitHub switches a public repo's scheduled workflows off after 60 days without
+      # commits, silently; a week later Supabase's free plan would pause the project for
+      # inactivity. Enabling a workflow is a no-op while it is on and counts as activity
+      # on it (GitHub's own API, no third-party action). Runs even when a step above failed.
+      - name: Keep the scheduled workflows enabled
+        if: always()
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in ingest.yml bullitt-ingest.yml db-backup.yml archive.yml etl-check.yml; do
+            gh workflow enable "$wf" -R "$GITHUB_REPOSITORY"
+          done
+
+      # Belt and braces: GitHub documents the 60-day rule in terms of commits, so if the
+      # last commit on main is over 45 days old, push one empty commit to a `keepalive`
+      # branch (main requires pull requests, so the bot can't push there). It changes no
+      # files; a push anywhere in the repo is activity.
+      - name: Keep-alive commit when main has been quiet for 45 days
+        if: always()
+        working-directory: .
+        run: |
+          last=$(git log -1 --format=%ct)
+          age=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Last commit was $age day(s) ago."
+          if [ "$age" -ge 45 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep the scheduled workflows alive (no changes)"
+            git push --force origin HEAD:keepalive
+          fi
