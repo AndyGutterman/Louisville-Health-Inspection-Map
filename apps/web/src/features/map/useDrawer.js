@@ -18,7 +18,7 @@ const HEADER_NOTE =
   "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A.";
 
 const BULLITT_NOTE =
-  `From the ${regionById(BULLITT).source.name}, which publishes each place's latest ` +
+  `From the ${regionById(BULLITT).agency.name}, which publishes each place's latest ` +
   "inspection without its date. Earlier ones appear here as this site records them.";
 
 // getFeature: establishment id -> map feature, or nothing when the place has no pin.

@@ -1,6 +1,7 @@
 import { summarizeViolations } from "./lib/violationSummary.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "./AuthContext.jsx";
+import DataSources from "./DataSources.jsx";
 import "./styles/LearnPage.css";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1003,14 +1004,15 @@ export default function LearnPage({
           <div className="ln-sh">About this data</div>
           <p className="ln-table-note" style={{ marginTop: 0, marginBottom: 16 }}>
             This site is an independent project and is not affiliated with Louisville Metro
-            Government. Inspection data comes from{" "}
-            <a href="https://data.louisvilleky.gov/" target="_blank" rel="noopener noreferrer">
-              Louisville Metro Open Data
-            </a>
-            . It is refreshed regularly but can lag behind the latest inspections, and it may
-            contain errors. The placard posted at the business and the official inspection report
-            are the final word.
+            Government or any county health department. Inspection data comes from each
+            county&apos;s public records, listed below. It is refreshed regularly but can lag behind
+            the latest inspections, and it may contain errors. The placard posted at the business
+            and the official inspection report are the final word.
           </p>
+
+          {/* Data sources, one group per county (lib/regions.js) */}
+          <div className="ln-sh">Data sources</div>
+          <DataSources />
 
           {/* Source */}
           <div className="ln-src">
