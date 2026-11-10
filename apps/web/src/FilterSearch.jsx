@@ -228,9 +228,7 @@ export default function FilterSearch({
         className={`control-card ${collapsed ? "collapsed" : ""}`}
         style={
           isDesktop
-            ? collapsed
-              ? {} /* collapsed: let CSS (max-content) control width, no override */
-              : { width: "clamp(256px, 25.6vw, 416px)", maxWidth: "calc(100vw - 32px)" }
+            ? {} /* desktop: as wide as the top row, open or closed (Map.css) */
             : collapsed
               ? { maxWidth: "calc(100vw - 32px)" }
               : { width: "clamp(280px, calc(100vw - 32px), 420px)", maxWidth: "calc(100vw - 32px)" }
