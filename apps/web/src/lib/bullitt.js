@@ -15,16 +15,20 @@ export const NO_DATE = "Date not published";
 const toNumber = (v) => (v == null || v === "" ? null : Number(v));
 
 /**
- * Whether a place's latest record has violations: the ring on its pin. As in Louisville,
- * the latest record decides, so a follow-up still on the sheet counts over the routine
- * inspection before it. The feed carries the follow-up's score, not its list: a 100
- * means nothing was deducted, anything lower means something was cited. With no
- * follow-up (or one without a score), the routine inspection's violations decide.
+ * Whether a place's latest record lists violations: the ring on its pin, by the same rule
+ * as Louisville's. A follow-up still on the sheet is the latest record, so its violations
+ * decide; otherwise the routine inspection's do.
+ * Before migration 20261112000000 the feed has no follow_up_violation_count, only the
+ * follow-up's score, so a score below 100 stands in until then.
  * @param {object} r  a v_bullitt_map_feed row
  */
 export function latestHasViolations(r) {
-  const followUp = toNumber(r.follow_up_score);
-  if (r.follow_up_date && Number.isFinite(followUp)) return followUp < 100;
+  if (r.follow_up_date) {
+    const listed = toNumber(r.follow_up_violation_count);
+    if (Number.isFinite(listed)) return listed > 0;
+    const score = toNumber(r.follow_up_score);
+    if (Number.isFinite(score)) return score < 100;
+  }
   return (toNumber(r.violation_count_recent) ?? 0) > 0;
 }
 
