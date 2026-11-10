@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     # actions: write lets the last step re-enable the schedules (see below).
     permissions:
-      contents: read
+      contents: write # the keep-alive commit below
       actions: write
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -81,3 +81,20 @@ jobs:
         env:
           HEALTHCHECKS_URL: ${{ secrets.HEALTHCHECKS_URL }}
         run: curl -fsS -m 10 --retry 3 "$HEALTHCHECKS_URL" > /dev/null
+
+      # Belt and braces: GitHub documents the 60-day rule in terms of commits, so if the
+      # last commit on main is over 45 days old, push one empty commit. Nothing else
+      # changes; it's the only thing GitHub promises will reset the clock.
+      - name: Keep-alive commit when main has been quiet for 45 days
+        if: always()
+        working-directory: .
+        run: |
+          last=$(git log -1 --format=%ct)
+          age=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Last commit was $age day(s) ago."
+          if [ "$age" -ge 45 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep the scheduled workflows alive (no changes)"
+            git push origin HEAD:main
+          fi
