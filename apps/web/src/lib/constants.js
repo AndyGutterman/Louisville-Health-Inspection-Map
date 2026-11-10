@@ -20,5 +20,5 @@ export const DATE_FILTER_OPTS = [
 ];
 
 // Map data is cached in localStorage. Change the key to force everyone to reload.
-export const GEO_CACHE_KEY = "lfs_geodata_v4"; // bumped: force fresh violation flags
+export const GEO_CACHE_KEY = "lfs_geodata_v5"; // bumped: pins now include Bullitt County
 export const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours

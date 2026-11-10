@@ -27,6 +27,14 @@
   overflow-wrap: break-word;
 }
 
+/* Where a county's data comes from and what it leaves out (Bullitt County) */
+.inspect-source-note {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .inspect-card_stats {
   display: grid;
   grid-template-columns: minmax(60px, 96px) minmax(90px, 1fr) minmax(50px, 90px);

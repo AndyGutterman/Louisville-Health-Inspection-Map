@@ -1,11 +1,14 @@
-// Loads every establishment as a map pin, from a session cache when it's fresh.
+// Loads every establishment as a map pin, from a session cache when it's fresh. Every
+// county's pins share one list; the filter panel's county picker hides the others.
 //   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js)
 //   getFeature  establishment id -> its feature, over the FULL list, including places
 //               that share a pin with another place
 //   coordIndex  location key -> every feature at that spot (for the "1 of 3" popup)
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchFacilityMeta, fetchMapFeed, fetchViolationFlags } from "../../api/mapData.js";
-import { buildMapFeatures } from "../../lib/mapFeatures.js";
+import { fetchBullittFeed } from "../../api/bullitt.js";
+import { buildMapFeatures, combineRegions } from "../../lib/mapFeatures.js";
+import { buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildCoordIndex, deduplicateForRender } from "../../lib/dedupe.js";
 import { GEO_CACHE_KEY, GEO_CACHE_TTL } from "../../lib/constants.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
@@ -33,11 +36,15 @@ function writeCache(features) {
 }
 
 async function loadFeatures() {
+  const bullittPromise = fetchBullittFeed(); // [] when the database has no Bullitt data
   const rows = await fetchMapFeed();
   if (!rows) return null;
   const flagsPromise = fetchViolationFlags(); // loads while the facility details do
   const meta = await fetchFacilityMeta();
-  const features = buildMapFeatures(rows, meta, await flagsPromise);
+  const features = combineRegions(
+    buildMapFeatures(rows, meta, await flagsPromise),
+    buildBullittFeatures(await bullittPromise),
+  );
   writeCache(features);
   return features;
 }

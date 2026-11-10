@@ -1,0 +1,35 @@
+{
+  "_how": [
+    "Pins placed by hand for addresses no geocoder finds. Every run applies them before geocoding, and nothing overwrites them.",
+    "query: copy it from the job's '✗ no match' line, the part after the dash.",
+    "at: on openstreetmap.org, right-click the building, choose 'Show address', and copy the 'latitude, longitude' from the search box.",
+    "Leave 'at' empty until you know the spot. Removing an entry later does not remove a pin already placed."
+  ],
+  "places": [
+    {
+      "query": "150 BROOKS WAY, BROOKS, KY",
+      "at": "",
+      "note": "El Maguey (#5) and Little Village Learning Center (Ste 8). State 911 data has only 263 Brooks Way."
+    },
+    {
+      "query": "321 EAST BROOKE PKWY, MOUNT WASHINGTON, KY",
+      "at": "38.05784, -85.53755",
+      "note": "Paris Banh Mi. Approximate: Eastbrooke Pkwy as OpenStreetMap places it, north of the Kroger at 234 (state 911 data has only 234 and 240). Move it onto the building if you know it."
+    },
+    {
+      "query": "156 EAST BROOKE POINTE DR, MOUNT WASHINGTON, KY",
+      "at": "38.05519, -85.53449",
+      "note": "Travelin Tom's Coffee. Approximate: the 226 Eastbrooke Pointe Dr address point, the nearest on file (state 911 data has only 226 and 327). Move it onto the building if you know it."
+    },
+    {
+      "query": "296 WOOD CREEK DR, SHEPHERDSVILLE, KY",
+      "at": "",
+      "note": "For the Love of Juice. State 911 data has only 117 and 120 Wood Creek Dr."
+    },
+    {
+      "query": "127 PEREGRINE RD, MOUNT WASHINGTON, KY",
+      "at": "",
+      "note": "Tacos La Catrina. Street not in the state 911 data yet."
+    }
+  ]
+}

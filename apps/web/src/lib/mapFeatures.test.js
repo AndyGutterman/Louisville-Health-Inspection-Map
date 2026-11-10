@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildMapFeatures, joinAddress } from "./mapFeatures.js";
+import { buildMapFeatures, combineRegions, joinAddress } from "./mapFeatures.js";
 
 const row = (over = {}) => ({
   establishment_id: "1",
@@ -61,6 +61,7 @@ describe("buildMapFeatures", () => {
       subtype: 11,
       cat: "restaurants",
       has_any_violation: false,
+      region: "jefferson",
     });
   });
 
@@ -106,5 +107,18 @@ describe("buildMapFeatures", () => {
     );
     const similar = JSON.parse(features[0].properties.similar_nearby);
     expect(similar).toEqual([{ eid: "2", name: "Bluegrass Diner Inc" }]);
+  });
+});
+
+describe("combineRegions", () => {
+  it("joins the lists and numbers every feature once", () => {
+    const a = [{ id: 0, properties: { establishment_id: "1" } }];
+    const b = [
+      { id: 0, properties: { establishment_id: "bullitt-a" } },
+      { id: 1, properties: { establishment_id: "bullitt-b" } },
+    ];
+    const all = combineRegions(a, b);
+    expect(all.map((f) => f.properties.establishment_id)).toEqual(["1", "bullitt-a", "bullitt-b"]);
+    expect(all.map((f) => f.id)).toEqual([0, 1, 2]);
   });
 });

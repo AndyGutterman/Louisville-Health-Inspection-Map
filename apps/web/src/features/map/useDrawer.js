@@ -3,6 +3,9 @@
 // properties or a list row), then loads the history, violations and details.
 import { useCallback, useRef, useState } from "react";
 import { fetchFacilityDetails, fetchInspections, fetchViolations } from "../../api/mapData.js";
+import { fetchBullittInspections } from "../../api/bullitt.js";
+import { BULLITT, bullittHeader, bullittHistory, isBullittId } from "../../lib/bullitt.js";
+import { regionById } from "../../lib/regions.js";
 import {
   attachViolations,
   parseSimilarNearby,
@@ -13,6 +16,10 @@ import { formatDateSafe } from "../../lib/dates.js";
 
 const HEADER_NOTE =
   "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A.";
+
+const BULLITT_NOTE =
+  `From the ${regionById(BULLITT).source.name}, which publishes each place's latest ` +
+  "inspection without its date. Earlier ones appear here as this site records them.";
 
 // getFeature: establishment id -> map feature, or nothing when the place has no pin.
 export function useDrawer(getFeature) {
@@ -31,6 +38,28 @@ export function useDrawer(getFeature) {
     setLoading(false);
   }, []);
 
+  // Bullitt County: one table, no details, and the header is the current routine
+  // inspection (lib/bullitt.js).
+  const loadBullitt = useCallback(async (eid, seq) => {
+    const { data, error } = await fetchBullittInspections(eid);
+    if (seq !== loadSeq.current) return;
+    if (error) console.error("Bullitt history fetch error", error);
+    const rows = bullittHistory(data);
+    const header = bullittHeader(rows);
+    setSelected((s) => ({
+      ...s,
+      inspectionDate: header
+        ? (header.date_label ?? formatDateSafe(header.inspection_date))
+        : s.inspectionDate,
+      score: header?.score ?? s.score,
+      _displayedInspectionId: header?.inspection_id ?? null,
+      sourceNote: BULLITT_NOTE,
+    }));
+    setHistory(rows);
+    setDetails(null);
+    setLoading(false);
+  }, []);
+
   const open = useCallback(
     async (eid, p) => {
       const seq = ++loadSeq.current;
@@ -45,7 +74,7 @@ export function useDrawer(getFeature) {
         establishment_id: eid,
         name: p.name,
         address: p.address_full || p.address,
-        inspectionDate: formatDateSafe(p.date),
+        inspectionDate: p.date_text ?? formatDateSafe(p.date),
         score: p.score ?? null,
         grade: p.grade ?? null,
         _displayedInspectionId: null,
@@ -53,6 +82,11 @@ export function useDrawer(getFeature) {
         metaTitle: "",
         noLocation,
       });
+
+      if (isBullittId(eid)) {
+        await loadBullitt(eid, seq);
+        return;
+      }
 
       // 2. History, with each inspection's violations.
       const { data: inspections, error: inspErr } = await fetchInspections(eid);
@@ -115,7 +149,7 @@ export function useDrawer(getFeature) {
       });
       setLoading(false);
     },
-    [getFeature],
+    [getFeature, loadBullitt],
   );
 
   return { selected, history, details, loading, open, close };

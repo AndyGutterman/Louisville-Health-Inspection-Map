@@ -14,115 +14,31 @@
  * after overlay_geometry fills in missing city/state.
  */
 import "dotenv/config";
-import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
+import {
+  DELAY_MS,
+  buildQuery as buildQueryWith,
+  cacheKey,
+  geocodeCensus as geocodeCensusWith,
+  geocodeNominatim,
+  sleep,
+} from "./lib/geocode.js";
 
 const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const NOMINATIM = "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "LouisvilleFoodSafe/1.0 (louisvillefoodsafe.netlify.app)";
-const DELAY_MS = 1100; // Nominatim ToS: max 1 req/sec
 const PAGE_SIZE = 1000;
 
 // Default city/state for Louisville Metro facilities when the DB row is missing them.
 // All facilities in this dataset are Jefferson County, KY.
-const DEFAULT_CITY = "Louisville";
-const DEFAULT_STATE = "KY";
+const DEFAULTS = { city: "Louisville", state: "KY" };
+const buildQuery = (row) => buildQueryWith(row, DEFAULTS);
+const geocodeCensus = (row) => geocodeCensusWith(row, DEFAULTS);
 
 const RETRY_FAILURES = process.argv.includes("--retry-failures");
 const DRY_RUN = process.argv.includes("--dry-run");
 
 if (RETRY_FAILURES) console.log("Mode: --retry-failures  (will retry cached null-result entries)");
 if (DRY_RUN) console.log("Mode: --dry-run  (no writes)");
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Strip suite/unit qualifiers that confuse geocoders
-// "123 MAIN ST STE 104" → "123 MAIN ST"
-function stripSuite(addr) {
-  return addr
-    .replace(/\s+(STE|SUITE|APT|UNIT|#|BLDG|FL|FLOOR|RM|ROOM|BOX|PMB|NUM|NO\.?)[\s#\w&-]*/gi, "")
-    .trim();
-}
-
-// Build the normalised cache key and Nominatim query string.
-// Falls back to Louisville, KY when city/state are absent.
-function buildQuery(row) {
-  const street = stripSuite(row.address || "");
-  const city = row.city || DEFAULT_CITY;
-  const state = row.state || DEFAULT_STATE;
-  const zip = row.zip || "";
-  return [street, city, state, zip].filter(Boolean).join(", ");
-}
-
-function cacheKey(query) {
-  return query.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-// Nominatim geocode
-async function geocodeNominatim(query) {
-  const url =
-    `${NOMINATIM}?` +
-    new URLSearchParams({
-      q: query,
-      format: "json",
-      limit: "1",
-      countrycodes: "us",
-      addressdetails: "0",
-    });
-
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" },
-  });
-  if (!res.ok) {
-    console.error(`Nominatim HTTP ${res.status}`);
-    return null;
-  }
-
-  const json = await res.json();
-  if (!Array.isArray(json) || !json.length) return null;
-
-  const hit = json[0];
-  return {
-    lon: parseFloat(hit.lon),
-    lat: parseFloat(hit.lat),
-    confidence: parseFloat(hit.importance ?? 0),
-    provider: "nominatim",
-    raw: hit,
-  };
-}
-
-// US Census Bureau geocoder — structured address, no API key, excellent for US streets
-async function geocodeCensus(row) {
-  const url =
-    "https://geocoding.geo.census.gov/geocoder/locations/address?" +
-    new URLSearchParams({
-      street: stripSuite(row.address || ""),
-      city: row.city || DEFAULT_CITY,
-      state: row.state || DEFAULT_STATE,
-      zip: row.zip || "",
-      benchmark: "Public_AR_Current",
-      format: "json",
-    });
-
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) {
-    console.error(`Census HTTP ${res.status} for "${row.address}"`);
-    return null;
-  }
-
-  const json = await res.json();
-  const match = json?.result?.addressMatches?.[0];
-  if (!match) return null;
-
-  return {
-    lon: match.coordinates.x,
-    lat: match.coordinates.y,
-    confidence: 1.0,
-    provider: "census",
-    raw: match,
-  };
-}
 
 (async function run() {
   // ── 1. Facilities needing a geocode ─────────────────────────────────────────

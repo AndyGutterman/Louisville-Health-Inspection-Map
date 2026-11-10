@@ -1,6 +1,7 @@
 // Turns the rows Supabase returns into the GeoJSON features the map draws. Pure.
 import { classifyCategory } from "./categories.js";
 import { tagSimilarNearby } from "./samePlaceDetection.js";
+import { DEFAULT_REGION } from "./regions.js";
 
 // "100 W MAIN ST, LOUISVILLE, KY 40202". Missing parts are skipped.
 export function joinAddress({ address, city, state, zip }) {
@@ -68,6 +69,7 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
         subtype: st,
         cat,
         has_any_violation: flags.has_any ?? false,
+        region: DEFAULT_REGION, // Louisville Metro's data (lib/regions.js)
       },
     };
   });
@@ -82,3 +84,7 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
   }
   return tagSimilarNearby(Object.values(latest));
 }
+
+// Every county's features in one list for the map's single pin source, numbered again so
+// ids stay unique (the hover popup tells features apart by id).
+export const combineRegions = (...lists) => lists.flat().map((f, i) => ({ ...f, id: i }));

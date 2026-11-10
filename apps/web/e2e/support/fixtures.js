@@ -155,6 +155,60 @@ const violations = PLACES.filter((p) => p.critical).flatMap((p, i) => {
 
 const pinned = PLACES.filter((p) => p.lon != null);
 
+// Bullitt County (lib/bullitt.js): the health department publishes only the latest
+// inspection, with no date, plus a dated follow-up when there was one.
+const BULLITT_PLACES = [
+  {
+    eid: "bullitt-00000000e2e1",
+    name: "Shepherdsville Test Diner",
+    address: "100 N BUCKMAN ST",
+    city: "SHEPHERDSVILLE",
+    lon: -85.7158,
+    lat: 37.9884,
+    score: 94,
+    violations: ["PROPER COLD HOLDING TEMPERATURES", "Food stored covered"],
+    followUp: { days: 10, score: 100 },
+  },
+  {
+    eid: "bullitt-00000000e2e2",
+    name: "Mount Washington Test Grill",
+    address: "200 MAIN ST",
+    city: "MOUNT WASHINGTON",
+    lon: -85.5458,
+    lat: 38.05,
+    score: 100,
+    violations: [],
+  },
+];
+export const BULLITT_EID = BULLITT_PLACES[0].eid;
+
+const bullittInspections = BULLITT_PLACES.flatMap((p, i) => [
+  {
+    id: 500 + i * 10 + 1,
+    establishment_id: p.eid,
+    kind: "routine",
+    inspection_date: null,
+    score: p.score,
+    violations: p.violations,
+    first_seen: daysAgo(20),
+    last_seen: daysAgo(1),
+  },
+  ...(p.followUp
+    ? [
+        {
+          id: 500 + i * 10 + 2,
+          establishment_id: p.eid,
+          kind: "follow_up",
+          inspection_date: daysAgo(p.followUp.days),
+          score: p.followUp.score,
+          violations: [],
+          first_seen: daysAgo(8),
+          last_seen: daysAgo(1),
+        },
+      ]
+    : []),
+]);
+
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
 export const TABLES = {
   v_facility_map_feed: pinned.map((p) => ({
@@ -204,6 +258,19 @@ export const TABLES = {
     has_critical: !!p.critical,
     has_any: !!p.critical,
   })),
+  v_bullitt_map_feed: BULLITT_PLACES.map((p) => ({
+    establishment_id: p.eid,
+    premise_name: p.name,
+    address: p.address,
+    city: p.city,
+    lon: p.lon,
+    lat: p.lat,
+    score_recent: p.score,
+    violation_count_recent: p.violations.length,
+    follow_up_date: p.followUp ? daysAgo(p.followUp.days) : null,
+    follow_up_score: p.followUp?.score ?? null,
+  })),
+  bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL.
   "rpc/get_whats_new": [PLACES[1], PLACES[5], PLACES[4], PLACES[0]].map((p) => ({
     establishment_id: p.eid,
