@@ -220,7 +220,7 @@ test("the county picker switches to Bullitt County and its filters", async ({ pa
   await page.getByRole("tab", { name: "Filter" }).click();
   await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
   await expect(page.getByTestId("category-tile")).toHaveCount(0);
-  await snap(page, testInfo, "09-bullitt-filters");
+  await snap(page, testInfo, "12-bullitt-filters");
 
   await jefferson.click();
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
