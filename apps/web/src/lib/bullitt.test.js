@@ -9,6 +9,7 @@ import {
   estimatedDate,
   isBullittId,
   latestHasViolations,
+  latestViolationCount,
 } from "./bullitt.js";
 import { formatDateSafe } from "./dates.js";
 
@@ -120,6 +121,18 @@ describe("latestHasViolations (the ring)", () => {
     // The list decides, not the score: the same rule as Louisville.
     expect(latestHasViolations(withCount(0, 96))).toBe(false);
     expect(latestHasViolations(withCount("1"))).toBe(true);
+  });
+
+  it("counts the latest record's violations, for the ring's fade", () => {
+    expect(latestViolationCount(withCount(3))).toBe(3);
+    expect(latestViolationCount(withCount("2"))).toBe(2);
+    expect(latestViolationCount(feedRow)).toBe(null); // follow-up, no count yet
+    expect(
+      latestViolationCount({ ...feedRow, follow_up_date: null, violation_count_recent: 4 }),
+    ).toBe(4);
+    expect(
+      latestViolationCount({ ...feedRow, follow_up_date: null, violation_count_recent: null }),
+    ).toBe(0);
   });
 
   it("uses the follow-up's score until the feed has its count (before the migration)", () => {
