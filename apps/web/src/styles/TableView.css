@@ -995,3 +995,16 @@
   color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
 }
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .table-toggle-btn {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .table-panel {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+}

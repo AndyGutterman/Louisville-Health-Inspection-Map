@@ -90,6 +90,30 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps();
 });
 
+test("phone: panels have no blur, and the map draws at most 2x", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the phone-only performance rules");
+  await openApp(page);
+
+  // Blurring the moving map behind a panel made panning choppy on iPhones.
+  for (const sel of [".control-card", ".app-header", ".wn-trigger", ".table-toggle-btn"]) {
+    const style = await page
+      .locator(sel)
+      .first()
+      .evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { blur: cs.backdropFilter, bg: cs.backgroundColor };
+      });
+    expect(style.blur, `${sel} backdrop-filter`).toBe("none");
+    expect(style.bg, `${sel} background`).toMatch(/^rgb\(/); // solid, not rgba
+  }
+
+  // The Pixel 7 reports 2.625x; the canvas is capped at 2x its CSS size.
+  const ratio = await page
+    .locator(".maplibregl-canvas")
+    .evaluate((c) => c.width / c.getBoundingClientRect().width);
+  expect(ratio).toBeLessThanOrEqual(2.01);
+});
+
 test("the page itself never scrolls", async ({ page }) => {
   await openApp(page);
   // Phone browsers can make the page taller than the screen (100vh ignores the address
