@@ -894,7 +894,8 @@ export default function LearnPage({
               not placards: the grade in a place&apos;s details is the one the health department
               recorded. Bullitt County&apos;s rings are light blue: its sheet lists every form item
               marked at a visit, including routine ones Louisville&apos;s data doesn&apos;t publish,
-              so rings are far more common there and don&apos;t mean a place is worse.
+              so rings are far more common there and don&apos;t mean a place is worse. They appear
+              once you zoom in to a town.
             </p>
           </div>
 

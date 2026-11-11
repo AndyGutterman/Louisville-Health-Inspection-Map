@@ -23,6 +23,18 @@ export const RING_COLOR = "rgba(249,115,22,0.90)";
 // the two from being read on the same scale.
 export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
 const ringColor = ["match", ["get", "region"], "bullitt", BULLITT_RING_COLOR, RING_COLOR];
+// Nearly every Bullitt place has a ring, so at county scale the rings say nothing and only
+// pile up over its towns. They fade in between these zooms; Louisville's rings always show.
+export const BULLITT_RING_FADE = [12, 14];
+const ringOpacity = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  BULLITT_RING_FADE[0],
+  ["match", ["get", "region"], "bullitt", 0, 1],
+  BULLITT_RING_FADE[1],
+  1,
+];
 
 // Circle radius that grows with the zoom level. stops: [[zoom, radius], ...]
 const radiusByZoom = (stops) => ["interpolate", ["linear"], ["zoom"], ...stops.flat()];
@@ -78,6 +90,7 @@ export function addPinLayers(map, geoData, pins) {
         "circle-color": "rgba(0,0,0,0)",
         "circle-stroke-width": strokeWidth,
         "circle-stroke-color": strokeColor,
+        "circle-stroke-opacity": ringOpacity,
       },
     });
   const hasViolations = ["==", ["get", "has_any_violation"], true];
