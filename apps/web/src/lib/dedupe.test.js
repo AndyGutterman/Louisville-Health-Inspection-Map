@@ -79,6 +79,7 @@ describe("deduplicateForRender", () => {
 
     expect(rep.properties.establishment_id).toBe("clean"); // the C is the worst
     expect(rep.properties.has_any_violation).toBe(true);
+    expect(rep.properties.violation_count).toBe(0); // no counts given
   });
 
   it("keeps hidden neighbours searchable by name and address", () => {

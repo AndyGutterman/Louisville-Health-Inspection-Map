@@ -50,13 +50,26 @@ export const estimateLabel = (iso) => `By ${formatDateSafe(iso)}`;
  * @param {object} r  a v_bullitt_map_feed row
  */
 export function latestHasViolations(r) {
+  const count = latestViolationCount(r);
+  if (count != null) return count > 0;
+  const score = toNumber(r.follow_up_score);
+  return Number.isFinite(score) ? score < 100 : false;
+}
+
+/**
+ * How many violations the latest record lists (the follow-up's if one is on the sheet,
+ * else the routine inspection's). The map fades Bullitt's ring by this count. null when a
+ * follow-up is on the sheet but the feed predates follow_up_violation_count, so only its
+ * score is known.
+ * @param {object} r  a v_bullitt_map_feed row
+ */
+export function latestViolationCount(r) {
   if (r.follow_up_date) {
     const listed = toNumber(r.follow_up_violation_count);
-    if (Number.isFinite(listed)) return listed > 0;
-    const score = toNumber(r.follow_up_score);
-    if (Number.isFinite(score)) return score < 100;
+    if (Number.isFinite(listed)) return listed;
+    if (Number.isFinite(toNumber(r.follow_up_score))) return null; // the score stands in
   }
-  return (toNumber(r.violation_count_recent) ?? 0) > 0;
+  return toNumber(r.violation_count_recent) ?? 0;
 }
 
 /**
@@ -92,6 +105,7 @@ export function buildBullittFeatures(rows) {
           subtype: null,
           cat: "unknown",
           has_any_violation: latestHasViolations(r),
+          violation_count: latestViolationCount(r),
           follow_up_date: r.follow_up_date ?? null,
           follow_up_score: toNumber(r.follow_up_score),
           region: BULLITT,
