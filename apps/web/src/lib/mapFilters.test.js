@@ -25,17 +25,29 @@ describe("searchExpression", () => {
   it("is null for an empty or blank term", () => {
     expect(searchExpression("")).toBeNull();
     expect(searchExpression("   ")).toBeNull();
+    expect(searchExpression(" ' - ")).toBeNull();
     expect(searchExpression(undefined)).toBeNull();
   });
 
-  it("trims and lowercases the term", () => {
-    const expr = searchExpression("  Taco ");
-    expect(expr[0]).toBe(">=");
-    expect(expr[1][1]).toBe("taco");
+  it("compacts the term and looks in the pin's search key", () => {
+    expect(searchExpression("  Taco ")).toEqual([
+      ">=",
+      ["index-of", "taco", ["coalesce", ["get", "search_key"], ""]],
+      0,
+    ]);
   });
 
-  it("also searches the names of places sharing a pin", () => {
-    expect(JSON.stringify(searchExpression("x"))).toContain("colocated_search");
+  it("treats every spelling of McDonald's the same", () => {
+    const want = searchExpression("mcdonalds");
+    for (const t of ["McDonald's", "mc'donalds", "MCDONALD\u2019S"]) {
+      expect(searchExpression(t)).toEqual(want);
+    }
+  });
+
+  it("needs every word when there are several", () => {
+    const expr = searchExpression("mc donalds dixie");
+    expect(expr[0]).toBe("all");
+    expect(expr.slice(1).map((e) => e[1][1])).toEqual(["mc", "donalds", "dixie"]);
   });
 });
 

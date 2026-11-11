@@ -4,32 +4,22 @@ import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS, allCategoriesOn } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
+import { searchTokens } from "./searchText.js";
 import { DEFAULT_REGION, undatedRegionIds, untypedRegionIds } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
 export const HIDDEN = ["==", ["get", "score"], "__none__"];
 
-// Case-insensitive substring match on name, addresses, zip, and the names of other
-// places sharing the pin (colocated_search, see lib/dedupe.js). null when empty.
+// Forgiving match (lib/searchText.js): every word of the term must appear in the pin's
+// search_key, which holds the name, addresses and zip of every place sharing the pin
+// (lib/dedupe.js), compacted to letters and digits. So "mc donald's", "mcdonalds" and
+// "mc'donalds" all find McDonald's. null when the term is blank.
 export function searchExpression(searchTerm) {
-  const term = (searchTerm || "").trim().toLowerCase();
-  if (!term) return null;
-  const haystack = [
-    "downcase",
-    [
-      "concat",
-      ["coalesce", ["get", "name"], ""],
-      " ",
-      ["coalesce", ["get", "address_full"], ""],
-      " ",
-      ["coalesce", ["get", "address"], ""],
-      " ",
-      ["coalesce", ["get", "zip"], ""],
-      " ",
-      ["coalesce", ["get", "colocated_search"], ""],
-    ],
-  ];
-  return [">=", ["index-of", term, haystack], 0];
+  const tokens = searchTokens(searchTerm);
+  if (!tokens.length) return null;
+  const haystack = ["coalesce", ["get", "search_key"], ""];
+  const has = (t) => [">=", ["index-of", t, haystack], 0];
+  return tokens.length === 1 ? has(tokens[0]) : ["all", ...tokens.map(has)];
 }
 
 // A pin's county. Pins without a region are Louisville's (older cached data has none).

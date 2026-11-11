@@ -54,11 +54,14 @@ describe("worstFirst", () => {
 });
 
 describe("deduplicateForRender", () => {
-  it("leaves features with unique coordinates untouched", () => {
+  it("keeps features with unique coordinates, adding only their search key", () => {
     const features = [feature("1", HERE), feature("2", THERE)];
     const out = deduplicateForRender(features);
     expect(out).toHaveLength(2);
-    expect(out[0]).toBe(features[0]);
+    expect(out[0]).toEqual({
+      ...features[0],
+      properties: { ...features[0].properties, search_key: "place1" },
+    });
   });
 
   it("collapses shared coordinates into the worst establishment", () => {
@@ -88,8 +91,9 @@ describe("deduplicateForRender", () => {
 
     const [rep] = deduplicateForRender([a, b]);
 
-    expect(rep.properties.colocated_search).toContain("Taco Place");
-    expect(rep.properties.colocated_search).toContain("Pizza Place");
+    expect(rep.properties.search_key).toContain("tacoplace");
+    expect(rep.properties.search_key).toContain("pizzaplace");
+    expect(rep.properties.search_key).toContain("1mainst");
   });
 
   it("does not mutate its input", () => {

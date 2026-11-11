@@ -12,7 +12,7 @@ import {
   countyForFacility,
   facilityAppliesTo,
   facilityFilter,
-  searchFilter,
+  searchFilters,
   typedCounties,
 } from "./lib/tableQuery.js";
 
@@ -278,7 +278,7 @@ export default function TableView({
     // Facility chips only cover counties with facility types (see toggleCat).
     const cats = facilityAppliesTo(county, REGIONS) ? selCats : null;
     if (cats && !county) q = q.in("region", typedCounties(REGIONS));
-    const or = combineOr(searchFilter(dbSearch), facilityFilter(cats));
+    const or = combineOr(...searchFilters(dbSearch), facilityFilter(cats));
     if (or) q = q.or(or);
 
     q.then(({ data, error, count }) => {
