@@ -180,7 +180,11 @@ export function useMapLibre(o) {
       // One listener for all of them: a ringed pin is on three layers (pin, ring, tap
       // target), and a click must run once, not once per layer.
       const layers = CLICKABLE_LAYERS;
+      // Hover popups only where there's a real mouse. A tap on a phone sends a fake
+      // mousemove first; iPhone Safari can drop the tap's click when that adds a popup, and
+      // the hover box would sit stacked under the pinned one.
       map.on("mousemove", layers, (e) => {
+        if (!isHoverDevice()) return;
         const { feature, group } = pinsAt(e.point);
         if (feature) popups.pointerOver(feature, placesUnder(feature, group).length);
       });
@@ -269,7 +273,7 @@ export function useMapLibre(o) {
   const api = useMemo(
     () => ({
       openPopup: (feature) => popupsRef.current?.openFor(feature),
-      hoverPopup: (feature) => popupsRef.current?.hoverFor(feature),
+      hoverPopup: (feature) => isHoverDevice() && popupsRef.current?.hoverFor(feature),
       endHover: () => popupsRef.current?.hideHover(),
       showRowPopup: (feature) => popupsRef.current?.showRow(feature),
       easeTo: (options) => mapRef.current?.easeTo(options),
@@ -283,7 +287,8 @@ export function useMapLibre(o) {
 }
 
 // The pointer resting at a screen edge pans the map a step, once per visit to the edge,
-// unless it's over a panel.
+// unless it's over a panel. Mouse only: a tap near the edge of a phone screen sends a
+// fake mousemove, which made the map jump.
 function useEdgePan(mapRef) {
   useEffect(() => {
     let atEdge = false;
@@ -293,6 +298,7 @@ function useEdgePan(mapRef) {
         return r && x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
       });
     const onMove = (e) => {
+      if (!isHoverDevice()) return;
       const dx = e.clientX <= EDGE_ZONE ? -1 : e.clientX >= window.innerWidth - EDGE_ZONE ? 1 : 0;
       const dy = e.clientY <= EDGE_ZONE ? -1 : e.clientY >= window.innerHeight - EDGE_ZONE ? 1 : 0;
       const active =
