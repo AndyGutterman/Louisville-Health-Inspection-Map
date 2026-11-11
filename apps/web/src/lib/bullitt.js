@@ -73,7 +73,8 @@ export function latestViolationCount(r) {
 }
 
 /**
- * Map features from v_bullitt_map_feed rows: the same properties as Louisville's
+ * Map features from v_bullitt_map_feed rows: the same properties as Louisville's. The
+ * score and date are the latest record's: the follow-up when one is on the sheet.
  * (lib/mapFeatures.js), with no date, grade or category, plus `region`. A routine result
  * that appeared after the first load gets an estimated date (date_text, date_estimated;
  * needs migration 20261113000000). `date` stays null, so an estimate is never mistaken
@@ -86,6 +87,9 @@ export function buildBullittFeatures(rows) {
     .filter((r) => Number.isFinite(r.lon) && Number.isFinite(r.lat))
     .map((r) => {
       const estimate = estimatedDate(r.routine_first_seen, r.tracking_since);
+      // A follow-up still on the sheet is the latest record, so its score and date lead.
+      const followUpScore = r.follow_up_date ? toNumber(r.follow_up_score) : null;
+      const latestIsFollowUp = Number.isFinite(followUpScore);
       return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [r.lon, r.lat] },
@@ -96,10 +100,14 @@ export function buildBullittFeatures(rows) {
           address_full: joinAddress({ address: r.address, city: r.city, state: "KY" }),
           zip: null,
           date: null,
-          date_text: estimate ? estimateLabel(estimate) : NO_DATE,
-          date_estimated: !!estimate,
+          date_text: latestIsFollowUp
+            ? formatDateSafe(r.follow_up_date)
+            : estimate
+              ? estimateLabel(estimate)
+              : NO_DATE,
+          date_estimated: !latestIsFollowUp && !!estimate,
           tracking_since: r.tracking_since ?? null,
-          score: toNumber(r.score_recent),
+          score: latestIsFollowUp ? followUpScore : toNumber(r.score_recent),
           grade: null,
           facility_type: null,
           subtype: null,
@@ -160,6 +168,6 @@ export function bullittHistory(rows, { trackingSince = null } = {}) {
     });
 }
 
-// The drawer header shows the current routine inspection, like the map pin.
-export const bullittHeader = (history) =>
-  history.find((r) => r.kind === "routine") ?? history[0] ?? null;
+// The drawer header shows the latest record, like the map pin: bullittHistory lists a
+// current follow-up first.
+export const bullittHeader = (history) => history[0] ?? null;
