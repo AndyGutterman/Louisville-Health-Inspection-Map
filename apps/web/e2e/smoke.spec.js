@@ -269,13 +269,26 @@ test("Table View lists both counties and searches across them", async ({ page },
 
   // One search covers both counties: name, street, city and zip in the same view.
   const searched = page.waitForRequest(
-    (r) => r.url().includes("/rest/v1/v_table_latest") && r.url().includes("city.ilike"),
+    (r) => r.url().includes("/rest/v1/v_table_latest") && r.url().includes("city.imatch"),
   );
   await panel.getByLabel("Search the table").fill("Shepherdsville");
   const url = decodeURIComponent((await searched).url());
-  expect(url).toContain("name.ilike.*Shepherdsville*");
+  expect(url).toContain("name.imatch.s[^a-z0-9]*h[^a-z0-9]*e");
   expect(url).not.toContain("region=eq.");
   await snap(page, testInfo, "13-table-view-search");
+
+  // Spacing and punctuation don't matter: "Mc Donald's" asks for the same loose match as
+  // "mcdonalds", one group per word, so McDonalds, Mc Donald's and MC'DONALDS all come back.
+  const loose = page.waitForRequest(
+    (r) =>
+      r.url().includes("/rest/v1/v_table_latest") &&
+      decodeURIComponent(r.url()).includes("name.imatch.d[^a-z0-9]*o"),
+  );
+  await panel.getByLabel("Search the table").fill("Mc Donald's");
+  const looseUrl = decodeURIComponent((await loose).url());
+  expect(looseUrl).toContain("name.imatch.m[^a-z0-9]*c,");
+  expect(looseUrl).toContain("name.imatch.d[^a-z0-9]*o[^a-z0-9]*n");
+  expect(looseUrl).toMatch(/and\(or\(name\.imatch/);
 
   // The county chips narrow it. On phones they fold behind the Filters button.
   if (testInfo.project.name === "phone") {

@@ -7,6 +7,7 @@ import { PIN_COLORS } from "../../Colors.jsx";
 import { EDGE_ZONE, MIN_ZOOM } from "../../lib/constants.js";
 import { METRO_BOUNDS, looseBounds } from "../../lib/mapBounds.js";
 import { coordKey, worstFirst } from "../../lib/dedupe.js";
+import { featureSearchKey, matchesSearch, searchTokens } from "../../lib/searchText.js";
 import { useLatest } from "../../hooks/useLatest.js";
 import { CLICKABLE_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
 import { pickPin, uniqueHits } from "../../lib/pinPicking.js";
@@ -147,11 +148,9 @@ export function useMapLibre(o) {
     };
     // In a "1 of 3" popup, start on the place matching the search, if any.
     const startIndex = (features) => {
-      const term = latest.current.searchTerm.trim().toLowerCase();
-      if (!term) return 0;
-      const i = features.findIndex(({ properties: p }) =>
-        `${p.name || ""} ${p.address_full || p.address || ""}`.toLowerCase().includes(term),
-      );
+      const term = latest.current.searchTerm;
+      if (!searchTokens(term).length) return 0;
+      const i = features.findIndex(({ properties: p }) => matchesSearch(featureSearchKey(p), term));
       return Math.max(i, 0);
     };
 

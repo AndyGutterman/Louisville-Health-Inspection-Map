@@ -32,7 +32,7 @@ docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (man
 .github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml, schema-dump.yml
 ```
 
-`src/lib/` modules: samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
+`src/lib/` modules: searchText, samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
 
 ## Commands (from the repo root)
 
@@ -109,6 +109,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Date filter and map cache constants:** `lib/constants.js`.
 - **Bullitt County:** read `docs/BULLITT.md` first. Separate `bullitt_*` tables, `pipeline/regions/bullitt/`. Both counties' pins show at once (no toggle); Bullitt pins pass the date filter and show only while every category is on, since they have no facility types (`lib/mapFilters.js` `categoryFilter`). Per-county capabilities, agency and data sources in `lib/regions.js` (`has`, `agency`, `source`, `dataNote`; the Learn page shows one link and a data note per county). Geocoding order and the redo switch: `docs/BULLITT.md`. Bullitt ids start with `bullitt-` (`lib/bullitt.js`). What's New includes Bullitt (`get_whats_new`, `get_top_scores`); undated rows say "posted <date>" (`lib/whatsNew.js`).
 - **Table View:** reads `v_table_latest` / `v_table_inspections` (both counties). It loads nothing until first opened and asks for a row count only when filters change (`lib/tableQuery.js`). On phones, filters fold behind a button and rows are cards. Facility chips only filter Jefferson (Bullitt has no types): picking one switches County to Jefferson; picking Bullitt shows a note instead of chips.
+- **Search:** `lib/searchText.js`, used by the map (`search_key` on each pin, built in `lib/dedupe.js`, matched in `lib/mapFilters.js`) and Table View (`searchFilters` in `lib/tableQuery.js`, a PostgREST `imatch` regex per word). Case, spacing, punctuation and accents are ignored, and every word must match, so "mcdonalds", "Mc Donald's" and "mc'donalds" all find every McDonald's in both counties. No database change.
 - **Map popups** sit under every panel: `.map-container` has `z-index: 0`, so it is its own stacking context.
 
 ## Decisions already made
