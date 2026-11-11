@@ -36,8 +36,10 @@ function applyEqFilters(rows, params) {
 
 // holds: { path: Promise } keeps those responses back until the promise settles, to test
 // what shows while data is still loading.
-export async function mockSupabase(page, { holds = {} } = {}) {
+// failOnce: [path] answers the first request for each path with a 503, to test retries.
+export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
   const unmocked = [];
+  const toFail = new Set(failOnce);
 
   await page.route(/\/rest\/v1\//, async (route) => {
     const request = route.request();
@@ -53,6 +55,14 @@ export async function mockSupabase(page, { holds = {} } = {}) {
     if (!table) unmocked.push(`${request.method()} ${path}`);
 
     if (holds[path]) await holds[path];
+    if (toFail.delete(path)) {
+      await route.fulfill({
+        status: 503,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({ message: "Service unavailable (test)" }),
+      });
+      return;
+    }
     const rows = applyEqFilters(table ?? [], url.searchParams);
     const offset = Number(url.searchParams.get("offset") || 0);
     const limit = url.searchParams.get("limit");

@@ -48,6 +48,13 @@ test("the map shows while the rest of the data loads, with a corner indicator", 
   expect(consoleErrors, "console errors").toEqual([]);
 });
 
+test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
+  const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_feed"] });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });
+  // The browser logs the deliberate 503 itself; nothing else may error.
+  expect(consoleErrors.filter((e) => !e.includes("503"))).toEqual([]);
+});
+
 test("filter panel toggles categories", async ({ page }, testInfo) => {
   await openApp(page);
   await page.getByRole("button", { name: "Expand controls" }).click();

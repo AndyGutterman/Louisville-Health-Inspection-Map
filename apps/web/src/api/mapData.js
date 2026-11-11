@@ -1,5 +1,6 @@
-// Supabase reads behind the map pins and the info drawer.
-import { supabase } from "../lib/supabase.js";
+// Supabase reads behind the map pins and the info drawer (all public data: publicDb).
+import { publicDb } from "../lib/supabase.js";
+import { retry } from "../lib/retry.js";
 
 // PostgREST returns at most 1,000 rows per request, so big tables are read in pages.
 const PAGE = 1000;
@@ -8,11 +9,16 @@ const PAGE = 1000;
 // separate count request: an exact count runs the whole view or table one more time.)
 // page(from, to) returns a Supabase query. Resolves to the rows, or throws the error.
 // onPage(rowsSoFar), optional, runs after each page, so pins can show as they arrive.
+// Each page gets a time limit and two more tries (lib/retry.js): on a phone a request
+// can go unanswered, and the map would otherwise say "Loading places…" forever.
 export async function readAllPages(page, pageSize = PAGE, onPage) {
   let rows = [];
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await page(from, from + pageSize - 1);
-    if (error) throw error;
+    const data = await retry(async () => {
+      const { data, error } = await page(from, from + pageSize - 1);
+      if (error) throw error;
+      return data;
+    });
     rows = rows.concat(data || []);
     if (!data || data.length < pageSize) return rows;
     onPage?.(rows);
@@ -26,7 +32,7 @@ export async function fetchMapFeed(onPage) {
   try {
     return await readAllPages(
       (from, to) =>
-        supabase
+        publicDb
           .from("v_facility_map_feed")
           .select(
             "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
@@ -48,7 +54,7 @@ export async function fetchViolationFlags() {
   const flags = new Map();
   try {
     const rows = await readAllPages((from, to) =>
-      supabase.rpc("get_violation_flags").range(from, to),
+      publicDb.rpc("get_violation_flags").range(from, to),
     );
     for (const r of rows) flags.set(r.establishment_id, r);
   } catch (e) {
@@ -63,7 +69,7 @@ export async function fetchFacilityMeta() {
   const metaById = new Map();
   try {
     const rows = await readAllPages((from, to) =>
-      supabase
+      publicDb
         .from("facilities")
         .select("establishment_id, facility_type, subtype, address, city, state, zip")
         .order("establishment_id")
@@ -86,10 +92,11 @@ export async function fetchFacilityMeta() {
 }
 
 // The drawer's three queries. Each returns Supabase's { data, error }.
+// Public data, so publicDb: they never wait on the sign-in session.
 
 // Every inspection for one place, newest first.
 export const fetchInspections = (eid) =>
-  supabase
+  publicDb
     .from("inspections")
     .select("inspection_id, inspection_date, score, grade, ins_type_desc, establishment_id")
     .eq("establishment_id", eid)
@@ -98,7 +105,7 @@ export const fetchInspections = (eid) =>
 
 // Every violation cited at one place.
 export const fetchViolations = (eid) =>
-  supabase
+  publicDb
     .from("inspection_violations")
     .select(
       "violation_oid, inspection_id, inspection_date, violation_desc, insp_viol_comments, critical_yn, establishment_id",
@@ -107,7 +114,7 @@ export const fetchViolations = (eid) =>
 
 // "More info" details: opening date, type and subtype names, permit, full address.
 export const fetchFacilityDetails = (eid) =>
-  supabase
+  publicDb
     .from("v_facility_details")
     .select(
       "opening_date, facility_type, subtype, address, city, state, zip, permit_number, facility_type_description, subtype_description",

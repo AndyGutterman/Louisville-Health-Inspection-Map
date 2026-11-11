@@ -4,14 +4,14 @@ import { mockSupabase } from "./mockSupabase.js";
 
 // Loads the map page with Supabase mocked and waits until the splash screen is gone
 // (it waits for the map to finish loading). Returns what the page logged as errors.
-export async function openApp(page, { holds } = {}) {
+export async function openApp(page, { holds, failOnce } = {}) {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
   page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
 
-  const mock = await mockSupabase(page, { holds });
+  const mock = await mockSupabase(page, { holds, failOnce });
   // Netlify injects its feedback toolbar ("Netlify Drawer") into deploy previews. It
   // isn't part of the site and can log errors or cover buttons, so serve it empty.
   await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>
