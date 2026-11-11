@@ -34,7 +34,9 @@ function applyEqFilters(rows, params) {
   return out;
 }
 
-export async function mockSupabase(page) {
+// holds: { path: Promise } keeps those responses back until the promise settles, to test
+// what shows while data is still loading.
+export async function mockSupabase(page, { holds = {} } = {}) {
   const unmocked = [];
 
   await page.route(/\/rest\/v1\//, async (route) => {
@@ -50,6 +52,7 @@ export async function mockSupabase(page) {
     const table = TABLES[path];
     if (!table) unmocked.push(`${request.method()} ${path}`);
 
+    if (holds[path]) await holds[path];
     const rows = applyEqFilters(table ?? [], url.searchParams);
     const offset = Number(url.searchParams.get("offset") || 0);
     const limit = url.searchParams.get("limit");

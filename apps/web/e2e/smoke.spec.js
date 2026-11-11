@@ -25,8 +25,27 @@ test("loads with no console errors", async ({ page }, testInfo) => {
   await expect(page.getByRole("button", { name: "What's New", exact: true })).toBeVisible();
   await snap(page, testInfo, "01-map-loaded");
 
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0); // everything arrived
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
+test("the map shows while the rest of the data loads, with a corner indicator", async ({
+  page,
+}, testInfo) => {
+  // The violation rings are held back: the splash lifts on the first pins, not on them.
+  let release;
+  const flagsArrive = new Promise((r) => (release = r));
+  const { consoleErrors } = await openApp(page, {
+    holds: { "rpc/get_violation_flags": flagsArrive },
+  });
+  const pill = page.getByTestId("pins-loading");
+  await expect(pill).toContainText("Loading places");
+  await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("OpenStreetMap");
+  await snap(page, testInfo, "01b-pins-loading");
+  release();
+  await expect(pill).toHaveCount(0);
+  expect(consoleErrors, "console errors").toEqual([]);
 });
 
 test("filter panel toggles categories", async ({ page }, testInfo) => {
