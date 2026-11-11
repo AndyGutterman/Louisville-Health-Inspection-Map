@@ -1,6 +1,7 @@
 import { summarizeViolations } from "./lib/violationSummary.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "./AuthContext.jsx";
+import { cleanCode, isCompleteCode } from "./lib/authCode.js";
 import DataSources from "./DataSources.jsx";
 import "./styles/LearnPage.css";
 
@@ -160,11 +161,30 @@ function ComingSoonBadge() {
 // Styles scoped to LoginModal — injected here so the modal works whether rendered
 // inside LearnPage OR standalone from the map header (which doesn't load LearnPage).
 export function LoginModal({ onClose }) {
-  const { user, sendMagicLink, signOut, loading } = useAuth();
+  const { user, sendMagicLink, verifyCode, signOut, loading } = useAuth();
   const [authError, setAuthError] = useState(null);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // The code from the email, typed here. A link opened from a phone's mail app signs in
+  // the mail app's own browser, not this one; the code signs in wherever it's typed.
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [codeError, setCodeError] = useState(null);
+
+  async function submitCode(e) {
+    e.preventDefault();
+    if (!isCompleteCode(code) || verifying) return;
+    setCodeError(null);
+    setVerifying(true);
+    const { error } = await verifyCode(email.trim(), code);
+    setVerifying(false);
+    if (error) {
+      setCodeError("That code didn't work. Check it, or send a new one.");
+      return;
+    }
+    onClose(); // signed in: the header switches to Saved on its own
+  }
 
   useEffect(() => {
     const h = (e) => {
@@ -254,38 +274,54 @@ export function LoginModal({ onClose }) {
               </button>
             </div>
           ) : sent ? (
-            /* ── Sent confirmation ── */
-            <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
-              <div style={{ fontSize: "2rem", marginBottom: 8 }}>✉️</div>
-              <div style={{ fontWeight: 700, fontSize: ".92rem", marginBottom: 6 }}>
-                Check your email
+            /* ── Sent: type the code from the email ── */
+            <div className="ln-code" data-testid="sign-in-code-step">
+              <div className="ln-code-icon" aria-hidden="true">
+                ✉️
               </div>
-              <div
-                style={{
-                  fontSize: ".80rem",
-                  color: "rgba(255,255,255,0.48)",
-                  lineHeight: 1.55,
-                  maxWidth: 240,
-                  margin: "0 auto 16px",
-                }}
-              >
-                We sent a sign-in link to{" "}
-                <strong style={{ color: "rgba(255,255,255,0.70)" }}>{email}</strong>. Click it to
-                sign in — no password needed.
+              <div className="ln-code-title">Check your email</div>
+              <div className="ln-code-text">
+                We sent a sign-in code to <strong>{email}</strong>. Type it here.
+              </div>
+              <form onSubmit={submitCode}>
+                <input
+                  className="ln-code-input"
+                  aria-label="Sign-in code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(cleanCode(e.target.value));
+                    setCodeError(null);
+                  }}
+                  autoFocus
+                />
+                {codeError && (
+                  <div className="ln-code-error" role="alert">
+                    {codeError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="ln-code-submit"
+                  disabled={!isCompleteCode(code) || verifying}
+                >
+                  {verifying ? "Checking…" : "Sign in"}
+                </button>
+              </form>
+              <div className="ln-code-hint">
+                On a computer you can tap the link in the email instead.
               </div>
               <button
+                type="button"
+                className="ln-code-other"
                 onClick={() => {
                   setSent(false);
                   setEmail("");
+                  setCode("");
+                  setCodeError(null);
                   setAuthError(null);
-                }}
-                style={{
-                  fontSize: ".76rem",
-                  color: "rgba(255,255,255,0.38)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  textDecoration: "underline",
                 }}
               >
                 Use a different email
@@ -302,7 +338,7 @@ export function LoginModal({ onClose }) {
                   lineHeight: 1.5,
                 }}
               >
-                Enter your email and we'll send you a sign-in link. No password, no third-party
+                Enter your email and we'll send you a sign-in code. No password, no third-party
                 account needed.
               </div>
 
@@ -331,7 +367,7 @@ export function LoginModal({ onClose }) {
                   const { error } = await sendMagicLink(email.trim());
                   setSending(false);
                   if (error) {
-                    setAuthError(error.message || "Couldn't send the link. Try again.");
+                    setAuthError(error.message || "Couldn't send the code. Try again.");
                   } else {
                     setSent(true);
                   }
@@ -395,7 +431,7 @@ export function LoginModal({ onClose }) {
                     e.target.style.background = "rgba(52,168,83,0.16)";
                   }}
                 >
-                  {sending ? "Sending…" : "Send sign-in link"}
+                  {sending ? "Sending…" : "Email me a code"}
                 </button>
               </form>
 

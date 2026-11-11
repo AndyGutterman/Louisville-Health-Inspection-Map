@@ -48,6 +48,13 @@ test("the map shows while the rest of the data loads, with a corner indicator", 
   expect(consoleErrors, "console errors").toEqual([]);
 });
 
+test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
+  const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_feed"] });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });
+  // The browser logs the deliberate 503 itself; nothing else may error.
+  expect(consoleErrors.filter((e) => !e.includes("503"))).toEqual([]);
+});
+
 test("filter panel toggles categories", async ({ page }, testInfo) => {
   await openApp(page);
   await page.getByRole("button", { name: "Expand controls" }).click();
@@ -432,4 +439,55 @@ test("score sliders: the coloured bar stays under the handle while it is dragged
   await handle.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", String(value + 1));
   expect(consoleErrors, "console errors").toEqual([]);
+});
+
+test("sign in with the code from the email, no link needed", async ({ page }, testInfo) => {
+  // Supabase Auth is mocked here: sending the email, then checking the code.
+  const verifyBodies = [];
+  await page.route(/\/auth\/v1\/(otp|verify)/, async (route) => {
+    const request = route.request();
+    const cors = {
+      "access-control-allow-origin": request.headers()["origin"] || "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+    };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    const json = (body) =>
+      route.fulfill({ status: 200, headers: cors, contentType: "application/json", body });
+    if (request.url().includes("/otp")) return json("{}");
+    verifyBodies.push(request.postDataJSON());
+    const now = Math.floor(Date.now() / 1000);
+    return json(
+      JSON.stringify({
+        access_token: "test-access-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        refresh_token: "test-refresh-token",
+        user: {
+          id: "00000000-0000-0000-0000-000000000001",
+          aud: "authenticated",
+          email: "test@example.com",
+        },
+      }),
+    );
+  });
+
+  await openApp(page);
+  await page.locator(".header-nav-btn--login").click();
+  await page.getByPlaceholder("you@example.com").fill("test@example.com");
+  await page.getByRole("button", { name: "Email me a code" }).click();
+
+  const step = page.getByTestId("sign-in-code-step");
+  await expect(step).toContainText("test@example.com");
+  const signIn = step.getByRole("button", { name: "Sign in" });
+  await expect(signIn).toBeDisabled();
+  await step.getByLabel("Sign-in code").fill("123 456"); // pasted with a space
+  await expect(step.getByLabel("Sign-in code")).toHaveValue("123456");
+  await snap(page, testInfo, "sign-in-code");
+  await signIn.click();
+
+  await expect(step).toHaveCount(0); // modal closes
+  await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
+  expect(verifyBodies[0]).toMatchObject({ email: "test@example.com", token: "123456" });
 });

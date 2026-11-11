@@ -46,7 +46,8 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // Sends an email containing a 6-digit code (and a fallback link).
+  // Sends the sign-in email. The modal asks for the code in it ({{ .Token }} in the
+  // Supabase "Magic Link" template); the link in it still works on a computer.
   // Returns { error } — null error means the email was sent.
   async function sendMagicLink(email) {
     const { error } = await supabase.auth.signInWithOtp({
