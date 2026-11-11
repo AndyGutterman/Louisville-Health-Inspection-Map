@@ -82,6 +82,9 @@ const POPUP_CSS = `
   cursor: pointer; /* clicking the card opens the Watch panel */
   transition: border-color .12s;
 }
+@media (max-width: 600px) {
+  .wa-popup .maplibregl-popup-content { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgb(18,18,22); }
+}
 .wa-popup .maplibregl-popup-content:hover { border-color: rgba(255,255,255,.18); }
 .wa-popup .maplibregl-popup-tip { border-top-color: rgba(18,18,22,.94); }
 .wa-popup .maplibregl-popup-close-button {

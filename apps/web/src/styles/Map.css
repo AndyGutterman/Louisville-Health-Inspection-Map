@@ -994,3 +994,27 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     min-width: 100%;
   }
 }
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .control-card {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+  .fab-scores {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .bands-sheet {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .fab-reopen {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .drawer-veil.show {
+    backdrop-filter: none;
+  }
+}

@@ -266,3 +266,11 @@
     text-align: center;
   }
 }
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .fb-back {
+    backdrop-filter: none;
+  }
+}
