@@ -63,6 +63,10 @@ export function useMapLibre(o) {
         height: window.innerHeight,
         zoom: MIN_ZOOM,
       }),
+      // iPhones have 3x screens: drawing the map at 2x looks the same and is well
+      // under half the pixels, so panning stays smooth. Mouse devices keep the default,
+      // which follows the window between monitors.
+      pixelRatio: isHoverDevice() ? undefined : Math.min(window.devicePixelRatio || 1, 2),
     });
     mapRef.current = map;
     let dragging = false;
