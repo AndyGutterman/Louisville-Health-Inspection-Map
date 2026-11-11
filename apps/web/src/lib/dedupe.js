@@ -28,6 +28,7 @@ export function deduplicateForRender(featureList) {
     byCoord.get(k).push(f);
   }
   const out = [];
+  let stacked = 0;
   for (const feats of byCoord.values()) {
     if (feats.length === 1) {
       out.push(feats[0]);
@@ -35,17 +36,7 @@ export function deduplicateForRender(featureList) {
     }
     const sorted = feats.slice().sort(worstFirst);
     const rep = sorted[0];
-    console.warn(
-      `${feats.length} establishments share one coordinate — only "${rep.properties.name}" ` +
-        `(eid ${rep.properties.establishment_id}) gets a pin here; the rest are suppressed`,
-      sorted.map((f) => ({
-        establishment_id: f.properties.establishment_id,
-        name: f.properties.name,
-        address: f.properties.address,
-        score: f.properties.score,
-        grade: f.properties.grade,
-      })),
-    );
+    stacked++;
     // Bake every co-located establishment's name + address into the
     // representative's properties so the search filter can still match
     // a business whose own pin got suppressed here.
@@ -65,6 +56,9 @@ export function deduplicateForRender(featureList) {
       },
     });
   }
+  // One line, not one per spot: a warning per spot was hundreds of console entries on
+  // every load, which is slow with DevTools open.
+  if (stacked) console.warn(`${stacked} spots have several places; each draws one pin.`);
   return out;
 }
 

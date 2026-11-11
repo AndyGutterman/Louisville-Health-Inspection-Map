@@ -35,6 +35,7 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
       return false;
     });
 
+  const unmapped = []; // facility type/subtype pairs no category claims
   const features = rows.map((r, i) => {
     const meta = metaById.get(r.establishment_id) || {};
     const flags = flagsById.get(r.establishment_id) || {};
@@ -43,14 +44,7 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
     const addressFull = joinAddress({ ...meta, address: meta.address || r.address });
     const cat = ft != null && st != null ? classifyCategory(ft, st) : "unknown";
     if (cat === "unknown" && ft != null && st != null) {
-      console.warn("Unmapped facility (category filters)", {
-        establishment_id: r.establishment_id,
-        name: r.premise_name,
-        address: r.address,
-        address_full: addressFull,
-        facility_type: ft,
-        subtype: st,
-      });
+      unmapped.push(`${ft}/${st}`);
     }
     return {
       type: "Feature",
@@ -73,6 +67,10 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
       },
     };
   });
+  if (unmapped.length) {
+    const pairs = [...new Set(unmapped)].join(", ");
+    console.warn(`${unmapped.length} places have a type no category claims: ${pairs}`);
+  }
 
   // Keep the most recent row per establishment.
   const latest = {};
