@@ -343,9 +343,11 @@ test("What's New includes Bullitt County, labelled by the day its score was post
   await whatsNewRow(page, BULLITT_EID).click();
   const drawer = page.getByTestId("info-drawer");
   await expect(drawer.getByText(BULLITT_NAME, { exact: true })).toBeVisible();
-  // Its routine result appeared after the first load, so the date is an estimate, and
-  // the violations are explained as form items.
-  await expect(drawer.getByText("Date (estimated)")).toBeVisible();
+  // The header shows the latest record, the dated follow-up, so it isn't an estimate;
+  // the older routine result's date still is. Bullitt publishes no grades, so none show.
+  await expect(drawer.getByText("Date", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("Date (estimated)")).toHaveCount(0);
+  await expect(drawer.getByText("Grade", { exact: true })).toHaveCount(0);
   await expect(drawer.getByTestId("drawer-source-note")).toContainText("estimates");
   await drawer.getByRole("button", { name: /2 violations/ }).click();
   await expect(drawer.getByTestId("violations-note")).toContainText("inspection form");

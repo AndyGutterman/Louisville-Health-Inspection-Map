@@ -50,17 +50,31 @@ export const estimateLabel = (iso) => `By ${formatDateSafe(iso)}`;
  * @param {object} r  a v_bullitt_map_feed row
  */
 export function latestHasViolations(r) {
-  if (r.follow_up_date) {
-    const listed = toNumber(r.follow_up_violation_count);
-    if (Number.isFinite(listed)) return listed > 0;
-    const score = toNumber(r.follow_up_score);
-    if (Number.isFinite(score)) return score < 100;
-  }
-  return (toNumber(r.violation_count_recent) ?? 0) > 0;
+  const count = latestViolationCount(r);
+  if (count != null) return count > 0;
+  const score = toNumber(r.follow_up_score);
+  return Number.isFinite(score) ? score < 100 : false;
 }
 
 /**
- * Map features from v_bullitt_map_feed rows: the same properties as Louisville's
+ * How many violations the latest record lists (the follow-up's if one is on the sheet,
+ * else the routine inspection's). The map fades Bullitt's ring by this count. null when a
+ * follow-up is on the sheet but the feed predates follow_up_violation_count, so only its
+ * score is known.
+ * @param {object} r  a v_bullitt_map_feed row
+ */
+export function latestViolationCount(r) {
+  if (r.follow_up_date) {
+    const listed = toNumber(r.follow_up_violation_count);
+    if (Number.isFinite(listed)) return listed;
+    if (Number.isFinite(toNumber(r.follow_up_score))) return null; // the score stands in
+  }
+  return toNumber(r.violation_count_recent) ?? 0;
+}
+
+/**
+ * Map features from v_bullitt_map_feed rows: the same properties as Louisville's. The
+ * score and date are the latest record's: the follow-up when one is on the sheet.
  * (lib/mapFeatures.js), with no date, grade or category, plus `region`. A routine result
  * that appeared after the first load gets an estimated date (date_text, date_estimated;
  * needs migration 20261113000000). `date` stays null, so an estimate is never mistaken
@@ -73,6 +87,9 @@ export function buildBullittFeatures(rows) {
     .filter((r) => Number.isFinite(r.lon) && Number.isFinite(r.lat))
     .map((r) => {
       const estimate = estimatedDate(r.routine_first_seen, r.tracking_since);
+      // A follow-up still on the sheet is the latest record, so its score and date lead.
+      const followUpScore = r.follow_up_date ? toNumber(r.follow_up_score) : null;
+      const latestIsFollowUp = Number.isFinite(followUpScore);
       return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [r.lon, r.lat] },
@@ -83,15 +100,20 @@ export function buildBullittFeatures(rows) {
           address_full: joinAddress({ address: r.address, city: r.city, state: "KY" }),
           zip: null,
           date: null,
-          date_text: estimate ? estimateLabel(estimate) : NO_DATE,
-          date_estimated: !!estimate,
+          date_text: latestIsFollowUp
+            ? formatDateSafe(r.follow_up_date)
+            : estimate
+              ? estimateLabel(estimate)
+              : NO_DATE,
+          date_estimated: !latestIsFollowUp && !!estimate,
           tracking_since: r.tracking_since ?? null,
-          score: toNumber(r.score_recent),
+          score: latestIsFollowUp ? followUpScore : toNumber(r.score_recent),
           grade: null,
           facility_type: null,
           subtype: null,
           cat: "unknown",
           has_any_violation: latestHasViolations(r),
+          violation_count: latestViolationCount(r),
           follow_up_date: r.follow_up_date ?? null,
           follow_up_score: toNumber(r.follow_up_score),
           region: BULLITT,
@@ -146,6 +168,6 @@ export function bullittHistory(rows, { trackingSince = null } = {}) {
     });
 }
 
-// The drawer header shows the current routine inspection, like the map pin.
-export const bullittHeader = (history) =>
-  history.find((r) => r.kind === "routine") ?? history[0] ?? null;
+// The drawer header shows the latest record, like the map pin: bullittHistory lists a
+// current follow-up first.
+export const bullittHeader = (history) => history[0] ?? null;

@@ -3,6 +3,7 @@ import "./styles/Violations.css";
 import "./styles/History.css";
 import "./styles/RestaurantInfo.css";
 import { formatDateSafe } from "./lib/dates.js";
+import { isBullittId } from "./lib/bullitt.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import {
   expandedHeight,
@@ -36,6 +37,7 @@ function CurrentInspectionCard({
     noLocation,
     sourceNote,
     dateCaption,
+    showGrade = true,
   } = data;
   const gradeDisplay = grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum =
@@ -246,12 +248,14 @@ function CurrentInspectionCard({
           <div className="inspect-stat_label">{dateCaption ?? "Date"}</div>
         </div>
 
-        <div className="inspect-stat">
-          <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
-            {gradeDisplay}
+        {showGrade && (
+          <div className="inspect-stat">
+            <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
+              {gradeDisplay}
+            </div>
+            <div className="inspect-stat_label">Grade</div>
           </div>
-          <div className="inspect-stat_label">Grade</div>
-        </div>
+        )}
       </div>
 
       {hasDetails && (
@@ -317,7 +321,7 @@ function ViolationRow({ v }) {
   );
 }
 
-function PastInspection({ row }) {
+function PastInspection({ row, showGrade = true }) {
   const date = row.date_label ?? formatDateSafe(row.inspection_date);
   const gradeDisplay =
     row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
@@ -408,7 +412,9 @@ function PastInspection({ row }) {
           </button>
         )}
 
-        <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
+        {showGrade && (
+          <div className={`hist-grade ${gradeDisplay === "—" ? "muted" : ""}`}>{gradeDisplay}</div>
+        )}
       </div>
 
       {viols.length > 0 && (
@@ -453,7 +459,7 @@ function HistorySkeleton() {
   );
 }
 
-function History({ rows, pins }) {
+function History({ rows, pins, showGrade = true }) {
   if (!rows || rows.length === 0) return null;
   return (
     <div className="hist-wrap">
@@ -464,6 +470,7 @@ function History({ rows, pins }) {
             key={r.inspection_id ?? `${r.establishment_id}-${r.inspection_date}`}
             row={r}
             pins={pins}
+            showGrade={showGrade}
           />
         ))}
       </div>
@@ -777,6 +784,8 @@ export default function InfoDrawer({
             noLocation: selected.noLocation,
             sourceNote: selected.sourceNote,
             dateCaption: selected.dateCaption,
+            // Bullitt County publishes no letter grades (lib/regions.js).
+            showGrade: !isBullittId(selected.establishment_id),
           }}
           details={facDetails}
           pins={pins}
@@ -792,7 +801,7 @@ export default function InfoDrawer({
         {drawerLoading && !history ? (
           <HistorySkeleton />
         ) : history ? (
-          <History rows={history} pins={pins} />
+          <History rows={history} pins={pins} showGrade={!isBullittId(selected.establishment_id)} />
         ) : null}
       </div>
     </div>

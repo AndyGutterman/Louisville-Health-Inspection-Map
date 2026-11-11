@@ -52,6 +52,7 @@ export function deduplicateForRender(featureList) {
       properties: {
         ...rep.properties,
         has_any_violation: feats.some((f) => f.properties.has_any_violation),
+        violation_count: Math.max(...feats.map((f) => f.properties.violation_count ?? 0)),
         colocated_search: colocatedSearch,
       },
     });
