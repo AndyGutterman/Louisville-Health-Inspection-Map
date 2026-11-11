@@ -131,6 +131,20 @@ export function useMapLibre(o) {
       coordIndex.current.get(
         coordKey((getFeature(f.properties.establishment_id) ?? f).geometry.coordinates),
       );
+    // Every place the pointer reaches at a pin: those at exactly its spot (lib/dedupe.js
+    // draws one pin for them) and those at the other pins under the same screen point.
+    // Hover and click both count with this, so the "N locations here" badge never
+    // appears only on the click.
+    const placesUnder = (feature, group) => {
+      const byEid = new Map();
+      for (const g of group.length ? group : [feature]) {
+        for (const f of placesAt(g) || [g]) {
+          const eid = f.properties?.establishment_id;
+          if (eid && !byEid.has(eid)) byEid.set(eid, f);
+        }
+      }
+      return byEid.size ? [...byEid.values()] : [feature];
+    };
     // In a "1 of 3" popup, start on the place matching the search, if any.
     const startIndex = (features) => {
       const term = latest.current.searchTerm.trim().toLowerCase();
@@ -148,23 +162,9 @@ export function useMapLibre(o) {
       const { feature, group } = pinsAt(e.point);
       if (!feature) return;
 
-      // Several places at exactly this spot (lib/dedupe.js draws one pin for them).
-      const sameSpot = placesAt(feature) || [];
-      if (sameSpot.length > 1) {
-        const sorted = sameSpot.slice().sort(worstFirst);
-        popups.showGroup(sorted, startIndex(sorted));
-        return;
-      }
-      // Different spots under one screen point: gather everything at each of them.
-      if (group.length > 1) {
-        const byEid = new Map();
-        for (const g of group) {
-          for (const f of placesAt(g) || [g]) {
-            const eid = f.properties?.establishment_id;
-            if (eid && !byEid.has(eid)) byEid.set(eid, f);
-          }
-        }
-        const sorted = (byEid.size ? [...byEid.values()] : group).slice().sort(worstFirst);
+      const places = placesUnder(feature, group);
+      if (places.length > 1) {
+        const sorted = places.slice().sort(worstFirst);
         popups.showGroup(sorted, startIndex(sorted));
         return;
       }
@@ -183,7 +183,7 @@ export function useMapLibre(o) {
       const layers = CLICKABLE_LAYERS;
       map.on("mousemove", layers, (e) => {
         const { feature, group } = pinsAt(e.point);
-        if (feature) popups.pointerOver(feature, group.length || 1);
+        if (feature) popups.pointerOver(feature, placesUnder(feature, group).length);
       });
       map.on("mousedown", layers, () => (pressOnPin = true));
       map.on("click", layers, onPinClick);
