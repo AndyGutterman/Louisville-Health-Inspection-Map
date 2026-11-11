@@ -29,6 +29,7 @@ import { useDrawer } from "./features/map/useDrawer.js";
 import { useWatchlist } from "./features/map/useWatchlist.js";
 import { useMapLibre } from "./features/map/useMapLibre.js";
 import { useWatchAreaLayer } from "./features/map/useWatchAreaLayer.js";
+import PinsLoading from "./PinsLoading.jsx";
 
 // YYYY-MM-DD `days` ago, or null for "All time".
 function cutoffFor(dateFilterKey) {
@@ -131,7 +132,7 @@ export default function Map({ onMapReady }) {
   };
 
   // ── Data and the map ─────────────────────────────────────────────────────────
-  const { geoData, getFeature, similarEids, coordIndex } = useMapFeatures();
+  const { geoData, status: pinStatus, getFeature, similarEids, coordIndex } = useMapFeatures();
   const drawer = useDrawer(getFeature);
   const watchlist = useWatchlist({
     user,
@@ -150,8 +151,13 @@ export default function Map({ onMapReady }) {
     onToggleSaved: watchlist.toggleSaved,
     onOpenDrawer: drawer.open,
     onBackgroundClick: drawer.close,
-    onReady: onMapReady,
   });
+  // The splash lifts once the map is drawn and Louisville's first pins are on it (or the
+  // load has ended); the rest keep arriving behind the corner indicator.
+  const firstPins = pinStatus.jeffersonRows > 0 || !pinStatus.loading;
+  useEffect(() => {
+    if (map.mapReady && firstPins) onMapReady?.();
+  }, [map.mapReady, firstPins, onMapReady]);
   useWatchAreaLayer({
     mapRef: map.mapRef,
     mapReady: map.mapReady,
@@ -319,6 +325,7 @@ export default function Map({ onMapReady }) {
 
       {page === "map" && !accountFullscreen && (
         <>
+          <PinsLoading status={pinStatus} />
           <FilterSearch
             showRedPins={showRedPins}
             setShowRedPins={setShowRedPins}

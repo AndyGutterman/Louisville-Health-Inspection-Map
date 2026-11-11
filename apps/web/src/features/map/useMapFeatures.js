@@ -1,8 +1,10 @@
 // Loads every establishment as a map pin, from a session cache when it's fresh. Every
-// county's pins share one list and show together. The four reads run side by side and
-// the result is cached for the session (lib/constants.js GEO_CACHE_TTL), so a visitor
-// costs the database one load per session.
-//   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js)
+// county's pins share one list and show together. The four reads run side by side, pins
+// appear as pages arrive, and the finished list is cached for the session
+// (lib/constants.js GEO_CACHE_TTL), so a visitor costs the database one load per session.
+//   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js); grows
+//               while loading
+//   status      { loading, failed, places, jeffersonRows } for the loading indicator
 //   getFeature  establishment id -> its feature, over the FULL list, including places
 //               that share a pin with another place
 //   coordIndex  location key -> every feature at that spot (for the "1 of 3" popup)
@@ -37,35 +39,81 @@ function writeCache(features) {
   }
 }
 
-async function loadFeatures() {
-  const [rows, meta, flags, bullitt] = await Promise.all([
-    fetchMapFeed(),
-    fetchFacilityMeta(),
-    fetchViolationFlags(),
-    fetchBullittFeed(), // [] when the database has no Bullitt data
+// How often, at most, the pins are redrawn while data is still arriving.
+const REDRAW_MS = 250;
+
+/**
+ * Reads the four sources side by side and calls show(features) as they come in: first
+ * with whatever has arrived (each page of the Louisville feed, Bullitt, then the facility
+ * types and violation rings that refine Louisville's pins), finally with everything.
+ * Resolves to { features, jeffersonRows, ok }; ok is false if the Louisville feed failed
+ * part-way (whatever loaded stays on the map).
+ */
+async function loadFeatures(show) {
+  const parts = { rows: [], meta: new Map(), flags: new Map(), bullitt: [] };
+  const build = () =>
+    combineRegions(
+      buildMapFeatures(parts.rows, parts.meta, parts.flags),
+      buildBullittFeatures(parts.bullitt),
+    );
+  let timer = null;
+  const soon = () => {
+    timer ??= setTimeout(() => {
+      timer = null;
+      show(build(), parts.rows.length);
+    }, REDRAW_MS);
+  };
+  const [rows] = await Promise.all([
+    fetchMapFeed((soFar) => {
+      parts.rows = soFar;
+      soon();
+    }).then((all) => {
+      if (all) parts.rows = all;
+      soon();
+      return all;
+    }),
+    fetchFacilityMeta().then((m) => ((parts.meta = m), soon())),
+    fetchViolationFlags().then((f) => ((parts.flags = f), soon())),
+    fetchBullittFeed().then((b) => ((parts.bullitt = b), soon())), // [] without Bullitt data
   ]);
-  if (!rows) return null;
-  const features = combineRegions(
-    buildMapFeatures(rows, meta, flags),
-    buildBullittFeatures(bullitt),
-  );
-  writeCache(features);
-  return features;
+  clearTimeout(timer);
+  const features = build();
+  if (rows) writeCache(features);
+  return { features, jeffersonRows: parts.rows.length, ok: !!rows };
 }
+
+/** While pins are loading: { loading, failed, places } (places drawn so far). */
+const START = { loading: true, failed: false, places: 0, jeffersonRows: 0 };
 
 export function useMapFeatures() {
   const [geoData, setGeoData] = useState(null);
+  const [status, setStatus] = useState(START);
   const byEid = useRef({});
   const coordIndex = useRef(new Map());
 
   useEffect(() => {
-    (async () => {
-      const features = readCache() ?? (await loadFeatures());
-      if (!features) return;
+    let live = true;
+    const show = (features, jeffersonRows) => {
+      if (!live) return;
       byEid.current = Object.fromEntries(features.map((f) => [f.properties.establishment_id, f]));
       coordIndex.current = buildCoordIndex(features);
       setGeoData({ type: "FeatureCollection", features: deduplicateForRender(features) });
-    })();
+      setStatus((s) => ({ ...s, places: features.length, jeffersonRows }));
+    };
+    const cached = readCache();
+    if (cached) {
+      show(cached, cached.length);
+      setStatus({ loading: false, failed: false, places: cached.length, jeffersonRows: 1 });
+      return;
+    }
+    loadFeatures(show).then(({ features, jeffersonRows, ok }) => {
+      if (!live) return;
+      show(features, jeffersonRows);
+      setStatus({ loading: false, failed: !ok, places: features.length, jeffersonRows });
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   const getFeature = useCallback((eid) => byEid.current[eid], []);
@@ -79,5 +127,5 @@ export function useMapFeatures() {
     [],
   );
 
-  return { geoData, getFeature, similarEids, coordIndex };
+  return { geoData, status, getFeature, similarEids, coordIndex };
 }
