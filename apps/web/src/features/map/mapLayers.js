@@ -23,6 +23,31 @@ export const RING_COLOR = "rgba(249,115,22,0.90)";
 // the two from being read on the same scale.
 export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
 const ringColor = ["match", ["get", "region"], "bullitt", BULLITT_RING_COLOR, RING_COLOR];
+// Bullitt's ring fades with the zoom and with how many violations the place lists, so
+// from afar only the places with a lot stand out, and up close every ring is readable.
+// Louisville's rings always show in full: a ring is rare there and means "any violation".
+// In November 2026, of 240 Bullitt places 132 listed violations: half of those listed 1,
+// a quarter 3 or more, one in ten 4 or more, and the most was 9.
+export const BULLITT_RING_FADE = { zoom: [10, 13], count: [1, 5] };
+const bullittCountWeight = [
+  "interpolate",
+  ["linear"],
+  ["coalesce", ["get", "violation_count"], 1],
+  BULLITT_RING_FADE.count[0],
+  0.3,
+  BULLITT_RING_FADE.count[1],
+  1,
+];
+const forBullitt = (expr) => ["case", ["==", ["get", "region"], "bullitt"], expr, 1];
+const ringOpacity = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  BULLITT_RING_FADE.zoom[0],
+  forBullitt(["*", 0.5, bullittCountWeight]),
+  BULLITT_RING_FADE.zoom[1],
+  forBullitt(["max", 0.7, bullittCountWeight]),
+];
 
 // Circle radius that grows with the zoom level. stops: [[zoom, radius], ...]
 const radiusByZoom = (stops) => ["interpolate", ["linear"], ["zoom"], ...stops.flat()];
@@ -78,6 +103,7 @@ export function addPinLayers(map, geoData, pins) {
         "circle-color": "rgba(0,0,0,0)",
         "circle-stroke-width": strokeWidth,
         "circle-stroke-color": strokeColor,
+        "circle-stroke-opacity": ringOpacity,
       },
     });
   const hasViolations = ["==", ["get", "has_any_violation"], true];
