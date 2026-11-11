@@ -1,4 +1,4 @@
-// Creates the MapLibre map once the pins have loaded, and owns what happens on it:
+// Creates the MapLibre map at once (pins are added as they load), and owns what happens on it:
 // the pin layers and their filters, hovering and clicking pins, closing the drawer on a
 // click outside it, and nudging the map when the pointer rests at a screen edge.
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,11 +14,12 @@ import { createPopups } from "./popups.jsx";
 import { addRegionOutlines } from "./regionOutlines.js";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const NO_PINS = { type: "FeatureCollection", features: [] };
 
 // Panels that work beside the drawer: a click inside one doesn't close it. Any new
 // floating panel or toggle must be added here.
 const KEEP_DRAWER_OPEN =
-  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn";
+  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn, .pins-loading";
 // What's New also keeps the drawer open when a press only starts inside it (a resize).
 const WHATS_NEW = ".wn-panel, .wn-trigger";
 // The pointer resting near these doesn't auto-pan the map.
@@ -29,7 +30,7 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
 /**
  * @param {object} o
  * @param {React.RefObject} o.containerRef  the element the map renders into
- * @param {object|null} o.geoData            pins to draw (useMapFeatures); the map waits for it
+ * @param {object|null} o.geoData            pins to draw (useMapFeatures); redrawn as it grows
  * @param {Function} o.getFeature            establishment id -> feature
  * @param {React.RefObject<Map>} o.coordIndex  location key -> features at that spot
  * @param {object} o.filters                 filter panel state (lib/mapFilters.js)
@@ -39,7 +40,6 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
  * @param {Function} o.onToggleSaved         (eid) save or unsave
  * @param {Function} o.onOpenDrawer          (eid, props) open the info drawer
  * @param {Function} o.onBackgroundClick     a click on empty map or outside the panels
- * @param {Function} o.onReady               the map has loaded (dismisses the splash)
  */
 export function useMapLibre(o) {
   const { containerRef, geoData, getFeature, coordIndex, filters, savedIds } = o;
@@ -50,7 +50,7 @@ export function useMapLibre(o) {
   const latest = useLatest(o);
 
   useEffect(() => {
-    if (!geoData || mapRef.current) return;
+    if (mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASEMAP,
@@ -174,7 +174,7 @@ export function useMapLibre(o) {
     };
 
     map.on("load", () => {
-      addPinLayers(map, geoData, latest.current.filters.pins);
+      addPinLayers(map, latest.current.geoData ?? NO_PINS, latest.current.filters.pins);
       addRegionOutlines(map);
       setMapReady(true);
 
@@ -205,7 +205,6 @@ export function useMapLibre(o) {
       document.addEventListener("click", closeOnOutsideClick, true);
 
       applyFilters(map, latest.current.filters);
-      latest.current.onReady?.();
     });
 
     // So a press that starts in What's New and ends elsewhere (a resize) doesn't count.
@@ -236,7 +235,12 @@ export function useMapLibre(o) {
       map.remove();
       mapRef.current = null;
     };
-  }, [geoData, containerRef, getFeature, coordIndex, latest]);
+  }, [containerRef, getFeature, coordIndex, latest]);
+
+  // Pins arrive in batches while the data loads (useMapFeatures): redraw the source.
+  useEffect(() => {
+    if (mapReady && geoData) mapRef.current?.getSource("facilities")?.setData(geoData);
+  }, [geoData, mapReady]);
 
   // Re-apply the filters whenever the filter panel changes. When the map is busy the change
   // waits for it to go idle, and then applies the filters as they are at that moment: a

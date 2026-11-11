@@ -7,28 +7,34 @@ const PAGE = 1000;
 // Reads every row of a query, a page at a time, stopping at the first short page. (No
 // separate count request: an exact count runs the whole view or table one more time.)
 // page(from, to) returns a Supabase query. Resolves to the rows, or throws the error.
-export async function readAllPages(page, pageSize = PAGE) {
+// onPage(rowsSoFar), optional, runs after each page, so pins can show as they arrive.
+export async function readAllPages(page, pageSize = PAGE, onPage) {
   let rows = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await page(from, from + pageSize - 1);
     if (error) throw error;
     rows = rows.concat(data || []);
     if (!data || data.length < pageSize) return rows;
+    onPage?.(rows);
   }
 }
 
 // Every row of v_facility_map_feed (one per place with coordinates: name, address,
 // latest score). Returns null if a request fails, so the caller can stop.
-export async function fetchMapFeed() {
+// onPage(rowsSoFar) runs after each full page (see readAllPages).
+export async function fetchMapFeed(onPage) {
   try {
-    return await readAllPages((from, to) =>
-      supabase
-        .from("v_facility_map_feed")
-        .select(
-          "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
-        )
-        .order("establishment_id")
-        .range(from, to),
+    return await readAllPages(
+      (from, to) =>
+        supabase
+          .from("v_facility_map_feed")
+          .select(
+            "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
+          )
+          .order("establishment_id")
+          .range(from, to),
+      undefined,
+      onPage,
     );
   } catch (e) {
     console.error(e);
