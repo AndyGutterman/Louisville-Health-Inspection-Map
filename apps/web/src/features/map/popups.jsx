@@ -14,8 +14,6 @@ const POPUP_OPTIONS = {
   closeOnMove: false,
   closeOnClick: false,
 };
-const SAVED_COLOR = "#6fcf8a";
-const UNSAVED_COLOR = "rgba(255,255,255,0.50)";
 
 // Names and addresses come from the city's data, so escape them before using them as HTML.
 const esc = (s) =>
@@ -31,16 +29,22 @@ const dateText = (p) =>
   (p.date_text ?? formatDateSafe(p.date)) + (p.date_estimated ? " (estimated)" : "");
 const canSave = (p) => regionById(p.region).has.saving;
 
+const saveLabel = (saved) => (saved ? "Remove from watchlist" : "Save to watchlist");
+
+// Styled in styles/Map.css (.popup-pin-btn): a finger-sized tap target around the icon,
+// and no focus ring left on it after a tap.
 function saveButtonHTML(eid, saved) {
+  const label = saveLabel(saved);
   return `<button
-    class="popup-pin-btn"
+    type="button"
+    class="popup-pin-btn${saved ? " is-saved" : ""}"
     data-eid="${esc(eid)}"
-    title="${saved ? "Remove from watchlist" : "Save to watchlist"}"
-    style="background:none;border:none;cursor:pointer;padding:0;line-height:0;
-      color:${saved ? SAVED_COLOR : UNSAVED_COLOR};vertical-align:middle;flex-shrink:0;"
-  ><svg width="13" height="13" viewBox="0 0 24 24"
+    title="${label}"
+    aria-label="${label}"
+    aria-pressed="${saved}"
+  ><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
       fill="${saved ? "currentColor" : "none"}"
-      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
   </svg></button>`;
 }
@@ -81,8 +85,11 @@ function rowPopupHTML(p) {
 }
 
 function paintSaveButton(btn, saved) {
-  btn.style.color = saved ? SAVED_COLOR : UNSAVED_COLOR;
-  btn.title = saved ? "Remove from watchlist" : "Save to watchlist";
+  const label = saveLabel(saved);
+  btn.classList.toggle("is-saved", saved);
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-pressed", String(saved));
   btn.querySelector("svg")?.setAttribute("fill", saved ? "currentColor" : "none");
 }
 
@@ -136,8 +143,6 @@ export function createPopups({
         ev.stopPropagation();
         onToggleSaved(btn.dataset.eid);
       };
-      btn.onmouseenter = () => (btn.style.opacity = "1");
-      btn.onmouseleave = () => (btn.style.opacity = "");
     }
 
     const content = root?.querySelector(".popup-content");
