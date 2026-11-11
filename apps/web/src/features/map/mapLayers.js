@@ -22,7 +22,14 @@ export const RING_COLOR = "rgba(249,115,22,0.90)";
 // far more common than Louisville's and mean less (docs/BULLITT.md). A cooler colour keeps
 // the two from being read on the same scale.
 export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
-const ringColor = ["match", ["get", "region"], "bullitt", BULLITT_RING_COLOR, RING_COLOR];
+// Nearly every Bullitt place has a ring, so a halo around each pin piled up over its towns.
+// Bullitt's ring is the pin's own outline instead: it stacks like a pin, and the halo layer
+// draws it transparent. Louisville keeps the halo, where a ring is rare and worth the room.
+const isBullitt = ["==", ["get", "region"], "bullitt"];
+const hasViolations = ["==", ["get", "has_any_violation"], true];
+const ringColor = ["match", ["get", "region"], "bullitt", "rgba(0,0,0,0)", RING_COLOR];
+const PIN_EDGE = "rgba(0,0,0,0.4)";
+const pinEdge = ["case", ["all", isBullitt, hasViolations], BULLITT_RING_COLOR, PIN_EDGE];
 
 // Circle radius that grows with the zoom level. stops: [[zoom, radius], ...]
 const radiusByZoom = (stops) => ["interpolate", ["linear"], ["zoom"], ...stops.flat()];
@@ -49,7 +56,7 @@ export function addPinLayers(map, geoData, pins) {
         "circle-radius": pinRadius,
         "circle-opacity": 0.9,
         "circle-stroke-width": 2,
-        "circle-stroke-color": "rgba(0,0,0,0.4)",
+        "circle-stroke-color": pinEdge,
         "circle-blur": 0.25,
         "circle-color": PIN_COLORS[key] ?? PIN_COLORS.green,
       },
@@ -80,7 +87,6 @@ export function addPinLayers(map, geoData, pins) {
         "circle-stroke-color": strokeColor,
       },
     });
-  const hasViolations = ["==", ["get", "has_any_violation"], true];
   ring(RING_LAYER, hasViolations, 2.5, ringColor);
 
   // Invisible (opacity 0, but still found by MapLibre's hit testing), drawn under the pins.
