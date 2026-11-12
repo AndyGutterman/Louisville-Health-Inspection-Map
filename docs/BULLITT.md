@@ -1,9 +1,12 @@
 # Bullitt County (MVP)
 
 > Kentucky's statewide portal has Bullitt too, **with inspection dates** (`docs/COUNTIES.md`).
-> The plan is to read Bullitt from it too, after Oldham. The sheet import below stays either
-> way: it is the fallback if the portal goes away (`docs/COUNTIES.md`, "If the portal goes
-> away").
+> Since November 2026 the site shows Bullitt's results from the portal, dated, whenever
+> the portal has answered in the last 3 days, and from the sheet below otherwise. The
+> `bullitt_results` view picks (migration `20261120000000`); every Bullitt reader uses
+> it. The sheet import keeps running as the fallback (`docs/COUNTIES.md`, "If the portal
+> goes away"). Everything below about undated results and estimates applies when the
+> sheet is the source.
 
 Status: working MVP on the `feat/bullitt-county` branch, not merged. Its job is to show
 what Bullitt's data can and can't do, so the design decisions below can be made with
@@ -98,7 +101,7 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
   runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
 - **Website:** both counties' pins show together (the County picker is gone). The date
-  filter lets Bullitt's undated pins through, and they show only while every category is
+  filter lets Bullitt's undated pins through (a dated one is filtered like any other), and they show only while every category is
   on, since they have no facility types (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
   and Table View cover Bullitt once `supabase/migrations/20261111000000_both_counties.sql`
   has run. What's New covers Bullitt once `20261111010000_whats_new_both_counties.sql` has

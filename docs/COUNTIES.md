@@ -143,9 +143,10 @@ that:
 - **A broken read writes nothing.** The parser stops on a changed table, columns or row
   count, and a county that shrinks to under half is refused, so the last good load stays
   on the site. The workflow goes red and GitHub emails the owner.
-- **The site can tell.** `portal_regions.last_checked_at` is the last time the portal
-  answered for a county. The site step will use it to fall back: Bullitt to its sheet
-  data, Oldham to its last load with an "updated <date>" note.
+- **The site falls back by itself.** `portal_regions.last_checked_at` is the last time
+  the portal answered for a county. Bullitt's results switch to the sheet once that is
+  more than 3 days old (`bullitt_results`) and back when the portal answers again; Oldham
+  will keep its last load, with an "updated <date>" note.
 - **Loading without the portal.** `--from=<file>` loads a page saved earlier (each run
   keeps its page for 30 days as a workflow artifact), with no portal request.
 - **Turning it off:** disable `portal-ingest.yml` in GitHub (Actions, the workflow, "...",
@@ -155,8 +156,11 @@ that:
 
 1. ~~**Store Oldham**~~: done (tables, daily job, geocoding).
 2. **Show Oldham** on the map, drawer, What's New, Table View, saved places and the digest.
-3. **Read Bullitt from the portal too**: real dates instead of "Date not published" and
-   "posted <date>". The sheet import keeps running as the fallback, and the site uses
-   whichever is fresher.
+3. ~~**Read Bullitt from the portal too**~~: done. `bullitt_results` (migration
+   `20261120000000`) serves the portal's dated results while `portal_regions` says the
+   portal answered for Bullitt in the last 3 days, and the sheet's otherwise. Places, pins
+   and saved places stay on `bullitt_establishments`; ids are the same in both sources.
+   When the portal becomes the source, a place's drawer history starts from the portal's
+   first load (the sheet's older undated versions aren't merged in).
 4. Later: more counties (a line in `counties.js`, an outline, a geocoding run), and
    Jefferson's marked items for inspections that passed, which ArcGIS doesn't publish.
