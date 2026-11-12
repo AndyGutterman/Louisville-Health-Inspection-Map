@@ -59,7 +59,7 @@
   position: fixed;
   bottom: 84px;
   left: 16px;
-  width: var(--wn-w, 320px);
+  width: var(--wn-w, 360px);
   background: rgba(18, 18, 22, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
@@ -77,10 +77,10 @@
   transform-origin: bottom left;
   animation: wn-open 0.18s cubic-bezier(0.2, 0.8, 0.4, 1);
 }
-/* ── Two-column wide mode ── */
+/* ── Wide mode: one column per tab ── */
 .wn-dual {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr); /* one per WHATS_NEW_TABS entry */
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -103,7 +103,10 @@
   text-transform: uppercase;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
-.wn-col-hd.violations {
+.wn-col-hd.latest {
+  color: #f0f0f3;
+}
+.wn-col-hd.issues {
   color: #f97316;
 }
 .wn-col-hd.perfect {
@@ -132,8 +135,9 @@
   margin-right: 2px;
 }
 .wn-tab {
-  flex: 1;
-  padding: 5px 8px;
+  flex: 1 1 auto;
+  padding: 5px 6px;
+  white-space: nowrap;
   border: none;
   border-radius: 7px;
   background: transparent;
@@ -150,6 +154,10 @@
 .wn-tab:hover {
   color: rgba(255, 255, 255, 0.58);
   background: rgba(255, 255, 255, 0.04);
+}
+.wn-tab.active-latest {
+  color: #f0f0f3;
+  background: rgba(255, 255, 255, 0.1);
 }
 .wn-tab.active-issues {
   color: #f97316;

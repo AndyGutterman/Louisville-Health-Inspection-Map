@@ -360,3 +360,11 @@ export const TABLES = {
     },
   ],
 };
+
+// The Latest tab: the same rows as get_whats_new, newest first (undated Bullitt rows by the
+// day they were posted), like the SQL.
+const rowDate = (r) => r.inspection_date ?? r.posted_date ?? "";
+TABLES["rpc/get_latest_inspections"] = [...TABLES["rpc/get_whats_new"]].sort(
+  (a, b) => rowDate(b).localeCompare(rowDate(a)) || a.premise_name.localeCompare(b.premise_name),
+);
+export const NEWEST_EID = TABLES["rpc/get_latest_inspections"][0].establishment_id;

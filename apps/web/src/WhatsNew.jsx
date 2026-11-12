@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { whatsNewDate } from "./lib/whatsNew.js";
+import { WHATS_NEW_TABS, scoreBadge, swipeTab, whatsNewDate } from "./lib/whatsNew.js";
 import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
@@ -58,6 +58,14 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
   );
 }
 
+// Three columns side by side once the panel is dragged this wide (desktop only).
+const WIDE_THRESHOLD = 720;
+const DEFAULT_W = 360; // room for three tab labels on one line
+const MIN_W = 340;
+const MAX_W = 960;
+const PREVIEW_ROWS = 5; // a tab shows this many until "Show all"
+const COL_ICON = { issues: "⚠ ", perfect: "✓ " };
+
 export default function WhatsNew({
   supabase,
   onOpenEstablishment,
@@ -67,48 +75,33 @@ export default function WhatsNew({
   onClose,
   onOpen,
 }) {
-  const [tab, setTab] = useState("issues"); // "issues" | "perfect"
-  const [issues, setIssues] = useState([]);
-  const [perfect, setPerfect] = useState([]);
-  const [issuesLoading, setIssuesLoading] = useState(false);
-  const [perfectLoading, setPerfectLoading] = useState(false);
-  const [issuesError, setIssuesError] = useState(null);
+  const [tab, setTab] = useState(WHATS_NEW_TABS[0].id);
+  const [lists, setLists] = useState({}); // tab id -> { rows, loading, error }
   const [showAll, setShowAll] = useState(false);
-  const [panelW, setPanelW] = useState(320);
+  const [panelW, setPanelW] = useState(DEFAULT_W);
   const dragRef = useRef({ on: false });
   const touchRef = useRef({ x: 0 });
-  const loadedRef = useRef({ issues: false, perfect: false });
+  const requestedRef = useRef(new Set()); // tabs already asked for, so each loads once
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 600;
-
-  // Load issues tab data
-  useEffect(() => {
-    if (!open || !supabase || loadedRef.current.issues) return;
-    loadedRef.current.issues = true;
-    setIssuesLoading(true);
-    supabase.rpc("get_whats_new", { limit_n: 20 }).then(({ data, error }) => {
-      if (error) {
-        setIssuesError(error.message);
-      } else setIssues(data || []);
-      setIssuesLoading(false);
-    });
-  }, [open, supabase]);
-
-  const WIDE_THRESHOLD = 520;
   const isWide = !isMobile && panelW >= WIDE_THRESHOLD;
 
-  // Load perfect-100s on demand — no date cap, always shows the latest 100s
-  // Also triggers when entering wide mode (both columns shown simultaneously)
+  // Each tab's rows load the first time it's shown; wide mode shows (and loads) them all.
   useEffect(() => {
-    if (!open || (!isWide && tab !== "perfect") || !supabase || loadedRef.current.perfect) return;
-    loadedRef.current.perfect = true;
-    setPerfectLoading(true);
-    // Both counties' latest 100s (get_top_scores).
-    supabase.rpc("get_top_scores", { limit_n: 20 }).then(({ data }) => {
-      setPerfect(data || []);
-      setPerfectLoading(false);
-    });
-  }, [open, tab, supabase, isWide]);
+    if (!open || !supabase) return;
+    const wanted = isWide ? WHATS_NEW_TABS : WHATS_NEW_TABS.filter((t) => t.id === tab);
+    for (const t of wanted) {
+      if (requestedRef.current.has(t.id)) continue;
+      requestedRef.current.add(t.id);
+      setLists((l) => ({ ...l, [t.id]: { rows: [], loading: true, error: null } }));
+      supabase.rpc(t.rpc, { limit_n: 20 }).then(({ data, error }) => {
+        setLists((l) => ({
+          ...l,
+          [t.id]: { rows: data || [], loading: false, error: error?.message ?? null },
+        }));
+      });
+    }
+  }, [open, supabase, tab, isWide]);
 
   // Resize handle
   const onResizeDown = useCallback(
@@ -122,11 +115,19 @@ export default function WhatsNew({
 
   const onResizeMove = useCallback((e) => {
     if (!dragRef.current.on) return;
-    setPanelW(Math.max(260, Math.min(700, dragRef.current.w0 + (e.clientX - dragRef.current.x0))));
+    const max = Math.min(MAX_W, window.innerWidth - 32);
+    setPanelW(
+      Math.max(MIN_W, Math.min(max, dragRef.current.w0 + (e.clientX - dragRef.current.x0))),
+    );
   }, []);
   const onResizeUp = useCallback(() => {
     dragRef.current.on = false;
   }, []);
+
+  const switchTab = (t) => {
+    setTab(t);
+    setShowAll(false);
+  };
 
   // Swipe to change tabs
   const onTouchStart = (e) => {
@@ -135,13 +136,7 @@ export default function WhatsNew({
   const onTouchEnd = (e) => {
     const dx = e.changedTouches[0].clientX - touchRef.current.x;
     if (Math.abs(dx) < 60) return;
-    setTab(dx < 0 ? "perfect" : "issues");
-    setShowAll(false);
-  };
-
-  const switchTab = (t) => {
-    setTab(t);
-    setShowAll(false);
+    switchTab(swipeTab(tab, dx));
   };
 
   // Collapsed state — just the trigger button
@@ -155,68 +150,27 @@ export default function WhatsNew({
     );
   }
 
-  // Render the active tab list
-  const renderList = () => {
-    if (tab === "issues") {
-      if (issuesLoading) return <div className="wn-loading">Loading…</div>;
-      if (issuesError)
-        return (
-          <div className="wn-error">
-            Could not load.
-            <br />
-            <span style={{ fontSize: ".68rem", opacity: 0.7 }}>
-              Run the get_whats_new migration in Supabase.
-            </span>
-          </div>
-        );
-      if (!issues.length)
-        return <div className="wn-empty">No flagged inspections in the last 30 days.</div>;
-      const visible = showAll ? issues : issues.slice(0, 5);
-      return (
-        <>
-          {visible.map((item, i) => {
-            const s = item.score;
-            const bc = s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
-            return (
-              <ScoreCard
-                key={`${item.establishment_id}-${i}`}
-                item={item}
-                score={s}
-                badgeClass={bc}
-                onOpen={onOpenEstablishment}
-                onHover={onHoverEstablishment}
-                onHoverEnd={onHoverEstablishmentEnd}
-              />
-            );
-          })}
-        </>
-      );
-    }
-
-    // Perfect 100s tab
-    if (perfectLoading) return <div className="wn-loading">Loading…</div>;
-    if (!perfect.length)
-      return <div className="wn-empty">No perfect scores in the last 60 days.</div>;
-    const visible = showAll ? perfect : perfect.slice(0, 5);
-    return (
-      <>
-        {visible.map((item, i) => (
-          <ScoreCard
-            key={`${item.establishment_id}-${i}`}
-            item={item}
-            score={item.score}
-            badgeClass="perfect"
-            onOpen={onOpenEstablishment}
-            onHover={onHoverEstablishment}
-            onHoverEnd={onHoverEstablishmentEnd}
-          />
-        ))}
-      </>
-    );
+  // One tab's rows (all of them, or the first `limit`), or its loading/empty/error line.
+  const renderRows = (t, limit) => {
+    const list = lists[t.id];
+    if (!list || list.loading) return <div className="wn-loading">Loading…</div>;
+    if (list.error) return <div className="wn-error">Could not load.</div>;
+    if (!list.rows.length) return <div className="wn-empty">{t.empty}</div>;
+    return (limit ? list.rows.slice(0, limit) : list.rows).map((item, i) => (
+      <ScoreCard
+        key={`${item.establishment_id}-${i}`}
+        item={item}
+        score={item.score}
+        badgeClass={scoreBadge(item.score, t.id)}
+        onOpen={onOpenEstablishment}
+        onHover={onHoverEstablishment}
+        onHoverEnd={onHoverEstablishmentEnd}
+      />
+    ));
   };
 
-  const activeList = tab === "issues" ? issues : perfect;
-  const activeLoading = tab === "issues" ? issuesLoading : perfectLoading;
+  const active = WHATS_NEW_TABS.find((t) => t.id === tab);
+  const activeList = lists[tab];
 
   return (
     <>
@@ -232,95 +186,50 @@ export default function WhatsNew({
           <div className="wn-resize-r" aria-hidden="true" onPointerDown={onResizeDown} />
         )}
 
-        {/* Single-row header: flame | tab | tab | close */}
+        {/* Single-row header: flame | tabs | close */}
         <div className="wn-header">
           <FlameIcon className="wn-header-flame" />
-          <button
-            className={`wn-tab${tab === "issues" ? " active-issues" : ""}`}
-            onClick={() => switchTab("issues")}
-          >
-            Violations
-          </button>
-          <button
-            className={`wn-tab${tab === "perfect" ? " active-perfect" : ""}`}
-            onClick={() => switchTab("perfect")}
-          >
-            Top Scores
-          </button>
+          {WHATS_NEW_TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`wn-tab${tab === t.id ? ` active-${t.id}` : ""}`}
+              aria-pressed={tab === t.id}
+              onClick={() => switchTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
           <button className="wn-close" onClick={onClose} aria-label="Close What's New">
             ×
           </button>
         </div>
-        {/* no wn-tab-bar needed — pills don't use underline */}
 
         {isWide ? (
-          /* ── Two-column layout ── */
+          /* ── Every tab side by side ── */
           <div className="wn-dual">
-            <div className="wn-col">
-              <div className="wn-col-hd violations">⚠ Violations</div>
-              <div className="wn-col-body">
-                {issuesLoading ? (
-                  <div className="wn-loading">Loading…</div>
-                ) : issuesError ? (
-                  <div className="wn-error">Run get_whats_new migration first.</div>
-                ) : issues.length === 0 ? (
-                  <div className="wn-empty">No flagged inspections in last 30 days.</div>
-                ) : (
-                  issues.map((item, i) => {
-                    const s = item.score;
-                    const bc =
-                      s == null || s === 0 ? "na" : s < 85 ? "bad" : s < 95 ? "warn" : "ok";
-                    return (
-                      <ScoreCard
-                        key={`${item.establishment_id}-${i}`}
-                        item={item}
-                        score={s}
-                        badgeClass={bc}
-                        onOpen={onOpenEstablishment}
-                        onHover={onHoverEstablishment}
-                        onHoverEnd={onHoverEstablishmentEnd}
-                      />
-                    );
-                  })
-                )}
+            {WHATS_NEW_TABS.map((t) => (
+              <div className="wn-col" key={t.id}>
+                <div className={`wn-col-hd ${t.id}`}>
+                  {COL_ICON[t.id] ?? ""}
+                  {t.label}
+                </div>
+                <div className="wn-col-body">{renderRows(t)}</div>
               </div>
-            </div>
-            <div className="wn-col">
-              <div className="wn-col-hd perfect">✓ Top Scores</div>
-              <div className="wn-col-body">
-                {perfectLoading ? (
-                  <div className="wn-loading">Loading…</div>
-                ) : perfect.length === 0 ? (
-                  <div className="wn-empty">No perfect scores found.</div>
-                ) : (
-                  perfect.map((item, i) => (
-                    <ScoreCard
-                      key={`${item.establishment_id}-${i}`}
-                      item={item}
-                      score={item.score}
-                      badgeClass="perfect"
-                      onOpen={onOpenEstablishment}
-                      onHover={onHoverEstablishment}
-                      onHoverEnd={onHoverEstablishmentEnd}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
+            ))}
           </div>
         ) : (
-          /* ── Single-column tab layout ── */
+          /* ── One tab at a time ── */
           <>
             <div
               className="wn-body"
               onTouchStart={isMobile ? onTouchStart : undefined}
               onTouchEnd={isMobile ? onTouchEnd : undefined}
             >
-              {renderList()}
+              {renderRows(active, showAll ? 0 : PREVIEW_ROWS)}
             </div>
-            {!activeLoading && activeList.length > 5 && (
+            {activeList && !activeList.loading && activeList.rows.length > PREVIEW_ROWS && (
               <button className="wn-more" onClick={() => setShowAll((v) => !v)}>
-                {showAll ? "Show fewer" : `Show all ${activeList.length}`}
+                {showAll ? "Show fewer" : `Show all ${activeList.rows.length}`}
               </button>
             )}
           </>

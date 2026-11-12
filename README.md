@@ -16,7 +16,7 @@ An interactive map of health inspection scores for restaurants and other food se
 
 - **Browse the map.** Pins are colored by score band (red, yellow, green, or N/A). Pick a preset or drag the sliders to set where the bands start, filter by facility category, limit by how recent the inspection is, and search by name or address.
 - **Open any place** to see its latest score, grade and date, its full inspection history, and the violations from each visit with the inspector's comments.
-- **See what's new.** A panel lists recent inspections, failing ones first, plus the latest perfect scores.
+- **See what's new.** A panel lists the latest inspections, the same ones failing first, and the latest perfect scores.
 - **Use the table view** for a sortable, filterable list with paging.
 - **Save places and watch areas.** Sign in with a one-time email code to bookmark restaurants, or to watch a radius (1, 3, 5 or 10 miles) around an address and see the places inside it, sorted with the ones that need attention first.
 - **Spot duplicate listings.** When the city re-files a permit under a slightly different name at the same spot, the records are linked ("may also be listed as") instead of being merged or hidden.
