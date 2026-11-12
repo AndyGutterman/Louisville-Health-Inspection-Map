@@ -1,7 +1,7 @@
-// Loads every establishment as a map pin, from a session cache when it's fresh. Every
+// Loads every establishment as a map pin, from the browser's cache when it's fresh. Every
 // county's pins share one list and show together. The four reads run side by side, pins
-// appear as pages arrive, and the finished list is cached for the session
-// (lib/constants.js GEO_CACHE_TTL), so a visitor costs the database one load per session.
+// appear as pages arrive, and a complete list is kept in localStorage for 6 hours
+// (lib/mapCache.js, GEO_CACHE_TTL), so a visitor costs the database one load per 6 hours.
 //   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js); grows
 //               while loading
 //   status      { loading, failed, places, jeffersonRows } for the loading indicator
@@ -16,27 +16,20 @@ import { buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildCoordIndex, deduplicateForRender } from "../../lib/dedupe.js";
 import { GEO_CACHE_KEY, GEO_CACHE_TTL } from "../../lib/constants.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
+import { readMapCache, writeMapCache } from "../../lib/mapCache.js";
+
+// window.localStorage itself can throw (blocked site data), so ask for it carefully.
+function browserStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 function readCache() {
   if (new URLSearchParams(window.location.search).has("bust")) return null; // dev escape hatch
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(GEO_CACHE_KEY));
-    if (cached?.ts && Date.now() - cached.ts < GEO_CACHE_TTL && cached.data) {
-      return cached.data.features;
-    }
-  } catch {
-    /* unreadable cache: fetch instead */
-  }
-  return null;
-}
-
-function writeCache(features) {
-  try {
-    const data = { type: "FeatureCollection", features };
-    sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
-  } catch {
-    /* storage full: skip the cache */
-  }
+  return readMapCache(browserStorage(), { key: GEO_CACHE_KEY, ttl: GEO_CACHE_TTL });
 }
 
 // How often, at most, the pins are redrawn while data is still arriving.
@@ -78,7 +71,11 @@ async function loadFeatures(show) {
   ]);
   clearTimeout(timer);
   const features = build();
-  if (rows) writeCache(features);
+  // Only a complete load is kept: if the types or rings failed (their reads come back
+  // empty), the next visit tries again instead of showing plain pins for 6 hours.
+  if (rows && parts.meta.size && parts.flags.size) {
+    writeMapCache(browserStorage(), features, { key: GEO_CACHE_KEY });
+  }
   return { features, jeffersonRows: parts.rows.length, ok: !!rows };
 }
 

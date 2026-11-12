@@ -19,6 +19,6 @@ export const DATE_FILTER_OPTS = [
   { key: "all", label: "All time", days: null },
 ];
 
-// Map data is cached in localStorage. Change the key to force everyone to reload.
+// Map data is cached in localStorage (lib/mapCache.js). Change the key to force everyone to reload.
 export const GEO_CACHE_KEY = "lfs_geodata_v6"; // bumped: Bullitt rings follow the follow-up
 export const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours

@@ -32,7 +32,7 @@ export async function openApp(page, { path = "/", holds, failOnce } = {}) {
   });
   await page.goto(path);
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
-  return { consoleErrors, unmocked: mock.unmocked };
+  return { consoleErrors, unmocked: mock.unmocked, requested: mock.requested };
 }
 
 export async function openWhatsNew(page) {

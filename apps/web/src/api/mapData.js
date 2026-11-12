@@ -10,12 +10,13 @@ const PAGE = 1000;
 // page(from, to) returns a Supabase query. Resolves to the rows, or throws the error.
 // onPage(rowsSoFar), optional, runs after each page, so pins can show as they arrive.
 // Each page gets a time limit and two more tries (lib/retry.js): on a phone a request
-// can go unanswered, and the map would otherwise say "Loading places…" forever.
+// can go unanswered, and the map would otherwise say "Loading places…" forever. A try
+// that runs out of time is cancelled, so the same page is never downloaded twice at once.
 export async function readAllPages(page, pageSize = PAGE, onPage) {
   let rows = [];
   for (let from = 0; ; from += pageSize) {
-    const data = await retry(async () => {
-      const { data, error } = await page(from, from + pageSize - 1);
+    const data = await retry(async (signal) => {
+      const { data, error } = await page(from, from + pageSize - 1).abortSignal(signal);
       if (error) throw error;
       return data;
     });
