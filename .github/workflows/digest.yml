@@ -29,8 +29,11 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      # The digest can send from its own account (DIGEST_SMTP_USERNAME + DIGEST_SMTP_PASSWORD,
+      # both or neither); without them it uses the backup job's SMTP login. Gmail rewrites the
+      # From line to the logged-in account, so the login decides the sender.
+      SMTP_USERNAME: ${{ secrets.DIGEST_SMTP_PASSWORD && secrets.DIGEST_SMTP_USERNAME || secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.DIGEST_SMTP_USERNAME && secrets.DIGEST_SMTP_PASSWORD || secrets.SMTP_PASSWORD }}
       DIGEST_FROM: ${{ secrets.DIGEST_FROM }}
     defaults:
       run:
