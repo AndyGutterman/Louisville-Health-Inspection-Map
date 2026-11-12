@@ -1,11 +1,11 @@
 /**
- * regions/bullitt/overrides.js — pins placed by hand (overrides.json) for the few
+ * lib/overrides.js — pins placed by hand (a county's overrides.json) for the few
  * addresses no geocoder finds. Pure.
  *
  * Each entry names the geocoding query exactly as the job's "✗ no match" line prints it,
  * so every place at that address (two businesses in one strip mall) gets the pin.
  */
-import { buildQuery, cacheKey } from "../../lib/geocode.js";
+import { buildQuery, cacheKey } from "./geocode.js";
 
 // Roughly Kentucky: catches swapped or mistyped coordinates.
 const LAT = [36.4, 39.2];

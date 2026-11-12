@@ -1,11 +1,11 @@
 /**
- * tests/bullitt_overrides.test.js
+ * tests/overrides.test.js — hand-placed pins (lib/overrides.js), and Bullitt's overrides.json
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { containsPoint } from "../lib/geo.js";
-import { overrideFor, parseLatLon, parseOverrides } from "../regions/bullitt/overrides.js";
+import { overrideFor, parseLatLon, parseOverrides } from "../lib/overrides.js";
 
 const DEFAULTS = { city: "Shepherdsville", state: "KY" };
 
