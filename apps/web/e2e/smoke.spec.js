@@ -48,6 +48,31 @@ test("the map shows while the rest of the data loads, with a corner indicator", 
   expect(consoleErrors, "console errors").toEqual([]);
 });
 
+test("a second visit within 6 hours draws the pins from the browser, not the database", async ({
+  page,
+  context,
+}) => {
+  const pinReads = (requested) =>
+    requested.filter((p) =>
+      [
+        "v_facility_map_feed",
+        "facilities",
+        "rpc/get_violation_flags",
+        "v_bullitt_map_feed",
+      ].includes(p),
+    );
+  const first = await openApp(page);
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0); // complete, so it's kept
+  expect(pinReads(first.requested)).toContain("v_facility_map_feed");
+  await page.close();
+
+  // A new tab, like coming back later: it shares localStorage, not sessionStorage.
+  const again = await context.newPage();
+  const second = await openApp(again);
+  await expect(again.getByTestId("pins-loading")).toHaveCount(0);
+  expect(pinReads(second.requested)).toEqual([]);
+});
+
 test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
   const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_feed"] });
   await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });

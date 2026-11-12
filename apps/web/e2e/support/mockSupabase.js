@@ -7,7 +7,7 @@
 // Content-Range header (what supabase-js reads for { count: "exact" }). Other filters
 // are ignored and return every row. Requests for anything not in TABLES are answered
 // with [] and recorded in `unmocked`, so a test can fail when the app starts calling
-// something new.
+// something new. Every path asked for is recorded in `requested`, in order.
 import { TABLES } from "./fixtures.js";
 
 const ALLOW_HEADERS =
@@ -39,6 +39,7 @@ function applyEqFilters(rows, params) {
 // failOnce: [path] answers the first request for each path with a 503, to test retries.
 export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
   const unmocked = [];
+  const requested = [];
   const toFail = new Set(failOnce);
 
   await page.route(/\/rest\/v1\//, async (route) => {
@@ -52,6 +53,7 @@ export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
     const url = new URL(request.url());
     const path = url.pathname.replace(/^.*\/rest\/v1\//, "");
     const table = TABLES[path];
+    requested.push(path);
     if (!table) unmocked.push(`${request.method()} ${path}`);
 
     if (holds[path]) await holds[path];
@@ -81,5 +83,5 @@ export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
     });
   });
 
-  return { unmocked };
+  return { unmocked, requested };
 }
