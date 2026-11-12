@@ -792,6 +792,23 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* Sign-in form: the weekly digest checkbox */
+.ln-digest-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+.ln-digest-opt input {
+  margin: 2px 0 0;
+  accent-color: #34a853;
+  flex-shrink: 0;
+}
+
 /* Sign-in modal, step 2: the code from the email (LoginModal). */
 .ln-code {
   text-align: center;

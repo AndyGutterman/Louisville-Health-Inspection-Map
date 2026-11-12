@@ -160,12 +160,16 @@ function ComingSoonBadge() {
 
 // Styles scoped to LoginModal — injected here so the modal works whether rendered
 // inside LearnPage OR standalone from the map header (which doesn't load LearnPage).
+// The sign-in form's digest checkbox, kept until the code is verified (lib/digest.js).
+import { rememberDigestOptIn } from "./lib/digest.js";
+
 export function LoginModal({ onClose }) {
   const { user, sendMagicLink, verifyCode, signOut, loading } = useAuth();
   const [authError, setAuthError] = useState(null);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [digest, setDigest] = useState(true); // the weekly email; applied once signed in
   // The code from the email, typed here. A link opened from a phone's mail app signs in
   // the mail app's own browser, not this one; the code signs in wherever it's typed.
   const [code, setCode] = useState("");
@@ -203,7 +207,7 @@ export function LoginModal({ onClose }) {
           </button>
           <div className="ln-modal-title">Sign in</div>
           <div className="ln-modal-sub">
-            Create a free account to save your favorite restaurants and get placard alerts.
+            Create a free account to save your favorite restaurants and get the weekly digest.
           </div>
 
           {loading ? (
@@ -369,6 +373,7 @@ export function LoginModal({ onClose }) {
                   if (error) {
                     setAuthError(error.message || "Couldn't send the code. Try again.");
                   } else {
+                    rememberDigestOptIn(digest);
                     setSent(true);
                   }
                 }}
@@ -405,6 +410,17 @@ export function LoginModal({ onClose }) {
                     e.target.style.borderColor = "rgba(255,255,255,0.14)";
                   }}
                 />
+                <label className="ln-digest-opt">
+                  <input
+                    type="checkbox"
+                    checked={digest}
+                    onChange={(e) => setDigest(e.target.checked)}
+                  />
+                  <span>
+                    Email me the weekly digest: this week&apos;s inspections, the ones that failed.
+                    Tuesdays, unsubscribe anytime.
+                  </span>
+                </label>
                 <button
                   type="submit"
                   disabled={!email.trim() || sending}
