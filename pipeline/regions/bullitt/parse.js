@@ -9,9 +9,20 @@
  * There is no establishment id and no date for the latest inspection, so ids are made
  * from name + address, and history is built by keeping every version of a row we see.
  */
-import { createHash } from "node:crypto";
+import {
+  contentHash,
+  establishmentId as idFor,
+  normalizeCity,
+  parseScore,
+  parseUsDate,
+  squish,
+} from "../../lib/countyRows.js";
 
 export const ID_PREFIX = "bullitt-";
+
+// Shared with the state-portal counties (lib/countyRows.js); re-exported for callers here.
+export { contentHash, normalizeCity, parseScore, parseUsDate };
+export const establishmentId = (name, address) => idFor(name, address, ID_PREFIX);
 
 export const COLUMNS = [
   "Establishment Name",
@@ -57,27 +68,6 @@ export function parseCsv(text) {
   return rows;
 }
 
-const squish = (s) =>
-  String(s ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-// Spellings seen in the sheet -> one name per town (uppercase, like Louisville's data).
-const CITY_ALIASES = {
-  SHEPHERDSVILLE: "SHEPHERDSVILLE",
-  SHEPHERDSVLLE: "SHEPHERDSVILLE",
-  SHEPHERDSVILE: "SHEPHERDSVILLE",
-  "MOUNT WASHINGTON": "MOUNT WASHINGTON",
-  "MT WASHINGTON": "MOUNT WASHINGTON",
-  "LEBANON JCT": "LEBANON JUNCTION",
-  "LEBANON JUNCTION": "LEBANON JUNCTION",
-};
-
-export function normalizeCity(raw) {
-  const city = squish(raw).toUpperCase().replace(/\./g, "");
-  return CITY_ALIASES[city] ?? city;
-}
-
 /**
  * The violations cell as a list of inspection-form items. The cell separates items with
  * "; ", but some form items contain "; " themselves ("Hot and cold water available;
@@ -101,51 +91,6 @@ export function splitViolations(cell) {
     } else items.push(text);
   }
   return items;
-}
-
-// "94" -> 94, "" -> null. Anything else is reported and treated as no score.
-export function parseScore(raw, warn = () => {}) {
-  const s = squish(raw);
-  if (!s) return null;
-  if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
-  warn(`unreadable score "${s}"`);
-  return null;
-}
-
-// "9/14/2026" (or 9/14/26) -> "2026-09-14". Anything else is reported and dropped.
-export function parseUsDate(raw, warn = () => {}) {
-  const s = squish(raw);
-  if (!s) return null;
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
-  if (!m) {
-    warn(`unreadable date "${s}"`);
-    return null;
-  }
-  const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-  const [month, day] = [Number(m[1]), Number(m[2])];
-  const d = new Date(Date.UTC(year, month - 1, day));
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
-    warn(`impossible date "${s}"`);
-    return null;
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-const sha = (s) => createHash("sha256").update(s).digest("hex");
-
-// Stable id from name + address (the sheet has none). Renaming a place gives it a new id.
-export function establishmentId(name, address) {
-  const key = `${squish(name).toUpperCase()}|${squish(address).toUpperCase()}`;
-  return ID_PREFIX + sha(key).slice(0, 12);
-}
-
-// Fingerprint of an inspection's content: a changed score, date or violation list is a
-// new inspection.
-export function contentHash({ kind, inspection_date, score, violations }) {
-  return sha(JSON.stringify([kind, inspection_date ?? null, score ?? null, violations])).slice(
-    0,
-    16,
-  );
 }
 
 function inspection(kind, inspection_date, score, violations) {
