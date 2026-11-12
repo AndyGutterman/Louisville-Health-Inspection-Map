@@ -10,7 +10,7 @@ on:
       county:
         description: "County to load"
         type: choice
-        options: [oldham]
+        options: [oldham, bullitt]
         default: oldham
       redo_geocoding:
         description: "Geocode every place again (not hand-placed pins), ignoring the cache"
@@ -27,12 +27,12 @@ concurrency: portal-ingest
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # the first run geocodes ~320 places, about 1 a second at worst
+    timeout-minutes: 30 # the first run geocodes ~320 places, about 1 a second at worst (Bullitt: from the cache)
     strategy:
       fail-fast: false # one county failing doesn't stop the others
       matrix:
         # The scheduled run loads every county in this list; a manual run, the one picked.
-        county: ${{ inputs.county && fromJSON(format('["{0}"]', inputs.county)) || fromJSON('["oldham"]') }}
+        county: ${{ inputs.county && fromJSON(format('["{0}"]', inputs.county)) || fromJSON('["oldham", "bullitt"]') }}
       max-parallel: 1 # one county at a time: gentle on the portal and the geocoders
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

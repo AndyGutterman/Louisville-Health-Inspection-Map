@@ -9,11 +9,11 @@ shown on the site yet. Oldham County is first. The steps are at the end.
 The rule: a county keeps the source it has unless the portal is **faster** (posts results
 sooner) or has **more**, and no county loses its old source: it stays as the fallback.
 
-| County    | Source                                | Why                                                                                                                     |
-| --------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Jefferson | ArcGIS (Louisville Metro), unchanged  | As fresh as the portal (its newest rows match the Courier-Journal's), plus history, types, coordinates; one load, not 9 |
-| Bullitt   | the county's sheet; later, the portal | The portal has dates and posts sooner (rows dated 11/12 when the sheet last changed 11/10); the sheet stays as fallback |
-| Oldham    | the portal                            | The only online source (the health department links to it)                                                              |
+| County    | Source                                        | Why                                                                                                                                      |
+| --------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Jefferson | ArcGIS (Louisville Metro), unchanged          | As fresh as the portal (its newest rows match the Courier-Journal's), plus history, types, coordinates; one load, not 9                  |
+| Bullitt   | both: the sheet, and the portal since 11/2026 | Same 250 places and ids; the portal has dates and posts sooner (3 results dated 11/12 not on the sheet yet). The sheet stays as fallback |
+| Oldham    | the portal                                    | The only online source (the health department links to it)                                                                               |
 
 ## The source
 
