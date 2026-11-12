@@ -25,8 +25,34 @@ test("loads with no console errors", async ({ page }, testInfo) => {
   await expect(page.getByRole("button", { name: "What's New", exact: true })).toBeVisible();
   await snap(page, testInfo, "01-map-loaded");
 
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0); // everything arrived
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
+test("the map shows while the rest of the data loads, with a corner indicator", async ({
+  page,
+}, testInfo) => {
+  // The violation rings are held back: the splash lifts on the first pins, not on them.
+  let release;
+  const flagsArrive = new Promise((r) => (release = r));
+  const { consoleErrors } = await openApp(page, {
+    holds: { "rpc/get_violation_flags": flagsArrive },
+  });
+  const pill = page.getByTestId("pins-loading");
+  await expect(pill).toContainText("Loading places");
+  await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("OpenStreetMap");
+  await snap(page, testInfo, "01b-pins-loading");
+  release();
+  await expect(pill).toHaveCount(0);
+  expect(consoleErrors, "console errors").toEqual([]);
+});
+
+test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
+  const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_feed"] });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });
+  // The browser logs the deliberate 503 itself; nothing else may error.
+  expect(consoleErrors.filter((e) => !e.includes("503"))).toEqual([]);
 });
 
 test("filter panel toggles categories", async ({ page }, testInfo) => {
@@ -62,6 +88,30 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps(); // starts collapsed
   await page.getByRole("button", { name: "Expand controls" }).click();
   await expectEvenGaps();
+});
+
+test("phone: panels have no blur, and the map draws at most 2x", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the phone-only performance rules");
+  await openApp(page);
+
+  // Blurring the moving map behind a panel made panning choppy on iPhones.
+  for (const sel of [".control-card", ".app-header", ".wn-trigger", ".table-toggle-btn"]) {
+    const style = await page
+      .locator(sel)
+      .first()
+      .evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { blur: cs.backdropFilter, bg: cs.backgroundColor };
+      });
+    expect(style.blur, `${sel} backdrop-filter`).toBe("none");
+    expect(style.bg, `${sel} background`).toMatch(/^rgb\(/); // solid, not rgba
+  }
+
+  // The Pixel 7 reports 2.625x; the canvas is capped at 2x its CSS size.
+  const ratio = await page
+    .locator(".maplibregl-canvas")
+    .evaluate((c) => c.width / c.getBoundingClientRect().width);
+  expect(ratio).toBeLessThanOrEqual(2.01);
 });
 
 test("the page itself never scrolls", async ({ page }) => {
@@ -243,13 +293,26 @@ test("Table View lists both counties and searches across them", async ({ page },
 
   // One search covers both counties: name, street, city and zip in the same view.
   const searched = page.waitForRequest(
-    (r) => r.url().includes("/rest/v1/v_table_latest") && r.url().includes("city.ilike"),
+    (r) => r.url().includes("/rest/v1/v_table_latest") && r.url().includes("city.imatch"),
   );
   await panel.getByLabel("Search the table").fill("Shepherdsville");
   const url = decodeURIComponent((await searched).url());
-  expect(url).toContain("name.ilike.*Shepherdsville*");
+  expect(url).toContain("name.imatch.s[^a-z0-9]*h[^a-z0-9]*e");
   expect(url).not.toContain("region=eq.");
   await snap(page, testInfo, "13-table-view-search");
+
+  // Spacing and punctuation don't matter: "Mc Donald's" asks for the same loose match as
+  // "mcdonalds", one group per word, so McDonalds, Mc Donald's and MC'DONALDS all come back.
+  const loose = page.waitForRequest(
+    (r) =>
+      r.url().includes("/rest/v1/v_table_latest") &&
+      decodeURIComponent(r.url()).includes("name.imatch.d[^a-z0-9]*o"),
+  );
+  await panel.getByLabel("Search the table").fill("Mc Donald's");
+  const looseUrl = decodeURIComponent((await loose).url());
+  expect(looseUrl).toContain("name.imatch.m[^a-z0-9]*c,");
+  expect(looseUrl).toContain("name.imatch.d[^a-z0-9]*o[^a-z0-9]*n");
+  expect(looseUrl).toMatch(/and\(or\(name\.imatch/);
 
   // The county chips narrow it. On phones they fold behind the Filters button.
   if (testInfo.project.name === "phone") {
@@ -343,9 +406,11 @@ test("What's New includes Bullitt County, labelled by the day its score was post
   await whatsNewRow(page, BULLITT_EID).click();
   const drawer = page.getByTestId("info-drawer");
   await expect(drawer.getByText(BULLITT_NAME, { exact: true })).toBeVisible();
-  // Its routine result appeared after the first load, so the date is an estimate, and
-  // the violations are explained as form items.
-  await expect(drawer.getByText("Date (estimated)")).toBeVisible();
+  // The header shows the latest record, the dated follow-up, so it isn't an estimate;
+  // the older routine result's date still is. Bullitt publishes no grades, so none show.
+  await expect(drawer.getByText("Date", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("Date (estimated)")).toHaveCount(0);
+  await expect(drawer.getByText("Grade", { exact: true })).toHaveCount(0);
   await expect(drawer.getByTestId("drawer-source-note")).toContainText("estimates");
   await drawer.getByRole("button", { name: /2 violations/ }).click();
   await expect(drawer.getByTestId("violations-note")).toContainText("inspection form");
@@ -422,4 +487,55 @@ test("a digest email link (/?eid=...) opens that place and cleans the URL", asyn
   await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toBeVisible();
   await expect(page).not.toHaveURL(/eid=/);
   await snap(page, testInfo, "18-digest-deep-link");
+});
+
+test("sign in with the code from the email, no link needed", async ({ page }, testInfo) => {
+  // Supabase Auth is mocked here: sending the email, then checking the code.
+  const verifyBodies = [];
+  await page.route(/\/auth\/v1\/(otp|verify)/, async (route) => {
+    const request = route.request();
+    const cors = {
+      "access-control-allow-origin": request.headers()["origin"] || "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+    };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    const json = (body) =>
+      route.fulfill({ status: 200, headers: cors, contentType: "application/json", body });
+    if (request.url().includes("/otp")) return json("{}");
+    verifyBodies.push(request.postDataJSON());
+    const now = Math.floor(Date.now() / 1000);
+    return json(
+      JSON.stringify({
+        access_token: "test-access-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        refresh_token: "test-refresh-token",
+        user: {
+          id: "00000000-0000-0000-0000-000000000001",
+          aud: "authenticated",
+          email: "test@example.com",
+        },
+      }),
+    );
+  });
+
+  await openApp(page);
+  await page.locator(".header-nav-btn--login").click();
+  await page.getByPlaceholder("you@example.com").fill("test@example.com");
+  await page.getByRole("button", { name: "Email me a code" }).click();
+
+  const step = page.getByTestId("sign-in-code-step");
+  await expect(step).toContainText("test@example.com");
+  const signIn = step.getByRole("button", { name: "Sign in" });
+  await expect(signIn).toBeDisabled();
+  await step.getByLabel("Sign-in code").fill("123 456"); // pasted with a space
+  await expect(step.getByLabel("Sign-in code")).toHaveValue("123456");
+  await snap(page, testInfo, "sign-in-code");
+  await signIn.click();
+
+  await expect(step).toHaveCount(0); // modal closes
+  await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
+  expect(verifyBodies[0]).toMatchObject({ email: "test@example.com", token: "123456" });
 });

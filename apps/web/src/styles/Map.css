@@ -38,6 +38,51 @@
   cursor: pointer;
 }
 
+/* Popup save (bookmark) button. The icon stays 18px but the button is a 36px tap
+   target; the negative margin keeps the score row from growing. No focus ring or
+   background after a tap: the global button:focus outline drew a circle over the icon. */
+.maplibregl-popup .popup-pin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin: -9px -9px -9px 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease;
+}
+
+.maplibregl-popup .popup-pin-btn.is-saved {
+  color: #6fcf8a;
+}
+
+.maplibregl-popup .popup-pin-btn:focus {
+  outline: none;
+}
+
+/* Keyboard focus only: a thin ring well clear of the icon. */
+.maplibregl-popup .popup-pin-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .maplibregl-popup .popup-pin-btn:hover {
+    color: #fff;
+  }
+  .maplibregl-popup .popup-pin-btn.is-saved:hover {
+    color: #8fe0a6;
+  }
+}
+
 /* ── Controls panel ── */
 .controls {
   z-index: 3200;
@@ -992,5 +1037,29 @@ button.rx-switch[data-state="checked"] .rx-thumb {
   .control-card .control-content {
     width: 0;
     min-width: 100%;
+  }
+}
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .control-card {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+  .fab-scores {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .bands-sheet {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .fab-reopen {
+    backdrop-filter: none;
+    background: rgb(24, 24, 28);
+  }
+  .drawer-veil.show {
+    backdrop-filter: none;
   }
 }

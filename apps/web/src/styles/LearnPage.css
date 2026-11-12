@@ -808,3 +808,105 @@
   accent-color: #34a853;
   flex-shrink: 0;
 }
+
+/* Sign-in modal, step 2: the code from the email (LoginModal). */
+.ln-code {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+.ln-code-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.ln-code-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+.ln-code-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.48);
+  line-height: 1.55;
+  max-width: 260px;
+  margin: 0 auto 14px;
+}
+.ln-code-text strong {
+  color: rgba(255, 255, 255, 0.7);
+}
+.ln-code-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 48px;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f0f0f3;
+  font-family: inherit;
+  font-size: 1.4rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  outline: none;
+  margin-bottom: 10px;
+}
+.ln-code-input:focus {
+  border-color: rgba(52, 168, 83, 0.5);
+}
+.ln-code-input::placeholder {
+  color: rgba(255, 255, 255, 0.18);
+}
+.ln-code-error {
+  font-size: 0.74rem;
+  color: #ff9a9a;
+  background: rgba(234, 67, 53, 0.09);
+  border: 1px solid rgba(234, 67, 53, 0.2);
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+.ln-code-submit {
+  display: block;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 8px;
+  background: rgba(52, 168, 83, 0.16);
+  border: 1px solid rgba(52, 168, 83, 0.34);
+  color: #6fcf8a;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ln-code-submit:hover:not(:disabled) {
+  background: rgba(52, 168, 83, 0.26);
+}
+.ln-code-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ln-code-hint {
+  margin-top: 12px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.32);
+}
+.ln-code-other {
+  margin-top: 6px;
+  padding: 0;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.38);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .ln-mback {
+    backdrop-filter: none;
+  }
+}

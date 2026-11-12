@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import SplashScreen from "./SplashScreen";
 
 const MIN_DURATION = 400;
-const MAX_DURATION = 8000;
+// Past this the splash gives up. It was 8 s, but a slow database (the map feed once took
+// 12 s) then left a grey, empty map on screen for the rest of the load.
+const MAX_DURATION = 15000;
 /**
  * withSplashScreen HOC
  * Wraps main component with a loading splash screen.

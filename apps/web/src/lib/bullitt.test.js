@@ -9,6 +9,7 @@ import {
   estimatedDate,
   isBullittId,
   latestHasViolations,
+  latestViolationCount,
 } from "./bullitt.js";
 import { formatDateSafe } from "./dates.js";
 
@@ -60,8 +61,8 @@ describe("buildBullittFeatures", () => {
       name: "AFC SUSHI @ KROGER #728L",
       address_full: "185 ADAM SHEPHERD PARKWAY, SHEPHERDSVILLE, KY",
       date: null,
-      date_text: NO_DATE,
-      score: 94,
+      date_text: formatDateSafe("2026-09-14"), // the follow-up is the latest record
+      score: 100,
       grade: null,
       cat: "unknown",
       has_any_violation: false, // the follow-up scored 100
@@ -72,7 +73,7 @@ describe("buildBullittFeatures", () => {
 
   it("reads numbers sent as strings and drops rows without coordinates", () => {
     const rows = [
-      { ...feedRow, lon: "-85.7", lat: "37.9", score_recent: "88" },
+      { ...feedRow, lon: "-85.7", lat: "37.9", follow_up_score: "88" },
       { ...feedRow, lon: null },
     ];
     const features = buildBullittFeatures(rows);
@@ -80,10 +81,16 @@ describe("buildBullittFeatures", () => {
     expect(features[0].properties.score).toBe(88);
   });
 
+  it("uses the routine inspection when no follow-up is on the sheet", () => {
+    const [f] = buildBullittFeatures([{ ...feedRow, follow_up_date: null, follow_up_score: null }]);
+    expect(f.properties).toMatchObject({ score: 94, date_text: NO_DATE });
+  });
+
   it("estimates the date of a result that changed after the first load", () => {
+    const routineOnly = { ...feedRow, follow_up_date: null, follow_up_score: null };
     const [changed, original] = buildBullittFeatures([
-      { ...feedRow, routine_first_seen: "2026-11-12", tracking_since: TRACKING_SINCE },
-      { ...feedRow, routine_first_seen: TRACKING_SINCE, tracking_since: TRACKING_SINCE },
+      { ...routineOnly, routine_first_seen: "2026-11-12", tracking_since: TRACKING_SINCE },
+      { ...routineOnly, routine_first_seen: TRACKING_SINCE, tracking_since: TRACKING_SINCE },
     ]);
     expect(changed.properties).toMatchObject({
       date: null, // never mistaken for a published date (the date filter skips Bullitt)
@@ -94,13 +101,13 @@ describe("buildBullittFeatures", () => {
   });
 
   it("works with the feed from before the estimated-dates migration", () => {
-    const [f] = buildBullittFeatures([feedRow]); // no routine_first_seen / tracking_since
+    const [f] = buildBullittFeatures([{ ...feedRow, follow_up_date: null }]); // no first_seen
     expect(f.properties).toMatchObject({ date_text: NO_DATE, date_estimated: false });
   });
 
   it("leaves an unscored place without a score or a ring", () => {
     const [f] = buildBullittFeatures([
-      { ...feedRow, score_recent: null, violation_count_recent: 0 },
+      { ...feedRow, follow_up_date: null, score_recent: null, violation_count_recent: 0 },
     ]);
     expect(f.properties.score).toBeNull();
     expect(f.properties.has_any_violation).toBe(false);
@@ -120,6 +127,18 @@ describe("latestHasViolations (the ring)", () => {
     // The list decides, not the score: the same rule as Louisville.
     expect(latestHasViolations(withCount(0, 96))).toBe(false);
     expect(latestHasViolations(withCount("1"))).toBe(true);
+  });
+
+  it("counts the latest record's violations, for the ring's fade", () => {
+    expect(latestViolationCount(withCount(3))).toBe(3);
+    expect(latestViolationCount(withCount("2"))).toBe(2);
+    expect(latestViolationCount(feedRow)).toBe(null); // follow-up, no count yet
+    expect(
+      latestViolationCount({ ...feedRow, follow_up_date: null, violation_count_recent: 4 }),
+    ).toBe(4);
+    expect(
+      latestViolationCount({ ...feedRow, follow_up_date: null, violation_count_recent: null }),
+    ).toBe(0);
   });
 
   it("uses the follow-up's score until the feed has its count (before the migration)", () => {
@@ -217,8 +236,8 @@ describe("bullittHistory", () => {
     expect(followUp).toMatchObject({ date_label: null, date_estimated: false });
   });
 
-  it("puts the current routine inspection in the header", () => {
-    expect(bullittHeader(bullittHistory(rows)).inspection_id).toBe(2);
+  it("puts the latest record, the current follow-up, in the header", () => {
+    expect(bullittHeader(bullittHistory(rows))).toMatchObject({ kind: "follow_up" });
     expect(bullittHeader([])).toBeNull();
   });
 });

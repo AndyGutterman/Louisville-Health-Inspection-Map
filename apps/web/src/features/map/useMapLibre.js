@@ -1,4 +1,4 @@
-// Creates the MapLibre map once the pins have loaded, and owns what happens on it:
+// Creates the MapLibre map at once (pins are added as they load), and owns what happens on it:
 // the pin layers and their filters, hovering and clicking pins, closing the drawer on a
 // click outside it, and nudging the map when the pointer rests at a screen edge.
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +7,7 @@ import { PIN_COLORS } from "../../Colors.jsx";
 import { EDGE_ZONE, MIN_ZOOM } from "../../lib/constants.js";
 import { METRO_BOUNDS, looseBounds } from "../../lib/mapBounds.js";
 import { coordKey, worstFirst } from "../../lib/dedupe.js";
+import { featureSearchKey, matchesSearch, searchTokens } from "../../lib/searchText.js";
 import { useLatest } from "../../hooks/useLatest.js";
 import { CLICKABLE_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
 import { pickPin, uniqueHits } from "../../lib/pinPicking.js";
@@ -14,11 +15,12 @@ import { createPopups } from "./popups.jsx";
 import { addRegionOutlines } from "./regionOutlines.js";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const NO_PINS = { type: "FeatureCollection", features: [] };
 
 // Panels that work beside the drawer: a click inside one doesn't close it. Any new
 // floating panel or toggle must be added here.
 const KEEP_DRAWER_OPEN =
-  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn";
+  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn, .pins-loading";
 // What's New also keeps the drawer open when a press only starts inside it (a resize).
 const WHATS_NEW = ".wn-panel, .wn-trigger";
 // The pointer resting near these doesn't auto-pan the map.
@@ -29,7 +31,7 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
 /**
  * @param {object} o
  * @param {React.RefObject} o.containerRef  the element the map renders into
- * @param {object|null} o.geoData            pins to draw (useMapFeatures); the map waits for it
+ * @param {object|null} o.geoData            pins to draw (useMapFeatures); redrawn as it grows
  * @param {Function} o.getFeature            establishment id -> feature
  * @param {React.RefObject<Map>} o.coordIndex  location key -> features at that spot
  * @param {object} o.filters                 filter panel state (lib/mapFilters.js)
@@ -39,7 +41,6 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
  * @param {Function} o.onToggleSaved         (eid) save or unsave
  * @param {Function} o.onOpenDrawer          (eid, props) open the info drawer
  * @param {Function} o.onBackgroundClick     a click on empty map or outside the panels
- * @param {Function} o.onReady               the map has loaded (dismisses the splash)
  */
 export function useMapLibre(o) {
   const { containerRef, geoData, getFeature, coordIndex, filters, savedIds } = o;
@@ -50,7 +51,7 @@ export function useMapLibre(o) {
   const latest = useLatest(o);
 
   useEffect(() => {
-    if (!geoData || mapRef.current) return;
+    if (mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASEMAP,
@@ -62,6 +63,10 @@ export function useMapLibre(o) {
         height: window.innerHeight,
         zoom: MIN_ZOOM,
       }),
+      // iPhones have 3x screens: drawing the map at 2x looks the same and is well
+      // under half the pixels, so panning stays smooth. Mouse devices keep the default,
+      // which follows the window between monitors.
+      pixelRatio: isHoverDevice() ? undefined : Math.min(window.devicePixelRatio || 1, 2),
     });
     mapRef.current = map;
     let dragging = false;
@@ -79,9 +84,9 @@ export function useMapLibre(o) {
     };
 
     // With the drawer already open, the place a click lands on replaces the one in it,
-    // whether the pin stands alone or the popup is a "1 of 3" (stepping through that popup
-    // doesn't: the popup is clicked to load the next place). Desktop only: on touch
-    // screens the popup is tapped to open the drawer.
+    // whether the pin stands alone or the popup is a "1 of 3" (and stepping through that
+    // popup switches it too). Desktop only: on touch screens the popup is tapped to open
+    // the drawer.
     const switchDrawerTo = (feature) => {
       if (latest.current.drawerOpen && isHoverDevice()) {
         latest.current.onOpenDrawer(feature.properties.establishment_id, feature.properties);
@@ -94,6 +99,7 @@ export function useMapLibre(o) {
       isSaved: (eid) => latest.current.savedIds.has(eid),
       onToggleSaved: (eid) => latest.current.onToggleSaved(eid),
       onOpenDrawer: (eid, props) => latest.current.onOpenDrawer(eid, props),
+      onGroupShow: switchDrawerTo,
       colorForScore,
     });
     popupsRef.current = popups;
@@ -130,13 +136,25 @@ export function useMapLibre(o) {
       coordIndex.current.get(
         coordKey((getFeature(f.properties.establishment_id) ?? f).geometry.coordinates),
       );
+    // Every place the pointer reaches at a pin: those at exactly its spot (lib/dedupe.js
+    // draws one pin for them) and those at the other pins under the same screen point.
+    // Hover and click both count with this, so the "N locations here" badge never
+    // appears only on the click.
+    const placesUnder = (feature, group) => {
+      const byEid = new Map();
+      for (const g of group.length ? group : [feature]) {
+        for (const f of placesAt(g) || [g]) {
+          const eid = f.properties?.establishment_id;
+          if (eid && !byEid.has(eid)) byEid.set(eid, f);
+        }
+      }
+      return byEid.size ? [...byEid.values()] : [feature];
+    };
     // In a "1 of 3" popup, start on the place matching the search, if any.
     const startIndex = (features) => {
-      const term = latest.current.searchTerm.trim().toLowerCase();
-      if (!term) return 0;
-      const i = features.findIndex(({ properties: p }) =>
-        `${p.name || ""} ${p.address_full || p.address || ""}`.toLowerCase().includes(term),
-      );
+      const term = latest.current.searchTerm;
+      if (!searchTokens(term).length) return 0;
+      const i = features.findIndex(({ properties: p }) => matchesSearch(featureSearchKey(p), term));
       return Math.max(i, 0);
     };
 
@@ -147,28 +165,10 @@ export function useMapLibre(o) {
       const { feature, group } = pinsAt(e.point);
       if (!feature) return;
 
-      // Several places at exactly this spot (lib/dedupe.js draws one pin for them).
-      const sameSpot = placesAt(feature) || [];
-      if (sameSpot.length > 1) {
-        const sorted = sameSpot.slice().sort(worstFirst);
-        const i = startIndex(sorted);
-        popups.showGroup(sorted, i);
-        switchDrawerTo(sorted[i]);
-        return;
-      }
-      // Different spots under one screen point: gather everything at each of them.
-      if (group.length > 1) {
-        const byEid = new Map();
-        for (const g of group) {
-          for (const f of placesAt(g) || [g]) {
-            const eid = f.properties?.establishment_id;
-            if (eid && !byEid.has(eid)) byEid.set(eid, f);
-          }
-        }
-        const sorted = (byEid.size ? [...byEid.values()] : group).slice().sort(worstFirst);
-        const i = startIndex(sorted);
-        popups.showGroup(sorted, i);
-        switchDrawerTo(sorted[i]);
+      const places = placesUnder(feature, group);
+      if (places.length > 1) {
+        const sorted = places.slice().sort(worstFirst);
+        popups.showGroup(sorted, startIndex(sorted));
         return;
       }
 
@@ -177,16 +177,20 @@ export function useMapLibre(o) {
     };
 
     map.on("load", () => {
-      addPinLayers(map, geoData, latest.current.filters.pins);
+      addPinLayers(map, latest.current.geoData ?? NO_PINS, latest.current.filters.pins);
       addRegionOutlines(map);
       setMapReady(true);
 
       // One listener for all of them: a ringed pin is on three layers (pin, ring, tap
       // target), and a click must run once, not once per layer.
       const layers = CLICKABLE_LAYERS;
+      // Hover popups only where there's a real mouse. A tap on a phone sends a fake
+      // mousemove first; iPhone Safari can drop the tap's click when that adds a popup, and
+      // the hover box would sit stacked under the pinned one.
       map.on("mousemove", layers, (e) => {
+        if (!isHoverDevice()) return;
         const { feature, group } = pinsAt(e.point);
-        if (feature) popups.pointerOver(feature, group.length || 1);
+        if (feature) popups.pointerOver(feature, placesUnder(feature, group).length);
       });
       map.on("mousedown", layers, () => (pressOnPin = true));
       map.on("click", layers, onPinClick);
@@ -208,7 +212,6 @@ export function useMapLibre(o) {
       document.addEventListener("click", closeOnOutsideClick, true);
 
       applyFilters(map, latest.current.filters);
-      latest.current.onReady?.();
     });
 
     // So a press that starts in What's New and ends elsewhere (a resize) doesn't count.
@@ -239,7 +242,12 @@ export function useMapLibre(o) {
       map.remove();
       mapRef.current = null;
     };
-  }, [geoData, containerRef, getFeature, coordIndex, latest]);
+  }, [containerRef, getFeature, coordIndex, latest]);
+
+  // Pins arrive in batches while the data loads (useMapFeatures): redraw the source.
+  useEffect(() => {
+    if (mapReady && geoData) mapRef.current?.getSource("facilities")?.setData(geoData);
+  }, [geoData, mapReady]);
 
   // Re-apply the filters whenever the filter panel changes. When the map is busy the change
   // waits for it to go idle, and then applies the filters as they are at that moment: a
@@ -269,7 +277,7 @@ export function useMapLibre(o) {
   const api = useMemo(
     () => ({
       openPopup: (feature) => popupsRef.current?.openFor(feature),
-      hoverPopup: (feature) => popupsRef.current?.hoverFor(feature),
+      hoverPopup: (feature) => isHoverDevice() && popupsRef.current?.hoverFor(feature),
       endHover: () => popupsRef.current?.hideHover(),
       showRowPopup: (feature) => popupsRef.current?.showRow(feature),
       easeTo: (options) => mapRef.current?.easeTo(options),
@@ -283,7 +291,8 @@ export function useMapLibre(o) {
 }
 
 // The pointer resting at a screen edge pans the map a step, once per visit to the edge,
-// unless it's over a panel.
+// unless it's over a panel. Mouse only: a tap near the edge of a phone screen sends a
+// fake mousemove, which made the map jump.
 function useEdgePan(mapRef) {
   useEffect(() => {
     let atEdge = false;
@@ -293,6 +302,7 @@ function useEdgePan(mapRef) {
         return r && x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
       });
     const onMove = (e) => {
+      if (!isHoverDevice()) return;
       const dx = e.clientX <= EDGE_ZONE ? -1 : e.clientX >= window.innerWidth - EDGE_ZONE ? 1 : 0;
       const dy = e.clientY <= EDGE_ZONE ? -1 : e.clientY >= window.innerHeight - EDGE_ZONE ? 1 : 0;
       const active =

@@ -363,3 +363,16 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .wn-trigger {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+  .wn-panel {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+}

@@ -1,0 +1,79 @@
+/* The "Loading places…" pill (PinsLoading.jsx). Desktop: top right, under the header.
+   Phones: centred above the Table View button and the map credits, clear of the
+   full-width filter card. */
+.pins-loading {
+  position: fixed;
+  top: calc(var(--header-h, var(--mobile-header-h, 0px)) + 12px);
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(18, 18, 22, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.pins-loading--failed {
+  pointer-events: auto;
+  color: #fff;
+}
+
+.pins-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #6fcf8a;
+  animation: pins-loading-spin 0.8s linear infinite;
+}
+
+/* The global button rule (index.css) sets padding and a background: undo both. */
+.pins-loading-retry {
+  padding: 2px 8px;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+@keyframes pins-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pins-loading-spinner {
+    animation: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .pins-loading {
+    top: auto;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom) + 160px);
+  }
+}
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .pins-loading {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+}

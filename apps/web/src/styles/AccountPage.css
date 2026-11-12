@@ -191,3 +191,12 @@
   font-size: 0.76rem;
   color: #ff9a9a;
 }
+
+/* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
+   choppy on iPhones, so panels get solid backgrounds instead. */
+@media (max-width: 600px) {
+  .acct-panel.side {
+    backdrop-filter: none;
+    background: rgb(18, 18, 22);
+  }
+}

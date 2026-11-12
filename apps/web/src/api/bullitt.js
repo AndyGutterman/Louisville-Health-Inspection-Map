@@ -1,5 +1,5 @@
 // Supabase reads for Bullitt County (supabase/migrations/20261110000000_bullitt_county.sql).
-import { supabase } from "../lib/supabase.js";
+import { publicDb, supabase } from "../lib/supabase.js";
 import { readAllPages } from "./mapData.js";
 
 // Every row of v_bullitt_map_feed (one per place with a pin). Returns [] on an error, so
@@ -7,7 +7,7 @@ import { readAllPages } from "./mapData.js";
 export async function fetchBullittFeed() {
   try {
     return await readAllPages((from, to) =>
-      supabase
+      publicDb
         .from("v_bullitt_map_feed")
         // Every column: follow_up_violation_count only exists once migration
         // 20261112000000 has run, and naming it before then would fail the whole read.

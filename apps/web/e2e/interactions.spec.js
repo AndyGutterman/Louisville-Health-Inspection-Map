@@ -21,7 +21,12 @@ test("a What's New row with a pin opens its map popup; saving asks a signed-out 
 
   // On phones the What's New panel covers the popup, so close it first (on both projects).
   await page.getByRole("button", { name: "Close What's New" }).click();
-  await popup(page).getByRole("button", { name: "Save to watchlist" }).click();
+  const save = popup(page).getByRole("button", { name: "Save to watchlist" });
+  // Big enough to hit with a finger, not just the 18px icon.
+  const box = await save.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(32);
+  expect(box.height).toBeGreaterThanOrEqual(32);
+  await save.click();
   await expect(page.getByText("Sign in", { exact: true })).toBeVisible();
 });
 

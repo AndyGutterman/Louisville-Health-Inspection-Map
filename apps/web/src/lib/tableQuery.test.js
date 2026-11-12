@@ -1,32 +1,42 @@
 import { describe, expect, it } from "vitest";
 import {
   FACILITY_CATS,
-  cleanSearch,
   combineOr,
   countKey,
   countyForFacility,
   facilityAppliesTo,
   facilityFilter,
   typedCounties,
-  searchFilter,
+  searchFilters,
 } from "./tableQuery.js";
 import { CATEGORY_SPECS } from "./categories.js";
 
-describe("cleanSearch", () => {
-  it("removes characters that would break or=(...)", () => {
-    expect(cleanSearch("taco, (bell)")).toBe("taco bell");
-    expect(cleanSearch('50% off * "deals"')).toBe("50 off deals");
+describe("searchFilters", () => {
+  it("searches name, street, city and zip with a loose regex", () => {
+    expect(searchFilters(" shep ")).toEqual([
+      "name.imatch.s[^a-z0-9]*h[^a-z0-9]*e[^a-z0-9]*p," +
+        "address.imatch.s[^a-z0-9]*h[^a-z0-9]*e[^a-z0-9]*p," +
+        "city.imatch.s[^a-z0-9]*h[^a-z0-9]*e[^a-z0-9]*p," +
+        "zip.imatch.s[^a-z0-9]*h[^a-z0-9]*e[^a-z0-9]*p",
+    ]);
   });
-  it("is empty for nothing", () => expect(cleanSearch(undefined)).toBe(""));
-});
-
-describe("searchFilter", () => {
-  it("searches name, street, city and zip", () => {
-    expect(searchFilter(" shep ")).toBe(
-      "name.ilike.*shep*,address.ilike.*shep*,city.ilike.*shep*,zip.ilike.*shep*",
-    );
+  it("builds the same filter for every spelling of McDonald's", () => {
+    const want = searchFilters("mcdonalds");
+    for (const t of ["McDonald's", "mc'donalds", "MCDONALD\u2019S"]) {
+      expect(searchFilters(t)).toEqual(want);
+    }
   });
-  it("is null for a blank term", () => expect(searchFilter(" , ")).toBeNull());
+  it("needs every word: one list per word, for combineOr", () => {
+    const lists = searchFilters("mc donalds dixie");
+    expect(lists).toHaveLength(3);
+    expect(combineOr(...lists)).toMatch(/^and\(or\(name\.imatch\.m/);
+  });
+  it("never puts a character in the regex that would break or=(...)", () => {
+    for (const l of searchFilters('a,(b) "c" 50% *d* e:f')) {
+      for (const part of l.split(",")) expect(part).toMatch(/^\w+\.imatch\.[a-z0-9[\]^*-]+$/);
+    }
+  });
+  it("is empty for a blank term", () => expect(searchFilters(" , ' ")).toEqual([]));
 });
 
 describe("facilityFilter", () => {
@@ -61,6 +71,11 @@ describe("countKey", () => {
   it("ignores set order and search padding", () => {
     expect(countKey({ ...base, types: new Set(["A", "B"]), search: "x " })).toBe(
       countKey({ ...base, types: new Set(["B", "A"]), search: " x" }),
+    );
+  });
+  it("is the same for spellings that match the same rows", () => {
+    expect(countKey({ ...base, search: "McDonald's" })).toBe(
+      countKey({ ...base, search: "mcdonalds" }),
     );
   });
   it("changes with any filter", () => {

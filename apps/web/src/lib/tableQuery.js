@@ -1,5 +1,6 @@
 // PostgREST filter strings for Table View (TableView.jsx), which reads v_table_latest or
 // v_table_inspections (supabase/migrations/20261111000000_both_counties.sql). Pure.
+import { looseRegex, searchTokens } from "./searchText.js";
 
 // Facility chips: (facility type, subtype) pairs, as in lib/categories.js. Only counties
 // whose data has facility types (lib/regions.js has.categories) can be filtered by them.
@@ -48,19 +49,18 @@ export const FACILITY_CATS = {
 };
 export const FACILITY_CAT_KEYS = Object.keys(FACILITY_CATS);
 
-// The search box text, safe inside a PostgREST or=(...) list: commas, parentheses,
-// quotes, backslashes and the * and % wildcards would change the filter's meaning.
-export const cleanSearch = (term) =>
-  String(term ?? "")
-    .replace(/[,()"'\\*%:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+const SEARCH_COLUMNS = ["name", "address", "city", "zip"];
 
-// Matches the term in the name, street, city or zip. null for an empty term.
-export function searchFilter(term) {
-  const t = cleanSearch(term);
-  if (!t) return null;
-  return ["name", "address", "city", "zip"].map((col) => `${col}.ilike.*${t}*`).join(",");
+// The search as PostgREST or-lists, one per word (lib/searchText.js): a row matches when
+// every word is in its name, street, city or zip, ignoring case, spacing and
+// punctuation, so "mc donald's", "mcdonalds" and "mc'donalds" all find McDonald's.
+// Each word is a case-insensitive regex (imatch) with anything but letters and digits
+// allowed between its characters. Pass the lists to combineOr. [] for a blank term.
+export function searchFilters(term) {
+  return searchTokens(term).map((t) => {
+    const re = looseRegex(t);
+    return SEARCH_COLUMNS.map((col) => `${col}.imatch.${re}`).join(",");
+  });
 }
 
 // Matches the selected facility chips. null when no chip is picked (all facilities).
@@ -110,5 +110,5 @@ export const countKey = (f) =>
     f.hideNA,
     f.types ? [...f.types].sort() : null,
     f.cats ? [...f.cats].sort() : null,
-    cleanSearch(f.search),
+    searchTokens(f.search).join(" "),
   ]);
