@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase.js";
+import { WEEKLY, takeDigestOptIn } from "./lib/digest.js";
 
 const AuthContext = createContext(null);
 
@@ -24,6 +25,18 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // The sign-in form's "email me the weekly digest" box, applied once the account exists.
+  useEffect(() => {
+    if (!user || !takeDigestOptIn()) return;
+    supabase
+      .from("profiles")
+      .update({ alert_frequency: WEEKLY })
+      .eq("id", user.id)
+      .then(({ error }) => {
+        if (error) console.warn("digest opt-in not saved:", error.message);
+      });
+  }, [user]);
+
   // One-click unsubscribe from the digest email footer: /?unsubscribe=<token>
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -39,7 +52,7 @@ export function AuthProvider({ children }) {
     supabase.rpc("unsubscribe_by_token", { p_token: token }).then(({ data, error }) => {
       setNotice(
         !error && data
-          ? "You're unsubscribed from alert emails."
+          ? "You're unsubscribed from the weekly digest."
           : "That unsubscribe link isn't valid. You can turn alerts off in your account.",
       );
       setTimeout(() => setNotice(null), 6000);
