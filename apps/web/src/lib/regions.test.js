@@ -104,7 +104,7 @@ describe("data sources (the Learn page shows these)", () => {
 });
 
 describe("undatedRegionIds", () => {
-  it("lists counties whose data has no inspection dates", () => {
+  it("lists counties whose pins can be undated", () => {
     expect(undatedRegionIds()).toEqual(["bullitt"]);
   });
 });

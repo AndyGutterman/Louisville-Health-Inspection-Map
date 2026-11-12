@@ -1,8 +1,11 @@
 // Bullitt County's rows (supabase/migrations/20261110000000_bullitt_county.sql) shaped like
 // Louisville's, so the map, popups and drawer can show them. Pure.
 //
-// The health department publishes only each place's latest inspection, without a date
-// (follow-ups have one), and no facility types or placards. See docs/BULLITT.md.
+// Only each place's latest inspection and follow-up are published, with no facility types
+// or placards. Kentucky's inspection portal dates them; the county's own sheet, the
+// fallback when the portal isn't answering, leaves the routine inspection undated. The
+// database picks the source (bullitt_results, migration 20261120000000). See
+// docs/BULLITT.md and docs/COUNTIES.md.
 import { joinAddress } from "./mapFeatures.js";
 import { formatDateSafe } from "./dates.js";
 
@@ -73,12 +76,16 @@ export function latestViolationCount(r) {
 }
 
 /**
- * Map features from v_bullitt_map_feed rows: the same properties as Louisville's. The
- * score and date are the latest record's: the follow-up when one is on the sheet.
- * (lib/mapFeatures.js), with no date, grade or category, plus `region`. A routine result
- * that appeared after the first load gets an estimated date (date_text, date_estimated;
- * needs migration 20261113000000). `date` stays null, so an estimate is never mistaken
- * for a published date.
+ * Map features from v_bullitt_map_feed rows: the same properties as Louisville's
+ * (lib/mapFeatures.js), with no grade or category, plus `region`. The score and date are
+ * the latest record's: the follow-up when one is listed.
+ *
+ * `date` is set only from a published date: the follow-up's, or the routine inspection's
+ * when it came from Kentucky's portal (routine_date, migration 20261120000000). When the
+ * results come from the county's sheet instead, the routine has no date; one that
+ * appeared after the first load gets an estimate (date_text, date_estimated; migration
+ * 20261113000000) but `date` stays null, so an estimate is never mistaken for a
+ * published date.
  * @param {object[]} rows
  */
 export function buildBullittFeatures(rows) {
@@ -86,10 +93,12 @@ export function buildBullittFeatures(rows) {
     .map((r) => ({ ...r, lon: toNumber(r.lon), lat: toNumber(r.lat) }))
     .filter((r) => Number.isFinite(r.lon) && Number.isFinite(r.lat))
     .map((r) => {
-      const estimate = estimatedDate(r.routine_first_seen, r.tracking_since);
-      // A follow-up still on the sheet is the latest record, so its score and date lead.
+      const routineDate = r.routine_date ?? null;
+      const estimate = routineDate ? null : estimatedDate(r.routine_first_seen, r.tracking_since);
+      // A follow-up still listed is the latest record, so its score and date lead.
       const followUpScore = r.follow_up_date ? toNumber(r.follow_up_score) : null;
       const latestIsFollowUp = Number.isFinite(followUpScore);
+      const date = latestIsFollowUp ? r.follow_up_date : routineDate;
       return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [r.lon, r.lat] },
@@ -99,13 +108,9 @@ export function buildBullittFeatures(rows) {
           address: r.address,
           address_full: joinAddress({ address: r.address, city: r.city, state: "KY" }),
           zip: null,
-          date: null,
-          date_text: latestIsFollowUp
-            ? formatDateSafe(r.follow_up_date)
-            : estimate
-              ? estimateLabel(estimate)
-              : NO_DATE,
-          date_estimated: !latestIsFollowUp && !!estimate,
+          date,
+          date_text: date ? formatDateSafe(date) : estimate ? estimateLabel(estimate) : NO_DATE,
+          date_estimated: !date && !!estimate,
           tracking_since: r.tracking_since ?? null,
           score: latestIsFollowUp ? followUpScore : toNumber(r.score_recent),
           grade: null,
@@ -171,3 +176,20 @@ export function bullittHistory(rows, { trackingSince = null } = {}) {
 // The drawer header shows the latest record, like the map pin: bullittHistory lists a
 // current follow-up first.
 export const bullittHeader = (history) => history[0] ?? null;
+
+/**
+ * The drawer's note on where the history comes from. Routine inspections are dated when
+ * the results came from Kentucky's portal, and undated when they came from the county's
+ * sheet; follow-ups are dated either way.
+ * @param {object[]} history  bullittHistory(...)
+ * @param {string} agency     the health department's name
+ */
+export function bullittSourceNote(history, agency) {
+  const routines = (history || []).filter((r) => r.kind === "routine");
+  const dated = routines.length > 0 && routines.every((r) => r.inspection_date);
+  return dated
+    ? `From the ${agency}, through Kentucky's inspection portal, which shows each place's ` +
+        "latest inspection and follow-up. Earlier ones appear here as this site records them."
+    : `From the ${agency}, which publishes each place's latest inspection without its ` +
+        "date. Earlier ones appear here as this site records them.";
+}

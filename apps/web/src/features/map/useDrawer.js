@@ -9,6 +9,7 @@ import {
   ESTIMATE_NOTE,
   bullittHeader,
   bullittHistory,
+  bullittSourceNote,
   isBullittId,
 } from "../../lib/bullitt.js";
 import { regionById } from "../../lib/regions.js";
@@ -23,9 +24,6 @@ import { formatDateSafe } from "../../lib/dates.js";
 const HEADER_NOTE =
   "Most recent inspection with a non-zero score. Newer zero-score visits appear below as N/A.";
 
-const BULLITT_NOTE =
-  `From the ${regionById(BULLITT).agency.name}, which publishes each place's latest ` +
-  "inspection without its date. Earlier ones appear here as this site records them.";
 const ESTIMATED = "Date (estimated)";
 
 // getFeature: establishment id -> map feature, or nothing when the place has no pin.
@@ -45,9 +43,9 @@ export function useDrawer(getFeature) {
     setLoading(false);
   }, []);
 
-  // Bullitt County: one table, no details, and the header is the current routine
-  // inspection (lib/bullitt.js). Results that appeared after the first load get an
-  // estimated date, and the source note then explains what "By" means.
+  // Bullitt County: one list of results, no details, and the header is the latest record
+  // (lib/bullitt.js). Results from the portal are dated; undated ones from the sheet that
+  // appeared after its first load get an estimate, and the note then explains "By".
   const loadBullitt = useCallback(
     async (eid, seq, p) => {
       const { data, error } = await fetchBullittInspections(eid);
@@ -66,7 +64,9 @@ export function useDrawer(getFeature) {
         dateCaption: header?.date_estimated ? ESTIMATED : undefined,
         score: header?.score ?? s.score,
         _displayedInspectionId: header?.inspection_id ?? null,
-        sourceNote: anyEstimate ? `${BULLITT_NOTE} ${ESTIMATE_NOTE}` : BULLITT_NOTE,
+        sourceNote: [bullittSourceNote(rows, regionById(BULLITT).agency.name)]
+          .concat(anyEstimate ? [ESTIMATE_NOTE] : [])
+          .join(" "),
       }));
       setHistory(rows);
       setDetails(null);

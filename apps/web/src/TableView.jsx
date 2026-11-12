@@ -25,7 +25,7 @@ function scoreClass(s) {
   return "bad";
 }
 
-// Bullitt County publishes no date for the latest inspection (lib/bullitt.js).
+// Bullitt's latest inspection is undated when it comes from the county's sheet (lib/bullitt.js).
 function fmt(val, region) {
   if (!val) return region === "bullitt" ? "Not published" : "—";
   const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);

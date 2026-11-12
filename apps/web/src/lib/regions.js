@@ -45,8 +45,10 @@ export const REGIONS = [
       [-85.938, 37.806],
       [-85.429, 38.118],
     ],
-    // The health department's sheet has no facility types, no date for the latest
-    // inspection and no placards. Saving needs the 20261111000000 migration.
+    // No facility types or placards. Results are dated through Kentucky's inspection
+    // portal; the county's sheet, used when the portal isn't answering, has no date for
+    // the latest routine inspection, so pins can be undated (dates: false lets those past
+    // the date filter). Saving needs the 20261111000000 migration.
     has: { categories: false, dates: false, grades: false, saving: true },
     agency: {
       name: "Bullitt County Health Department",
@@ -54,7 +56,7 @@ export const REGIONS = [
     },
     source: { name: "Bullitt County Health Department", url: "https://www.bullitthealth.org/food" },
     dataNote:
-      "Only each place's latest inspection and its follow-up, with no inspection date, no letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+      "Only each place's latest inspection and its follow-up, dated through Kentucky's statewide inspection portal. When the portal is unavailable, the county's own list is used, which has no inspection date for the latest inspection. No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
   },
 ];
 

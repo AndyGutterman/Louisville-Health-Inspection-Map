@@ -155,8 +155,10 @@ const violations = PLACES.filter((p) => p.critical).flatMap((p, i) => {
 
 const pinned = PLACES.filter((p) => p.lon != null);
 
-// Bullitt County (lib/bullitt.js): the health department publishes only the latest
-// inspection, with no date, plus a dated follow-up when there was one.
+// Bullitt County (lib/bullitt.js): only the latest inspection, plus a follow-up when there
+// was one. The first two are as the county's sheet has them (the routine inspection
+// undated); the third as Kentucky's portal has it, dated (routineDays). The database
+// serves one source or the other (bullitt_results); the fixtures show both kinds.
 const BULLITT_PLACES = [
   {
     eid: "bullitt-00000000e2e1",
@@ -179,15 +181,27 @@ const BULLITT_PLACES = [
     score: 100,
     violations: [],
   },
+  {
+    eid: "bullitt-00000000e2e3",
+    name: "Lebanon Junction Test Cafe",
+    address: "300 MAIN ST",
+    city: "LEBANON JUNCTION",
+    lon: -85.7322,
+    lat: 37.8346,
+    score: 97,
+    violations: ["Wiping cloths: properly used and stored"],
+    routineDays: 3,
+  },
 ];
 export const BULLITT_EID = BULLITT_PLACES[0].eid;
+export const BULLITT_PORTAL = BULLITT_PLACES[2];
 
 const bullittInspections = BULLITT_PLACES.flatMap((p, i) => [
   {
     id: 500 + i * 10 + 1,
     establishment_id: p.eid,
     kind: "routine",
-    inspection_date: null,
+    inspection_date: p.routineDays != null ? daysAgo(p.routineDays) : null,
     score: p.score,
     violations: p.violations,
     first_seen: daysAgo(p.followUp ? 20 : 30),
@@ -319,7 +333,9 @@ export const TABLES = {
     // its date is estimated. The grill's was there from the start (no estimate).
     routine_first_seen: daysAgo(p.followUp ? 20 : 30),
     tracking_since: daysAgo(30),
+    routine_date: p.routineDays != null ? daysAgo(p.routineDays) : null,
   })),
+  bullitt_results: bullittInspections,
   bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row
   // is a routine score posted to the sheet, so it has no inspection date.
