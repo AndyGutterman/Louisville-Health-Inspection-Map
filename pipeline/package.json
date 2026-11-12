@@ -15,7 +15,8 @@
     "accuracy-check": "node etl-accuracy-check.js",
     "bullitt": "node regions/bullitt/ingest.js",
     "bullitt:retry": "node regions/bullitt/ingest.js --retry-failures",
-    "bullitt:redo": "node regions/bullitt/ingest.js --redo-geocoding"
+    "bullitt:redo": "node regions/bullitt/ingest.js --redo-geocoding",
+    "portal": "node regions/kyportal/ingest.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
