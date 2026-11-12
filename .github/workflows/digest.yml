@@ -1,0 +1,66 @@
+# Weekly digest email: this week's inspections to everyone subscribed (pipeline/digest/).
+# Run it by hand with a test group ("to") to check the look, or as a dry run, which sends
+# nothing and attaches the email as an artifact you can open in a browser.
+name: Weekly digest email
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: "Test group: comma-separated emails. Only these get it. Empty = every subscriber."
+        type: string
+        default: ""
+      dry_run:
+        description: "Send nothing; attach the email as an artifact"
+        type: boolean
+        default: false
+      days:
+        description: "How many days the digest covers"
+        type: number
+        default: 7
+  schedule:
+    # Tuesday 11:00 UTC = 6 am EST / 7 am EDT, in the inbox for the morning coffee.
+    - cron: "0 11 * * 2"
+concurrency: digest
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      # The digest can send from its own account (DIGEST_SMTP_USERNAME + DIGEST_SMTP_PASSWORD,
+      # both or neither); without them it uses the backup job's SMTP login. Gmail rewrites the
+      # From line to the logged-in account, so the login decides the sender.
+      SMTP_USERNAME: ${{ secrets.DIGEST_SMTP_PASSWORD && secrets.DIGEST_SMTP_USERNAME || secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.DIGEST_SMTP_USERNAME && secrets.DIGEST_SMTP_PASSWORD || secrets.SMTP_PASSWORD }}
+      DIGEST_FROM: ${{ secrets.DIGEST_FROM }}
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        working-directory: .
+        run: npm ci -w pipeline
+      - name: Test
+        run: npm test
+
+      - name: Build and send
+        env:
+          TO: ${{ inputs.to }}
+          DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
+          DAYS: ${{ inputs.days || 7 }}
+        run: node digest/send.js $DRY --days=$DAYS ${TO:+--to=$TO}
+
+      - name: Attach the preview
+        if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-preview
+          path: pipeline/digest-preview.html
+          retention-days: 7

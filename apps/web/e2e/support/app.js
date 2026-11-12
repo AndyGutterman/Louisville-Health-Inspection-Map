@@ -4,7 +4,7 @@ import { mockSupabase } from "./mockSupabase.js";
 
 // Loads the map page with Supabase mocked and waits until the splash screen is gone
 // (it waits for the map to finish loading). Returns what the page logged as errors.
-export async function openApp(page, { holds, failOnce } = {}) {
+export async function openApp(page, { path = "/", holds, failOnce } = {}) {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -30,7 +30,7 @@ export async function openApp(page, { holds, failOnce } = {}) {
     if (document.documentElement) hide();
     else document.addEventListener("DOMContentLoaded", hide, { once: true });
   });
-  await page.goto("/");
+  await page.goto(path);
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
   return { consoleErrors, unmocked: mock.unmocked };
 }

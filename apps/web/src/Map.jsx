@@ -29,6 +29,7 @@ import { useDrawer } from "./features/map/useDrawer.js";
 import { useWatchlist } from "./features/map/useWatchlist.js";
 import { useMapLibre } from "./features/map/useMapLibre.js";
 import { useWatchAreaLayer } from "./features/map/useWatchAreaLayer.js";
+import { parseDeepLink } from "./lib/deepLink.js";
 import PinsLoading from "./PinsLoading.jsx";
 
 // YYYY-MM-DD `days` ago, or null for "All time".
@@ -215,6 +216,26 @@ export default function Map({ onMapReady }) {
     },
     [getFeature, endHover, showRowPopup, easeTo, openDrawer],
   );
+
+  // Links from the digest email (lib/deepLink.js): /?eid=<id> opens that place,
+  // /?page=learn the Learn page. Read once the map can show a pin, then taken off the URL.
+  useEffect(() => {
+    if (!map.mapReady) return;
+    const { eid, page: linkedPage, rest } = parseDeepLink(window.location.search);
+    if (!eid && !linkedPage) return;
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash,
+    );
+    if (linkedPage) setPage(linkedPage);
+    const f = eid && getFeature(eid);
+    if (f) {
+      easeTo({ center: f.geometry.coordinates, zoom: 15, duration: 0 });
+      openPopup(f);
+      openDrawer(eid, f.properties);
+    }
+  }, [map.mapReady, getFeature, easeTo, openPopup, openDrawer]);
 
   // The Saved panel. On desktop the map is visible beside it, so also show the place's
   // popup and centre it clear of the right-hand panels. On phones the drawer opens over
