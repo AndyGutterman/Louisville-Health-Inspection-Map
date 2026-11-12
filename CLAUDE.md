@@ -2,6 +2,8 @@
 
 Read this first. It was written on 2026-11-05 from a long chat session and covers what the project is, how it is organized, the decisions made, the gotchas found, and what is left to do. Check `git log` and `git status` before trusting the "state" section: it may be a little behind the repo.
 
+Be extremely cognizant of our 5GB monthly egress limits on supabase and all free tier limits for supabase. In the past we had an issue where Claude literally hit that in a day doing some loop... Be conscious of our limits. Be conservative there. 
+
 ## What this is
 
 An interactive map of health inspection scores for Louisville, KY restaurants and food service places. Live at https://louisvillefoodsafe.netlify.app. It is a solo, open-source project and the owner's flagship résumé project, so code quality, tests, CI and docs matter as much as features. The owner does not expect outside contributors, so do NOT add CONTRIBUTING files, issue or PR templates, or Dependabot.
