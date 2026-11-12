@@ -1,0 +1,7 @@
+{
+  "_how": [
+    "Pins placed by hand for Oldham County addresses no geocoder finds. Same format as regions/bullitt/overrides.json, whose _how explains each field.",
+    "query: copy it from the job's '✗ no match' line, the part after the dash."
+  ],
+  "places": []
+}
