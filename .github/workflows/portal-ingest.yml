@@ -1,0 +1,73 @@
+# Daily load of the counties read from Kentucky's inspection portal (docs/COUNTIES.md):
+# the portal -> Supabase, then geocoding. Writes only the portal_* tables
+# (supabase/migrations/20261119000000_portal_counties.sql must have been run).
+# Jefferson (ingest.yml) and Bullitt (bullitt-ingest.yml) don't depend on this job: if it
+# fails, they carry on, and the portal counties keep their last good load.
+name: Ingest portal counties -> Supabase
+on:
+  workflow_dispatch:
+    inputs:
+      county:
+        description: "County to load"
+        type: choice
+        options: [oldham]
+        default: oldham
+      redo_geocoding:
+        description: "Geocode every place again (not hand-placed pins), ignoring the cache"
+        type: boolean
+        default: false
+      retry_failures:
+        description: "Try again for places no geocoder found before"
+        type: boolean
+        default: false
+  schedule:
+    # Once a day is plenty: two requests per county, about 450 KB.
+    - cron: "15 9 * * *"
+concurrency: portal-ingest
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # the first run geocodes ~320 places, about 1 a second at worst
+    strategy:
+      fail-fast: false # one county failing doesn't stop the others
+      matrix:
+        # The scheduled run loads every county in this list; a manual run, the one picked.
+        county: ${{ inputs.county && fromJSON(format('["{0}"]', inputs.county)) || fromJSON('["oldham"]') }}
+      max-parallel: 1 # one county at a time: gentle on the portal and the geocoders
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        working-directory: .
+        run: npm ci -w pipeline
+
+      - name: Test
+        run: npm test
+
+      - name: Load and geocode
+        env:
+          FLAGS: >-
+            ${{ inputs.redo_geocoding && '--redo-geocoding' || '' }}
+            ${{ inputs.retry_failures && '--retry-failures' || '' }}
+        run: node regions/kyportal/ingest.js --county=${{ matrix.county }} --save=page.html $FLAGS
+
+      # The page as downloaded, to re-run a load from it (--from=page.html) or see what
+      # changed if the parser stops. Kept by GitHub, not in the database.
+      - name: Keep the downloaded page
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-${{ matrix.county }}-${{ github.run_id }}
+          path: pipeline/page.html
+          retention-days: 30
+          if-no-files-found: ignore

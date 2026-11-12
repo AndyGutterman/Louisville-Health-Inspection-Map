@@ -1,7 +1,9 @@
 # Bullitt County (MVP)
 
 > Kentucky's statewide portal has Bullitt too, **with inspection dates** (`docs/COUNTIES.md`).
-> The plan is to move Bullitt onto it after Oldham; until then everything below still holds.
+> The plan is to read Bullitt from it too, after Oldham. The sheet import below stays either
+> way: it is the fallback if the portal goes away (`docs/COUNTIES.md`, "If the portal goes
+> away").
 
 Status: working MVP on the `feat/bullitt-county` branch, not merged. Its job is to show
 what Bullitt's data can and can't do, so the design decisions below can be made with
@@ -70,7 +72,8 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   `--`. Quote it as `'--'`).
   It skips everything when the sheet hasn't changed, refuses to run if the sheet suddenly
   has under half the places of the last load, and stops if the columns change.
-- **Geocoding** (`geocode()` in `ingest.js`, order changed November 2026). The first match
+- **Geocoding** (`pipeline/lib/countyGeocode.js`, shared with the portal counties since
+  November 2026; order changed November 2026). The first match
   inside the county outline wins:
   1. Kentucky's statewide **911 address points** (`pipeline/lib/ky911.js`, public, no key):
      the county's own record of every addressed building. `pipeline/lib/addressPoints.js`
