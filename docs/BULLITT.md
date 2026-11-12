@@ -1,5 +1,8 @@
 # Bullitt County (MVP)
 
+> Kentucky's statewide portal has Bullitt too, **with inspection dates** (`docs/COUNTIES.md`).
+> The plan is to move Bullitt onto it after Oldham; until then everything below still holds.
+
 Status: working MVP on the `feat/bullitt-county` branch, not merged. Its job is to show
 what Bullitt's data can and can't do, so the design decisions below can be made with
 real data on the map.

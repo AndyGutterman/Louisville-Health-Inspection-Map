@@ -7,3 +7,5 @@ supabase/migrations
 apps/web/e2e/playwright-report
 apps/web/e2e/test-results
 apps/web/e2e/screenshots
+# Saved pages from data sources: kept byte for byte as the source sends them
+pipeline/tests/fixtures
