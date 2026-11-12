@@ -10,6 +10,8 @@ import {
   NO_PIN_EID,
   PINNED_EID,
   PERFECT_EID,
+  NEWEST_EID,
+  TABLES,
 } from "./support/fixtures.js";
 import { snap } from "./support/screenshots.js";
 
@@ -139,13 +141,27 @@ test("What's New and Table View buttons line up", async ({ page }) => {
   expect(await centerY("What's New")).toBeCloseTo(await centerY("Open table view"), 0);
 });
 
-test("What's New opens and switches tabs", async ({ page }, testInfo) => {
+test("What's New opens on Latest, newest first, and switches tabs", async ({ page }, testInfo) => {
   await openApp(page);
   const panel = await openWhatsNew(page);
+  const rows = page.getByTestId("whats-new-row");
 
-  await expect(whatsNewRow(page, PINNED_EID)).toContainText(byEid(PINNED_EID).name);
+  // Latest: every recent inspection, whatever it scored, newest first.
+  await expect(panel.getByRole("button", { name: "Latest" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(rows.first()).toHaveAttribute("data-eid", NEWEST_EID);
   await expect(whatsNewRow(page, NO_PIN_EID)).toContainText("Location unavailable");
-  await snap(page, testInfo, "03-whats-new-violations");
+  await snap(page, testInfo, "03-whats-new-latest");
+
+  // Violations: the same inspections, failing first.
+  await panel.getByRole("button", { name: "Violations", exact: true }).click();
+  const failingFirst = TABLES["rpc/get_whats_new"][0].establishment_id;
+  expect(failingFirst).not.toBe(NEWEST_EID); // or this wouldn't show the order changed
+  await expect(rows.first()).toHaveAttribute("data-eid", failingFirst);
+  await expect(whatsNewRow(page, PINNED_EID)).toContainText(byEid(PINNED_EID).name);
+  await snap(page, testInfo, "03b-whats-new-violations");
 
   await panel.getByRole("button", { name: "Top Scores" }).click();
   await expect(whatsNewRow(page, PERFECT_EID)).toContainText(byEid(PERFECT_EID).name);
