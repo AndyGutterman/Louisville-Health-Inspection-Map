@@ -16,7 +16,12 @@ const PAGE = readFileSync(new URL("./fixtures/kyportal_oldham.html", import.meta
 const { establishments } = parsePortalPage(PAGE, { idPrefix: "oldham-" });
 const DAY = "2026-11-19";
 const NOW = new Date("2026-11-19T09:15:00Z");
-const nothingKnown = { ids: new Set(), inspections: new Set() };
+const nothingKnown = { ids: new Map(), inspections: new Map() };
+// What the database holds after a first load: id (or result key) -> first_seen.
+const knownAfter = (plan) => ({
+  ids: new Map(plan.addedPlaces.map((p) => [p.id, p.first_seen])),
+  inspections: new Map(plan.freshInspections.map((i) => [inspectionKey(i), i.first_seen])),
+});
 
 describe("contentSha256", () => {
   it("doesn't depend on the order of the places", () => {
@@ -64,22 +69,27 @@ describe("planLoad", () => {
 
   it("adds nothing on a second load of the same page", () => {
     const first = planLoad(establishments, nothingKnown, "oldham", DAY);
-    const known = {
-      ids: new Set(first.addedPlaces.map((p) => p.id)),
-      inspections: new Set(first.freshInspections.map(inspectionKey)),
-    };
+    const known = knownAfter(first);
     const again = planLoad(establishments, known, "oldham", "2026-11-20");
     assert.deepEqual([again.addedPlaces, again.freshInspections], [[], []]);
     assert.equal(again.keptInspections.length, 10);
-    assert.ok(again.keptPlaces.every((p) => p.last_seen === "2026-11-20" && !p.first_seen));
+    assert.ok(again.keptPlaces.every((p) => p.last_seen === "2026-11-20"));
+  });
+
+  // The 2026-11-13 Oldham load failed: kept rows went to an upsert without first_seen, and
+  // Postgres rejects the NULL before it resolves the conflict.
+  it("gives every kept row its stored first_seen, so the upsert can't write a NULL", () => {
+    const first = planLoad(establishments, nothingKnown, "oldham", DAY);
+    const again = planLoad(establishments, knownAfter(first), "oldham", "2026-11-20");
+    for (const row of [...again.keptPlaces, ...again.keptInspections]) {
+      assert.equal(row.first_seen, DAY);
+      assert.equal(row.last_seen, "2026-11-20");
+    }
   });
 
   it("adds a follow-up's score as a new result once it's posted", () => {
     const first = planLoad(establishments, nothingKnown, "oldham", DAY);
-    const known = {
-      ids: new Set(first.addedPlaces.map((p) => p.id)),
-      inspections: new Set(first.freshInspections.map(inspectionKey)),
-    };
+    const known = knownAfter(first);
     const scored = establishments.map((e) =>
       e.name === "APPLEBEE'S IHOP #75057"
         ? {

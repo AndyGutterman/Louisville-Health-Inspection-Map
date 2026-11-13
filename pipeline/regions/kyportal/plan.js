@@ -35,12 +35,15 @@ export function checkShrink(placeCount, last) {
 /**
  * @param {object[]} establishments  parsePortalPage(...).establishments
  * @param {object} known
- * @param {Set<string>} known.ids     ids already in portal_establishments
- * @param {Set<string>} known.inspections  inspectionKey of every stored result
+ * @param {Map<string, string>} known.ids  id -> first_seen of every stored place
+ * @param {Map<string, string>} known.inspections  inspectionKey -> first_seen of every
+ *   stored result
  * @param {string} region             e.g. "oldham"
  * @param {string} day                today, YYYY-MM-DD
  * @returns {{ addedPlaces, keptPlaces, freshInspections, keptInspections }} rows to
- *   insert (first_seen today) and rows to update (last_seen today)
+ *   insert (first_seen today) and rows to update (last_seen today). Updated rows carry
+ *   their stored first_seen: they are written with an upsert, and Postgres checks
+ *   first_seen's NOT NULL on the proposed row before it sees the conflict.
  */
 export function planLoad(establishments, known, region, day) {
   const place = ({ id, name, address, city, raw_city }) => ({
@@ -58,7 +61,7 @@ export function planLoad(establishments, known, region, day) {
   const freshInspections = [];
   const keptInspections = [];
   for (const e of establishments) {
-    if (known.ids.has(e.id)) keptPlaces.push(place(e));
+    if (known.ids.has(e.id)) keptPlaces.push({ ...place(e), first_seen: known.ids.get(e.id) });
     else addedPlaces.push({ ...place(e), first_seen: day });
     for (const i of e.inspections) {
       const row = {
@@ -72,8 +75,10 @@ export function planLoad(establishments, known, region, day) {
         content_hash: i.content_hash,
         last_seen: day,
       };
-      if (known.inspections.has(inspectionKey(row))) keptInspections.push(row);
-      else freshInspections.push({ ...row, first_seen: day });
+      const key = inspectionKey(row);
+      if (known.inspections.has(key)) {
+        keptInspections.push({ ...row, first_seen: known.inspections.get(key) });
+      } else freshInspections.push({ ...row, first_seen: day });
     }
   }
   return { addedPlaces, keptPlaces, freshInspections, keptInspections };

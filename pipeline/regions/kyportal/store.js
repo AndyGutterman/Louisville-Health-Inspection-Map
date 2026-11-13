@@ -70,25 +70,26 @@ export async function storeCounty(supa, county, establishments, { day, now = new
   }
   checkShrink(establishments.length, last);
 
-  const ids = new Set(
+  // first_seen comes along so the upserts below can write it back unchanged (plan.js).
+  const ids = new Map(
     (
       await readAll(
-        () => supa.from("portal_establishments").select("id").eq("region", region),
+        () => supa.from("portal_establishments").select("id, first_seen").eq("region", region),
         "read places",
       )
-    ).map((r) => r.id),
+    ).map((r) => [r.id, r.first_seen]),
   );
-  const inspections = new Set(
+  const inspections = new Map(
     (
       await readAll(
         () =>
           supa
             .from("portal_inspections")
-            .select("establishment_id, kind, content_hash")
+            .select("establishment_id, kind, content_hash, first_seen")
             .eq("region", region),
         "read inspections",
       )
-    ).map(inspectionKey),
+    ).map((r) => [inspectionKey(r), r.first_seen]),
   );
   const plan = planLoad(establishments, { ids, inspections }, region, day);
 
