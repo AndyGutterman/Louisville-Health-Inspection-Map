@@ -11,8 +11,12 @@
  * Guards that keep a loose match from landing on the wrong street:
  *   - Only the closest street name(s) count, and they must start with the same letter.
  *   - A looser match is accepted only when that street has the exact house number.
- *   - Otherwise the match must be close and in the same town; the pin then goes between
- *     the neighbouring house numbers and is marked approximate.
+ *   - Otherwise the match must be close and in the same town (or on a street the 911 data
+ *     gives no town, as most of Oldham County's); the pin then goes between the
+ *     neighbouring house numbers and is marked approximate.
+ * Highways are written many ways ("W. HWY 146", "KY 146", 911's "West STATE HIGHWAY 146"),
+ * so they are compared as plain HIGHWAY <number>. One written without its direction
+ * ("2401 HWY 146") is matched when exactly one direction of that highway has the number.
  */
 
 // Abbreviations -> the full words 911 data uses. Applied to both sides.
@@ -66,6 +70,28 @@ const MAX_SPAN_KM = 1.5;
 // With a neighbour on one side only, use it if the numbers are this close.
 const MAX_ONE_SIDED_GAP = 50;
 
+const DIRECTIONS = ["NORTH", "SOUTH", "EAST", "WEST"];
+const isNumber = (t) => /^\d+$/.test(t ?? "");
+
+// "STATE HIGHWAY", "UNITED STATES HIGHWAY", "US HIGHWAY", "KY HIGHWAY", and "US"/"KY"
+// before a number, all as HIGHWAY: 911 data and inspection records name the same road
+// differently.
+function plainHighways(tokens) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const [t, next, after] = [tokens[i], tokens[i + 1], tokens[i + 2]];
+    if (t === "STATE" && next === "HIGHWAY") i += 1;
+    else if (t === "UNITED" && next === "STATES" && after === "HIGHWAY") i += 2;
+    else if ((t === "US" || t === "KY") && next === "HIGHWAY") i += 1;
+    else if (!((t === "US" || t === "KY") && isNumber(next))) {
+      out.push(t);
+      continue;
+    }
+    out.push("HIGHWAY");
+  }
+  return out;
+}
+
 // "High Pointe Ct." -> ["HIGH", "POINTE", "COURT"]. "ST" first is Saint, not Street.
 export function streetTokens(text) {
   const raw = String(text || "")
@@ -73,7 +99,7 @@ export function streetTokens(text) {
     .replace(/[^A-Z0-9 ]+/g, " ")
     .split(/\s+/)
     .filter(Boolean);
-  return raw.map((t, i) => (t === "ST" && i === 0 ? t : (EXPAND[t] ?? t)));
+  return plainHighways(raw.map((t, i) => (t === "ST" && i === 0 ? t : (EXPAND[t] ?? t))));
 }
 
 export const normalizeTown = (town) => streetTokens(town).join(" ");
@@ -208,7 +234,8 @@ export function matchAddress(streets, { address, city }) {
         s,
         d,
         ratio: d / Math.max(ours.full.length, s.full.length),
-        sameTown: s.town === town,
+        // A street with no town in the 911 data could be in any.
+        sameTown: s.town === town || !s.town,
         hasNumber: s.byNumber.has(number),
       };
     })
@@ -234,5 +261,16 @@ export function matchAddress(streets, { address, city }) {
     const point = interpolate(c.s, number);
     if (point) return result(c, point, point.method, true);
   }
-  return null;
+  return withoutDirection(streets, number, tokens, result);
+}
+
+// "2401 HWY 146" when the 911 data has West and East State Highway 146: the one direction
+// with that exact number, or null when none or several have it.
+function withoutDirection(streets, number, tokens, result) {
+  if (DIRECTIONS.includes(tokens[0])) return null;
+  const labels = new Set(DIRECTIONS.map((d) => [d, ...tokens].join(" ")));
+  const found = streets.filter((s) => labels.has(s.label) && s.byNumber.has(number));
+  if (new Set(found.map((s) => s.label)).size !== 1) return null;
+  const s = found[0];
+  return result({ s }, s.byNumber.get(number), "exact, direction from the 911 data", false);
 }

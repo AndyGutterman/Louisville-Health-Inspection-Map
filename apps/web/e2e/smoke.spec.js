@@ -500,12 +500,15 @@ test("the Learn page links one data source per county and says how they differ",
   await openApp(page);
   await page.getByRole("button", { name: "Learn" }).click();
   const sources = page.getByTestId("data-sources");
-  await expect(sources.getByRole("listitem")).toHaveCount(2);
-  await expect(sources.getByRole("link")).toHaveCount(2);
+  await expect(sources.getByRole("listitem")).toHaveCount(3);
+  await expect(sources.getByRole("link")).toHaveCount(3);
   await expect(
     sources.getByRole("link", { name: "Bullitt County Health Department" }),
   ).toHaveAttribute("href", "https://www.bullitthealth.org/food");
   await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
+  await expect(
+    sources.getByRole("link", { name: "Kentucky's food inspection portal" }),
+  ).toBeVisible();
   await expect(sources).toContainText("Kentucky's statewide inspection portal");
   await expect(sources).toContainText("no inspection date"); // the fallback, said plainly
 });

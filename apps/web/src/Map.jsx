@@ -22,7 +22,7 @@ import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { DATE_FILTER_OPTS } from "./lib/constants.js";
 import { PRESETS } from "./lib/scoring.js";
 import { CATEGORY_SPECS, buildInitialCatToggles } from "./lib/categories.js";
-import { enabledRegions } from "./lib/regions.js";
+import { enabledRegions, regionOfId } from "./lib/regions.js";
 import AppHeader from "./features/map/AppHeader.jsx";
 import { useMapFeatures } from "./features/map/useMapFeatures.js";
 import { useDrawer } from "./features/map/useDrawer.js";
@@ -340,7 +340,12 @@ export default function Map({ onMapReady }) {
           watchlisted={
             !!drawer.selected && watchlist.savedIds.has(drawer.selected.establishment_id)
           }
-          onSaveToWatchlist={watchlist.toggleSaved}
+          onSaveToWatchlist={
+            // Saved places don't list every county yet (lib/regions.js has.saving).
+            drawer.selected && regionOfId(drawer.selected.establishment_id).has.saving
+              ? watchlist.toggleSaved
+              : undefined
+          }
         />
       )}
 

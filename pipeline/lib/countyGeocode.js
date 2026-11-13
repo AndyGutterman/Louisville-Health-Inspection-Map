@@ -113,9 +113,11 @@ export function countyGeocoder(
           }
           return m;
         },
-        () => geocoders.geocodeCensus(row, defaults),
+        // The Census needs a street: without one it answers HTTP 400 ("LA GRANGE, KY").
+        async () => (street ? geocoders.geocodeCensus(row, defaults) : null),
         () => geocoders.geocodeNominatim(query, { viewbox: searchBox }),
-        () => geocoders.geocodeCensusLine(`${street}, KY`, { accept: inCounty }),
+        async () =>
+          street ? geocoders.geocodeCensusLine(`${street}, KY`, { accept: inCounty }) : null,
         async () => approx911,
       ],
       inCounty,
@@ -129,7 +131,9 @@ export function countyGeocoder(
   async function applyOverrides(supa) {
     if (!overrides.size) return 0;
     const rows = must(
-      await scope(supa.from(table).select("id, address, city, state, lon, lat, geocode_provider")),
+      await scope(
+        supa.from(table).select("id, name, address, city, state, lon, lat, geocode_provider"),
+      ),
       "read places for hand-placed pins",
     );
     let updated = 0;

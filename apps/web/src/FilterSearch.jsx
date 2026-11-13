@@ -1,3 +1,4 @@
+import { nameList } from "./lib/regions.js";
 import * as Switch from "@radix-ui/react-switch";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -538,17 +539,22 @@ export default function FilterSearch({
                   </div>
                   {untyped.length > 0 && (
                     <p className="county-note" data-testid="county-note">
-                      {untyped.map((r, i) => (
-                        <React.Fragment key={r.id}>
-                          {i > 0 && " "}
-                          {r.name}&apos;s data has no facility types, so its places show only while
-                          every category is on. They also ignore the date filter: the{" "}
-                          <a href={r.agency.url} target="_blank" rel="noopener noreferrer">
-                            {r.agency.name}
-                          </a>{" "}
-                          publishes only each place&apos;s latest inspection, without a date.
-                        </React.Fragment>
-                      ))}
+                      {nameList(untyped.map((r) => r.name))}
+                      {untyped.length > 1 ? " have" : " has"} no facility types in the data, so
+                      those places show only while every category is on.
+                      {untyped
+                        .filter((r) => !r.has.dates)
+                        .map((r) => (
+                          <React.Fragment key={r.id}>
+                            {" "}
+                            {r.name} places with no date ignore the date filter: when
+                            Kentucky&apos;s portal is unavailable, the{" "}
+                            <a href={r.agency.url} target="_blank" rel="noopener noreferrer">
+                              {r.agency.name}
+                            </a>{" "}
+                            publishes only each place&apos;s latest inspection, without a date.
+                          </React.Fragment>
+                        ))}
                     </p>
                   )}
                 </Tabs.Content>

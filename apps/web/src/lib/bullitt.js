@@ -21,10 +21,12 @@ export const ESTIMATE_NOTE =
   '"By" dates are estimates: the first day this site saw the result. The inspection was ' +
   "that day or earlier.";
 
-// Above each list of violations: the sheet has the inspection form's item names only.
-export const VIOLATIONS_NOTE =
-  "Items on the inspection form that were marked at this visit. Bullitt County doesn't " +
+// Above each list of violations: the sheet and Kentucky's portal have the inspection
+// form's item names only.
+export const violationsNote = (county) =>
+  `Items on the inspection form that were marked at this visit. ${county} doesn't ` +
   "publish the inspector's notes.";
+export const VIOLATIONS_NOTE = violationsNote("Bullitt County");
 
 const toNumber = (v) => (v == null || v === "" ? null : Number(v));
 
@@ -121,7 +123,7 @@ export function buildBullittFeatures(rows) {
           violation_count: latestViolationCount(r),
           follow_up_date: r.follow_up_date ?? null,
           follow_up_score: toNumber(r.follow_up_score),
-          region: BULLITT,
+          region: r.region ?? BULLITT, // v_portal_map_feed rows carry theirs (lib/portal.js)
         },
       };
     });
@@ -150,27 +152,34 @@ export function bullittHistory(rows, { trackingSince = null } = {}) {
         (a.kind === b.kind ? 0 : a.kind === "follow_up" ? -1 : 1) ||
         (b.id ?? 0) - (a.id ?? 0),
     )
-    .map((r) => {
-      const estimate = r.inspection_date ? null : estimatedDate(r.first_seen, trackingSince);
-      const violations = (r.violations || []).map((desc, i) => ({
-        violation_oid: `${r.id}-${i}`,
-        inspection_id: r.id,
-        violation_desc: String(desc).toUpperCase(),
-        insp_viol_comments: "",
-      }));
-      return {
-        inspection_id: r.id,
-        kind: r.kind,
-        inspection_date: r.inspection_date ?? null,
-        date_label: r.inspection_date ? null : estimate ? estimateLabel(estimate) : NO_DATE,
-        date_estimated: !!estimate,
-        score: toNumber(r.score),
-        grade: null,
-        ins_type_desc: r.kind === "follow_up" ? "Follow-up" : "Routine",
-        violations,
-        violations_note: violations.length ? VIOLATIONS_NOTE : null,
-      };
-    });
+    .map((r) => historyRow(r, { trackingSince, note: VIOLATIONS_NOTE }));
+}
+
+/**
+ * One stored result (bullitt_results or portal_inspections) as a drawer history row.
+ * @param {object} r
+ * @param {{ trackingSince?: string|null, note: string }} opts  note: above its violations
+ */
+export function historyRow(r, { trackingSince = null, note }) {
+  const estimate = r.inspection_date ? null : estimatedDate(r.first_seen, trackingSince);
+  const violations = (r.violations || []).map((desc, i) => ({
+    violation_oid: `${r.id}-${i}`,
+    inspection_id: r.id,
+    violation_desc: String(desc).toUpperCase(),
+    insp_viol_comments: "",
+  }));
+  return {
+    inspection_id: r.id,
+    kind: r.kind,
+    inspection_date: r.inspection_date ?? null,
+    date_label: r.inspection_date ? null : estimate ? estimateLabel(estimate) : NO_DATE,
+    date_estimated: !!estimate,
+    score: toNumber(r.score),
+    grade: null,
+    ins_type_desc: r.kind === "follow_up" ? "Follow-up" : "Routine",
+    violations,
+    violations_note: violations.length ? note : null,
+  };
 }
 
 // The drawer header shows the latest record, like the map pin: bullittHistory lists a
