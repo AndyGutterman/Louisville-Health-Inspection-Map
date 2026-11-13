@@ -1,5 +1,5 @@
 // Loads every establishment as a map pin, from the browser's cache when it's fresh. Every
-// county's pins share one list and show together. The four reads run side by side, pins
+// county's pins share one list and show together. The five reads run side by side, pins
 // appear as pages arrive, and a complete list is kept in localStorage for 6 hours
 // (lib/mapCache.js, GEO_CACHE_TTL), so a visitor costs the database one load per 6 hours.
 //   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js); grows
@@ -11,8 +11,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchFacilityMeta, fetchMapFeed, fetchViolationFlags } from "../../api/mapData.js";
 import { fetchBullittFeed } from "../../api/bullitt.js";
+import { fetchPortalFeed } from "../../api/portal.js";
 import { buildMapFeatures, combineRegions } from "../../lib/mapFeatures.js";
 import { buildBullittFeatures } from "../../lib/bullitt.js";
+import { buildPortalFeatures } from "../../lib/portal.js";
+import { portalRegionIds } from "../../lib/regions.js";
 import { buildCoordIndex, deduplicateForRender } from "../../lib/dedupe.js";
 import { GEO_CACHE_KEY, GEO_CACHE_TTL } from "../../lib/constants.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
@@ -36,18 +39,19 @@ function readCache() {
 const REDRAW_MS = 250;
 
 /**
- * Reads the four sources side by side and calls show(features) as they come in: first
- * with whatever has arrived (each page of the Louisville feed, Bullitt, then the facility
+ * Reads the five sources side by side and calls show(features) as they come in: first
+ * with whatever has arrived (each page of the Louisville feed, Bullitt, Oldham, then the facility
  * types and violation rings that refine Louisville's pins), finally with everything.
  * Resolves to { features, jeffersonRows, ok }; ok is false if the Louisville feed failed
  * part-way (whatever loaded stays on the map).
  */
 async function loadFeatures(show) {
-  const parts = { rows: [], meta: new Map(), flags: new Map(), bullitt: [] };
+  const parts = { rows: [], meta: new Map(), flags: new Map(), bullitt: [], portal: [] };
   const build = () =>
     combineRegions(
       buildMapFeatures(parts.rows, parts.meta, parts.flags),
       buildBullittFeatures(parts.bullitt),
+      buildPortalFeatures(parts.portal),
     );
   let timer = null;
   const soon = () => {
@@ -68,6 +72,8 @@ async function loadFeatures(show) {
     fetchFacilityMeta().then((m) => ((parts.meta = m), soon())),
     fetchViolationFlags().then((f) => ((parts.flags = f), soon())),
     fetchBullittFeed().then((b) => ((parts.bullitt = b), soon())), // [] without Bullitt data
+    // Oldham: [] until migration 20261121000000 has run.
+    fetchPortalFeed(portalRegionIds()).then((p) => ((parts.portal = p), soon())),
   ]);
   clearTimeout(timer);
   const features = build();

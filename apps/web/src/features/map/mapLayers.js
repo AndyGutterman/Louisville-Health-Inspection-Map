@@ -5,6 +5,7 @@ import { DRAW_ORDER } from "../../lib/constants.js";
 import { bandExprs } from "../../lib/scoring.js";
 import { buildLayerFilters } from "../../lib/mapFilters.js";
 import { HIT_LAYER, RING_LAYER } from "../../lib/pinPicking.js";
+import { formItemRegionIds } from "../../lib/regions.js";
 
 // Layer ids of the score-band pins, bottom to top: points-null, points-green, ...
 export const PIN_LAYERS = DRAW_ORDER.map((k) => `points-${k}`);
@@ -22,7 +23,9 @@ export const RING_COLOR = "rgba(249,115,22,0.90)";
 // far more common than Louisville's and mean less (docs/BULLITT.md). A cooler colour keeps
 // the two from being read on the same scale.
 export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
-const ringColor = ["match", ["get", "region"], "bullitt", BULLITT_RING_COLOR, RING_COLOR];
+// Oldham's portal data lists form items the same way, so it gets the same rings.
+const isFormItemRegion = ["in", ["get", "region"], ["literal", formItemRegionIds()]];
+const ringColor = ["case", isFormItemRegion, BULLITT_RING_COLOR, RING_COLOR];
 // Bullitt's ring fades with the zoom and with how many violations the place lists, so
 // from afar only the places with a lot stand out, and up close every ring is readable.
 // Louisville's rings always show in full: a ring is rare there and means "any violation".
@@ -38,7 +41,7 @@ const bullittCountWeight = [
   BULLITT_RING_FADE.count[1],
   1,
 ];
-const forBullitt = (expr) => ["case", ["==", ["get", "region"], "bullitt"], expr, 1];
+const forBullitt = (expr) => ["case", isFormItemRegion, expr, 1];
 const ringOpacity = [
   "interpolate",
   ["linear"],

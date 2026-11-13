@@ -129,7 +129,7 @@ function useCornerDrag(setH, setW) {
   return { downCorner: down, moveCorner: move, upCorner: up };
 }
 
-const REGIONS = enabledRegions();
+const REGIONS = enabledRegions().filter((r) => r.has.table); // Oldham isn't in the table views yet
 const regionShort = (id) => REGIONS.find((r) => r.id === id)?.shortName ?? "";
 const regionName = (id) => REGIONS.find((r) => r.id === id)?.name ?? "";
 

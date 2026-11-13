@@ -3,7 +3,7 @@ import "./styles/Violations.css";
 import "./styles/History.css";
 import "./styles/RestaurantInfo.css";
 import { formatDateSafe } from "./lib/dates.js";
-import { isBullittId } from "./lib/bullitt.js";
+import { regionOfId } from "./lib/regions.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import {
   expandedHeight,
@@ -636,6 +636,7 @@ export default function InfoDrawer({
   }, []);
 
   if (!selected) return null;
+  const showGrade = regionOfId(selected.establishment_id).has.grades;
 
   // Mobile: bottom sheet with two resting heights (see above), dragged by its handle.
   // Desktop: full-height column between header and screen bottom, always scrollable.
@@ -784,8 +785,8 @@ export default function InfoDrawer({
             noLocation: selected.noLocation,
             sourceNote: selected.sourceNote,
             dateCaption: selected.dateCaption,
-            // Bullitt County publishes no letter grades (lib/regions.js).
-            showGrade: !isBullittId(selected.establishment_id),
+            // Only Louisville Metro issues letter grades (lib/regions.js has.grades).
+            showGrade,
           }}
           details={facDetails}
           pins={pins}
@@ -801,7 +802,7 @@ export default function InfoDrawer({
         {drawerLoading && !history ? (
           <HistorySkeleton />
         ) : history ? (
-          <History rows={history} pins={pins} showGrade={!isBullittId(selected.establishment_id)} />
+          <History rows={history} pins={pins} showGrade={showGrade} />
         ) : null}
       </div>
     </div>

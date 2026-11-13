@@ -20,5 +20,5 @@ export const DATE_FILTER_OPTS = [
 ];
 
 // Map data is cached in localStorage (lib/mapCache.js). Change the key to force everyone to reload.
-export const GEO_CACHE_KEY = "lfs_geodata_v6"; // bumped: Bullitt rings follow the follow-up
+export const GEO_CACHE_KEY = "lfs_geodata_v7"; // bumped: Oldham County's pins
 export const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours

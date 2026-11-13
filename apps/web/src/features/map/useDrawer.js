@@ -4,6 +4,7 @@
 import { useCallback, useRef, useState } from "react";
 import { fetchFacilityDetails, fetchInspections, fetchViolations } from "../../api/mapData.js";
 import { fetchBullittInspections } from "../../api/bullitt.js";
+import { fetchPortalInspections } from "../../api/portal.js";
 import {
   BULLITT,
   ESTIMATE_NOTE,
@@ -12,7 +13,8 @@ import {
   bullittSourceNote,
   isBullittId,
 } from "../../lib/bullitt.js";
-import { regionById } from "../../lib/regions.js";
+import { portalHeader, portalHistory, portalSourceNote } from "../../lib/portal.js";
+import { regionById, regionOfId } from "../../lib/regions.js";
 import {
   attachViolations,
   parseSimilarNearby,
@@ -75,6 +77,28 @@ export function useDrawer(getFeature) {
     [getFeature],
   );
 
+  // A county read from Kentucky's portal (Oldham): like Bullitt's, but every result is
+  // dated, and the header shows what the pin does (lib/portal.js).
+  const loadPortal = useCallback(async (eid, seq, region) => {
+    const { data, error } = await fetchPortalInspections(eid);
+    if (seq !== loadSeq.current) return;
+    if (error) console.error(`${region.shortName} history fetch error`, error);
+    const rows = portalHistory(data, { county: region.name });
+    const header = portalHeader(rows);
+    setSelected((s) => ({
+      ...s,
+      inspectionDate: header?.inspection_date
+        ? formatDateSafe(header.inspection_date)
+        : s.inspectionDate,
+      score: header?.score ?? s.score,
+      _displayedInspectionId: header?.inspection_id ?? null,
+      sourceNote: portalSourceNote(rows, region.agency.name),
+    }));
+    setHistory(rows);
+    setDetails(null);
+    setLoading(false);
+  }, []);
+
   const open = useCallback(
     async (eid, p) => {
       const seq = ++loadSeq.current;
@@ -101,6 +125,11 @@ export function useDrawer(getFeature) {
 
       if (isBullittId(eid)) {
         await loadBullitt(eid, seq, p);
+        return;
+      }
+      const region = regionOfId(eid);
+      if (region.feed === "portal") {
+        await loadPortal(eid, seq, region);
         return;
       }
 
@@ -165,7 +194,7 @@ export function useDrawer(getFeature) {
       });
       setLoading(false);
     },
-    [getFeature, loadBullitt],
+    [getFeature, loadBullitt, loadPortal],
   );
 
   return { selected, history, details, loading, open, close };

@@ -335,6 +335,9 @@ export const TABLES = {
     tracking_since: daysAgo(30),
     routine_date: p.routineDays != null ? daysAgo(p.routineDays) : null,
   })),
+  // Oldham (lib/portal.js): none in the fixtures yet.
+  v_portal_map_feed: [],
+  portal_inspections: [],
   bullitt_results: bullittInspections,
   bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row
