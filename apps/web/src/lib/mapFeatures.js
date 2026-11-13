@@ -83,6 +83,28 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
   return tagSimilarNearby(Object.values(latest));
 }
 
+/**
+ * The same features from v_facility_map_pins rows, which carry the facility type, the
+ * rest of the address and the violation ring themselves (migration 20261122000000).
+ * @param {object[]} pinRows
+ */
+export function buildPinFeatures(pinRows) {
+  const metaById = new Map();
+  const flagsById = new Map();
+  for (const r of pinRows) {
+    metaById.set(r.establishment_id, {
+      ft: r.facility_type,
+      st: r.subtype,
+      zip: r.zip || null,
+      address: r.address || null,
+      city: r.city || null,
+      state: r.state || null,
+    });
+    flagsById.set(r.establishment_id, { has_any: !!r.has_any_violation });
+  }
+  return buildMapFeatures(pinRows, metaById, flagsById);
+}
+
 // Every county's features in one list for the map's single pin source, numbered again so
 // ids stay unique (the hover popup tells features apart by id).
 export const combineRegions = (...lists) => lists.flat().map((f, i) => ({ ...f, id: i }));

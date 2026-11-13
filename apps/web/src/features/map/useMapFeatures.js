@@ -13,10 +13,15 @@
 //   coordIndex  location key -> every feature at that spot (for the "1 of 3" popup)
 //   retryFailed loads again the counties that failed, and nothing else
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchFacilityMeta, fetchMapFeed, fetchViolationFlags } from "../../api/mapData.js";
+import {
+  fetchFacilityMeta,
+  fetchMapFeed,
+  fetchMapPins,
+  fetchViolationFlags,
+} from "../../api/mapData.js";
 import { fetchBullittFeed } from "../../api/bullitt.js";
 import { fetchPortalFeed } from "../../api/portal.js";
-import { buildMapFeatures, combineRegions } from "../../lib/mapFeatures.js";
+import { buildMapFeatures, buildPinFeatures, combineRegions } from "../../lib/mapFeatures.js";
 import { BULLITT, buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildPortalFeatures } from "../../lib/portal.js";
 import { enabledRegions, regionById } from "../../lib/regions.js";
@@ -52,14 +57,34 @@ const saveCache = (regionId, features) =>
 const REDRAW_MS = 250;
 
 /**
- * Louisville Metro: three reads side by side. show(features, rowsSoFar) runs as they come
+ * Louisville Metro: one read of v_facility_map_pins, which has everything a pin needs.
+ * show(features, rowsSoFar) runs as its pages come in. Until the database has that view
+ * (migration 20261122000000), the three older reads (loadJeffersonParts).
+ */
+async function loadJefferson(show) {
+  let timer = null;
+  let seen = []; // the pages so far: they stay on the map if a later page fails
+  const rows = await fetchMapPins((soFar) => {
+    seen = soFar;
+    timer ??= setTimeout(() => {
+      timer = null;
+      show(buildPinFeatures(seen), seen.length);
+    }, REDRAW_MS);
+  });
+  clearTimeout(timer);
+  if (rows === undefined) return loadJeffersonParts(show);
+  return { features: buildPinFeatures(rows ?? seen), ok: !!rows, complete: !!rows };
+}
+
+/**
+ * Louisville Metro before v_facility_map_pins: three reads side by side. show(features, rowsSoFar) runs as they come
  * in: each page of the feed, then the facility types and violation rings that refine the
  * pins. Resolves to { features, ok, complete }: ok is false if the feed failed part-way
  * (whatever loaded stays on the map); complete is false if the types or rings failed
  * (their reads come back empty), so the result isn't cached and the next visit tries
  * again instead of showing plain pins until the next data load.
  */
-async function loadJefferson(show) {
+async function loadJeffersonParts(show) {
   const parts = { rows: [], meta: new Map(), flags: new Map() };
   const build = () => buildMapFeatures(parts.rows, parts.meta, parts.flags);
   let timer = null;

@@ -51,7 +51,9 @@ function applyEqFilters(rows, params) {
 // holds: { path: Promise } keeps those responses back until the promise settles, to test
 // what shows while data is still loading.
 // failOnce: [path] answers the first request for each path with a 503, to test retries.
-export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
+// missing: [path] answers as a database that doesn't have that table or view yet (a
+// migration that hasn't been run), to test what the site falls back to.
+export async function mockSupabase(page, { holds = {}, failOnce = [], missing = [] } = {}) {
   const unmocked = [];
   const requested = [];
   const toFail = new Set(failOnce);
@@ -70,6 +72,17 @@ export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
     requested.push(path);
     if (!table) unmocked.push(`${request.method()} ${path}`);
 
+    if (missing.includes(path)) {
+      await route.fulfill({
+        status: 404,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({
+          code: "PGRST205",
+          message: `Could not find the table 'public.${path}' in the schema cache`,
+        }),
+      });
+      return;
+    }
     if (holds[path]) await holds[path];
     if (toFail.delete(path)) {
       await route.fulfill({

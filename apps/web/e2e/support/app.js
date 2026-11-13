@@ -15,14 +15,14 @@ const BLANK_STYLE = {
 // (it waits for the map to finish loading). Returns what the page logged as errors.
 // counties: ids of the counties to start with switched on, as a returning visitor who
 // turned them on would (lib/counties.js). Left out, it's a first visit: Jefferson only.
-export async function openApp(page, { path = "/", holds, failOnce, counties } = {}) {
+export async function openApp(page, { path = "/", holds, failOnce, missing, counties } = {}) {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
   page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
 
-  const mock = await mockSupabase(page, { holds, failOnce });
+  const mock = await mockSupabase(page, { holds, failOnce, missing });
   // Netlify injects its feedback toolbar ("Netlify Drawer") into deploy previews. It
   // isn't part of the site and can log errors or cover buttons, so serve it empty.
   await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>

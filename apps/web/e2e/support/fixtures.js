@@ -270,6 +270,24 @@ const whatsNewRow = (p) => ({
 
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
 export const TABLES = {
+  // Louisville's pins in one read (migration 20261122000000)...
+  v_facility_map_pins: pinned.map((p) => ({
+    establishment_id: p.eid,
+    premise_name: p.name,
+    address: p.address,
+    city: "LOUISVILLE",
+    state: "KY",
+    zip: "40202",
+    facility_type: p.ft,
+    subtype: p.st,
+    lon: p.lon,
+    lat: p.lat,
+    inspection_date_recent: daysAgo(p.days),
+    score_recent: p.score,
+    grade_recent: p.grade,
+    has_any_violation: !!p.critical,
+  })),
+  // ...and the three reads the site falls back to on a database without that view.
   v_facility_map_feed: pinned.map((p) => ({
     establishment_id: p.eid,
     premise_name: p.name,
