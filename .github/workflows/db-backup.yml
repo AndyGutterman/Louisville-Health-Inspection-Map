@@ -1,10 +1,29 @@
 name: Nightly Database Backup
 
+# A full dump on Sundays; on the other nights, everything except the rows of the big
+# tables the pipeline can load again from its sources. Why: pg_dump downloads the
+# database uncompressed (gzip runs here, afterwards), and that download counts against
+# Supabase's 5 GB monthly egress. A full dump every night was the project's largest
+# single download. What can't be rebuilt (accounts, saved places, watch areas, feedback,
+# Bullitt's and the portal's recorded history) is still saved every night.
+#
+# Left out on weeknights (data only; the tables' definitions are always dumped):
+#   inspections, inspection_violations   reloaded from Louisville Metro's ArcGIS data
+#   geocode_cache                        geocoder answers; only saves time on a re-geocode
+#   bullitt_snapshots                    copies of the county's sheet, kept for reference
+# To take a full dump on any day: Actions > Nightly Database Backup > Run workflow, and
+# tick "full".
+
 on:
   schedule:
     # 2am ET = 7am UTC (EST) / 6am UTC (EDT) — close enough, pick one
     - cron: "0 7 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Full dump (every table's rows), whatever the day"
+        type: boolean
+        default: true
 
 jobs:
   backup:
@@ -39,18 +58,30 @@ jobs:
         id: dump
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          FILENAME="backup-${DATE}.sql.gz"
+          # Full on Sundays (UTC) and when asked for; otherwise skip the rows of the
+          # tables the pipeline can reload (see the top of this file).
+          SKIP=()
+          KIND=full
+          if [ "$(date -u +%u)" != "7" ] && [ "${{ inputs.full }}" != "true" ]; then
+            KIND=light
+            for t in inspections inspection_violations geocode_cache bullitt_snapshots; do
+              SKIP+=("--exclude-table-data=public.${t}")
+            done
+          fi
+          FILENAME="backup-${DATE}-${KIND}.sql.gz"
+          echo "kind=${KIND}" >> "$GITHUB_OUTPUT"
           echo "filename=${FILENAME}" >> "$GITHUB_OUTPUT"
           echo "date=${DATE}" >> "$GITHUB_OUTPUT"
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
             --no-owner --no-acl --no-privileges \
             --exclude-table=spatial_ref_sys \
+            "${SKIP[@]}" \
             | gzip -9 > "/tmp/${FILENAME}"
           echo "size=$(du -sh /tmp/${FILENAME} | cut -f1)" >> "$GITHUB_OUTPUT"
 
-      # Second guard: a real dump is megabytes. Anything under 100 KB means
-      # something went wrong, so fail (and send the failure email) instead of
-      # committing it.
+      # Second guard: a real dump is megabytes (a light one is smaller, but the facilities
+      # alone put it well over this). Anything under 100 KB means something went wrong,
+      # so fail (and send the failure email) instead of committing it.
       - name: Check the backup isn't empty
         run: |
           BYTES=$(stat -c %s "/tmp/${{ steps.dump.outputs.filename }}")
@@ -75,8 +106,11 @@ jobs:
         run: |
           cp "/tmp/${{ steps.dump.outputs.filename }}" /tmp/backup-repo/
           cd /tmp/backup-repo
-          # Keep only the 30 most recent backups
-          ls -1t backup-*.sql.gz | tail -n +31 | xargs -r rm --
+          # Keep the 30 most recent backups, and always the 5 most recent full ones (a
+          # month of weeknight dumps would otherwise push the last full dump out).
+          ls -1t backup-*.sql.gz | tail -n +31 > /tmp/old.txt || true
+          ls -1t backup-*-full.sql.gz 2>/dev/null | head -n 5 > /tmp/keep.txt || true
+          { grep -vxFf /tmp/keep.txt /tmp/old.txt || true; } | xargs -r rm --
           echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
 
       - name: Commit and push
@@ -87,7 +121,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git add -A
-          git commit -m "backup: ${{ steps.dump.outputs.date }} (${{ steps.dump.outputs.size }})"
+          git commit -m "backup: ${{ steps.dump.outputs.date }} ${{ steps.dump.outputs.kind }} (${{ steps.dump.outputs.size }})"
           GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" git push
 
       - name: Send failure notification
