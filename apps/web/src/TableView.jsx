@@ -17,7 +17,8 @@ import {
   typedCounties,
 } from "./lib/tableQuery.js";
 
-const PAGE_SIZES = [10, 25, 50, 100, 500];
+// 100 at most: a page of 500 was about 100 KB from the database for every sort or page turn.
+const PAGE_SIZES = [10, 25, 50, 100];
 
 function scoreClass(s) {
   if (s == null || s === 0) return "na";

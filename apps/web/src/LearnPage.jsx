@@ -556,48 +556,16 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
           since_date: cutoffDate ?? null,
         });
 
-        if (err) {
-          // Schema cache miss means the migration hasn't been applied yet.
-          // Fall back to the direct paginated query so the page still works.
-          if (err.message?.includes("schema cache") || err.message?.includes("Could not find")) {
-            throw new Error("MIGRATION_PENDING");
-          }
-          throw err;
-        }
+        if (err) throw err;
 
         setRows(
           summarizeViolations((data || []).map((r) => ({ desc: r.violation_desc, count: r.cnt }))),
         );
         setError(null);
       } catch (e) {
-        if (e.message === "MIGRATION_PENDING") {
-          // Fallback: paginated direct query (pre-RPC behavior)
-          try {
-            const BATCH = 1000;
-            const acc = [];
-            let offset = 0;
-            while (true) {
-              let q = supabase
-                .from("inspection_violations")
-                .select("violation_desc")
-                .not("violation_desc", "is", null);
-              if (cutoffDate) q = q.gte("inspection_date", cutoffDate);
-              q = q.range(offset, offset + BATCH - 1);
-              const { data, error: qErr } = await q;
-              if (qErr) throw qErr;
-              if (!data || data.length === 0) break;
-              for (const r of data) acc.push({ desc: r.violation_desc, count: 1 });
-              if (data.length < BATCH) break;
-              offset += BATCH;
-            }
-            setRows(summarizeViolations(acc));
-            setError(null);
-          } catch (fallbackErr) {
-            setError(fallbackErr.message || "Failed to load violations");
-          }
-        } else {
-          setError(e.message || "Failed to load violations");
-        }
+        // No fallback that pages through inspection_violations: one failed request used
+        // to start a download of the whole table, a page at a time.
+        setError(e.message || "Failed to load violations");
       } finally {
         setLoading(false);
       }
