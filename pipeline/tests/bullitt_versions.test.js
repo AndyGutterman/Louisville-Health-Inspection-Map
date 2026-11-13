@@ -38,7 +38,11 @@ function runDays(days) {
   const stored = new Map(); // versionKey -> row
   const log = [];
   for (const [day, establishments] of days) {
-    const { fresh, kept } = planVersions(establishments, new Set(stored.keys()), day);
+    const { fresh, kept } = planVersions(
+      establishments,
+      new Map([...stored].map(([k, r]) => [k, r.first_seen])),
+      day,
+    );
     for (const r of fresh) stored.set(versionKey(r), r);
     for (const r of kept) stored.set(versionKey(r), { ...stored.get(versionKey(r)), ...r });
     log.push({ day, fresh, kept });
@@ -82,6 +86,12 @@ describe("planVersions over a week of daily sheets", () => {
         [97, "2026-11-12", "2026-11-12"],
       ],
     );
+  });
+
+  // Kept rows are upserted; a missing first_seen fails the NOT NULL before the conflict
+  // is resolved (the 2026-11-13 Oldham portal load failed this way).
+  it("gives every kept row the first_seen it was stored with", () => {
+    assert.ok(log[2].kept.every((r) => r.first_seen === "2026-11-09"));
   });
 
   it("stops updating a follow-up once it leaves the sheet", () => {

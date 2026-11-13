@@ -13,19 +13,21 @@ export const versionKey = (i) => `${i.establishment_id}|${i.kind}|${i.content_ha
 
 /**
  * @param {object[]} establishments  parseSheet(...).establishments
- * @param {Set<string>} seenKeys       versionKey of every stored inspection
+ * @param {Map<string, string>} seen  versionKey -> first_seen of every stored inspection
  * @param {string} day                 today, YYYY-MM-DD
  * @returns {{ fresh: object[], kept: object[] }} rows to insert (first_seen and last_seen
- *   today) and rows already stored (last_seen today)
+ *   today) and rows already stored (last_seen today, first_seen as stored: they are
+ *   upserted, and Postgres checks first_seen's NOT NULL before it sees the conflict)
  */
-export function planVersions(establishments, seenKeys, day) {
+export function planVersions(establishments, seen, day) {
   const fresh = [];
   const kept = [];
   for (const e of establishments) {
     for (const i of [e.routine, e.follow_up]) {
       if (!i) continue;
       const row = { establishment_id: e.id, ...i, last_seen: day };
-      if (seenKeys.has(versionKey(row))) kept.push(row);
+      const key = versionKey(row);
+      if (seen.has(key)) kept.push({ ...row, first_seen: seen.get(key) });
       else fresh.push({ ...row, first_seen: day });
     }
   }

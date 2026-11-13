@@ -149,17 +149,18 @@ async function load(supa, csv, establishments) {
     "save snapshot",
   );
 
-  // 2. Establishments. New ones get first_seen; existing ones keep theirs.
-  const known = new Set();
+  // 2. Establishments. New ones get first_seen; existing ones keep theirs (read here and
+  // written back, since the upsert below must not send a NULL first_seen).
+  const known = new Map();
   for (let from = 0; ; from += 1000) {
     const rows = must(
       await supa
         .from("bullitt_establishments")
-        .select("id")
+        .select("id, first_seen")
         .range(from, from + 999),
       "read establishments",
     );
-    rows.forEach((r) => known.add(r.id));
+    rows.forEach((r) => known.set(r.id, r.first_seen));
     if (rows.length < 1000) break;
   }
   const place = ({ id, name, address, city, raw_city }) => ({
@@ -183,7 +184,10 @@ async function load(supa, csv, establishments) {
   }
   for (const part of chunks(kept)) {
     must(
-      await supa.from("bullitt_establishments").upsert(part.map(place), { onConflict: "id" }),
+      await supa.from("bullitt_establishments").upsert(
+        part.map((e) => ({ ...place(e), first_seen: known.get(e.id) })),
+        { onConflict: "id" },
+      ),
       "update establishments",
     );
   }
@@ -198,16 +202,16 @@ async function load(supa, csv, establishments) {
   );
 
   // 3. Inspections. The same content is the same inspection; anything else is new.
-  const seen = new Set();
+  const seen = new Map(); // versionKey -> first_seen
   for (let from = 0; ; from += 1000) {
     const rows = must(
       await supa
         .from("bullitt_inspections")
-        .select("establishment_id, kind, content_hash")
+        .select("establishment_id, kind, content_hash, first_seen")
         .range(from, from + 999),
       "read inspections",
     );
-    rows.forEach((r) => seen.add(versionKey(r)));
+    rows.forEach((r) => seen.set(versionKey(r), r.first_seen));
     if (rows.length < 1000) break;
   }
   const { fresh, kept: stored } = planVersions(establishments, seen, day);
