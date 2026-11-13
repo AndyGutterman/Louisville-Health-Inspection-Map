@@ -18,5 +18,5 @@ It takes about five minutes. Do it once on desktop and once on a phone-sized win
 11. **Account.** Sign in with an email code, save a place to the watchlist, add a watch area, then sign out.
 12. **Learn page.** Open Learn, search the violation database, return to the map.
 13. **Feedback.** Open the feedback form and close it without submitting.
-14. **County picker.** Pick Bullitt: the map flies to Bullitt County, only its pins show, and the date filter and category tiles go away. Click a pin: the popup and drawer say "Date not published", with no save button. Pick Jefferson again: everything comes back.
+14. **County picker.** Pick Bullitt: the map flies to Bullitt County, only its pins show, and the date filter and category tiles go away. Click a pin: the popup and drawer show the inspection date (or "Date not published" when the portal hasn't answered for 3 days and the county's sheet is the source), with no save button. Pick Jefferson again: everything comes back.
 15. **Console.** Open dev tools. No red errors during any of the above.

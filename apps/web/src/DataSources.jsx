@@ -1,6 +1,6 @@
 // The Learn page's "Data sources" list: one link per county and a line on what its data
-// includes, since the counties publish different things (Bullitt has no inspection dates,
-// grades or inspector comments). Built from lib/regions.js, so a county added there with
+// includes, since the counties publish different things (Bullitt has no grades or
+// inspector comments, and dates only through the state's portal). Built from lib/regions.js, so a county added there with
 // a `source` and `dataNote` shows up here with no other change.
 import { enabledRegions } from "./lib/regions.js";
 

@@ -7,6 +7,7 @@ import {
   byEid,
   BULLITT_EID,
   BULLITT_NAME,
+  BULLITT_PORTAL,
   NO_PIN_EID,
   PINNED_EID,
   PERFECT_EID,
@@ -461,6 +462,38 @@ test("What's New includes Bullitt County, labelled by the day its score was post
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
+test("a Bullitt place dated through Kentucky's portal shows its inspection date", async ({
+  page,
+}, testInfo) => {
+  const { consoleErrors, unmocked } = await openApp(page);
+  await page.getByRole("button", { name: "Open table view" }).click();
+  const panel = page.getByTestId("table-panel");
+  const row = panel.getByTestId("table-row").filter({ hasText: BULLITT_PORTAL.name }).first();
+  await expect(row).toBeVisible();
+  await expect(row).not.toContainText("Not published"); // a real inspection date
+  if (testInfo.project.name === "phone") {
+    // On phones Table View sits above the drawer, so the drawer is checked on desktop.
+    await snap(page, testInfo, "19-bullitt-portal-date");
+    expect(consoleErrors, "console errors").toEqual([]);
+    expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+    return;
+  }
+
+  await row.click();
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer.getByText(BULLITT_PORTAL.name, { exact: true })).toBeVisible();
+  await expect(drawer.getByText("Date", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("Date (estimated)")).toHaveCount(0);
+  await expect(drawer).not.toContainText("Date not published");
+  await expect(drawer.getByTestId("drawer-source-note")).toContainText(
+    "Kentucky's inspection portal",
+  );
+  await snap(page, testInfo, "19-bullitt-portal-date");
+
+  expect(consoleErrors, "console errors").toEqual([]);
+  expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+});
+
 test("the Learn page links one data source per county and says how they differ", async ({
   page,
 }) => {
@@ -473,7 +506,8 @@ test("the Learn page links one data source per county and says how they differ",
     sources.getByRole("link", { name: "Bullitt County Health Department" }),
   ).toHaveAttribute("href", "https://www.bullitthealth.org/food");
   await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
-  await expect(sources).toContainText("no inspection date");
+  await expect(sources).toContainText("Kentucky's statewide inspection portal");
+  await expect(sources).toContainText("no inspection date"); // the fallback, said plainly
 });
 
 test("score sliders: the coloured bar stays under the handle while it is dragged", async ({

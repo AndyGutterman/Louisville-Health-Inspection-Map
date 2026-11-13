@@ -4,6 +4,7 @@ import {
   VIOLATIONS_NOTE,
   bullittHeader,
   bullittHistory,
+  bullittSourceNote,
   buildBullittFeatures,
   estimateLabel,
   estimatedDate,
@@ -53,15 +54,15 @@ describe("estimatedDate", () => {
 });
 
 describe("buildBullittFeatures", () => {
-  it("builds a pin with no date, grade or category", () => {
+  it("builds a pin with the latest record's date, and no grade or category", () => {
     const [f] = buildBullittFeatures([feedRow]);
     expect(f.geometry.coordinates).toEqual([-85.705, 37.99]);
     expect(f.properties).toMatchObject({
       establishment_id: "bullitt-f8d92cd7e863",
       name: "AFC SUSHI @ KROGER #728L",
       address_full: "185 ADAM SHEPHERD PARKWAY, SHEPHERDSVILLE, KY",
-      date: null,
-      date_text: formatDateSafe("2026-09-14"), // the follow-up is the latest record
+      date: "2026-09-14", // the follow-up is the latest record, with a published date
+      date_text: formatDateSafe("2026-09-14"),
       score: 100,
       grade: null,
       cat: "unknown",
@@ -93,11 +94,35 @@ describe("buildBullittFeatures", () => {
       { ...routineOnly, routine_first_seen: TRACKING_SINCE, tracking_since: TRACKING_SINCE },
     ]);
     expect(changed.properties).toMatchObject({
-      date: null, // never mistaken for a published date (the date filter skips Bullitt)
+      date: null, // never mistaken for a published date (the date filter lets it through)
       date_text: estimateLabel("2026-11-12"),
       date_estimated: true,
     });
     expect(original.properties).toMatchObject({ date_text: NO_DATE, date_estimated: false });
+  });
+
+  it("dates the routine inspection when the results came from the portal", () => {
+    const routineOnly = { ...feedRow, follow_up_date: null, follow_up_score: null };
+    const [f] = buildBullittFeatures([
+      // first seen after the first load, but the real date wins over any estimate
+      {
+        ...routineOnly,
+        routine_date: "2026-10-29",
+        routine_first_seen: "2026-11-20",
+        tracking_since: TRACKING_SINCE,
+      },
+    ]);
+    expect(f.properties).toMatchObject({
+      date: "2026-10-29",
+      date_text: formatDateSafe("2026-10-29"),
+      date_estimated: false,
+      score: 94,
+    });
+  });
+
+  it("still leads with a follow-up that is newer than a dated routine inspection", () => {
+    const [f] = buildBullittFeatures([{ ...feedRow, routine_date: "2026-09-01" }]);
+    expect(f.properties).toMatchObject({ date: "2026-09-14", score: 100 });
   });
 
   it("works with the feed from before the estimated-dates migration", () => {
@@ -239,5 +264,33 @@ describe("bullittHistory", () => {
   it("puts the latest record, the current follow-up, in the header", () => {
     expect(bullittHeader(bullittHistory(rows))).toMatchObject({ kind: "follow_up" });
     expect(bullittHeader([])).toBeNull();
+  });
+
+  it("keeps the portal's dates on routine inspections, with no label or estimate", () => {
+    const portal = [{ ...rows[1], inspection_date: "2026-11-12" }, rows[2]];
+    const routine = bullittHistory(portal, { trackingSince: TRACKING_SINCE })[1];
+    expect(routine).toMatchObject({
+      inspection_date: "2026-11-12",
+      date_label: null,
+      date_estimated: false,
+    });
+  });
+});
+
+describe("bullittSourceNote", () => {
+  const AGENCY = "Bullitt County Health Department";
+  const routine = (inspection_date) => ({ kind: "routine", inspection_date });
+  const followUp = { kind: "follow_up", inspection_date: "2026-11-20" };
+
+  it("credits the portal when every routine inspection is dated", () => {
+    const note = bullittSourceNote([followUp, routine("2026-11-12")], AGENCY);
+    expect(note).toContain("Kentucky's inspection portal");
+    expect(note).toContain(AGENCY);
+  });
+
+  it("says the date isn't published when the results came from the sheet", () => {
+    for (const history of [[followUp, routine(null)], [followUp], []]) {
+      expect(bullittSourceNote(history, AGENCY)).toContain("without its date");
+    }
   });
 });

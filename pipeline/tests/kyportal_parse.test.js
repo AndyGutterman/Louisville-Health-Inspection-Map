@@ -201,7 +201,14 @@ describe("counties", () => {
     assert.equal(idPrefix(COUNTIES.oldham), "oldham-");
   });
 
+  it("knows Bullitt as county 15, with the same ids and pins as its sheet", () => {
+    const bullitt = countyById("bullitt");
+    assert.equal(bullitt.number, 15);
+    assert.equal(idPrefix(bullitt), "bullitt-");
+    assert.equal(bullitt.overrides, "pipeline/regions/bullitt/overrides.json");
+  });
+
   it("names the known counties when asked for another", () => {
-    assert.throws(() => countyById("narnia"), /Unknown county "narnia". Known: oldham/);
+    assert.throws(() => countyById("narnia"), /Unknown county "narnia". Known: bullitt, oldham/);
   });
 });

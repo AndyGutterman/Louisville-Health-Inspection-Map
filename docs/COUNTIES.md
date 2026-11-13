@@ -9,11 +9,11 @@ shown on the site yet. Oldham County is first. The steps are at the end.
 The rule: a county keeps the source it has unless the portal is **faster** (posts results
 sooner) or has **more**, and no county loses its old source: it stays as the fallback.
 
-| County    | Source                                | Why                                                                                                                     |
-| --------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Jefferson | ArcGIS (Louisville Metro), unchanged  | As fresh as the portal (its newest rows match the Courier-Journal's), plus history, types, coordinates; one load, not 9 |
-| Bullitt   | the county's sheet; later, the portal | The portal has dates and posts sooner (rows dated 11/12 when the sheet last changed 11/10); the sheet stays as fallback |
-| Oldham    | the portal                            | The only online source (the health department links to it)                                                              |
+| County    | Source                                        | Why                                                                                                                                      |
+| --------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Jefferson | ArcGIS (Louisville Metro), unchanged          | As fresh as the portal (its newest rows match the Courier-Journal's), plus history, types, coordinates; one load, not 9                  |
+| Bullitt   | both: the sheet, and the portal since 11/2026 | Same 250 places and ids; the portal has dates and posts sooner (3 results dated 11/12 not on the sheet yet). The sheet stays as fallback |
+| Oldham    | the portal                                    | The only online source (the health department links to it)                                                                               |
 
 ## The source
 
@@ -143,9 +143,10 @@ that:
 - **A broken read writes nothing.** The parser stops on a changed table, columns or row
   count, and a county that shrinks to under half is refused, so the last good load stays
   on the site. The workflow goes red and GitHub emails the owner.
-- **The site can tell.** `portal_regions.last_checked_at` is the last time the portal
-  answered for a county. The site step will use it to fall back: Bullitt to its sheet
-  data, Oldham to its last load with an "updated <date>" note.
+- **The site falls back by itself.** `portal_regions.last_checked_at` is the last time
+  the portal answered for a county. Bullitt's results switch to the sheet once that is
+  more than 3 days old (`bullitt_results`) and back when the portal answers again; Oldham
+  will keep its last load, with an "updated <date>" note.
 - **Loading without the portal.** `--from=<file>` loads a page saved earlier (each run
   keeps its page for 30 days as a workflow artifact), with no portal request.
 - **Turning it off:** disable `portal-ingest.yml` in GitHub (Actions, the workflow, "...",
@@ -155,8 +156,11 @@ that:
 
 1. ~~**Store Oldham**~~: done (tables, daily job, geocoding).
 2. **Show Oldham** on the map, drawer, What's New, Table View, saved places and the digest.
-3. **Read Bullitt from the portal too**: real dates instead of "Date not published" and
-   "posted <date>". The sheet import keeps running as the fallback, and the site uses
-   whichever is fresher.
+3. ~~**Read Bullitt from the portal too**~~: done. `bullitt_results` (migration
+   `20261120000000`) serves the portal's dated results while `portal_regions` says the
+   portal answered for Bullitt in the last 3 days, and the sheet's otherwise. Places, pins
+   and saved places stay on `bullitt_establishments`; ids are the same in both sources.
+   When the portal becomes the source, a place's drawer history starts from the portal's
+   first load (the sheet's older undated versions aren't merged in).
 4. Later: more counties (a line in `counties.js`, an outline, a geocoding run), and
    Jefferson's marked items for inspections that passed, which ArcGIS doesn't publish.

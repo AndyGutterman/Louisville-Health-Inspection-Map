@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+// MapLibre's expression engine (installed with maplibre-gl), to evaluate filters on pins.
+import { featureFilter } from "@maplibre/maplibre-gl-style-spec";
 import {
   HIDDEN,
   buildLayerFilters,
@@ -152,12 +154,41 @@ describe("dateExpression with undated counties", () => {
     ]);
   });
 
-  it("lets an undated county's pins through, counting no region as Jefferson", () => {
+  it("lets an undated county's undated pins through, counting no region as Jefferson", () => {
     expect(dateExpression("2026-01-01", ["bullitt"])).toEqual([
       "any",
-      ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]],
+      [
+        "all",
+        ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]],
+        ["==", ["coalesce", ["get", "date"], ""], ""],
+      ],
       dateExpression("2026-01-01"),
     ]);
+  });
+
+  // Evaluated by MapLibre's own expression engine, as the map would.
+  describe("on real pins", () => {
+    const shows = (properties) =>
+      featureFilter(dateExpression("2026-10-01", ["bullitt"])).filter(
+        { zoom: 10 },
+        { type: 1, properties, geometry: [] },
+      );
+
+    it("keeps a Bullitt pin the sheet left undated, whatever the cutoff", () => {
+      expect(shows({ region: "bullitt", date: null })).toBe(true);
+      expect(shows({ region: "bullitt" })).toBe(true);
+    });
+
+    it("filters a Bullitt pin with a real date like any other", () => {
+      expect(shows({ region: "bullitt", date: "2026-10-29" })).toBe(true);
+      expect(shows({ region: "bullitt", date: "2026-03-18" })).toBe(false);
+    });
+
+    it("still hides an undated Louisville pin", () => {
+      expect(shows({ region: "jefferson", date: null })).toBe(false);
+      expect(shows({ date: null })).toBe(false);
+      expect(shows({ date: "2026-10-02" })).toBe(true);
+    });
   });
 
   it("is still null for all time", () => expect(dateExpression(null, ["bullitt"])).toBeNull());

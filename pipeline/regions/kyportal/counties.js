@@ -10,6 +10,17 @@
  * (docs/COUNTIES.md has the other steps).
  */
 export const COUNTIES = {
+  // Also loaded from its own sheet (regions/bullitt), which stays as the fallback. Same
+  // ids, geocode cache keys and hand-placed pins as the sheet's, so both agree.
+  bullitt: {
+    id: "bullitt",
+    number: 15,
+    name: "Bullitt County",
+    county911: "Bullitt County",
+    defaultCity: "Shepherdsville",
+    outline: "apps/web/public/regions/bullitt.geojson",
+    overrides: "pipeline/regions/bullitt/overrides.json",
+  },
   oldham: {
     id: "oldham",
     number: 93,

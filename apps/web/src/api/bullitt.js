@@ -21,9 +21,13 @@ export async function fetchBullittFeed() {
   }
 }
 
-// Every version of one place's inspections we have recorded. Supabase's { data, error }.
-export const fetchBullittInspections = (eid) =>
-  supabase
-    .from("bullitt_inspections")
-    .select("id, kind, inspection_date, score, violations, first_seen, last_seen")
-    .eq("establishment_id", eid);
+const HISTORY_COLUMNS = "id, kind, inspection_date, score, violations, first_seen, last_seen";
+
+// Every version of one place's inspections we have recorded, from bullitt_results: the
+// portal's while it is answering, the sheet's otherwise (migration 20261120000000). Until
+// that migration has run, the sheet's table directly. Supabase's { data, error }.
+export async function fetchBullittInspections(eid) {
+  const read = (table) => supabase.from(table).select(HISTORY_COLUMNS).eq("establishment_id", eid);
+  const picked = await read("bullitt_results");
+  return picked.error ? read("bullitt_inspections") : picked;
+}

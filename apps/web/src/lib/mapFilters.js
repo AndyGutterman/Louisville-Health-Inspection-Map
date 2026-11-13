@@ -26,14 +26,17 @@ export function searchExpression(searchTerm) {
 const regionOf = ["coalesce", ["get", "region"], DEFAULT_REGION];
 
 // Hides pins inspected before the cutoff (YYYY-MM-DD). Pins with no date are hidden
-// whenever a cutoff is set, except in counties whose data publishes no dates at all
-// (undatedRegions, e.g. Bullitt): their pins show the latest inspection, so they stay.
-// null for "All time".
+// whenever a cutoff is set, except in counties whose data doesn't always publish one
+// (undatedRegions, e.g. Bullitt when its results come from the county's sheet): an
+// undated pin there shows the latest inspection, so it stays. A dated pin in such a
+// county is filtered like any other. null for "All time".
 export function dateExpression(cutoffDate, undatedRegions = []) {
   if (!cutoffDate) return null;
   const recent = [">=", ["coalesce", ["get", "date"], "0000-00-00"], cutoffDate];
   if (!undatedRegions.length) return recent;
-  return ["any", ["in", regionOf, ["literal", undatedRegions]], recent];
+  const noDate = ["==", ["coalesce", ["get", "date"], ""], ""];
+  const undated = ["all", ["in", regionOf, ["literal", undatedRegions]], noDate];
+  return ["any", undated, recent];
 }
 
 // Pins whose facility type/subtype pair is switched on in the category filter, plus
