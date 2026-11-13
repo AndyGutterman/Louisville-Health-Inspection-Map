@@ -139,3 +139,31 @@
 .county-switch[data-state="failed"] .county-switch-status {
   color: #fca5a5;
 }
+
+/* A box around each set of counties: Jefferson with the category tiles that filter it,
+   then the counties whose data has no place types, with a one-line note. */
+.county-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.county-group .cat-filters {
+  padding-top: 2px;
+}
+
+/* The tiles do nothing while no county they apply to is on the map. */
+.county-group .cat-filters[data-inactive="true"] {
+  opacity: 0.4;
+}
+
+.county-group-note {
+  margin: 1px 4px 2px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}

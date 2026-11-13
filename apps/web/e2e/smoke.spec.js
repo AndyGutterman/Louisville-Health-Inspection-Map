@@ -346,8 +346,11 @@ test("a first visit loads only Jefferson; other counties load when switched on, 
   await expect(bullitt.getByRole("checkbox")).not.toBeChecked();
   await expect(bullitt).toContainText("Not loaded");
   await expect(oldham).toContainText("Not loaded");
-  // Bullitt's note about facility types only shows while Bullitt is on the map.
-  await expect(page.getByTestId("county-note")).toHaveCount(0);
+  // Jefferson sits with the category tiles; the counties without place types sit below,
+  // with a note that categories don't apply to them.
+  await expect(page.getByTestId("county-group-typed").getByTestId("category-tile")).toHaveCount(8);
+  await expect(page.getByTestId("county-group-untyped")).toContainText("Bullitt County");
+  await expect(page.getByTestId("county-note")).toContainText("categories don't apply");
   await snap(page, testInfo, "12-counties-jefferson-only");
 
   // Checking a county reads it, and only it.
@@ -356,10 +359,7 @@ test("a first visit loads only Jefferson; other counties load when switched on, 
   await expect(onMap).toHaveCount(0);
   expect(pinReads(requested, BULLITT_FEED)).toHaveLength(1);
   expect(pinReads(requested, OLDHAM_FEED)).toEqual([]);
-  await expect(page.getByTestId("category-tile")).toHaveCount(8);
-  await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
-  // Narrowing the categories hides Bullitt pins (no facility types); the note says so.
-  await expect(page.getByTestId("county-note")).toContainText("only while every category is on");
+  await expect(page.getByTestId("county-note")).toContainText("Undated Bullitt County places");
   await snap(page, testInfo, "12-counties-bullitt-on");
 
   // Off and on again: the pins are still in the browser, so nothing is read again.
@@ -375,6 +375,14 @@ test("a first visit loads only Jefferson; other counties load when switched on, 
   await expect(oldham.getByRole("checkbox")).toBeChecked();
   await expect(page.getByTestId("county-load-oldham")).toHaveCount(0);
   expect(pinReads(requested, OLDHAM_FEED)).toHaveLength(1);
+
+  // With Jefferson hidden, the category tiles have nothing to filter, and fade.
+  const cats = page.getByTestId("category-filters");
+  await expect(cats).toHaveAttribute("data-inactive", "false");
+  await jefferson.getByRole("checkbox").uncheck();
+  await expect(cats).toHaveAttribute("data-inactive", "true");
+  await snap(page, testInfo, "12-counties-jefferson-hidden");
+  await jefferson.getByRole("checkbox").check();
 
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
