@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { WHATS_NEW_TABS, scoreBadge, swipeTab, whatsNewDate } from "./lib/whatsNew.js";
+import { regionOfId } from "./lib/regions.js";
 import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
@@ -71,6 +72,7 @@ export default function WhatsNew({
   onOpenEstablishment,
   onHoverEstablishment,
   onHoverEstablishmentEnd,
+  counties, // ids of the counties switched on; rows from other counties are left out
   open,
   onClose,
   onOpen,
@@ -150,13 +152,21 @@ export default function WhatsNew({
     );
   }
 
+  // A tab's rows in the counties switched on (the lists are loaded once, for every
+  // county, and narrowed here, so switching a county costs no request).
+  const rowsOf = (list) =>
+    counties
+      ? list.rows.filter((r) => counties.includes(regionOfId(r.establishment_id).id))
+      : list.rows;
+
   // One tab's rows (all of them, or the first `limit`), or its loading/empty/error line.
   const renderRows = (t, limit) => {
     const list = lists[t.id];
     if (!list || list.loading) return <div className="wn-loading">Loading…</div>;
     if (list.error) return <div className="wn-error">Could not load.</div>;
-    if (!list.rows.length) return <div className="wn-empty">{t.empty}</div>;
-    return (limit ? list.rows.slice(0, limit) : list.rows).map((item, i) => (
+    const rows = rowsOf(list);
+    if (!rows.length) return <div className="wn-empty">{t.empty}</div>;
+    return (limit ? rows.slice(0, limit) : rows).map((item, i) => (
       <ScoreCard
         key={`${item.establishment_id}-${i}`}
         item={item}
@@ -227,9 +237,9 @@ export default function WhatsNew({
             >
               {renderRows(active, showAll ? 0 : PREVIEW_ROWS)}
             </div>
-            {activeList && !activeList.loading && activeList.rows.length > PREVIEW_ROWS && (
+            {activeList && !activeList.loading && rowsOf(activeList).length > PREVIEW_ROWS && (
               <button className="wn-more" onClick={() => setShowAll((v) => !v)}>
-                {showAll ? "Show fewer" : `Show all ${activeList.rows.length}`}
+                {showAll ? "Show fewer" : `Show all ${rowsOf(activeList).length}`}
               </button>
             )}
           </>

@@ -26,8 +26,13 @@ export function withTimeout(promise, ms, onTimeout) {
  * the attempt number between tries. `signal` is an AbortSignal that fires when that try
  * runs out of time: pass it to the request (supabase-js: .abortSignal(signal)) so a slow
  * answer stops downloading. Resolves to the first success; rejects with the last error.
+ * retryIf(error) false stops at once: an error that will be the same every time (a view
+ * that doesn't exist) isn't worth two more requests.
  */
-export async function retry(step, { tries = 3, ms = 15000, backoffMs = 1000 } = {}) {
+export async function retry(
+  step,
+  { tries = 3, ms = 15000, backoffMs = 1000, retryIf = () => true } = {},
+) {
   let lastError;
   for (let attempt = 1; attempt <= tries; attempt++) {
     try {
@@ -35,6 +40,7 @@ export async function retry(step, { tries = 3, ms = 15000, backoffMs = 1000 } = 
       return await withTimeout(step(controller.signal), ms, () => controller.abort());
     } catch (e) {
       lastError = e;
+      if (!retryIf(e)) break;
       if (attempt < tries) await new Promise((r) => setTimeout(r, backoffMs * attempt));
     }
   }

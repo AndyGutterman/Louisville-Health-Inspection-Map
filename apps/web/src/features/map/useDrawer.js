@@ -29,7 +29,9 @@ const HEADER_NOTE =
 const ESTIMATED = "Date (estimated)";
 
 // getFeature: establishment id -> map feature, or nothing when the place has no pin.
-export function useDrawer(getFeature) {
+// countyOnMap(regionId): whether that county's pins are on the map. A place in a county
+// that is switched off has no feature either, but that doesn't mean it has no location.
+export function useDrawer(getFeature, countyOnMap = () => true) {
   const [selected, setSelected] = useState(null);
   const [history, setHistory] = useState(null);
   const [details, setDetails] = useState(null);
@@ -102,7 +104,8 @@ export function useDrawer(getFeature) {
   const open = useCallback(
     async (eid, p) => {
       const seq = ++loadSeq.current;
-      const noLocation = !getFeature(eid); // the drawer explains why there's no pin
+      // The drawer explains why there's no pin, if the pin should have been there.
+      const noLocation = !getFeature(eid) && countyOnMap(regionOfId(eid).id);
       const similarNearby = parseSimilarNearby(p.similar_nearby);
       setLoading(true);
       setHistory(null);
@@ -194,7 +197,7 @@ export function useDrawer(getFeature) {
       });
       setLoading(false);
     },
-    [getFeature, loadBullitt, loadPortal],
+    [getFeature, countyOnMap, loadBullitt, loadPortal],
   );
 
   return { selected, history, details, loading, open, close };

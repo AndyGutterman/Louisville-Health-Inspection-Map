@@ -1,25 +1,34 @@
-// Loads every establishment as a map pin, from the browser's cache when it's fresh. Every
-// county's pins share one list and show together. The five reads run side by side, pins
-// appear as pages arrive, and a complete list is kept in localStorage for 6 hours
-// (lib/mapCache.js, GEO_CACHE_TTL), so a visitor costs the database one load per 6 hours.
-//   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js); grows
-//               while loading
-//   status      { loading, failed, places, jeffersonRows } for the loading indicator
-//   getFeature  establishment id -> its feature, over the FULL list, including places
-//               that share a pin with another place
+// Loads establishments as map pins, one county at a time, and only the counties that are
+// switched on (lib/counties.js): Jefferson on a first visit, the others when they are
+// tapped on the map or checked in the Filter tab. Each county is read from the browser's
+// cache when that is fresh (lib/mapCache.js: good until the next daily data load), and
+// from the database at most once per page otherwise. Switching a county off only hides
+// its pins; switching it back on shows them again without another read.
+//   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js), for the
+//               counties switched on; grows while loading
+//   status      { loading, failed, places, rowsSoFar, counties } for the loading
+//               indicator and the county switches; counties is id -> { state, places }
+//   getFeature  establishment id -> its feature, over every place in the counties
+//               switched on, including places that share a pin with another place
 //   coordIndex  location key -> every feature at that spot (for the "1 of 3" popup)
+//   retryFailed loads again the counties that failed, and nothing else
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchFacilityMeta, fetchMapFeed, fetchViolationFlags } from "../../api/mapData.js";
+import {
+  fetchFacilityMeta,
+  fetchMapFeed,
+  fetchMapPins,
+  fetchViolationFlags,
+} from "../../api/mapData.js";
 import { fetchBullittFeed } from "../../api/bullitt.js";
 import { fetchPortalFeed } from "../../api/portal.js";
-import { buildMapFeatures, combineRegions } from "../../lib/mapFeatures.js";
-import { buildBullittFeatures } from "../../lib/bullitt.js";
+import { buildMapFeatures, buildPinFeatures, combineRegions } from "../../lib/mapFeatures.js";
+import { BULLITT, buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildPortalFeatures } from "../../lib/portal.js";
-import { portalRegionIds } from "../../lib/regions.js";
+import { enabledRegions, regionById } from "../../lib/regions.js";
 import { buildCoordIndex, deduplicateForRender } from "../../lib/dedupe.js";
-import { GEO_CACHE_KEY, GEO_CACHE_TTL } from "../../lib/constants.js";
+import { DATA_REFRESH_UTC_HOUR, GEO_CACHE_VERSION } from "../../lib/constants.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
-import { readMapCache, writeMapCache } from "../../lib/mapCache.js";
+import { countyCacheKey, readMapCache, writeMapCache } from "../../lib/mapCache.js";
 
 // window.localStorage itself can throw (blocked site data), so ask for it carefully.
 function browserStorage() {
@@ -30,29 +39,54 @@ function browserStorage() {
   }
 }
 
-function readCache() {
+function readCache(regionId) {
   if (new URLSearchParams(window.location.search).has("bust")) return null; // dev escape hatch
-  return readMapCache(browserStorage(), { key: GEO_CACHE_KEY, ttl: GEO_CACHE_TTL });
+  return readMapCache(browserStorage(), {
+    key: countyCacheKey(GEO_CACHE_VERSION, regionId),
+    refreshUtcHour: DATA_REFRESH_UTC_HOUR,
+  });
 }
+
+const saveCache = (regionId, features) =>
+  writeMapCache(browserStorage(), features, {
+    key: countyCacheKey(GEO_CACHE_VERSION, regionId),
+    version: GEO_CACHE_VERSION,
+  });
 
 // How often, at most, the pins are redrawn while data is still arriving.
 const REDRAW_MS = 250;
 
 /**
- * Reads the five sources side by side and calls show(features) as they come in: first
- * with whatever has arrived (each page of the Louisville feed, Bullitt, Oldham, then the facility
- * types and violation rings that refine Louisville's pins), finally with everything.
- * Resolves to { features, jeffersonRows, ok }; ok is false if the Louisville feed failed
- * part-way (whatever loaded stays on the map).
+ * Louisville Metro: one read of v_facility_map_pins, which has everything a pin needs.
+ * show(features, rowsSoFar) runs as its pages come in. Until the database has that view
+ * (migration 20261122000000), the three older reads (loadJeffersonParts).
  */
-async function loadFeatures(show) {
-  const parts = { rows: [], meta: new Map(), flags: new Map(), bullitt: [], portal: [] };
-  const build = () =>
-    combineRegions(
-      buildMapFeatures(parts.rows, parts.meta, parts.flags),
-      buildBullittFeatures(parts.bullitt),
-      buildPortalFeatures(parts.portal),
-    );
+async function loadJefferson(show) {
+  let timer = null;
+  let seen = []; // the pages so far: they stay on the map if a later page fails
+  const rows = await fetchMapPins((soFar) => {
+    seen = soFar;
+    timer ??= setTimeout(() => {
+      timer = null;
+      show(buildPinFeatures(seen), seen.length);
+    }, REDRAW_MS);
+  });
+  clearTimeout(timer);
+  if (rows === undefined) return loadJeffersonParts(show);
+  return { features: buildPinFeatures(rows ?? seen), ok: !!rows, complete: !!rows };
+}
+
+/**
+ * Louisville Metro before v_facility_map_pins: three reads side by side. show(features, rowsSoFar) runs as they come
+ * in: each page of the feed, then the facility types and violation rings that refine the
+ * pins. Resolves to { features, ok, complete }: ok is false if the feed failed part-way
+ * (whatever loaded stays on the map); complete is false if the types or rings failed
+ * (their reads come back empty), so the result isn't cached and the next visit tries
+ * again instead of showing plain pins until the next data load.
+ */
+async function loadJeffersonParts(show) {
+  const parts = { rows: [], meta: new Map(), flags: new Map() };
+  const build = () => buildMapFeatures(parts.rows, parts.meta, parts.flags);
   let timer = null;
   const soon = () => {
     timer ??= setTimeout(() => {
@@ -71,53 +105,115 @@ async function loadFeatures(show) {
     }),
     fetchFacilityMeta().then((m) => ((parts.meta = m), soon())),
     fetchViolationFlags().then((f) => ((parts.flags = f), soon())),
-    fetchBullittFeed().then((b) => ((parts.bullitt = b), soon())), // [] without Bullitt data
-    // Oldham: [] until migration 20261121000000 has run.
-    fetchPortalFeed(portalRegionIds()).then((p) => ((parts.portal = p), soon())),
   ]);
   clearTimeout(timer);
-  const features = build();
-  // Only a complete load is kept: if the types or rings failed (their reads come back
-  // empty), the next visit tries again instead of showing plain pins for 6 hours.
-  if (rows && parts.meta.size && parts.flags.size) {
-    writeMapCache(browserStorage(), features, { key: GEO_CACHE_KEY });
-  }
-  return { features, jeffersonRows: parts.rows.length, ok: !!rows };
+  return {
+    features: build(),
+    ok: !!rows,
+    complete: !!rows && parts.meta.size > 0 && parts.flags.size > 0,
+  };
 }
 
-/** While pins are loading: { loading, failed, places } (places drawn so far). */
-const START = { loading: true, failed: false, places: 0, jeffersonRows: 0 };
+// A county with one read: null rows mean the read failed.
+const single = (rows, build) => ({
+  features: build(rows ?? []),
+  ok: rows != null,
+  complete: rows != null,
+});
 
-export function useMapFeatures() {
+/** Reads one county from the database (see loadJefferson for what it resolves to). */
+async function loadCounty(region, show) {
+  if (region.id === BULLITT) return single(await fetchBullittFeed(), buildBullittFeatures);
+  if (region.feed === "portal") {
+    return single(await fetchPortalFeed([region.id]), buildPortalFeatures);
+  }
+  return loadJefferson(show);
+}
+
+const START = { loading: true, failed: false, places: 0, rowsSoFar: 0, counties: {} };
+
+/**
+ * @param {string[]} shown  ids of the counties switched on (lib/counties.js)
+ */
+export function useMapFeatures(shown) {
   const [geoData, setGeoData] = useState(null);
   const [status, setStatus] = useState(START);
+  // id -> { state: "loading" | "ready" | "failed", features, rows }. A county stays here
+  // once read, switched on or not, so it is never read twice.
+  const store = useRef({});
+  const shownRef = useRef(shown);
   const byEid = useRef({});
   const coordIndex = useRef(new Map());
 
-  useEffect(() => {
-    let live = true;
-    const show = (features, jeffersonRows) => {
-      if (!live) return;
-      byEid.current = Object.fromEntries(features.map((f) => [f.properties.establishment_id, f]));
-      coordIndex.current = buildCoordIndex(features);
-      setGeoData({ type: "FeatureCollection", features: deduplicateForRender(features) });
-      setStatus((s) => ({ ...s, places: features.length, jeffersonRows }));
-    };
-    const cached = readCache();
-    if (cached) {
-      show(cached, cached.length);
-      setStatus({ loading: false, failed: false, places: cached.length, jeffersonRows: 1 });
-      return;
-    }
-    loadFeatures(show).then(({ features, jeffersonRows, ok }) => {
-      if (!live) return;
-      show(features, jeffersonRows);
-      setStatus({ loading: false, failed: !ok, places: features.length, jeffersonRows });
+  // Redraws the map from the counties switched on, and reports where each one stands.
+  const publish = useCallback(() => {
+    const on = shownRef.current;
+    const lists = enabledRegions()
+      .filter((r) => on.includes(r.id))
+      .map((r) => store.current[r.id]?.features ?? []);
+    const features = combineRegions(...lists);
+    byEid.current = Object.fromEntries(features.map((f) => [f.properties.establishment_id, f]));
+    coordIndex.current = buildCoordIndex(features);
+    setGeoData({ type: "FeatureCollection", features: deduplicateForRender(features) });
+
+    const entries = Object.entries(store.current);
+    const active = entries.filter(([id]) => on.includes(id)).map(([, c]) => c);
+    setStatus({
+      loading: active.some((c) => c.state === "loading"),
+      failed: active.some((c) => c.state === "failed"),
+      places: features.length,
+      rowsSoFar: active.reduce((n, c) => n + c.rows, 0),
+      counties: Object.fromEntries(
+        entries.map(([id, c]) => [id, { state: c.state, places: c.features.length }]),
+      ),
     });
-    return () => {
-      live = false;
-    };
   }, []);
+
+  // Starts one county, from the cache if it's fresh. Does nothing for a county already
+  // read or being read: unchecking and rechecking a county never asks the database again.
+  const start = useCallback(
+    (id) => {
+      if (store.current[id]) return;
+      const cached = readCache(id);
+      if (cached) {
+        store.current[id] = { state: "ready", features: cached, rows: cached.length };
+        return;
+      }
+      const entry = { state: "loading", features: [], rows: 0 };
+      store.current[id] = entry;
+      const show = (features, rows) => {
+        entry.features = features;
+        entry.rows = rows;
+        publish();
+      };
+      loadCounty(regionById(id), show).then(({ features, ok, complete }) => {
+        entry.features = features;
+        entry.rows = features.length;
+        entry.state = ok ? "ready" : "failed";
+        if (complete) saveCache(id, features);
+        publish();
+      });
+    },
+    [publish],
+  );
+
+  const shownKey = shown.join(",");
+  useEffect(() => {
+    shownRef.current = shown;
+    for (const id of shown) start(id);
+    publish();
+    // `shown` is a new array on every render: shownKey says when its contents change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKey, start, publish]);
+
+  // Forgets the counties that failed and reads them again; the rest are left alone.
+  const retryFailed = useCallback(() => {
+    for (const [id, c] of Object.entries(store.current)) {
+      if (c.state === "failed") delete store.current[id];
+    }
+    for (const id of shownRef.current) start(id);
+    publish();
+  }, [start, publish]);
 
   const getFeature = useCallback((eid) => byEid.current[eid], []);
 
@@ -130,5 +226,5 @@ export function useMapFeatures() {
     [],
   );
 
-  return { geoData, status, getFeature, similarEids, coordIndex };
+  return { geoData, status, getFeature, similarEids, coordIndex, retryFailed };
 }

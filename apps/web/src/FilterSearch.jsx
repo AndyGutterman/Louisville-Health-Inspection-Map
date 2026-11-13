@@ -1,10 +1,12 @@
 import { nameList } from "./lib/regions.js";
+import { countyStatusText } from "./lib/counties.js";
 import * as Switch from "@radix-ui/react-switch";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import "./styles/AdjustFilter.css";
 import "./styles/ToggleRow.css";
 import "./styles/CountyNote.css";
+import "./styles/CountyLoad.css";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
 function Icon({ k, active }) {
@@ -155,10 +157,13 @@ export default function FilterSearch({
   dateFilterKey,
   setDateFilterKey,
   dateFilterOpts,
-  regions = [], // the counties on the map (lib/regions.js)
+  regions = [], // the counties the site covers (lib/regions.js)
+  counties = [], // each one's switch: { id, name, shown, state, places } (Map.jsx)
+  onToggleCounty, // (id, on)
 }) {
-  // Counties whose data has no facility types: their pins count as "Other".
-  const untyped = regions.filter((r) => !r.has.categories);
+  // Counties on the map whose data has no facility types: their pins count as "Other".
+  const shownIds = counties.filter((c) => c.shown).map((c) => c.id);
+  const untyped = regions.filter((r) => !r.has.categories && shownIds.includes(r.id));
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMediaQuery("(min-width: 900px)");
@@ -481,6 +486,30 @@ export default function FilterSearch({
                 </Tabs.Content>
 
                 <Tabs.Content className="rx-tab-content" value="filter">
+                  {/* Which counties are on the map. Switching one on loads it once;
+                      after that, on and off only show and hide it. */}
+                  <fieldset className="county-switches" data-testid="county-switches">
+                    <legend className="county-switches-title">Counties</legend>
+                    {counties.map((c) => (
+                      <label
+                        key={c.id}
+                        className="county-switch"
+                        data-testid={`county-switch-${c.id}`}
+                        data-checked={c.shown}
+                        data-state={c.state ?? "idle"}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={c.shown}
+                          onChange={(e) => onToggleCounty?.(c.id, e.target.checked)}
+                        />
+                        <span className="county-switch-name">{c.name}</span>
+                        <span className="county-switch-status" aria-live="polite">
+                          {countyStatusText(c)}
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
                   <div className="cat-filters" aria-label="Filters">
                     <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
                       <div

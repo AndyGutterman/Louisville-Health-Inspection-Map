@@ -19,6 +19,9 @@ export const DATE_FILTER_OPTS = [
   { key: "all", label: "All time", days: null },
 ];
 
-// Map data is cached in localStorage (lib/mapCache.js). Change the key to force everyone to reload.
-export const GEO_CACHE_KEY = "lfs_geodata_v7"; // bumped: Oldham County's pins
-export const GEO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+// Map pins are cached in localStorage, one entry per county (lib/mapCache.js). Change the
+// version to force everyone to reload.
+export const GEO_CACHE_VERSION = "lfs_geodata_v8"; // bumped: one entry per county
+// The cache is good until the next daily data load. The pipeline's loads start at 08:30,
+// 08:45 and 09:15 UTC (.github/workflows); 11:00 leaves room for a late GitHub runner.
+export const DATA_REFRESH_UTC_HOUR = 11;

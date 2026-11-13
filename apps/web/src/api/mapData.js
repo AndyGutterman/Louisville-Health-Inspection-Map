@@ -12,20 +12,56 @@ const PAGE = 1000;
 // Each page gets a time limit and two more tries (lib/retry.js): on a phone a request
 // can go unanswered, and the map would otherwise say "Loading places…" forever. A try
 // that runs out of time is cancelled, so the same page is never downloaded twice at once.
-export async function readAllPages(page, pageSize = PAGE, onPage) {
+// retryIf(error): see lib/retry.js.
+export async function readAllPages(page, pageSize = PAGE, onPage, retryIf) {
   let rows = [];
   for (let from = 0; ; from += pageSize) {
     const data = await retry(async (signal) => {
       const { data, error } = await page(from, from + pageSize - 1).abortSignal(signal);
       if (error) throw error;
       return data;
-    });
+    }, retryIf && { retryIf });
     rows = rows.concat(data || []);
     if (!data || data.length < pageSize) return rows;
     onPage?.(rows);
   }
 }
 
+// PostgREST's and Postgres's codes for "no such table or view".
+const NO_SUCH_VIEW = new Set(["PGRST205", "42P01"]);
+
+// Every row of v_facility_map_pins: one per place with coordinates, with everything a pin
+// needs (name, address, facility type, latest score, violation ring), so Louisville's
+// pins cost one read instead of three (migration 20261122000000).
+// Resolves to the rows; to null if a request fails, so the caller can stop; and to
+// undefined when the database doesn't have the view yet, so the caller can fall back to
+// the three older reads below (one small failed request, not retried).
+// onPage(rowsSoFar) runs after each full page (see readAllPages).
+export async function fetchMapPins(onPage) {
+  let missing = false;
+  try {
+    return await readAllPages(
+      (from, to) =>
+        publicDb
+          .from("v_facility_map_pins")
+          .select(
+            "establishment_id,premise_name,address,city,state,zip,facility_type,subtype,lon,lat,inspection_date_recent,score_recent,grade_recent,has_any_violation",
+          )
+          .order("establishment_id")
+          .range(from, to),
+      undefined,
+      onPage,
+      (e) => !(missing = NO_SUCH_VIEW.has(e?.code)),
+    );
+  } catch (e) {
+    if (missing) return undefined;
+    console.error(e);
+    return null;
+  }
+}
+
+// The three older reads, used until v_facility_map_pins exists.
+//
 // Every row of v_facility_map_feed (one per place with coordinates: name, address,
 // latest score). Returns null if a request fails, so the caller can stop.
 // onPage(rowsSoFar) runs after each full page (see readAllPages).

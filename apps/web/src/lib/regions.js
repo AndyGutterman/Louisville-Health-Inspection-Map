@@ -8,6 +8,9 @@
 // `feed: "portal"` loads its pins from v_portal_map_feed and its history from
 // portal_inspections (lib/portal.js). Bullitt has its own loader (lib/bullitt.js).
 //
+// `labelAt` is where the county's "Tap to load" button sits while the county is switched
+// off (features/map/useCountyLoadLayer.js): a point well inside the outline.
+//
 // `has` says what a county's data can show, and so where it appears:
 //   categories  facility types (the category filter can place its pins)
 //   dates       every pin has an inspection date (else undated pins pass the date filter)
@@ -36,6 +39,7 @@ export const REGIONS = [
       [-85.947, 37.997],
       [-85.405, 38.38],
     ],
+    labelAt: [-85.72, 38.2],
     // Louisville Metro's data has facility types, dated inspections and A/B/C placards.
     has: {
       categories: true,
@@ -66,6 +70,7 @@ export const REGIONS = [
       [-85.938, 37.806],
       [-85.429, 38.118],
     ],
+    labelAt: [-85.7, 37.96],
     // No facility types or placards. Results are dated through Kentucky's inspection
     // portal; the county's sheet, used when the portal isn't answering, has no date for
     // the latest routine inspection, so pins can be undated (dates: false lets those past
@@ -97,6 +102,7 @@ export const REGIONS = [
       [-85.638, 38.285],
       [-85.283, 38.525],
     ],
+    labelAt: [-85.45, 38.4],
     feed: "portal",
     // Dated results from Kentucky's portal, no types or placards. Saved places, watch
     // areas, What's New and Table View don't read the portal's tables yet

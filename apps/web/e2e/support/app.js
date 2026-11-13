@@ -2,16 +2,27 @@
 import { expect } from "@playwright/test";
 import { mockSupabase } from "./mockSupabase.js";
 
+// A blank stand-in for the basemap, used only when E2E_STUB_BASEMAP is set: a Claude
+// Code cloud session whose network can't reach *.cartocdn.com can then still run the
+// tests (the map draws pins on a plain background). CI always uses the real basemap.
+const BLANK_STYLE = {
+  version: 8,
+  sources: {},
+  layers: [{ id: "background", type: "background", paint: { "background-color": "#0e0e10" } }],
+};
+
 // Loads the map page with Supabase mocked and waits until the splash screen is gone
 // (it waits for the map to finish loading). Returns what the page logged as errors.
-export async function openApp(page, { path = "/", holds, failOnce } = {}) {
+// counties: ids of the counties to start with switched on, as a returning visitor who
+// turned them on would (lib/counties.js). Left out, it's a first visit: Jefferson only.
+export async function openApp(page, { path = "/", holds, failOnce, missing, counties } = {}) {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
   page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
 
-  const mock = await mockSupabase(page, { holds, failOnce });
+  const mock = await mockSupabase(page, { holds, failOnce, missing });
   // Netlify injects its feedback toolbar ("Netlify Drawer") into deploy previews. It
   // isn't part of the site and can log errors or cover buttons, so serve it empty.
   await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>
@@ -30,6 +41,30 @@ export async function openApp(page, { path = "/", holds, failOnce } = {}) {
     if (document.documentElement) hide();
     else document.addEventListener("DOMContentLoaded", hide, { once: true });
   });
+  if (counties) {
+    await page.addInitScript((ids) => {
+      // Only when nothing is saved yet, so a choice made during the test survives a reload.
+      if (!localStorage.getItem("lfs_counties")) {
+        localStorage.setItem("lfs_counties", JSON.stringify(ids));
+      }
+    }, counties);
+  }
+  if (process.env.E2E_STUB_BASEMAP) {
+    // Everything else off-site (fonts, map tiles) is answered empty, so a blocked host
+    // doesn't show up as a console error.
+    const site = new URL(process.env.BASE_URL || "http://localhost:4173").host;
+    await page.route(
+      (url) => url.host !== site && !/\/(rest|auth|functions)\/v1\//.test(url.pathname),
+      (route) =>
+        /basemaps\.cartocdn\.com\/.*style\.json/.test(route.request().url())
+          ? route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify(BLANK_STYLE),
+            })
+          : route.fulfill({ status: 200, contentType: "text/css", body: "" }),
+    );
+  }
   await page.goto(path);
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
   return { consoleErrors, unmocked: mock.unmocked, requested: mock.requested };

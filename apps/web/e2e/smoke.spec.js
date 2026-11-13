@@ -36,28 +36,44 @@ test("loads with no console errors", async ({ page }, testInfo) => {
 test("the map shows while the rest of the data loads, with a corner indicator", async ({
   page,
 }, testInfo) => {
-  // The violation rings are held back: the splash lifts on the first pins, not on them.
+  // A database without v_facility_map_pins: the site reads the pins, types and rings
+  // separately. The rings are held back: the splash lifts on the first pins, not on them.
   let release;
   const flagsArrive = new Promise((r) => (release = r));
-  const { consoleErrors } = await openApp(page, {
+  const { consoleErrors, requested } = await openApp(page, {
+    missing: ["v_facility_map_pins"],
     holds: { "rpc/get_violation_flags": flagsArrive },
   });
+  // The missing view is asked for once, not retried.
+  expect(requested.filter((p) => p === "v_facility_map_pins")).toHaveLength(1);
   const pill = page.getByTestId("pins-loading");
   await expect(pill).toContainText("Loading places");
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("OpenStreetMap");
   await snap(page, testInfo, "01b-pins-loading");
   release();
   await expect(pill).toHaveCount(0);
-  expect(consoleErrors, "console errors").toEqual([]);
+  // The browser logs the deliberate 404 itself; nothing else may error.
+  expect(consoleErrors.filter((e) => !e.includes("404"))).toEqual([]);
 });
 
-test("a second visit within 6 hours draws the pins from the browser, not the database", async ({
+test("Louisville's pins are one read when the database has v_facility_map_pins", async ({
+  page,
+}) => {
+  const { requested } = await openApp(page);
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0);
+  expect(requested.filter((p) => p === "v_facility_map_pins")).toHaveLength(1);
+  const older = ["v_facility_map_feed", "facilities", "rpc/get_violation_flags"];
+  expect(requested.filter((p) => older.includes(p))).toEqual([]);
+});
+
+test("a second visit the same day draws the pins from the browser, not the database", async ({
   page,
   context,
 }) => {
   const pinReads = (requested) =>
     requested.filter((p) =>
       [
+        "v_facility_map_pins",
         "v_facility_map_feed",
         "facilities",
         "rpc/get_violation_flags",
@@ -66,7 +82,7 @@ test("a second visit within 6 hours draws the pins from the browser, not the dat
     );
   const first = await openApp(page);
   await expect(page.getByTestId("pins-loading")).toHaveCount(0); // complete, so it's kept
-  expect(pinReads(first.requested)).toContain("v_facility_map_feed");
+  expect(pinReads(first.requested)).toContain("v_facility_map_pins");
   await page.close();
 
   // A new tab, like coming back later: it shares localStorage, not sessionStorage.
@@ -77,7 +93,7 @@ test("a second visit within 6 hours draws the pins from the browser, not the dat
 });
 
 test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
-  const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_feed"] });
+  const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_pins"] });
   await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });
   // The browser logs the deliberate 503 itself; nothing else may error.
   expect(consoleErrors.filter((e) => !e.includes("503"))).toEqual([]);
@@ -300,31 +316,132 @@ test("draws the county outline and credits its source", async ({ page }) => {
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Who's On First");
 });
 
-test("both counties show at once, with every filter", async ({ page }, testInfo) => {
-  const jefferson = page.waitForResponse((r) => r.url().endsWith("/regions/jefferson.geojson"));
-  const bullitt = page.waitForResponse((r) => r.url().endsWith("/regions/bullitt.geojson"));
-  const { consoleErrors, unmocked } = await openApp(page);
-  expect((await jefferson).status()).toBe(200);
-  expect((await bullitt).status()).toBe(200);
+// Which requests in a list read map pins, by county.
+const pinReads = (requested, tables) => requested.filter((p) => tables.includes(p));
+const BULLITT_FEED = ["v_bullitt_map_feed"];
+const OLDHAM_FEED = ["v_portal_map_feed"];
 
-  // No county toggle any more: the date filter and the categories are always there, and
-  // the Filter tab explains how Bullitt's undated, untyped places are handled.
-  await expect(page.getByRole("radio", { name: "Bullitt" })).toHaveCount(0);
-  await expect(page.getByLabel("Filter pins by inspection date")).toBeVisible();
+test("a first visit loads only Jefferson; other counties load when switched on, once", async ({
+  page,
+}, testInfo) => {
+  const { consoleErrors, unmocked, requested } = await openApp(page);
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0);
+  expect(pinReads(requested, [...BULLITT_FEED, ...OLDHAM_FEED])).toEqual([]);
+
+  // Each county that is off has a button on the map, in the middle of its stripes.
+  const onMap = page.getByTestId("county-load-bullitt");
+  await expect(onMap).toContainText("Bullitt County");
+  await expect(onMap).toContainText("Tap to load");
+  await expect(page.getByTestId("county-load-oldham")).toContainText("Tap to load");
+  await expect(page.getByTestId("county-load-jefferson")).toHaveCount(0);
+
+  // The Filter tab lists every county the same way, with what each is doing.
   await page.getByRole("button", { name: "Expand controls" }).click();
   await page.getByRole("tab", { name: "Filter" }).click();
+  const jefferson = page.getByTestId("county-switch-jefferson");
+  const bullitt = page.getByTestId("county-switch-bullitt");
+  const oldham = page.getByTestId("county-switch-oldham");
+  await expect(jefferson.getByRole("checkbox")).toBeChecked();
+  await expect(jefferson).toContainText("places");
+  await expect(bullitt.getByRole("checkbox")).not.toBeChecked();
+  await expect(bullitt).toContainText("Not loaded");
+  await expect(oldham).toContainText("Not loaded");
+  // Bullitt's note about facility types only shows while Bullitt is on the map.
+  await expect(page.getByTestId("county-note")).toHaveCount(0);
+  await snap(page, testInfo, "12-counties-jefferson-only");
+
+  // Checking a county reads it, and only it.
+  await bullitt.getByRole("checkbox").check();
+  await expect(bullitt).toContainText(`${TABLES.v_bullitt_map_feed.length} places`);
+  await expect(onMap).toHaveCount(0);
+  expect(pinReads(requested, BULLITT_FEED)).toHaveLength(1);
+  expect(pinReads(requested, OLDHAM_FEED)).toEqual([]);
   await expect(page.getByTestId("category-tile")).toHaveCount(8);
   await expect(page.getByTestId("county-note")).toContainText("Bullitt County Health Department");
   // Narrowing the categories hides Bullitt pins (no facility types); the note says so.
   await expect(page.getByTestId("county-note")).toContainText("only while every category is on");
-  await snap(page, testInfo, "12-both-counties-filters");
+  await snap(page, testInfo, "12-counties-bullitt-on");
+
+  // Off and on again: the pins are still in the browser, so nothing is read again.
+  await bullitt.getByRole("checkbox").uncheck();
+  await expect(bullitt).toContainText("hidden");
+  await expect(page.getByTestId("county-load-bullitt")).toContainText("Tap to show");
+  await bullitt.getByRole("checkbox").check();
+  await expect(bullitt).not.toContainText("hidden");
+  expect(pinReads(requested, BULLITT_FEED)).toHaveLength(1);
+
+  // The map button does the same as the checkbox (it may be off screen: click it directly).
+  await page.getByTestId("county-load-oldham").evaluate((el) => el.click());
+  await expect(oldham.getByRole("checkbox")).toBeChecked();
+  await expect(page.getByTestId("county-load-oldham")).toHaveCount(0);
+  expect(pinReads(requested, OLDHAM_FEED)).toHaveLength(1);
 
   expect(consoleErrors, "console errors").toEqual([]);
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
+test("the counties switched on are remembered, and come back from the browser", async ({
+  page,
+  context,
+}) => {
+  await openApp(page);
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+  const bullitt = page.getByTestId("county-switch-bullitt");
+  await bullitt.getByRole("checkbox").check();
+  await expect(bullitt).toContainText("places");
+  await page.close();
+
+  const again = await context.newPage();
+  const second = await openApp(again);
+  await expect(again.getByTestId("pins-loading")).toHaveCount(0);
+  await expect(again.getByTestId("county-load-bullitt")).toHaveCount(0); // still on
+  await expect(again.getByTestId("county-load-oldham")).toHaveCount(1); // still off
+  expect(
+    pinReads(second.requested, ["v_facility_map_pins", ...BULLITT_FEED, ...OLDHAM_FEED]),
+  ).toEqual([]);
+});
+
+test("a county that fails to load says so, and loads on a second try", async ({ page }) => {
+  await openApp(page);
+  // Every try of the first attempt fails (lib/retry.js tries three times).
+  let failing = true;
+  await page.route(/\/rest\/v1\/v_bullitt_map_feed/, (route) =>
+    failing ? route.fulfill({ status: 503, body: "{}" }) : route.fallback(),
+  );
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+  const bullitt = page.getByTestId("county-switch-bullitt");
+  await bullitt.getByRole("checkbox").check();
+  await expect(bullitt).toContainText("Couldn't load", { timeout: 15_000 });
+  await expect(page.getByTestId("county-load-bullitt")).toContainText("Couldn't load");
+  // Jefferson is untouched.
+  await expect(page.getByTestId("county-switch-jefferson")).toContainText("places");
+
+  failing = false;
+  await page.getByTestId("county-load-bullitt").evaluate((el) => el.click());
+  await expect(bullitt).toContainText(`${TABLES.v_bullitt_map_feed.length} places`);
+});
+
+test("Table View lists only the counties switched on", async ({ page }) => {
+  // A first visit: Jefferson only. Bullitt's rows aren't asked for.
+  const asked = page.waitForRequest((r) => r.url().includes("/rest/v1/v_table_latest"));
+  await openApp(page);
+  await page.getByRole("button", { name: "Open table view" }).click();
+  expect((await asked).url()).toContain("region=eq.jefferson");
+  const panel = page.getByTestId("table-panel");
+  const rows = panel.getByTestId("table-row");
+  await expect(rows.filter({ hasText: byEid(PINNED_EID).name }).first()).toBeVisible();
+  await expect(rows.filter({ hasText: BULLITT_NAME })).toHaveCount(0);
+  await expect(panel.getByTestId("table-county-bullitt")).toHaveCount(0);
+
+  // Switching Bullitt on adds its rows and its chip.
+  await page.getByTestId("county-load-bullitt").evaluate((el) => el.click());
+  await expect(rows.filter({ hasText: BULLITT_NAME }).first()).toBeVisible();
+});
+
 test("Table View lists both counties and searches across them", async ({ page }, testInfo) => {
-  const { consoleErrors, unmocked } = await openApp(page);
+  const { consoleErrors, unmocked } = await openApp(page, { counties: ["jefferson", "bullitt"] });
   await page.getByRole("button", { name: "Open table view" }).click();
   const panel = page.getByTestId("table-panel");
   const rows = panel.getByTestId("table-row");
@@ -371,7 +488,7 @@ test("Table View lists both counties and searches across them", async ({ page },
 });
 
 test("Table View: facility chips only filter Jefferson County", async ({ page }, testInfo) => {
-  await openApp(page);
+  await openApp(page, { counties: ["jefferson", "bullitt"] });
   await page.getByRole("button", { name: "Open table view" }).click();
   const panel = page.getByTestId("table-panel");
   await expect(panel.getByTestId("table-row").first()).toBeVisible();
@@ -432,7 +549,7 @@ test("Table View asks for a row count only when the filters change", async ({ pa
 test("What's New includes Bullitt County, labelled by the day its score was posted", async ({
   page,
 }, testInfo) => {
-  const { consoleErrors, unmocked } = await openApp(page);
+  const { consoleErrors, unmocked } = await openApp(page, { counties: ["jefferson", "bullitt"] });
   const panel = await openWhatsNew(page);
   const row = whatsNewRow(page, BULLITT_EID);
   await expect(row).toContainText(BULLITT_NAME);
@@ -465,7 +582,7 @@ test("What's New includes Bullitt County, labelled by the day its score was post
 test("a Bullitt place dated through Kentucky's portal shows its inspection date", async ({
   page,
 }, testInfo) => {
-  const { consoleErrors, unmocked } = await openApp(page);
+  const { consoleErrors, unmocked } = await openApp(page, { counties: ["jefferson", "bullitt"] });
   await page.getByRole("button", { name: "Open table view" }).click();
   const panel = page.getByTestId("table-panel");
   const row = panel.getByTestId("table-row").filter({ hasText: BULLITT_PORTAL.name }).first();
@@ -554,6 +671,26 @@ test("score sliders: the coloured bar stays under the handle while it is dragged
   await handle.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", String(value + 1));
   expect(consoleErrors, "console errors").toEqual([]);
+});
+
+test("What's New leaves out counties that are switched off", async ({ page }) => {
+  await openApp(page);
+  await openWhatsNew(page);
+  await expect(whatsNewRow(page, NEWEST_EID)).toBeVisible();
+  await expect(page.locator('[data-testid="whats-new-row"][data-eid^="bullitt-"]')).toHaveCount(0);
+});
+
+test("a digest email link to a place in a county that is off switches the county on", async ({
+  page,
+}) => {
+  const { requested } = await openApp(page, { path: `/?eid=${BULLITT_EID}` });
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText(BULLITT_NAME, { exact: true })).toBeVisible();
+  await expect(drawer.getByText("No map location on file")).toHaveCount(0);
+  await expect(page.getByTestId("county-load-bullitt")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/eid=/);
+  expect(pinReads(requested, BULLITT_FEED)).toHaveLength(1);
 });
 
 test("a digest email link (/?eid=...) opens that place and cleans the URL", async ({

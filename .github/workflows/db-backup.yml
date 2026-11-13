@@ -1,10 +1,53 @@
 name: Nightly Database Backup
 
+# Old records don't change, so they are never downloaded again.
+#
+#   every night   a LIGHT dump (everything except the rows of the big tables below), plus
+#                 only the NEW rows of inspections and inspection_violations (added in the
+#                 last 3 days, so a skipped night loses nothing).
+#   by hand only  a FULL dump: every table, every row. Nothing schedules one.
+#
+# Why: pg_dump downloads the database uncompressed (gzip runs here, afterwards), and that
+# download counts against Supabase's 5 GB monthly egress. A full dump every night was the
+# project's largest single download; even one a month is a spike. The full dumps already
+# in the backup repo (from when this ran in full every night) are the base: the newest
+# ones are kept for good, and every night's new rows since then are kept for good too.
+#
+# What can't be rebuilt (accounts, saved places, watch areas, feedback, Bullitt's and the
+# portal's recorded history) is in every night's light dump, in full.
+#
+# Rows left out of the light dump (the tables' definitions are always dumped):
+#   inspections, inspection_violations   new rows are saved nightly (below); all of it can
+#                                        also be reloaded from Louisville Metro's ArcGIS data
+#   geocode_cache                        geocoder answers; only saves time on a re-geocode
+#   bullitt_snapshots                    copies of the county's sheet, kept for reference
+#
+# Files in the backup repo:
+#   backup-<date>.sql.gz                      full dumps from before this scheme: 2 kept
+#   backup-<date>-full.sql.gz                 full dumps taken by hand: the last 5 are kept
+#   backup-<date>-light.sql.gz                the last 45 are kept
+#   backup-<date>-new-inspections.csv.gz      all kept (each is a few KB)
+#   backup-<date>-new-violations.csv.gz       all kept
+#
+# To restore: load the newest full dump, then the newest light dump's small tables, then
+# every new-*.csv.gz dated after that full dump (the 3-day overlap repeats rows: load them
+# into a scratch table and insert with ON CONFLICT DO NOTHING on the id). Or load the
+# newest light dump and run the ingest workflow, which reloads inspections from the source.
+# Not caught: a correction to an inspection that was already saved (the tables have no
+# "updated" time). The next ingest from the source has it.
+# To take a full dump (before a risky migration, say): Actions > Nightly Database Backup >
+# Run workflow, and tick "full". It costs one download of the whole database.
+
 on:
   schedule:
     # 2am ET = 7am UTC (EST) / 6am UTC (EDT) — close enough, pick one
     - cron: "0 7 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Full dump: downloads the whole database (costs egress)"
+        type: boolean
+        default: false
 
 jobs:
   backup:
@@ -39,18 +82,46 @@ jobs:
         id: dump
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          FILENAME="backup-${DATE}.sql.gz"
+          # Full only when asked for by hand; otherwise skip the rows of the big tables
+          # (see the top of this file).
+          SKIP=()
+          KIND=full
+          if [ "${{ inputs.full }}" != "true" ]; then
+            KIND=light
+            for t in inspections inspection_violations geocode_cache bullitt_snapshots; do
+              SKIP+=("--exclude-table-data=public.${t}")
+            done
+          fi
+          FILENAME="backup-${DATE}-${KIND}.sql.gz"
+          echo "kind=${KIND}" >> "$GITHUB_OUTPUT"
           echo "filename=${FILENAME}" >> "$GITHUB_OUTPUT"
           echo "date=${DATE}" >> "$GITHUB_OUTPUT"
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
             --no-owner --no-acl --no-privileges \
             --exclude-table=spatial_ref_sys \
+            "${SKIP[@]}" \
             | gzip -9 > "/tmp/${FILENAME}"
           echo "size=$(du -sh /tmp/${FILENAME} | cut -f1)" >> "$GITHUB_OUTPUT"
 
-      # Second guard: a real dump is megabytes. Anything under 100 KB means
-      # something went wrong, so fail (and send the failure email) instead of
-      # committing it.
+      # On light nights, the rows added since the last few backups. Both tables stamp
+      # created_at when a row is first inserted. A few hundred rows, not the whole table.
+      - name: Export new inspections and violations
+        if: steps.dump.outputs.kind == 'light'
+        run: |
+          DATE="${{ steps.dump.outputs.date }}"
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          for pair in inspections:new-inspections inspection_violations:new-violations; do
+            TABLE="${pair%%:*}"
+            NAME="${pair##*:}"
+            "$PSQL" "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c \
+              "\\copy (SELECT * FROM public.${TABLE} WHERE created_at >= now() - interval '3 days' ORDER BY 1) TO STDOUT WITH (FORMAT csv, HEADER)" \
+              | gzip -9 > "/tmp/backup-${DATE}-${NAME}.csv.gz"
+            echo "${NAME}: $(zcat "/tmp/backup-${DATE}-${NAME}.csv.gz" | wc -l) lines (with header)"
+          done
+
+      # Second guard: a real dump is megabytes (a light one is smaller, but the facilities
+      # alone put it well over this). Anything under 100 KB means something went wrong,
+      # so fail (and send the failure email) instead of committing it.
       - name: Check the backup isn't empty
         run: |
           BYTES=$(stat -c %s "/tmp/${{ steps.dump.outputs.filename }}")
@@ -73,10 +144,20 @@ jobs:
 
       - name: Copy backup file and prune old ones
         run: |
-          cp "/tmp/${{ steps.dump.outputs.filename }}" /tmp/backup-repo/
+          cp /tmp/backup-${{ steps.dump.outputs.date }}-* /tmp/backup-repo/
           cd /tmp/backup-repo
-          # Keep only the 30 most recent backups
-          ls -1t backup-*.sql.gz | tail -n +31 | xargs -r rm --
+          # Keep the 5 most recent hand-taken full dumps, the 2 most recent from before
+          # this scheme (the base the nightly new rows build on), and 45 light dumps. The
+          # new-rows files are never deleted: they are the only copy of rows added since
+          # the last full dump.
+          # Newest first by name: the date is in it, and a fresh clone gives every file
+          # the same modified time.
+          keep() { # keep <count> <glob>: delete all but the newest <count> matches
+            { ls -1 $2 2>/dev/null || true; } | sort -r | tail -n +$(($1 + 1)) | xargs -r rm --
+          }
+          keep 5 "backup-*-full.sql.gz"
+          keep 45 "backup-*-light.sql.gz"
+          keep 2 "backup-????-??-??.sql.gz"
           echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
 
       - name: Commit and push
@@ -87,7 +168,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git add -A
-          git commit -m "backup: ${{ steps.dump.outputs.date }} (${{ steps.dump.outputs.size }})"
+          git commit -m "backup: ${{ steps.dump.outputs.date }} ${{ steps.dump.outputs.kind }} (${{ steps.dump.outputs.size }})"
           GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" git push
 
       - name: Send failure notification

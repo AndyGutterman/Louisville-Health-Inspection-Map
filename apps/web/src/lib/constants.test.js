@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DATE_FILTER_OPTS, GEO_CACHE_TTL } from "./constants.js";
+import { DATA_REFRESH_UTC_HOUR, DATE_FILTER_OPTS } from "./constants.js";
 
 describe("DATE_FILTER_OPTS", () => {
   it("has unique keys", () => {
@@ -19,8 +19,9 @@ describe("DATE_FILTER_OPTS", () => {
   });
 });
 
-describe("GEO_CACHE_TTL", () => {
-  it("is six hours", () => {
-    expect(GEO_CACHE_TTL).toBe(6 * 60 * 60 * 1000);
+describe("DATA_REFRESH_UTC_HOUR", () => {
+  it("is after the pipeline's daily loads (08:30 to 09:15 UTC), with room to spare", () => {
+    expect(DATA_REFRESH_UTC_HOUR).toBeGreaterThanOrEqual(10);
+    expect(DATA_REFRESH_UTC_HOUR).toBeLessThan(24);
   });
 });

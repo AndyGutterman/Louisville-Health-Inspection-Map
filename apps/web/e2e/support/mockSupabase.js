@@ -3,7 +3,8 @@
 // URL, which means the same tests run against a Netlify deploy preview (real project
 // URL baked in) and a local build (dummy URL).
 //
-// Supported: pagination (offset/limit), `col=eq.value` filters, and row counts via the
+// Supported: pagination (offset/limit), `col=eq.value` and `col=in.(a,b)` filters on
+// columns the fixture rows have, and row counts via the
 // Content-Range header (what supabase-js reads for { count: "exact" }). Other filters
 // are ignored and return every row. Requests for anything not in TABLES are answered
 // with [] and recorded in `unmocked`, so a test can fail when the app starts calling
@@ -24,12 +25,25 @@ function corsHeaders(request) {
 
 const NOT_FILTERS = new Set(["select", "order", "offset", "limit", "on_conflict", "columns"]);
 
+// "in.(a,b)" or 'in.("a","b")' -> ["a", "b"]; null for anything else.
+function inList(value) {
+  const m = /^in\.\((.*)\)$/.exec(value);
+  return m ? m[1].split(",").map((v) => v.replace(/^"|"$/g, "")) : null;
+}
+
 function applyEqFilters(rows, params) {
   let out = rows;
   for (const [col, value] of params) {
-    if (NOT_FILTERS.has(col) || !value.startsWith("eq.")) continue;
-    const want = value.slice(3);
-    out = out.filter((r) => String(r[col]) === want);
+    if (NOT_FILTERS.has(col)) continue;
+    if (value.startsWith("eq.")) {
+      const want = value.slice(3);
+      out = out.filter((r) => String(r[col]) === want);
+      continue;
+    }
+    // Only on columns the fixtures have (a region list, say): a list on a column they
+    // lack, such as inspection types, still returns every row.
+    const list = inList(value);
+    if (list && out.some((r) => col in r)) out = out.filter((r) => list.includes(String(r[col])));
   }
   return out;
 }
@@ -37,7 +51,9 @@ function applyEqFilters(rows, params) {
 // holds: { path: Promise } keeps those responses back until the promise settles, to test
 // what shows while data is still loading.
 // failOnce: [path] answers the first request for each path with a 503, to test retries.
-export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
+// missing: [path] answers as a database that doesn't have that table or view yet (a
+// migration that hasn't been run), to test what the site falls back to.
+export async function mockSupabase(page, { holds = {}, failOnce = [], missing = [] } = {}) {
   const unmocked = [];
   const requested = [];
   const toFail = new Set(failOnce);
@@ -56,6 +72,17 @@ export async function mockSupabase(page, { holds = {}, failOnce = [] } = {}) {
     requested.push(path);
     if (!table) unmocked.push(`${request.method()} ${path}`);
 
+    if (missing.includes(path)) {
+      await route.fulfill({
+        status: 404,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({
+          code: "PGRST205",
+          message: `Could not find the table 'public.${path}' in the schema cache`,
+        }),
+      });
+      return;
+    }
     if (holds[path]) await holds[path];
     if (toFail.delete(path)) {
       await route.fulfill({

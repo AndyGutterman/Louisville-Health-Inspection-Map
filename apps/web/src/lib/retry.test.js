@@ -49,6 +49,14 @@ describe("retry", () => {
     expect(signals.map((s) => s.aborted)).toEqual([true, false]);
   });
 
+  it("stops at once on an error retryIf says won't change", async () => {
+    const missing = Object.assign(new Error("no such view"), { code: "PGRST205" });
+    const step = vi.fn().mockRejectedValue(missing);
+    const retryIf = (e) => e.code !== "PGRST205";
+    await expect(retry(step, { backoffMs: 0, retryIf })).rejects.toBe(missing);
+    expect(step).toHaveBeenCalledTimes(1);
+  });
+
   it("gives up after `tries` and rejects with the last error", async () => {
     const step = vi.fn().mockImplementation(never);
     await expect(retry(step, { tries: 2, ms: 10, backoffMs: 0 })).rejects.toMatchObject({

@@ -1,9 +1,10 @@
-// Table View: every inspection in both counties, searchable and sortable, read a page at
-// a time from v_table_latest / v_table_inspections. On phones the filters fold away and
+// Table View: every inspection in the counties switched on (lib/counties.js), searchable
+// and sortable, read a page at a time from v_table_latest / v_table_inspections. On phones the filters fold away and
 // rows become cards, so the list gets the room.
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
-import { enabledRegions } from "./lib/regions.js";
+import { enabledRegions, nameList } from "./lib/regions.js";
+import { tableCounties } from "./lib/counties.js";
 import {
   FACILITY_CATS,
   FACILITY_CAT_KEYS,
@@ -16,7 +17,8 @@ import {
   typedCounties,
 } from "./lib/tableQuery.js";
 
-const PAGE_SIZES = [10, 25, 50, 100, 500];
+// 100 at most: a page of 500 was about 100 KB from the database for every sort or page turn.
+const PAGE_SIZES = [10, 25, 50, 100];
 
 function scoreClass(s) {
   if (s == null || s === 0) return "na";
@@ -129,15 +131,18 @@ function useCornerDrag(setH, setW) {
   return { downCorner: down, moveCorner: move, upCorner: up };
 }
 
-const REGIONS = enabledRegions().filter((r) => r.has.table); // Oldham isn't in the table views yet
-const regionShort = (id) => REGIONS.find((r) => r.id === id)?.shortName ?? "";
-const regionName = (id) => REGIONS.find((r) => r.id === id)?.name ?? "";
+const ALL_REGIONS = enabledRegions();
+const TABLE_REGIONS = ALL_REGIONS.filter((r) => r.has.table); // Oldham isn't in the table views yet
+const ALL_IDS = ALL_REGIONS.map((r) => r.id);
+const regionShort = (id) => TABLE_REGIONS.find((r) => r.id === id)?.shortName ?? "";
+const regionName = (id) => TABLE_REGIONS.find((r) => r.id === id)?.name ?? "";
 
 export default function TableView({
   supabase,
   onRowClick,
   onRowHover,
   onRowHoverEnd,
+  counties = ALL_IDS, // ids of the counties switched on: the only ones listed and searched
   onClose,
   savedH,
   savedW,
@@ -169,7 +174,14 @@ export default function TableView({
   // Facility category multiselect (null = All)
   const [selCats, setSelCats] = useState(null);
 
-  const [county, setCounty] = useState(null); // null = both counties
+  // The counties this table lists: those switched on that the table views cover.
+  const countiesKey = counties.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countiesKey stands for counties
+  const REGIONS = useMemo(() => tableCounties(counties, ALL_REGIONS), [countiesKey]);
+  // Switched on, but not in the table views yet (Oldham): said in a note, not hidden.
+  const unlisted = ALL_REGIONS.filter((r) => !r.has.table && counties.includes(r.id));
+
+  const [county, setCounty] = useState(null); // null = every listed county
   const [latestOnly, setLatestOnly] = useState(true);
   const [hideNA, setHideNA] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // phones: the chip rows
@@ -204,6 +216,16 @@ export default function TableView({
     [upH, upW, upCorner],
   );
 
+  // A county that was picked here and then switched off goes back to "all".
+  useEffect(() => {
+    if (county && !REGIONS.some((r) => r.id === county)) setCounty(null);
+  }, [county, REGIONS]);
+
+  // Whether the Facility chips can filter what's listed: the picked county has facility
+  // types, or (with none picked) one of the listed counties does.
+  const facilityOn =
+    facilityAppliesTo(county, REGIONS) && (county != null || typedCounties(REGIONS).length > 0);
+
   // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDbSearch(search.trim()), 350);
@@ -213,7 +235,18 @@ export default function TableView({
   // Reset page on filter/sort change
   useEffect(() => {
     setPage(1);
-  }, [sortAxis, sortDir, dbSearch, selTypes, selCats, county, latestOnly, pageSize, hideNA]);
+  }, [
+    sortAxis,
+    sortDir,
+    dbSearch,
+    selTypes,
+    selCats,
+    county,
+    countiesKey,
+    latestOnly,
+    pageSize,
+    hideNA,
+  ]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
@@ -242,6 +275,14 @@ export default function TableView({
   // only asked for when the filters change, not on every page.
   useEffect(() => {
     if (!supabase || !typesWanted) return;
+    // No listed county is switched on: nothing to ask the database for.
+    if (REGIONS.length === 0) {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+      countedFor.current = null;
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -252,9 +293,14 @@ export default function TableView({
     const to = from + pageSize - 1;
     const col = sortAxis === "score" ? "score" : sortAxis === "name" ? "name" : "inspection_date";
     const asc = sortDir === "asc";
+    // Facility chips only cover counties with facility types (see toggleCat).
+    const cats = facilityOn ? selCats : null;
+    // The counties to read: the one picked, else those switched on (only the ones with
+    // facility types when a facility chip is on).
+    const wanted = county ? [county] : cats ? typedCounties(REGIONS) : REGIONS.map((r) => r.id);
     const key = countKey({
       view,
-      region: county,
+      region: wanted.join("+"),
       hideNA,
       types: selTypes,
       cats: selCats,
@@ -272,12 +318,11 @@ export default function TableView({
       .order("inspection_id", { ascending: false })
       .range(from, to);
 
-    if (county) q = q.eq("region", county);
+    // No region filter when every county the views hold is wanted.
+    if (wanted.length === 1) q = q.eq("region", wanted[0]);
+    else if (wanted.length < TABLE_REGIONS.length) q = q.in("region", wanted);
     if (hideNA) q = q.gt("score", 0);
     if (selTypes) q = q.in("ins_type_desc", [...selTypes]);
-    // Facility chips only cover counties with facility types (see toggleCat).
-    const cats = facilityAppliesTo(county, REGIONS) ? selCats : null;
-    if (cats && !county) q = q.in("region", typedCounties(REGIONS));
     const or = combineOr(...searchFilters(dbSearch), facilityFilter(cats));
     if (or) q = q.or(or);
 
@@ -309,6 +354,8 @@ export default function TableView({
     selTypes,
     selCats,
     county,
+    REGIONS,
+    facilityOn,
     latestOnly,
     hideNA,
   ]);
@@ -344,7 +391,6 @@ export default function TableView({
     setCounty(id);
     if (!facilityAppliesTo(id, REGIONS)) setSelCats(null);
   };
-  const facilityOn = facilityAppliesTo(county, REGIONS);
 
   /* ── sort toggle handlers ── */
   const handleDateSort = () => {
@@ -516,23 +562,31 @@ export default function TableView({
           <div className="table-filter-row">
             <span className="table-filter-label">County</span>
             <div className="table-type-chips">
-              <button
-                className={`table-chip ${county === null ? "active" : ""}`}
-                onClick={() => pickCounty(null)}
-              >
-                Both
-              </button>
+              {REGIONS.length !== 1 && (
+                <button
+                  className={`table-chip ${county === null ? "active" : ""}`}
+                  onClick={() => pickCounty(null)}
+                >
+                  {REGIONS.length === 2 ? "Both" : "All"}
+                </button>
+              )}
               {REGIONS.map((r) => (
                 <button
                   key={r.id}
                   data-testid={`table-county-${r.id}`}
-                  className={`table-chip ${county === r.id ? "active" : ""}`}
+                  className={`table-chip ${county === r.id || REGIONS.length === 1 ? "active" : ""}`}
                   onClick={() => pickCounty(county === r.id ? null : r.id)}
                   title={r.name}
                 >
                   {r.shortName}
                 </button>
               ))}
+              {unlisted.length > 0 && (
+                <span className="table-filter-note" data-testid="table-county-note">
+                  {nameList(unlisted.map((r) => r.shortName))}{" "}
+                  {unlisted.length > 1 ? "aren't" : "isn't"} in Table View yet
+                </span>
+              )}
             </div>
           </div>
 
@@ -585,7 +639,7 @@ export default function TableView({
               </div>
             ) : (
               <span className="table-filter-note" data-testid="table-facility-note">
-                {regionName(county)}&apos;s data has no facility types
+                {county ? `${regionName(county)}'s` : "This county's"} data has no facility types
               </span>
             )}
           </div>
@@ -601,6 +655,14 @@ export default function TableView({
             <small>
               Run supabase/migrations/20261111000000_both_counties.sql to create the table views.
             </small>
+          </div>
+        )}
+        {REGIONS.length === 0 && (
+          <div className="tbl-empty-counties" data-testid="table-no-counties">
+            {unlisted.length > 0
+              ? `${nameList(unlisted.map((r) => r.name))} ${unlisted.length > 1 ? "aren't" : "isn't"} in Table View yet. `
+              : "No county is switched on. "}
+            Switch a county on in the Filter tab to list its places here.
           </div>
         )}
         {isPhone ? (

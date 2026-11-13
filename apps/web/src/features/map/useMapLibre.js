@@ -20,7 +20,7 @@ const NO_PINS = { type: "FeatureCollection", features: [] };
 // Panels that work beside the drawer: a click inside one doesn't close it. Any new
 // floating panel or toggle must be added here.
 const KEEP_DRAWER_OPEN =
-  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn, .pins-loading";
+  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn, .pins-loading, .county-load";
 // What's New also keeps the drawer open when a press only starts inside it (a resize).
 const WHATS_NEW = ".wn-panel, .wn-trigger";
 // The pointer resting near these doesn't auto-pan the map.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildMapFeatures, combineRegions, joinAddress } from "./mapFeatures.js";
+import { buildMapFeatures, buildPinFeatures, combineRegions, joinAddress } from "./mapFeatures.js";
 
 const row = (over = {}) => ({
   establishment_id: "1",
@@ -120,5 +120,35 @@ describe("combineRegions", () => {
     const all = combineRegions(a, b);
     expect(all.map((f) => f.properties.establishment_id)).toEqual(["1", "bullitt-a", "bullitt-b"]);
     expect(all.map((f) => f.id)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("buildPinFeatures", () => {
+  const pin = (over = {}) => ({
+    ...row(),
+    city: "LOUISVILLE",
+    state: "KY",
+    zip: "40202",
+    facility_type: 605,
+    subtype: 11,
+    has_any_violation: true,
+    ...over,
+  });
+
+  it("gives the same feature as the three separate reads", () => {
+    const flags = new Map([["1", { has_any: true }]]);
+    expect(buildPinFeatures([pin()])).toEqual(buildMapFeatures([row()], meta(), flags));
+  });
+
+  it("reads the type, the full address and the ring from the row itself", () => {
+    const [f] = buildPinFeatures([pin({ has_any_violation: false })]);
+    expect(f.properties).toMatchObject({
+      facility_type: 605,
+      subtype: 11,
+      cat: "restaurants",
+      zip: "40202",
+      address_full: "100 W MAIN ST, LOUISVILLE, KY 40202",
+      has_any_violation: false,
+    });
   });
 });
