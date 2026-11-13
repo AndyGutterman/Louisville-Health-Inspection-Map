@@ -1,0 +1,141 @@
+/* The button in the middle of a county that is switched off (useCountyLoadLayer.js), and
+   the county switches in the Filter tab (FilterSearch.jsx). Both use the orange of the
+   stripes that shade the county on the map. */
+
+/* ── The map button ──
+   The global button rule (index.css) sets padding and a background: both are set here.
+   At least 44px tall, the smallest target that is comfortable to tap on an iPhone. */
+.county-load {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 159, 28, 0.65);
+  background: rgb(24, 20, 14);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: inherit;
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* no double-tap zoom delay on iPhones */
+}
+
+.county-load:hover {
+  background: rgb(38, 30, 18);
+  border-color: #ff9f1c;
+}
+
+.county-load:focus-visible {
+  outline: 2px solid #ff9f1c;
+  outline-offset: 2px;
+}
+
+.county-load:disabled {
+  cursor: progress;
+  opacity: 1; /* iPhones dim disabled buttons; the label already says "Loading…" */
+}
+
+.county-load-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.county-load-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ffb655;
+}
+
+.county-load[data-state="failed"] .county-load-status {
+  color: #fca5a5;
+}
+
+/* ── The Filter tab's county switches ── */
+.county-switches {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.county-switches-title {
+  padding: 0;
+  margin-bottom: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* One row per county: a real checkbox, so it works with a keyboard and a screen reader.
+   Rows are 44px tall for thumbs. */
+.county-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.county-switch:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.county-switch[data-checked="true"] {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.county-switch input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #ff9f1c;
+  cursor: pointer;
+}
+
+.county-switch-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.county-switch[data-checked="true"] .county-switch-name {
+  color: #fff;
+}
+
+.county-switch-status {
+  flex: none;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.county-switch[data-state="loading"] .county-switch-status {
+  color: #ffb655;
+}
+
+.county-switch[data-state="failed"] .county-switch-status {
+  color: #fca5a5;
+}

@@ -2,8 +2,8 @@
 import { publicDb, supabase } from "../lib/supabase.js";
 import { readAllPages } from "./mapData.js";
 
-// Every row of v_bullitt_map_feed (one per place with a pin). Returns [] on an error, so
-// a database without the Bullitt tables still shows Louisville.
+// Every row of v_bullitt_map_feed (one per place with a pin). Returns null on an error,
+// so the caller can say the county couldn't load (the other counties are unaffected).
 export async function fetchBullittFeed() {
   try {
     return await readAllPages((from, to) =>
@@ -17,7 +17,7 @@ export async function fetchBullittFeed() {
     );
   } catch (e) {
     console.warn("Bullitt County data unavailable", e.message);
-    return [];
+    return null;
   }
 }
 

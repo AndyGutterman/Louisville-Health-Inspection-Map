@@ -4,8 +4,8 @@ import { publicDb } from "../lib/supabase.js";
 import { readAllPages } from "./mapData.js";
 
 // Every row of v_portal_map_feed for these counties (one per place with a pin). Returns
-// [] on an error, or with no counties, so a database without the view still shows the
-// rest of the map.
+// [] with no counties, and null on an error, so the caller can say the county couldn't
+// load (the other counties are unaffected).
 export async function fetchPortalFeed(regionIds) {
   if (!regionIds.length) return [];
   try {
@@ -19,7 +19,7 @@ export async function fetchPortalFeed(regionIds) {
     );
   } catch (e) {
     console.warn("Portal county data unavailable", e.message);
-    return [];
+    return null;
   }
 }
 
