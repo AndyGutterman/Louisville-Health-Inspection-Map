@@ -1,16 +1,38 @@
 name: Nightly Database Backup
 
-# A full dump on Sundays; on the other nights, everything except the rows of the big
-# tables the pipeline can load again from its sources. Why: pg_dump downloads the
-# database uncompressed (gzip runs here, afterwards), and that download counts against
-# Supabase's 5 GB monthly egress. A full dump every night was the project's largest
-# single download. What can't be rebuilt (accounts, saved places, watch areas, feedback,
-# Bullitt's and the portal's recorded history) is still saved every night.
+# Old records don't change, so they aren't downloaded again every night.
 #
-# Left out on weeknights (data only; the tables' definitions are always dumped):
-#   inspections, inspection_violations   reloaded from Louisville Metro's ArcGIS data
+#   1st of the month   a FULL dump: every table, every row.
+#   every other night  a LIGHT dump (everything except the rows of the big tables below),
+#                      plus only the NEW rows of inspections and inspection_violations
+#                      (added in the last 3 days, so a skipped night loses nothing).
+#
+# Why: pg_dump downloads the database uncompressed (gzip runs here, afterwards), and that
+# download counts against Supabase's 5 GB monthly egress. A full dump every night was the
+# project's largest single download; this is about one full dump a month.
+#
+# What can't be rebuilt (accounts, saved places, watch areas, feedback, Bullitt's and the
+# portal's recorded history) is in every night's light dump, in full.
+#
+# Rows left out of the light dump (the tables' definitions are always dumped):
+#   inspections, inspection_violations   new rows are saved nightly (below); all of it can
+#                                        also be reloaded from Louisville Metro's ArcGIS data
 #   geocode_cache                        geocoder answers; only saves time on a re-geocode
 #   bullitt_snapshots                    copies of the county's sheet, kept for reference
+#
+# Files in the backup repo:
+#   backup-<date>-full.sql.gz                 the last 5 are kept (5 months)
+#   backup-<date>-light.sql.gz                the last 45 are kept
+#   backup-<date>-new-inspections.csv.gz      the last 45 are kept
+#   backup-<date>-new-violations.csv.gz       the last 45 are kept
+#
+# To restore: load the newest full dump, then the newest light dump's small tables, then
+# every new-*.csv.gz since that full dump (the 3-day overlap repeats rows: load them into
+# a scratch table and insert with ON CONFLICT DO NOTHING on the id), or just run the
+# ingest workflow, which reloads inspections from the source.
+# Not caught between full dumps: a correction to an inspection that was already saved (the
+# tables have no "updated" time). The next ingest from the source, or the next full dump,
+# has it.
 # To take a full dump on any day: Actions > Nightly Database Backup > Run workflow, and
 # tick "full".
 
@@ -58,11 +80,11 @@ jobs:
         id: dump
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          # Full on Sundays (UTC) and when asked for; otherwise skip the rows of the
-          # tables the pipeline can reload (see the top of this file).
+          # Full on the 1st (UTC) and when asked for; otherwise skip the rows of the big
+          # tables (see the top of this file).
           SKIP=()
           KIND=full
-          if [ "$(date -u +%u)" != "7" ] && [ "${{ inputs.full }}" != "true" ]; then
+          if [ "$(date -u +%d)" != "01" ] && [ "${{ inputs.full }}" != "true" ]; then
             KIND=light
             for t in inspections inspection_violations geocode_cache bullitt_snapshots; do
               SKIP+=("--exclude-table-data=public.${t}")
@@ -78,6 +100,22 @@ jobs:
             "${SKIP[@]}" \
             | gzip -9 > "/tmp/${FILENAME}"
           echo "size=$(du -sh /tmp/${FILENAME} | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      # On light nights, the rows added since the last few backups. Both tables stamp
+      # created_at when a row is first inserted. A few hundred rows, not the whole table.
+      - name: Export new inspections and violations
+        if: steps.dump.outputs.kind == 'light'
+        run: |
+          DATE="${{ steps.dump.outputs.date }}"
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          for pair in inspections:new-inspections inspection_violations:new-violations; do
+            TABLE="${pair%%:*}"
+            NAME="${pair##*:}"
+            "$PSQL" "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c \
+              "\\copy (SELECT * FROM public.${TABLE} WHERE created_at >= now() - interval '3 days' ORDER BY 1) TO STDOUT WITH (FORMAT csv, HEADER)" \
+              | gzip -9 > "/tmp/backup-${DATE}-${NAME}.csv.gz"
+            echo "${NAME}: $(zcat "/tmp/backup-${DATE}-${NAME}.csv.gz" | wc -l) lines (with header)"
+          done
 
       # Second guard: a real dump is megabytes (a light one is smaller, but the facilities
       # alone put it well over this). Anything under 100 KB means something went wrong,
@@ -104,13 +142,21 @@ jobs:
 
       - name: Copy backup file and prune old ones
         run: |
-          cp "/tmp/${{ steps.dump.outputs.filename }}" /tmp/backup-repo/
+          cp /tmp/backup-${{ steps.dump.outputs.date }}-* /tmp/backup-repo/
           cd /tmp/backup-repo
-          # Keep the 30 most recent backups, and always the 5 most recent full ones (a
-          # month of weeknight dumps would otherwise push the last full dump out).
-          ls -1t backup-*.sql.gz | tail -n +31 > /tmp/old.txt || true
-          ls -1t backup-*-full.sql.gz 2>/dev/null | head -n 5 > /tmp/keep.txt || true
-          { grep -vxFf /tmp/keep.txt /tmp/old.txt || true; } | xargs -r rm --
+          # Keep the 5 most recent full dumps and 45 of each nightly kind (more than a
+          # month, so the nights since the newest full dump are always there). Older files
+          # named backup-<date>.sql.gz, from before this scheme, age out too.
+          # Newest first by name: the date is in it, and a fresh clone gives every file
+          # the same modified time.
+          keep() { # keep <count> <glob>: delete all but the newest <count> matches
+            { ls -1 $2 2>/dev/null || true; } | sort -r | tail -n +$(($1 + 1)) | xargs -r rm --
+          }
+          keep 5 "backup-*-full.sql.gz"
+          keep 45 "backup-*-light.sql.gz"
+          keep 45 "backup-*-new-inspections.csv.gz"
+          keep 45 "backup-*-new-violations.csv.gz"
+          keep 30 "backup-????-??-??.sql.gz"
           echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
 
       - name: Commit and push
