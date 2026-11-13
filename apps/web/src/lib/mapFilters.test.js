@@ -225,10 +225,10 @@ describe("categoryFilter with counties that have no facility types", () => {
     expect(categoryFilter(all, ["bullitt"])).toEqual(categoryExpression(all));
   });
 
-  it("hides Bullitt pins once the categories are narrowed", () => {
+  it("keeps Bullitt pins once the categories are narrowed: categories don't apply", () => {
     expect(categoryFilter(schoolsOnly(), ["bullitt"])).toEqual([
-      "all",
-      ["!", ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]]],
+      "any",
+      ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]],
       categoryExpression(schoolsOnly()),
     ]);
   });

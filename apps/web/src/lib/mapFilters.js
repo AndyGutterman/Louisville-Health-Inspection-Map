@@ -71,12 +71,12 @@ export function categoryExpression(catToggles) {
 
 // The category filter for every county. Counties whose data has no facility types
 // (untypedRegions, e.g. Bullitt) can't say whether a place is a school or a restaurant,
-// so their pins show only while every category is on: with "Schools" picked, a Bullitt
-// restaurant must not look like a school.
+// so categories don't apply to them: their pins always show, and the Filter tab lists
+// them apart from the category tiles, with a note saying so (FilterSearch.jsx).
 export function categoryFilter(catToggles, untypedRegions = []) {
   const expr = categoryExpression(catToggles);
   if (!untypedRegions.length || allCategoriesOn(catToggles)) return expr;
-  return ["all", ["!", ["in", regionOf, ["literal", untypedRegions]]], expr];
+  return ["any", ["in", regionOf, ["literal", untypedRegions]], expr];
 }
 
 /**
@@ -91,8 +91,8 @@ export function categoryFilter(catToggles, untypedRegions = []) {
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
  * @param {string[]} [filters.undatedRegions]  counties the date filter lets through
  *   (defaults to those whose data has no dates, lib/regions.js)
- * @param {string[]} [filters.untypedRegions]  counties shown only while every category is
- *   on (defaults to those whose data has no facility types)
+ * @param {string[]} [filters.untypedRegions]  counties categories don't apply to, whose
+ *   pins always show (defaults to those whose data has no facility types)
  */
 export function buildLayerFilters({
   pins,

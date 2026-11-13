@@ -5,7 +5,6 @@ import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import "./styles/AdjustFilter.css";
 import "./styles/ToggleRow.css";
-import "./styles/CountyNote.css";
 import "./styles/CountyLoad.css";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 
@@ -137,6 +136,28 @@ function Icon({ k, active }) {
   }
 }
 
+// One row of the Filter tab's county list: a real checkbox, with what the county is doing.
+function CountySwitch({ county: c, onToggle }) {
+  return (
+    <label
+      className="county-switch"
+      data-testid={`county-switch-${c.id}`}
+      data-checked={c.shown}
+      data-state={c.state ?? "idle"}
+    >
+      <input
+        type="checkbox"
+        checked={c.shown}
+        onChange={(e) => onToggle?.(c.id, e.target.checked)}
+      />
+      <span className="county-switch-name">{c.name}</span>
+      <span className="county-switch-status" aria-live="polite">
+        {countyStatusText(c)}
+      </span>
+    </label>
+  );
+}
+
 // One accent for every category tile, so the panel reads as a single set.
 const CAT_ACCENT = "#ff9f1c";
 
@@ -161,9 +182,16 @@ export default function FilterSearch({
   counties = [], // each one's switch: { id, name, shown, state, places } (Map.jsx)
   onToggleCounty, // (id, on)
 }) {
-  // Counties on the map whose data has no facility types: their pins count as "Other".
-  const shownIds = counties.filter((c) => c.shown).map((c) => c.id);
-  const untyped = regions.filter((r) => !r.has.categories && shownIds.includes(r.id));
+  // Categories only mean something for counties whose data has facility types
+  // (Jefferson). The others list below the category tiles, apart from them, and their
+  // places always show (lib/mapFilters.js categoryFilter).
+  const typedIds = new Set(regions.filter((r) => r.has.categories).map((r) => r.id));
+  const typedCounties = counties.filter((c) => typedIds.has(c.id));
+  const untypedCounties = counties.filter((c) => !typedIds.has(c.id));
+  const categoriesApply = typedCounties.some((c) => c.shown);
+  const undatedNames = regions
+    .filter((r) => !r.has.dates && untypedCounties.some((c) => c.id === r.id))
+    .map((r) => r.name);
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMediaQuery("(min-width: 900px)");
@@ -487,105 +515,90 @@ export default function FilterSearch({
 
                 <Tabs.Content className="rx-tab-content" value="filter">
                   {/* Which counties are on the map. Switching one on loads it once;
-                      after that, on and off only show and hide it. */}
+                      after that, on and off only show and hide it. The category tiles
+                      sit with the counties they apply to. */}
                   <fieldset className="county-switches" data-testid="county-switches">
                     <legend className="county-switches-title">Counties</legend>
-                    {counties.map((c) => (
-                      <label
-                        key={c.id}
-                        className="county-switch"
-                        data-testid={`county-switch-${c.id}`}
-                        data-checked={c.shown}
-                        data-state={c.state ?? "idle"}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={c.shown}
-                          onChange={(e) => onToggleCounty?.(c.id, e.target.checked)}
-                        />
-                        <span className="county-switch-name">{c.name}</span>
-                        <span className="county-switch-status" aria-live="polite">
-                          {countyStatusText(c)}
-                        </span>
-                      </label>
-                    ))}
-                  </fieldset>
-                  <div className="cat-filters" aria-label="Filters">
-                    <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
+                    <div className="county-group" data-testid="county-group-typed">
+                      {typedCounties.map((c) => (
+                        <CountySwitch key={c.id} county={c} onToggle={onToggleCounty} />
+                      ))}
                       <div
-                        className="seg-toggle"
-                        role="radiogroup"
-                        aria-label="Toggle all categories"
-                        style={{ margin: "0 auto" }}
+                        className="cat-filters"
+                        aria-label="Categories"
+                        data-testid="category-filters"
+                        data-inactive={!categoriesApply}
                       >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={allOff}
-                          className={`seg-option ${allOff ? "checked" : ""}`}
-                          onClick={handleAllOff}
-                        >
-                          All off
-                        </button>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={allOn}
-                          className={`seg-option ${allOn ? "checked" : ""}`}
-                          onClick={handleAllOn}
-                        >
-                          All on
-                        </button>
+                        <div className="filter-panel-header" style={{ paddingBottom: 6 }}>
+                          <div
+                            className="seg-toggle"
+                            role="radiogroup"
+                            aria-label="Toggle all categories"
+                            style={{ margin: "0 auto" }}
+                          >
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={allOff}
+                              className={`seg-option ${allOff ? "checked" : ""}`}
+                              onClick={handleAllOff}
+                            >
+                              All off
+                            </button>
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={allOn}
+                              className={`seg-option ${allOn ? "checked" : ""}`}
+                              onClick={handleAllOn}
+                            >
+                              All on
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="cat-grid">
+                          {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
+                            const enabled = !!catToggles[key]?.enabled;
+                            const label = shortLabel(spec.label);
+                            const accent = CAT_ACCENT;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                data-testid="category-tile"
+                                data-category={key}
+                                className="cat-tile"
+                                data-checked={enabled}
+                                aria-pressed={enabled}
+                                onClick={() => toggleCategory(key, spec, !enabled)}
+                                title={spec.label}
+                                style={{ "--tile-accent": accent }}
+                              >
+                                <span className="cat-icon">
+                                  <Icon k={key} active={enabled} />
+                                </span>
+                                <span className="cat-label">{label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-
-                    <div className="cat-grid">
-                      {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
-                        const enabled = !!catToggles[key]?.enabled;
-                        const label = shortLabel(spec.label);
-                        const accent = CAT_ACCENT;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            data-testid="category-tile"
-                            data-category={key}
-                            className="cat-tile"
-                            data-checked={enabled}
-                            aria-pressed={enabled}
-                            onClick={() => toggleCategory(key, spec, !enabled)}
-                            title={spec.label}
-                            style={{ "--tile-accent": accent }}
-                          >
-                            <span className="cat-icon">
-                              <Icon k={key} active={enabled} />
-                            </span>
-                            <span className="cat-label">{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {untyped.length > 0 && (
-                    <p className="county-note" data-testid="county-note">
-                      {nameList(untyped.map((r) => r.name))}
-                      {untyped.length > 1 ? " have" : " has"} no facility types in the data, so
-                      those places show only while every category is on.
-                      {untyped
-                        .filter((r) => !r.has.dates)
-                        .map((r) => (
-                          <React.Fragment key={r.id}>
-                            {" "}
-                            {r.name} places with no date ignore the date filter: when
-                            Kentucky&apos;s portal is unavailable, the{" "}
-                            <a href={r.agency.url} target="_blank" rel="noopener noreferrer">
-                              {r.agency.name}
-                            </a>{" "}
-                            publishes only each place&apos;s latest inspection, without a date.
-                          </React.Fragment>
+                    {untypedCounties.length > 0 && (
+                      <div className="county-group" data-testid="county-group-untyped">
+                        {untypedCounties.map((c) => (
+                          <CountySwitch key={c.id} county={c} onToggle={onToggleCounty} />
                         ))}
-                    </p>
-                  )}
+                        <p className="county-group-note" data-testid="county-note">
+                          No place types in this data, so categories don&apos;t apply: every place
+                          shows.
+                          {undatedNames.length > 0 &&
+                            ` Undated ${nameList(undatedNames)} places ignore the date filter.`}
+                        </p>
+                      </div>
+                    )}
+                  </fieldset>
                 </Tabs.Content>
               </Tabs.Root>
             </div>
