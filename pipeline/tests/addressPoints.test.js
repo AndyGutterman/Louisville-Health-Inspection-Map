@@ -40,6 +40,26 @@ const streets = buildStreetIndex([
   pt(null, "Broken", "Road", -85.6, 38.0), // no number: ignored
 ]);
 
+// Shaped like Oldham County's 911 points: highways as "West STATE HIGHWAY 146", and
+// almost no town names.
+const hwy = (number, preDir, preType, name, lon, lat) => ({
+  number,
+  preDir,
+  preType,
+  name,
+  town: null,
+  lon,
+  lat,
+});
+const oldham = buildStreetIndex([
+  hwy(6201, "West", "STATE HIGHWAY", "146", -85.466, 38.34),
+  hwy(2401, "West", "STATE HIGHWAY", "146", -85.405, 38.402),
+  hwy(1500, "East", "STATE HIGHWAY", "146", -85.37, 38.41),
+  hwy(1500, "West", "STATE HIGHWAY", "146", -85.42, 38.39), // on both: ambiguous
+  hwy(11940, "West", "UNITED STATES HIGHWAY", "42", -85.573, 38.403),
+  hwy(1901, "South", "STATE HIGHWAY", "1793", -85.585, 38.392),
+]);
+
 describe("streetTokens", () => {
   it("expands abbreviations to the words 911 data uses", () =>
     assert.deepEqual(streetTokens("High Pointe Ct."), ["HIGH", "POINTE", "COURT"]));
@@ -49,6 +69,25 @@ describe("streetTokens", () => {
 
   it("spells out highways and directions", () =>
     assert.deepEqual(streetTokens("HWY 44 E"), ["HIGHWAY", "44", "EAST"]));
+
+  it("writes every kind of highway as plain HIGHWAY", () => {
+    for (const text of [
+      "W. HWY 146",
+      "West STATE HIGHWAY 146",
+      "W KY 146",
+      "WEST KY HWY 146",
+      "W UNITED STATES HIGHWAY 146",
+      "W US 146",
+      "W US HWY 146",
+    ]) {
+      assert.deepEqual(streetTokens(text), ["WEST", "HIGHWAY", "146"], text);
+    }
+  });
+
+  it("leaves State Street and a US or KY not before a number alone", () => {
+    assert.deepEqual(streetTokens("STATE ST"), ["STATE", "STREET"]);
+    assert.deepEqual(streetTokens("KY LANE"), ["KY", "LANE"]);
+  });
 });
 
 describe("parseStreetAddress", () => {
@@ -107,6 +146,29 @@ describe("matchAddress", () => {
 
   it("only places approximate pins in the same town", () =>
     assert.equal(match("149 HIGH POINTE CT", "SHEPHERDSVILLE"), null));
+
+  it("matches a highway however it is written", () => {
+    const at = (address) => matchAddress(oldham, { address, city: "CRESTWOOD" });
+    assert.deepEqual(
+      [at("6201 W. HWY 146").lon, at("6201 W. HWY 146").provider],
+      [-85.466, "ky911"],
+    );
+    assert.equal(at("11940 WWEST HWY 42").raw.matched, "11940 WEST HIGHWAY 42"); // typo too
+  });
+
+  it("finds a highway's direction when only one direction has the number", () => {
+    const r = matchAddress(oldham, { address: "2401 HWY 146", city: "LA GRANGE" });
+    assert.equal(r.raw.matched, "2401 WEST HIGHWAY 146");
+    assert.equal(r.provider, "ky911");
+    assert.equal(matchAddress(oldham, { address: "1500 HWY 146", city: "LA GRANGE" }), null);
+    assert.equal(matchAddress(oldham, { address: "9999 HWY 146", city: "LA GRANGE" }), null);
+  });
+
+  it("places approximate pins on a street the 911 data gives no town", () => {
+    const r = matchAddress(oldham, { address: "1902 S. HWY 1793", city: "GOSHEN" });
+    assert.equal(r.provider, "ky911-approx");
+    assert.equal(r.raw.method, "next to 1901");
+  });
 
   it("gives up when the neighbours are far apart or the street is unknown", () => {
     assert.equal(match("200 LONG RD"), null);

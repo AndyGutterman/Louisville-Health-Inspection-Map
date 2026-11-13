@@ -92,6 +92,13 @@ describe("countyGeocoder.geocode", () => {
     assert.deepEqual(used, ["911"]);
   });
 
+  it("doesn't ask the Census about a place with no street address", async () => {
+    const { geo, used } = geocoder();
+    const { result } = await geo.geocode({ ...ROW, address: "" });
+    assert.equal(result, null);
+    assert.deepEqual(used, ["911", "nominatim"]);
+  });
+
   it("keeps a match outside the county when nothing is inside, so it can be flagged", async () => {
     const { geo } = geocoder({
       geocoders: { geocodeCensus: async () => ({ lon: 5, lat: 5, provider: "census" }) },
