@@ -1,15 +1,17 @@
 name: Nightly Database Backup
 
-# Old records don't change, so they aren't downloaded again every night.
+# Old records don't change, so they are never downloaded again.
 #
-#   1st of the month   a FULL dump: every table, every row.
-#   every other night  a LIGHT dump (everything except the rows of the big tables below),
-#                      plus only the NEW rows of inspections and inspection_violations
-#                      (added in the last 3 days, so a skipped night loses nothing).
+#   every night   a LIGHT dump (everything except the rows of the big tables below), plus
+#                 only the NEW rows of inspections and inspection_violations (added in the
+#                 last 3 days, so a skipped night loses nothing).
+#   by hand only  a FULL dump: every table, every row. Nothing schedules one.
 #
 # Why: pg_dump downloads the database uncompressed (gzip runs here, afterwards), and that
 # download counts against Supabase's 5 GB monthly egress. A full dump every night was the
-# project's largest single download; this is about one full dump a month.
+# project's largest single download; even one a month is a spike. The full dumps already
+# in the backup repo (from when this ran in full every night) are the base: the newest
+# ones are kept for good, and every night's new rows since then are kept for good too.
 #
 # What can't be rebuilt (accounts, saved places, watch areas, feedback, Bullitt's and the
 # portal's recorded history) is in every night's light dump, in full.
@@ -21,20 +23,20 @@ name: Nightly Database Backup
 #   bullitt_snapshots                    copies of the county's sheet, kept for reference
 #
 # Files in the backup repo:
-#   backup-<date>-full.sql.gz                 the last 5 are kept (5 months)
+#   backup-<date>.sql.gz                      full dumps from before this scheme: 2 kept
+#   backup-<date>-full.sql.gz                 full dumps taken by hand: the last 5 are kept
 #   backup-<date>-light.sql.gz                the last 45 are kept
-#   backup-<date>-new-inspections.csv.gz      the last 45 are kept
-#   backup-<date>-new-violations.csv.gz       the last 45 are kept
+#   backup-<date>-new-inspections.csv.gz      all kept (each is a few KB)
+#   backup-<date>-new-violations.csv.gz       all kept
 #
 # To restore: load the newest full dump, then the newest light dump's small tables, then
-# every new-*.csv.gz since that full dump (the 3-day overlap repeats rows: load them into
-# a scratch table and insert with ON CONFLICT DO NOTHING on the id), or just run the
-# ingest workflow, which reloads inspections from the source.
-# Not caught between full dumps: a correction to an inspection that was already saved (the
-# tables have no "updated" time). The next ingest from the source, or the next full dump,
-# has it.
-# To take a full dump on any day: Actions > Nightly Database Backup > Run workflow, and
-# tick "full".
+# every new-*.csv.gz dated after that full dump (the 3-day overlap repeats rows: load them
+# into a scratch table and insert with ON CONFLICT DO NOTHING on the id). Or load the
+# newest light dump and run the ingest workflow, which reloads inspections from the source.
+# Not caught: a correction to an inspection that was already saved (the tables have no
+# "updated" time). The next ingest from the source has it.
+# To take a full dump (before a risky migration, say): Actions > Nightly Database Backup >
+# Run workflow, and tick "full". It costs one download of the whole database.
 
 on:
   schedule:
@@ -43,9 +45,9 @@ on:
   workflow_dispatch:
     inputs:
       full:
-        description: "Full dump (every table's rows), whatever the day"
+        description: "Full dump: downloads the whole database (costs egress)"
         type: boolean
-        default: true
+        default: false
 
 jobs:
   backup:
@@ -80,11 +82,11 @@ jobs:
         id: dump
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          # Full on the 1st (UTC) and when asked for; otherwise skip the rows of the big
-          # tables (see the top of this file).
+          # Full only when asked for by hand; otherwise skip the rows of the big tables
+          # (see the top of this file).
           SKIP=()
           KIND=full
-          if [ "$(date -u +%d)" != "01" ] && [ "${{ inputs.full }}" != "true" ]; then
+          if [ "${{ inputs.full }}" != "true" ]; then
             KIND=light
             for t in inspections inspection_violations geocode_cache bullitt_snapshots; do
               SKIP+=("--exclude-table-data=public.${t}")
@@ -144,9 +146,10 @@ jobs:
         run: |
           cp /tmp/backup-${{ steps.dump.outputs.date }}-* /tmp/backup-repo/
           cd /tmp/backup-repo
-          # Keep the 5 most recent full dumps and 45 of each nightly kind (more than a
-          # month, so the nights since the newest full dump are always there). Older files
-          # named backup-<date>.sql.gz, from before this scheme, age out too.
+          # Keep the 5 most recent hand-taken full dumps, the 2 most recent from before
+          # this scheme (the base the nightly new rows build on), and 45 light dumps. The
+          # new-rows files are never deleted: they are the only copy of rows added since
+          # the last full dump.
           # Newest first by name: the date is in it, and a fresh clone gives every file
           # the same modified time.
           keep() { # keep <count> <glob>: delete all but the newest <count> matches
@@ -154,9 +157,7 @@ jobs:
           }
           keep 5 "backup-*-full.sql.gz"
           keep 45 "backup-*-light.sql.gz"
-          keep 45 "backup-*-new-inspections.csv.gz"
-          keep 45 "backup-*-new-violations.csv.gz"
-          keep 30 "backup-????-??-??.sql.gz"
+          keep 2 "backup-????-??-??.sql.gz"
           echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
 
       - name: Commit and push
