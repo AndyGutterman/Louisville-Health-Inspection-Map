@@ -1,7 +1,109 @@
 {
   "_how": [
     "Pins placed by hand for Oldham County addresses no geocoder finds. Same format as regions/bullitt/overrides.json, whose _how explains each field.",
-    "query: copy it from the job's '✗ no match' line, the part after the dash."
+    "query: copy it from the job's '✗ no match' line, the part after the dash.",
+    "name: the place's name as the job prints it. With a name, the pin is for that place only; use one whenever the query has no house number (\"LA GRANGE, KY\"), or every place in town with that address would get the pin.",
+    "The entries below were placed in November 2026 from OpenStreetMap's map of the named building, or Kentucky's 911 address point for the school's street address."
   ],
-  "places": []
+  "places": [
+    {
+      "query": "HWY 146, CRESTWOOD, KY",
+      "name": "CAMDEN STATION ELEMENTARY",
+      "at": "38.33211, -85.46568",
+      "note": "OpenStreetMap: Camden Station Elementary School, 6401 LaGrange Road (KY 146)."
+    },
+    {
+      "query": "HWY 393 SOUTH, CENTERFIELD, KY",
+      "name": "CENTERFIELD ELEM. SCHOOL",
+      "at": "38.35673, -85.41164",
+      "note": "OpenStreetMap: Centerfield Elementary School, Centerfield Drive."
+    },
+    {
+      "query": "S. HWY 393, CRESTWOOD, KY",
+      "name": "CENTERFIELD ELEMENTARY",
+      "at": "38.35673, -85.41164",
+      "note": "The same school as CENTERFIELD ELEM. SCHOOL (the portal lists it twice)."
+    },
+    {
+      "query": "HWY 22, CRESTWOOD, KY",
+      "name": "CRESTWOOD ELEMENTARY SCHOOL",
+      "at": "38.32408, -85.46955",
+      "note": "OpenStreetMap: Crestwood Elementary, LaGrange Road."
+    },
+    {
+      "query": "HWY 1793, GOSHEN, KY",
+      "name": "GOSHEN ELEM AT HILLCREST",
+      "at": "38.37214, -85.59129",
+      "note": "OpenStreetMap: Goshen Elementary, Albrecht Drive, Hillcrest."
+    },
+    {
+      "query": "HWY 393, BUCKNER, KY",
+      "name": "OLDHAM CO. HIGH SCHOOL",
+      "at": "38.38727, -85.43694",
+      "note": "Kentucky 911 address point for 1150 N. Hwy 393, the school's street address."
+    },
+    {
+      "query": "HWY. 146, CRESTWOOD, KY",
+      "name": "SO. OLDHAM MIDDLE SCHOOL",
+      "at": "38.33074, -85.46678",
+      "note": "OpenStreetMap: South Oldham Middle School, 6403 Dragon Road."
+    },
+    {
+      "query": "5900 HWY 329, CRESTWOOD, KY",
+      "name": "SOUTH OLDHAM HIGH SCHOOL",
+      "at": "38.33197, -85.46881",
+      "note": "OpenStreetMap: South Oldham High School, 5901 Dragon Road."
+    },
+    {
+      "query": "MT. MERCY DR., PEWEE VALLEY, KY",
+      "name": "ST. ALOYSIUS SCHOOL",
+      "at": "38.30833, -85.49152",
+      "note": "OpenStreetMap: Saint Aloysius School, Mount Mercy Place."
+    },
+    {
+      "query": "LA GRANGE, KY",
+      "name": "KY STATE REFORMATORY",
+      "at": "38.40403, -85.41744",
+      "note": "OpenStreetMap: Kentucky State Reformatory, 3001 Morgan Road."
+    },
+    {
+      "query": "LA GRANGE, KY",
+      "name": "LUTHER LUCKETT",
+      "at": "38.41220, -85.42615",
+      "note": "OpenStreetMap: Luther Luckett Correctional Complex, 1612 Dawkins Road."
+    },
+    {
+      "query": "P.O., LA GRANGE, KY",
+      "name": "ROEDERER CORRECTIONAL COMPLEX",
+      "at": "38.40252, -85.43075",
+      "note": "OpenStreetMap: Roederer Correctional Complex, 3001 Morgan Road."
+    },
+    {
+      "query": "P.O., LA GRANGE, KY",
+      "name": "ROEDERER FARM CORRECTION COMP.",
+      "at": "38.40252, -85.43075",
+      "note": "Pinned at the Roederer complex itself; the farm's own kitchen may be elsewhere on the grounds."
+    },
+    {
+      "query": "WENDYS, LA GRANGE, KY",
+      "name": "WENDYS OF LAGRANGE #306",
+      "at": "38.39676, -85.37052",
+      "note": "OpenStreetMap: Wendy's, 820 S. Hwy 53, the only Wendy's in La Grange."
+    },
+    {
+      "query": "2002 E. 10TH STREET, JEFF, KY",
+      "at": "",
+      "note": "Kona Ice. Left off the map on purpose: a mobile vendor whose base is in Jeffersonville, Indiana."
+    },
+    {
+      "query": "2002 EAST 10TH STREET, JEFF, KY",
+      "at": "",
+      "note": "Travelin' Tom's of Clarke/Floyd/Oldham. Left off the map on purpose: a mobile vendor whose base is in Jeffersonville, Indiana."
+    },
+    {
+      "query": "1620 S. FRIENDSWOOD DRIVE, FRIENDSWOOD, KY",
+      "at": "",
+      "note": "Backyard Butchers. Left off the map on purpose: the address is not in Kentucky (most likely a mobile vendor's mailing address)."
+    }
+  ]
 }

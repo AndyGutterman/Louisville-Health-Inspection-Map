@@ -39,6 +39,26 @@ describe("parseOverrides and overrideFor", () => {
     assert.equal(overrideFor(overrides, { address: "9 OTHER ST", city: "BROOKS" }, DEFAULTS), null);
   });
 
+  it("pins only the named place when an entry gives a name", () => {
+    const named = parseOverrides({
+      places: [
+        { query: "LA GRANGE, KY", name: "KY STATE REFORMATORY", at: "38.404, -85.417" },
+        { query: "LA GRANGE, KY", name: "LUTHER LUCKETT", at: "38.412, -85.426" },
+        { query: "1 MAIN ST, LA GRANGE, KY", at: "38.40, -85.37" },
+        { query: "1 MAIN ST, LA GRANGE, KY", name: "Corner Café", at: "38.41, -85.38" },
+      ],
+    });
+    const at = (row) => {
+      const o = overrideFor(named, { city: "LA GRANGE", ...row }, { state: "KY" });
+      return o && [o.lat, o.lon];
+    };
+    assert.deepEqual(at({ name: "KY State Reformatory" }), [38.404, -85.417]);
+    assert.deepEqual(at({ name: "LUTHER LUCKETT" }), [38.412, -85.426]);
+    assert.equal(at({ name: "SOMEWHERE ELSE" }), null); // no number: not "anywhere in town"
+    assert.deepEqual(at({ name: "CORNER  CAFÉ", address: "1 MAIN ST" }), [38.41, -85.38]);
+    assert.deepEqual(at({ name: "NEXT DOOR", address: "1 MAIN ST" }), [38.4, -85.37]);
+  });
+
   it("names the entry that is wrong", () => {
     assert.throws(() => parseOverrides({ places: [{ at: "38, -85" }] }), /place 1 has no "query"/);
     assert.throws(
@@ -49,18 +69,16 @@ describe("parseOverrides and overrideFor", () => {
 });
 
 describe("overrides.json", () => {
-  it("parses, and every pin is inside Bullitt County", () => {
-    const file = JSON.parse(
-      readFileSync(new URL("../regions/bullitt/overrides.json", import.meta.url), "utf8"),
-    );
-    const outline = JSON.parse(
-      readFileSync(
-        new URL("../../apps/web/public/regions/bullitt.geojson", import.meta.url),
-        "utf8",
-      ),
-    );
-    for (const [key, o] of parseOverrides(file)) {
-      assert.ok(containsPoint(outline, [o.lon, o.lat]), `${key} is outside the county`);
-    }
-  });
+  const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+  for (const [county, file] of [
+    ["bullitt", "../regions/bullitt/overrides.json"],
+    ["oldham", "../regions/kyportal/overrides/oldham.json"],
+  ]) {
+    it(`${county}: parses, and every pin is inside the county`, () => {
+      const outline = read(`../../apps/web/public/regions/${county}.geojson`);
+      for (const [key, o] of parseOverrides(read(file))) {
+        assert.ok(containsPoint(outline, [o.lon, o.lat]), `${key} is outside the county`);
+      }
+    });
+  }
 });
