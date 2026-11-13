@@ -1,51 +1,48 @@
-name: Nightly Database Backup
+name: Weekly Database Backup
 
-# Old records don't change, so they are never downloaded again.
+# Tiny on purpose. Every byte pg_dump reads counts against Supabase's 5 GB monthly egress,
+# shared with everyone using the site, so this saves only what can't be rebuilt.
 #
-#   every night   a LIGHT dump (everything except the rows of the big tables below), plus
-#                 only the NEW rows of inspections and inspection_violations (added in the
-#                 last 3 days, so a skipped night loses nothing).
-#   by hand only  a FULL dump: every table, every row. Nothing schedules one.
+#   Sundays       a TINY dump: every table's definition, plus the rows of the small tables
+#                 that can't be rebuilt (accounts, saved places, watch areas, feedback,
+#                 Bullitt's and the portal's recorded history). About 0.5 MB read, so
+#                 roughly 2-3 MB a month.
+#                 Plus the rows ADDED in the last 10 days to inspections,
+#                 inspection_violations and facilities (a few KB; 10 days so a skipped
+#                 week loses nothing).
+#   by hand only  a FULL dump: every table, every row (about 12 MB read). Nothing
+#                 schedules one.
 #
-# Why: pg_dump downloads the database uncompressed (gzip runs here, afterwards), and that
-# download counts against Supabase's 5 GB monthly egress. A full dump every night was the
-# project's largest single download; even one a month is a spike. The full dumps already
-# in the backup repo (from when this ran in full every night) are the base: the newest
-# ones are kept for good, and every night's new rows since then are kept for good too.
-#
-# What can't be rebuilt (accounts, saved places, watch areas, feedback, Bullitt's and the
-# portal's recorded history) is in every night's light dump, in full.
-#
-# Rows left out of the light dump (the tables' definitions are always dumped):
-#   inspections, inspection_violations   new rows are saved nightly (below); all of it can
-#                                        also be reloaded from Louisville Metro's ArcGIS data
+# Rows left out of the tiny dump (the tables' definitions are always dumped):
+#   facilities, inspections,             reloaded from Louisville Metro's ArcGIS data by
+#   inspection_violations                the ingest workflow; new rows saved weekly (below)
 #   geocode_cache                        geocoder answers; only saves time on a re-geocode
 #   bullitt_snapshots                    copies of the county's sheet, kept for reference
+# The full dumps already in the backup repo are the base for those three big tables.
 #
 # Files in the backup repo:
 #   backup-<date>.sql.gz                      full dumps from before this scheme: 2 kept
-#   backup-<date>-full.sql.gz                 full dumps taken by hand: the last 5 are kept
-#   backup-<date>-light.sql.gz                the last 45 are kept
-#   backup-<date>-new-inspections.csv.gz      all kept (each is a few KB)
-#   backup-<date>-new-violations.csv.gz       all kept
+#   backup-<date>-full.sql.gz                 full dumps taken by hand: the last 3 are kept
+#   backup-<date>-light.sql.gz                tiny dumps: the last 12 (about 3 months)
+#   backup-<date>-new-<table>.csv.gz          all kept (each is a few KB)
 #
-# To restore: load the newest full dump, then the newest light dump's small tables, then
-# every new-*.csv.gz dated after that full dump (the 3-day overlap repeats rows: load them
-# into a scratch table and insert with ON CONFLICT DO NOTHING on the id). Or load the
-# newest light dump and run the ingest workflow, which reloads inspections from the source.
-# Not caught: a correction to an inspection that was already saved (the tables have no
-# "updated" time). The next ingest from the source has it.
-# To take a full dump (before a risky migration, say): Actions > Nightly Database Backup >
-# Run workflow, and tick "full". It costs one download of the whole database.
+# To restore: load the newest full dump, then the newest tiny dump's small tables, then
+# every new-*.csv.gz dated after that full dump (the overlap repeats rows: load them into
+# a scratch table and insert with ON CONFLICT DO NOTHING on the id). Or load the newest
+# tiny dump and run the ingest workflow, which reloads facilities and inspections from
+# the source (geocodes missing from the source are redone by the pipeline).
+# Not caught: a correction to a row that was already saved. The next ingest has it.
+# To take a full dump (before a risky migration, say): Actions > Weekly Database Backup >
+# Run workflow, and tick "full". It costs about 12 MB of egress.
 
 on:
   schedule:
-    # 2am ET = 7am UTC (EST) / 6am UTC (EDT) — close enough, pick one
-    - cron: "0 7 * * *"
+    # Sundays, about 2am ET
+    - cron: "17 7 * * 0"
   workflow_dispatch:
     inputs:
       full:
-        description: "Full dump: downloads the whole database (costs egress)"
+        description: "Full dump: downloads the whole database (about 12 MB of egress)"
         type: boolean
         default: false
 
@@ -88,7 +85,7 @@ jobs:
           KIND=full
           if [ "${{ inputs.full }}" != "true" ]; then
             KIND=light
-            for t in inspections inspection_violations geocode_cache bullitt_snapshots; do
+            for t in facilities inspections inspection_violations geocode_cache bullitt_snapshots; do
               SKIP+=("--exclude-table-data=public.${t}")
             done
           fi
@@ -103,33 +100,35 @@ jobs:
             | gzip -9 > "/tmp/${FILENAME}"
           echo "size=$(du -sh /tmp/${FILENAME} | cut -f1)" >> "$GITHUB_OUTPUT"
 
-      # On light nights, the rows added since the last few backups. Both tables stamp
-      # created_at when a row is first inserted. A few hundred rows, not the whole table.
-      - name: Export new inspections and violations
+      # On tiny runs, the rows added since the last backup or two. All three tables stamp
+      # created_at when a row is first inserted (facilities' updated_at moves on every
+      # daily load, so it isn't used). A few hundred rows, not the whole table.
+      - name: Export new facilities, inspections and violations
         if: steps.dump.outputs.kind == 'light'
         run: |
           DATE="${{ steps.dump.outputs.date }}"
           PSQL=/usr/lib/postgresql/17/bin/psql
-          for pair in inspections:new-inspections inspection_violations:new-violations; do
+          for pair in facilities:new-facilities inspections:new-inspections inspection_violations:new-violations; do
             TABLE="${pair%%:*}"
             NAME="${pair##*:}"
             "$PSQL" "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c \
-              "\\copy (SELECT * FROM public.${TABLE} WHERE created_at >= now() - interval '3 days' ORDER BY 1) TO STDOUT WITH (FORMAT csv, HEADER)" \
+              "\\copy (SELECT * FROM public.${TABLE} WHERE created_at >= now() - interval '10 days' ORDER BY 1) TO STDOUT WITH (FORMAT csv, HEADER)" \
               | gzip -9 > "/tmp/backup-${DATE}-${NAME}.csv.gz"
             echo "${NAME}: $(zcat "/tmp/backup-${DATE}-${NAME}.csv.gz" | wc -l) lines (with header)"
           done
 
-      # Second guard: a real dump is megabytes (a light one is smaller, but the facilities
-      # alone put it well over this). Anything under 100 KB means something went wrong,
-      # so fail (and send the failure email) instead of committing it.
+      # Second guard: a tiny dump is small, so size alone can't tell a good one from a
+      # failed one. Check that it holds the schema and the accounts table's rows.
       - name: Check the backup isn't empty
         run: |
-          BYTES=$(stat -c %s "/tmp/${{ steps.dump.outputs.filename }}")
-          echo "Backup size: ${BYTES} bytes"
-          if [ "$BYTES" -lt 100000 ]; then
-            echo "::error::Backup is only ${BYTES} bytes, so the dump almost certainly failed."
-            exit 1
-          fi
+          F="/tmp/${{ steps.dump.outputs.filename }}"
+          echo "Backup size: $(stat -c %s "$F") bytes"
+          for want in "CREATE TABLE public.facilities" "CREATE TABLE public.inspections" "COPY public.profiles"; do
+            if ! zcat "$F" | grep -q "$want"; then
+              echo "::error::The dump has no '${want}', so it almost certainly failed."
+              exit 1
+            fi
+          done
 
       - name: Clone backup repo via deploy key
         env:
@@ -146,8 +145,8 @@ jobs:
         run: |
           cp /tmp/backup-${{ steps.dump.outputs.date }}-* /tmp/backup-repo/
           cd /tmp/backup-repo
-          # Keep the 5 most recent hand-taken full dumps, the 2 most recent from before
-          # this scheme (the base the nightly new rows build on), and 45 light dumps. The
+          # Keep the 3 most recent hand-taken full dumps, the 2 most recent from before
+          # this scheme (the base the weekly new rows build on), and 12 tiny dumps. The
           # new-rows files are never deleted: they are the only copy of rows added since
           # the last full dump.
           # Newest first by name: the date is in it, and a fresh clone gives every file
@@ -155,8 +154,8 @@ jobs:
           keep() { # keep <count> <glob>: delete all but the newest <count> matches
             { ls -1 $2 2>/dev/null || true; } | sort -r | tail -n +$(($1 + 1)) | xargs -r rm --
           }
-          keep 5 "backup-*-full.sql.gz"
-          keep 45 "backup-*-light.sql.gz"
+          keep 3 "backup-*-full.sql.gz"
+          keep 12 "backup-*-light.sql.gz"
           keep 2 "backup-????-??-??.sql.gz"
           echo "Remaining backups: $(ls backup-*.sql.gz | wc -l)"
 
@@ -179,11 +178,11 @@ jobs:
           server_port: 587
           username: ${{ env.SMTP_USERNAME }}
           password: ${{ env.SMTP_PASSWORD }}
-          subject: "[Louisville Food Safe] Nightly DB backup FAILED — ${{ steps.dump.outputs.date }}"
+          subject: "[Louisville Food Safe] Weekly DB backup FAILED — ${{ steps.dump.outputs.date }}"
           to: ${{ env.NOTIFY_EMAIL }}
           from: "Louisville Food Safe Alerts <${{ env.SMTP_USERNAME }}>"
           body: |
-            The nightly database backup workflow failed.
+            The weekly database backup workflow failed.
 
             Date: ${{ steps.dump.outputs.date }}
             Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
