@@ -1,9 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
+  CATEGORY_KEYS,
   CATEGORY_SPECS,
+  DEFAULT_CATEGORIES,
   allCategoriesOn,
+  buildCatToggles,
   buildInitialCatToggles,
+  categoryOrFilter,
   classifyCategory,
+  enabledCategories,
+  readCategoryChoice,
+  writeCategoryChoice,
 } from "./categories.js";
 
 describe("CATEGORY_SPECS", () => {
@@ -84,5 +91,78 @@ describe("allCategoriesOn", () => {
     expect(
       allCategoriesOn({ ...t, retail: { ...t.retail, subs: { ...t.retail.subs, [sub]: false } } }),
     ).toBe(false);
+  });
+});
+
+describe("the categories a first visit loads", () => {
+  it("are Restaurants, Retail and Kitchens, the first three tiles", () => {
+    expect(DEFAULT_CATEGORIES).toEqual(CATEGORY_KEYS.slice(0, 3));
+    expect(enabledCategories(buildCatToggles(DEFAULT_CATEGORIES))).toEqual(DEFAULT_CATEGORIES);
+  });
+
+  it("switches every pair of a category on or off together", () => {
+    const t = buildCatToggles(["retail"]);
+    expect(Object.values(t.retail.subs).every(Boolean)).toBe(true);
+    expect(t.schools).toEqual({ enabled: false, subs: { "605:33": false } });
+  });
+});
+
+describe("the saved category choice", () => {
+  const storage = (value) => ({
+    getItem: () => value,
+    setItem(_, v) {
+      this.saved = v;
+    },
+  });
+
+  it("is the default when nothing is saved, or it can't be read", () => {
+    expect(readCategoryChoice(storage(null))).toEqual(DEFAULT_CATEGORIES);
+    expect(readCategoryChoice(storage("{nope"))).toEqual(DEFAULT_CATEGORIES);
+    expect(readCategoryChoice(null)).toEqual(DEFAULT_CATEGORIES);
+  });
+
+  it("comes back in the panel's order, without unknown keys", () => {
+    expect(readCategoryChoice(storage('["schools","nope","restaurants"]'))).toEqual([
+      "restaurants",
+      "schools",
+    ]);
+  });
+
+  it("keeps 'everything off' as a choice", () => {
+    expect(readCategoryChoice(storage("[]"))).toEqual([]);
+  });
+
+  it("saves, and says so", () => {
+    const s = storage(null);
+    expect(writeCategoryChoice(s, ["schools"])).toBe(true);
+    expect(s.saved).toBe('["schools"]');
+    expect(writeCategoryChoice(null, ["schools"])).toBe(false);
+  });
+});
+
+describe("categoryOrFilter", () => {
+  it("lists a category's (type, subtype) pairs", () => {
+    expect(categoryOrFilter(["restaurants"])).toBe("and(facility_type.eq.605,subtype.eq.11)");
+    expect(categoryOrFilter(["schools", "concessions"])).toBe(
+      "and(facility_type.eq.605,subtype.eq.33)," +
+        "and(facility_type.eq.603,subtype.eq.51),and(facility_type.eq.603,subtype.eq.53)",
+    );
+  });
+
+  it("asks for 'Other' as whatever no category claims, untyped places included", () => {
+    const f = categoryOrFilter(["unknown"]);
+    expect(f.startsWith("facility_type.is.null,subtype.is.null,not.or(")).toBe(true);
+    // Every pair another category claims is ruled out, and Other's own pairs are not.
+    for (const [key, spec] of Object.entries(CATEGORY_SPECS)) {
+      for (const p of spec.subs) {
+        const pair = `and(facility_type.eq.${p.ft},subtype.eq.${p.st})`;
+        expect(f.includes(pair), `${key} ${pair}`).toBe(key !== "unknown");
+      }
+    }
+  });
+
+  it("needs no filter when every category is asked for", () => {
+    expect(categoryOrFilter(CATEGORY_KEYS)).toBeNull();
+    expect(categoryOrFilter(CATEGORY_KEYS.slice(1))).not.toBeNull();
   });
 });

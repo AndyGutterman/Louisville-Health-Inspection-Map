@@ -15,7 +15,23 @@ const BLANK_STYLE = {
 // (it waits for the map to finish loading). Returns what the page logged as errors.
 // counties: ids of the counties to start with switched on, as a returning visitor who
 // turned them on would (lib/counties.js). Left out, it's a first visit: Jefferson only.
-export async function openApp(page, { path = "/", holds, failOnce, missing, counties } = {}) {
+// categories: keys of the categories to start with switched on (lib/categories.js). Left
+// out, every category is on, as for a visitor who turned them all on, so the tests see
+// every fixture place; null is a first visit (Restaurants, Retail and Kitchens).
+export const ALL_CATEGORIES = [
+  "restaurants",
+  "retail",
+  "caterers_commissary",
+  "schools",
+  "daycare",
+  "hospitals",
+  "concessions",
+  "unknown",
+];
+export async function openApp(
+  page,
+  { path = "/", holds, failOnce, missing, counties, categories = ALL_CATEGORIES } = {},
+) {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -48,6 +64,13 @@ export async function openApp(page, { path = "/", holds, failOnce, missing, coun
         localStorage.setItem("lfs_counties", JSON.stringify(ids));
       }
     }, counties);
+  }
+  if (categories) {
+    await page.addInitScript((keys) => {
+      if (!localStorage.getItem("lfs_categories")) {
+        localStorage.setItem("lfs_categories", JSON.stringify(keys));
+      }
+    }, categories);
   }
   if (process.env.E2E_STUB_BASEMAP) {
     // Everything else off-site (fonts, map tiles) is answered empty, so a blocked host

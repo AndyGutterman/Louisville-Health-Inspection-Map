@@ -73,10 +73,36 @@ export function categoryExpression(catToggles) {
 // (untypedRegions, e.g. Bullitt) can't say whether a place is a school or a restaurant,
 // so categories don't apply to them: their pins always show, and the Filter tab lists
 // them apart from the category tiles, with a note saying so (FilterSearch.jsx).
-export function categoryFilter(catToggles, untypedRegions = []) {
+// alwaysShow: establishment ids that show whatever categories are on: the visitor's
+// saved places and the place they have open, which may be of a category that is off.
+export function categoryFilter(catToggles, untypedRegions = [], alwaysShow = []) {
   const expr = categoryExpression(catToggles);
-  if (!untypedRegions.length || allCategoriesOn(catToggles)) return expr;
-  return ["any", ["in", regionOf, ["literal", untypedRegions]], expr];
+  if (allCategoriesOn(catToggles)) return expr;
+  const exempt = [];
+  if (untypedRegions.length) exempt.push(["in", regionOf, ["literal", untypedRegions]]);
+  if (alwaysShow.length) {
+    exempt.push(["in", ["get", "establishment_id"], ["literal", alwaysShow]]);
+  }
+  return exempt.length ? ["any", ...exempt, expr] : expr;
+}
+
+/**
+ * categoryFilter for one place, in plain JavaScript: whether its category is on. Places
+ * that share a spot draw one pin (lib/dedupe.js), so the places whose category is off
+ * are taken out before the spot's pin is chosen: a school with its category off must
+ * not hide the restaurant in the same building, or sit in that pin's "1 of 2" list.
+ * @param {object} props  a feature's properties
+ */
+export function passesCategory(props, catToggles, untypedRegions = [], alwaysShow = []) {
+  if (!catToggles) return true;
+  if (untypedRegions.includes(props.region ?? DEFAULT_REGION)) return true;
+  if (alwaysShow.includes(props.establishment_id)) return true;
+  if (props.cat === "unknown" && catToggles.unknown?.enabled) return true;
+  for (const [key, state] of Object.entries(catToggles)) {
+    if (key === "unknown" || !state?.enabled) continue;
+    if (state.subs?.[`${props.facility_type}:${props.subtype}`]) return true;
+  }
+  return false;
 }
 
 /**
@@ -93,6 +119,8 @@ export function categoryFilter(catToggles, untypedRegions = []) {
  *   (defaults to those whose data has no dates, lib/regions.js)
  * @param {string[]} [filters.untypedRegions]  counties categories don't apply to, whose
  *   pins always show (defaults to those whose data has no facility types)
+ * @param {string[]} [filters.alwaysShow]  establishment ids the category filter lets
+ *   through (saved places, the open place)
  */
 export function buildLayerFilters({
   pins,
@@ -102,10 +130,11 @@ export function buildLayerFilters({
   cutoffDate,
   undatedRegions = undatedRegionIds(),
   untypedRegions = untypedRegionIds(),
+  alwaysShow = [],
 }) {
   const bands = bandExprs(pins);
   const shared = [];
-  if (catToggles) shared.push(categoryFilter(catToggles, untypedRegions));
+  if (catToggles) shared.push(categoryFilter(catToggles, untypedRegions, alwaysShow));
   const search = searchExpression(searchTerm);
   if (search) shared.push(search);
   const date = dateExpression(cutoffDate, undatedRegions);

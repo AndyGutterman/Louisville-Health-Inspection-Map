@@ -28,6 +28,9 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
  * @param {boolean} p.showSearch     false on the Learn page and the phone account page
  * @param {string} p.searchTerm
  * @param {Function} p.onSearchChange
+ * @param {{on: number, of: number}|null} [p.searchScope]  set while a search is only
+ *   looking through some of the place types (the categories switched on)
+ * @param {Function} [p.onSearchAll]  switches every category on
  * @param {Function} p.onBackToMap
  * @param {Function} p.onOpenLearn
  * @param {Function} p.onOpenFeedback
@@ -76,6 +79,16 @@ export default function AppHeader(p) {
                 value={p.searchTerm}
                 onChange={(e) => p.onSearchChange(e.target.value)}
               />
+              {p.searchScope && (
+                <div className="search-scope" data-testid="search-scope" role="status">
+                  <span>
+                    Searching {p.searchScope.on} of {p.searchScope.of} place types
+                  </span>
+                  <button type="button" data-testid="search-all" onClick={p.onSearchAll}>
+                    Search all
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button className="header-nav-btn" onClick={p.onBackToMap} style={{ gap: 5 }}>

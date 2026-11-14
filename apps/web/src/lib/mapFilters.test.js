@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 // MapLibre's expression engine (installed with maplibre-gl), to evaluate filters on pins.
 import { featureFilter } from "@maplibre/maplibre-gl-style-spec";
 import {
+  passesCategory,
   HIDDEN,
   buildLayerFilters,
   categoryExpression,
@@ -213,6 +214,54 @@ describe("violation tap target", () => {
   });
 });
 
+describe("passesCategory agrees with categoryFilter, place by place", () => {
+  const only = (...keys) => {
+    const t = buildInitialCatToggles();
+    for (const [k, v] of Object.entries(t)) {
+      if (!keys.includes(k)) {
+        t[k] = {
+          enabled: false,
+          subs: Object.fromEntries(Object.keys(v.subs).map((s) => [s, false])),
+        };
+      }
+    }
+    return t;
+  };
+  const places = [
+    { establishment_id: "1", facility_type: 605, subtype: 11, cat: "restaurants" },
+    { establishment_id: "2", facility_type: 605, subtype: 33, cat: "schools" },
+    { establishment_id: "3", facility_type: 605, subtype: 36, cat: "unknown" },
+    { establishment_id: "4", facility_type: null, subtype: null, cat: "unknown" },
+    {
+      establishment_id: "b",
+      facility_type: null,
+      subtype: null,
+      cat: "unknown",
+      region: "bullitt",
+    },
+  ];
+  const cases = [
+    [only("restaurants"), [], []],
+    [only("schools", "unknown"), ["bullitt"], []],
+    [only(), ["bullitt"], ["2"]],
+    [only("unknown"), [], ["1"]],
+    [buildInitialCatToggles(), ["bullitt"], []],
+  ];
+
+  it("for every place and filter", () => {
+    for (const [toggles, untyped, always] of cases) {
+      const compiled = featureFilter(categoryFilter(toggles, untyped, always)).filter;
+      for (const properties of places) {
+        const byMap = compiled({ zoom: 10 }, { type: "Point", properties });
+        expect(
+          passesCategory(properties, toggles, untyped, always),
+          properties.establishment_id,
+        ).toBe(byMap);
+      }
+    }
+  });
+});
+
 describe("categoryFilter with counties that have no facility types", () => {
   const schoolsOnly = () => {
     const t = buildInitialCatToggles();
@@ -231,6 +280,24 @@ describe("categoryFilter with counties that have no facility types", () => {
       ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]],
       categoryExpression(schoolsOnly()),
     ]);
+  });
+
+  it("lets saved places and the open place through, whatever their category", () => {
+    const region = ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]];
+    const ids = ["in", ["get", "establishment_id"], ["literal", ["12", "34"]]];
+    expect(categoryFilter(schoolsOnly(), ["bullitt"], ["12", "34"])).toEqual([
+      "any",
+      region,
+      ids,
+      categoryExpression(schoolsOnly()),
+    ]);
+    expect(categoryFilter(schoolsOnly(), [], ["12", "34"])).toEqual([
+      "any",
+      ids,
+      categoryExpression(schoolsOnly()),
+    ]);
+    const f = buildLayerFilters({ ...base, catToggles: schoolsOnly(), alwaysShow: ["12"] });
+    expect(f["points-green"]).toContainEqual(categoryFilter(schoolsOnly(), [], ["12"]));
   });
 
   it("is the plain category expression when every county has types", () => {
