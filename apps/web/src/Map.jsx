@@ -31,7 +31,8 @@ import {
   readCategoryChoice,
   writeCategoryChoice,
 } from "./lib/categories.js";
-import { enabledRegions, regionOfId } from "./lib/regions.js";
+import { enabledRegions, regionOfId, untypedRegionIds } from "./lib/regions.js";
+import { passesCategory } from "./lib/mapFilters.js";
 import { readCountyChoice, toggleCounty, writeCountyChoice } from "./lib/counties.js";
 import AppHeader from "./features/map/AppHeader.jsx";
 import { useMapFeatures } from "./features/map/useMapFeatures.js";
@@ -62,6 +63,7 @@ function browserStorage() {
 }
 
 const REGIONS = enabledRegions();
+const UNTYPED = untypedRegionIds();
 
 export default function Map({ onMapReady }) {
   const { user } = useAuth();
@@ -174,6 +176,9 @@ export default function Map({ onMapReady }) {
   const shownRef = useLatest(shownCounties);
 
   // ── Data and the map ─────────────────────────────────────────────────────────
+  // Which places are drawn at all: those whose category is on (set below, once the
+  // saved places and the open place are known).
+  const drawnRef = useRef(null);
   const {
     geoData,
     status: pinStatus,
@@ -182,7 +187,8 @@ export default function Map({ onMapReady }) {
     similarEids,
     coordIndex,
     retryFailed,
-  } = useMapFeatures(shownCounties, categories);
+    redraw,
+  } = useMapFeatures(shownCounties, categories, drawnRef);
   const countyStates = pinStatus.counties;
 
   // Switching a county on loads it the first time (useMapFeatures); after that, on and
@@ -226,10 +232,18 @@ export default function Map({ onMapReady }) {
     if (!pinStatus.loading && savedIds.size) loadPins([...savedIds]);
   }, [savedIds, pinStatus.loading, shownCounties, loadPins]);
   const openEid = drawer.selected?.establishment_id;
-  const mapFilters = useMemo(
-    () => ({ ...filters, alwaysShow: [...savedIds, ...(openEid ? [openEid] : [])] }),
-    [filters, savedIds, openEid],
+  const alwaysShow = useMemo(
+    () => [...savedIds, ...(openEid ? [openEid] : [])],
+    [savedIds, openEid],
   );
+  const mapFilters = useMemo(() => ({ ...filters, alwaysShow }), [filters, alwaysShow]);
+  // Places sharing a spot draw one pin, chosen among the places whose category is on.
+  // So a category change redraws the pins (no reload) and closes any open popup: its
+  // "1 of 3" list may hold places that are now off.
+  useEffect(() => {
+    drawnRef.current = (f) => passesCategory(f.properties, catToggles, UNTYPED, alwaysShow);
+    redraw();
+  }, [catToggles, alwaysShow, redraw]);
   // A place opened from a list may be of a category that isn't loaded: its pin, if it
   // has one, is read first, so the popup, the map and the drawer treat it like any other.
   const findFeature = useCallback(
@@ -275,7 +289,13 @@ export default function Map({ onMapReady }) {
 
   // ── Opening places from the panels ───────────────────────────────────────────
   const { open: openDrawer } = drawer;
-  const { openPopup, hoverPopup, endHover, showRowPopup, easeTo } = map;
+  const { openPopup, hoverPopup, endHover, showRowPopup, easeTo, closePopups } = map;
+  const popupsFor = useRef(categoriesKey);
+  useEffect(() => {
+    if (popupsFor.current === categoriesKey) return;
+    popupsFor.current = categoriesKey;
+    closePopups();
+  }, [categoriesKey, closePopups]);
 
   const closeDrawer = () => {
     drawer.close();

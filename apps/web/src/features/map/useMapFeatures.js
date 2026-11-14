@@ -130,8 +130,12 @@ const START = { loading: true, failed: false, places: 0, rowsSoFar: 0, counties:
 /**
  * @param {string[]} shown  ids of the counties switched on (lib/counties.js)
  * @param {string[]} [categories]  keys of the categories switched on (lib/categories.js)
+ * @param {{current: Function}} [drawnRef]  feature -> whether it is drawn at all (its
+ *   category is on). Places that aren't are left out before the places sharing a spot
+ *   are collapsed into one pin, and out of that spot's "1 of 3" list. Call `redraw`
+ *   after changing it.
  */
-export function useMapFeatures(shown, categories = CATEGORY_KEYS) {
+export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
   const [geoData, setGeoData] = useState(null);
   const [status, setStatus] = useState(START);
   // piece id -> { region, state: "loading" | "ready" | "failed", features }. A piece
@@ -196,8 +200,9 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS) {
     }
     const features = combineRegions(...lists);
     byEid.current = Object.fromEntries(features.map((f) => [eidOf(f), f]));
-    coordIndex.current = buildCoordIndex(features);
-    setGeoData({ type: "FeatureCollection", features: deduplicateForRender(features) });
+    const drawn = drawnRef?.current ? features.filter(drawnRef.current) : features;
+    coordIndex.current = buildCoordIndex(drawn);
+    setGeoData({ type: "FeatureCollection", features: deduplicateForRender(drawn) });
     setStatus({
       loading: active.some((p) => p.state === "loading"),
       failed: active.some((p) => p.state === "failed"),
@@ -205,7 +210,7 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS) {
       rowsSoFar: active.reduce((n, p) => n + p.features.length, 0),
       counties,
     });
-  }, [byCategory, featuresOf]);
+  }, [byCategory, featuresOf, drawnRef]);
 
   // Starts a whole county, from the cache if it's fresh.
   const startWhole = useCallback(
@@ -372,5 +377,14 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS) {
     [],
   );
 
-  return { geoData, status, getFeature, loadPins, similarEids, coordIndex, retryFailed };
+  return {
+    geoData,
+    status,
+    getFeature,
+    loadPins,
+    similarEids,
+    coordIndex,
+    retryFailed,
+    redraw: publish,
+  };
 }

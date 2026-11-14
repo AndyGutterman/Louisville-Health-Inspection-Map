@@ -87,6 +87,25 @@ export function categoryFilter(catToggles, untypedRegions = [], alwaysShow = [])
 }
 
 /**
+ * categoryFilter for one place, in plain JavaScript: whether its category is on. Places
+ * that share a spot draw one pin (lib/dedupe.js), so the places whose category is off
+ * are taken out before the spot's pin is chosen: a school with its category off must
+ * not hide the restaurant in the same building, or sit in that pin's "1 of 2" list.
+ * @param {object} props  a feature's properties
+ */
+export function passesCategory(props, catToggles, untypedRegions = [], alwaysShow = []) {
+  if (!catToggles) return true;
+  if (untypedRegions.includes(props.region ?? DEFAULT_REGION)) return true;
+  if (alwaysShow.includes(props.establishment_id)) return true;
+  if (props.cat === "unknown" && catToggles.unknown?.enabled) return true;
+  for (const [key, state] of Object.entries(catToggles)) {
+    if (key === "unknown" || !state?.enabled) continue;
+    if (state.subs?.[`${props.facility_type}:${props.subtype}`]) return true;
+  }
+  return false;
+}
+
+/**
  * Filter expression for every pin and ring layer, keyed by layer id.
  * @param {object} filters
  * @param {[number, number]} filters.pins  red and yellow cut-offs (lib/scoring.js)

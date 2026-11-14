@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 // MapLibre's expression engine (installed with maplibre-gl), to evaluate filters on pins.
 import { featureFilter } from "@maplibre/maplibre-gl-style-spec";
 import {
+  passesCategory,
   HIDDEN,
   buildLayerFilters,
   categoryExpression,
@@ -210,6 +211,54 @@ describe("violation tap target", () => {
   it("follows the ring's filter exactly, so hidden places can't be tapped", () => {
     const f = buildLayerFilters({ ...base, searchTerm: "taco", cutoffDate: "2026-01-01" });
     expect(f["points-violation-hit"]).toEqual(f["points-violation-ring"]);
+  });
+});
+
+describe("passesCategory agrees with categoryFilter, place by place", () => {
+  const only = (...keys) => {
+    const t = buildInitialCatToggles();
+    for (const [k, v] of Object.entries(t)) {
+      if (!keys.includes(k)) {
+        t[k] = {
+          enabled: false,
+          subs: Object.fromEntries(Object.keys(v.subs).map((s) => [s, false])),
+        };
+      }
+    }
+    return t;
+  };
+  const places = [
+    { establishment_id: "1", facility_type: 605, subtype: 11, cat: "restaurants" },
+    { establishment_id: "2", facility_type: 605, subtype: 33, cat: "schools" },
+    { establishment_id: "3", facility_type: 605, subtype: 36, cat: "unknown" },
+    { establishment_id: "4", facility_type: null, subtype: null, cat: "unknown" },
+    {
+      establishment_id: "b",
+      facility_type: null,
+      subtype: null,
+      cat: "unknown",
+      region: "bullitt",
+    },
+  ];
+  const cases = [
+    [only("restaurants"), [], []],
+    [only("schools", "unknown"), ["bullitt"], []],
+    [only(), ["bullitt"], ["2"]],
+    [only("unknown"), [], ["1"]],
+    [buildInitialCatToggles(), ["bullitt"], []],
+  ];
+
+  it("for every place and filter", () => {
+    for (const [toggles, untyped, always] of cases) {
+      const compiled = featureFilter(categoryFilter(toggles, untyped, always)).filter;
+      for (const properties of places) {
+        const byMap = compiled({ zoom: 10 }, { type: "Point", properties });
+        expect(
+          passesCategory(properties, toggles, untyped, always),
+          properties.establishment_id,
+        ).toBe(byMap);
+      }
+    }
   });
 });
 
