@@ -22,7 +22,15 @@ import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { useLatest } from "./hooks/useLatest.js";
 import { DATE_FILTER_OPTS } from "./lib/constants.js";
 import { PRESETS } from "./lib/scoring.js";
-import { CATEGORY_SPECS, buildInitialCatToggles } from "./lib/categories.js";
+import {
+  CATEGORY_KEYS,
+  CATEGORY_SPECS,
+  buildCatToggles,
+  buildInitialCatToggles,
+  enabledCategories,
+  readCategoryChoice,
+  writeCategoryChoice,
+} from "./lib/categories.js";
 import { enabledRegions, regionOfId } from "./lib/regions.js";
 import { readCountyChoice, toggleCounty, writeCountyChoice } from "./lib/counties.js";
 import AppHeader from "./features/map/AppHeader.jsx";
@@ -71,7 +79,20 @@ export default function Map({ onMapReady }) {
   const [showYellowPins, setShowYellowPins] = useState(true);
   const [showGreenPins, setShowGreenPins] = useState(true);
   const [showMissing, setShowMissing] = useState(false); // unscored pins
-  const [catToggles, setCatToggles] = useState(buildInitialCatToggles());
+  // Which categories are on (lib/categories.js): Restaurants, Retail and Kitchens on a
+  // first visit. Only these are loaded for Jefferson (useMapFeatures); the choice is kept
+  // in the browser, like the counties'.
+  const [catToggles, setCatToggles] = useState(() =>
+    buildCatToggles(readCategoryChoice(browserStorage())),
+  );
+  const categories = useMemo(() => enabledCategories(catToggles), [catToggles]);
+  const categoriesKey = categories.join(",");
+  const savedCategories = useRef(categoriesKey);
+  useEffect(() => {
+    if (savedCategories.current === categoriesKey) return; // nothing chosen yet
+    savedCategories.current = categoriesKey;
+    writeCategoryChoice(browserStorage(), categoriesKey ? categoriesKey.split(",") : []);
+  }, [categoriesKey]);
   const [dateFilterKey, setDateFilterKey] = useState("1yr");
   const cutoffDate = useMemo(() => cutoffFor(dateFilterKey), [dateFilterKey]);
   const filters = useMemo(
@@ -157,10 +178,11 @@ export default function Map({ onMapReady }) {
     geoData,
     status: pinStatus,
     getFeature,
+    loadPins,
     similarEids,
     coordIndex,
     retryFailed,
-  } = useMapFeatures(shownCounties);
+  } = useMapFeatures(shownCounties, categories);
   const countyStates = pinStatus.counties;
 
   // Switching a county on loads it the first time (useMapFeatures); after that, on and
@@ -196,12 +218,33 @@ export default function Map({ onMapReady }) {
     similarEids,
     onSignInNeeded: () => setLoginOpen(true),
   });
+  // Saved places and the open place are on the map whatever categories are on: their
+  // pins are read on their own when their category isn't loaded (one small read, once
+  // the first pins are in), and the category filter lets them through.
+  const { savedIds } = watchlist;
+  useEffect(() => {
+    if (!pinStatus.loading && savedIds.size) loadPins([...savedIds]);
+  }, [savedIds, pinStatus.loading, shownCounties, loadPins]);
+  const openEid = drawer.selected?.establishment_id;
+  const mapFilters = useMemo(
+    () => ({ ...filters, alwaysShow: [...savedIds, ...(openEid ? [openEid] : [])] }),
+    [filters, savedIds, openEid],
+  );
+  // A place opened from a list may be of a category that isn't loaded: its pin, if it
+  // has one, is read first, so the popup, the map and the drawer treat it like any other.
+  const findFeature = useCallback(
+    async (eid) => {
+      if (!getFeature(eid)) await loadPins([eid]);
+      return getFeature(eid);
+    },
+    [getFeature, loadPins],
+  );
   const map = useMapLibre({
     containerRef,
     geoData,
     getFeature,
     coordIndex,
-    filters,
+    filters: mapFilters,
     savedIds: watchlist.savedIds,
     drawerOpen: !!drawer.selected,
     searchTerm,
@@ -249,8 +292,8 @@ export default function Map({ onMapReady }) {
   );
 
   // What's New: a place with a pin gets its popup too; one without leaves the map alone.
-  const openFromWhatsNew = (eid, row) => {
-    const f = getFeature(eid);
+  const openFromWhatsNew = async (eid, row) => {
+    const f = await findFeature(eid);
     if (f) {
       openPopup(f);
       openDrawer(eid, f.properties);
@@ -267,16 +310,16 @@ export default function Map({ onMapReady }) {
 
   // Table View: the place's popup, the map eased to it, and the drawer.
   const openFromTable = React.useCallback(
-    (row) => {
+    async (row) => {
       endHover();
-      const f = getFeature(row.establishment_id);
+      const f = await findFeature(row.establishment_id);
       if (f) {
         showRowPopup(f);
         easeTo({ center: f.geometry.coordinates, duration: 400 });
       }
       openDrawer(row.establishment_id, row);
     },
-    [getFeature, endHover, showRowPopup, easeTo, openDrawer],
+    [findFeature, endHover, showRowPopup, easeTo, openDrawer],
   );
 
   // Links from the digest email (lib/deepLink.js): /?eid=<id> opens that place,
@@ -308,15 +351,34 @@ export default function Map({ onMapReady }) {
       openDrawer(linkedEid, f.properties);
       setLinkedEid(null);
     } else if (["ready", "failed"].includes(countyStates[regionOfId(linkedEid).id]?.state)) {
-      setLinkedEid(null); // its county is in (or couldn't load) and the place isn't there
+      // Its county is in (or couldn't load). The place may be of a category that isn't
+      // loaded: ask for its pin (once), which brings this back when it lands. If there
+      // is none, the place isn't on the map.
+      let stale = false;
+      loadPins([linkedEid]).then(() => {
+        if (!stale && !getFeature(linkedEid)) setLinkedEid(null);
+      });
+      return () => {
+        stale = true;
+      };
     }
-  }, [linkedEid, geoData, countyStates, map.mapReady, getFeature, easeTo, openPopup, openDrawer]);
+  }, [
+    linkedEid,
+    geoData,
+    countyStates,
+    map.mapReady,
+    getFeature,
+    loadPins,
+    easeTo,
+    openPopup,
+    openDrawer,
+  ]);
 
   // The Saved panel. On desktop the map is visible beside it, so also show the place's
   // popup and centre it clear of the right-hand panels. On phones the drawer opens over
   // the account page; closing it leaves the account page open.
-  const openFromAccount = (eid, row) => {
-    const f = getFeature(eid);
+  const openFromAccount = async (eid, row) => {
+    const f = await findFeature(eid);
     const props = f?.properties ?? {
       name: row?.name,
       address: row?.address,
@@ -336,6 +398,15 @@ export default function Map({ onMapReady }) {
     openDrawer(eid, props);
   };
 
+  // A search only looks through the categories that are on. While some are off (and a
+  // county with categories is on the map), the search box says so and offers the rest.
+  const searchScope =
+    searchTerm.trim() &&
+    categories.length < CATEGORY_KEYS.length &&
+    REGIONS.some((r) => r.has.categories && shownCounties.includes(r.id))
+      ? { on: categories.length, of: CATEGORY_KEYS.length }
+      : null;
+
   return (
     <>
       <AppHeader
@@ -343,6 +414,8 @@ export default function Map({ onMapReady }) {
         showSearch={page === "map" && !accountFullscreen}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        searchScope={searchScope}
+        onSearchAll={() => setCatToggles(buildInitialCatToggles())}
         onBackToMap={backToMap}
         onOpenLearn={() => setPage("learn")}
         onOpenFeedback={() => setFeedbackOpen(true)}
@@ -358,9 +431,9 @@ export default function Map({ onMapReady }) {
           onCloseLogin={() => setLoginOpen(false)}
           supabase={supabase}
           mapCutoffDate={cutoffDate}
-          onOpenEstablishment={(eid) => {
+          onOpenEstablishment={async (eid) => {
             setPage("map");
-            const f = getFeature(eid);
+            const f = await findFeature(eid);
             if (f) openDrawer(eid, f.properties);
           }}
         />
@@ -405,8 +478,8 @@ export default function Map({ onMapReady }) {
           pins={pins}
           zIndex={frontPanel === "drawer" ? 3100 : 2900}
           onBringToFront={() => setFrontPanel("drawer")}
-          onSwitchTo={(eid) => {
-            const f = getFeature(eid);
+          onSwitchTo={async (eid) => {
+            const f = await findFeature(eid);
             if (f) openDrawer(eid, f.properties);
           }}
           onClose={closeDrawer}

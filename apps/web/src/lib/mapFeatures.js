@@ -19,8 +19,11 @@ const hasCoordinates = (r) => Number.isFinite(r.lon) && Number.isFinite(r.lat);
  * @param {object[]} feedRows   rows from v_facility_map_feed
  * @param {Map<string, object>} metaById  establishment id -> { ft, st, address, city, state, zip }
  * @param {Map<string, object>} flagsById establishment id -> { has_any }
+ * @param {object} [opts]
+ * @param {boolean} [opts.tag]  false leaves the similar-nearby tags to the caller, who
+ *   has more places to compare with (the county's other categories)
  */
-export function buildMapFeatures(feedRows, metaById, flagsById) {
+export function buildMapFeatures(feedRows, metaById, flagsById, { tag = true } = {}) {
   const rows = feedRows
     .map((r) => ({ ...r, lon: toNumber(r.lon), lat: toNumber(r.lat) }))
     .filter((r) => {
@@ -80,15 +83,16 @@ export function buildMapFeatures(feedRows, metaById, flagsById) {
       latest[f.properties.establishment_id] = f;
     }
   }
-  return tagSimilarNearby(Object.values(latest));
+  return tag ? tagSimilarNearby(Object.values(latest)) : Object.values(latest);
 }
 
 /**
  * The same features from v_facility_map_pins rows, which carry the facility type, the
  * rest of the address and the violation ring themselves (migration 20261122000000).
  * @param {object[]} pinRows
+ * @param {object} [opts]  see buildMapFeatures
  */
-export function buildPinFeatures(pinRows) {
+export function buildPinFeatures(pinRows, opts) {
   const metaById = new Map();
   const flagsById = new Map();
   for (const r of pinRows) {
@@ -102,7 +106,7 @@ export function buildPinFeatures(pinRows) {
     });
     flagsById.set(r.establishment_id, { has_any: !!r.has_any_violation });
   }
-  return buildMapFeatures(pinRows, metaById, flagsById);
+  return buildMapFeatures(pinRows, metaById, flagsById, opts);
 }
 
 // Every county's features in one list for the map's single pin source, numbered again so

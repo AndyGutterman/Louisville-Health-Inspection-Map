@@ -30,31 +30,52 @@ export async function readAllPages(page, pageSize = PAGE, onPage, retryIf) {
 // PostgREST's and Postgres's codes for "no such table or view".
 const NO_SUCH_VIEW = new Set(["PGRST205", "42P01"]);
 
-// Every row of v_facility_map_pins: one per place with coordinates, with everything a pin
+const PIN_COLUMNS =
+  "establishment_id,premise_name,address,city,state,zip,facility_type,subtype,lon,lat,inspection_date_recent,score_recent,grade_recent,has_any_violation";
+
+// Rows of v_facility_map_pins: one per place with coordinates, with everything a pin
 // needs (name, address, facility type, latest score, violation ring), so Louisville's
 // pins cost one read instead of three (migration 20261122000000).
+// orFilter limits the read to some categories' places (lib/categories.js
+// categoryOrFilter); null reads every place.
 // Resolves to the rows; to null if a request fails, so the caller can stop; and to
 // undefined when the database doesn't have the view yet, so the caller can fall back to
 // the three older reads below (one small failed request, not retried).
 // onPage(rowsSoFar) runs after each full page (see readAllPages).
-export async function fetchMapPins(onPage) {
+export async function fetchMapPins(onPage, orFilter = null) {
   let missing = false;
   try {
     return await readAllPages(
-      (from, to) =>
-        publicDb
-          .from("v_facility_map_pins")
-          .select(
-            "establishment_id,premise_name,address,city,state,zip,facility_type,subtype,lon,lat,inspection_date_recent,score_recent,grade_recent,has_any_violation",
-          )
-          .order("establishment_id")
-          .range(from, to),
+      (from, to) => {
+        const q = publicDb.from("v_facility_map_pins").select(PIN_COLUMNS);
+        return (orFilter ? q.or(orFilter) : q).order("establishment_id").range(from, to);
+      },
       undefined,
       onPage,
       (e) => !(missing = NO_SUCH_VIEW.has(e?.code)),
     );
   } catch (e) {
     if (missing) return undefined;
+    console.error(e);
+    return null;
+  }
+}
+
+// The pins of a few places by id (a saved place, or one opened from a list, whose
+// category isn't loaded): one small read, at most 100 ids. Resolves to the rows, or to
+// null on an error.
+export async function fetchPinsById(eids) {
+  try {
+    return await retry(async (signal) => {
+      const { data, error } = await publicDb
+        .from("v_facility_map_pins")
+        .select(PIN_COLUMNS)
+        .in("establishment_id", eids.slice(0, 100))
+        .abortSignal(signal);
+      if (error) throw error;
+      return data ?? [];
+    });
+  } catch (e) {
     console.error(e);
     return null;
   }

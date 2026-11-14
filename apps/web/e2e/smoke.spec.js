@@ -388,6 +388,97 @@ test("a first visit loads only Jefferson; other counties load when switched on, 
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
+test("a first visit loads three categories; the rest load when asked for, once", async ({
+  page,
+  context,
+}, testInfo) => {
+  // The pin reads, with their filters (the mock records paths only).
+  const pinQueries = [];
+  const watch = (p) =>
+    p.on("request", (r) => {
+      const url = new URL(r.url());
+      if (r.method() === "GET" && url.pathname.endsWith("/v_facility_map_pins")) {
+        pinQueries.push(url.searchParams);
+      }
+    });
+  watch(page);
+  const { consoleErrors, unmocked } = await openApp(page, { categories: null });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0);
+
+  // One read, for Restaurants, Retail and Kitchens only.
+  expect(pinQueries).toHaveLength(1);
+  expect(pinQueries[0].get("or")).toContain("and(facility_type.eq.605,subtype.eq.11)");
+  expect(pinQueries[0].get("or")).not.toContain("subtype.eq.33"); // schools
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+  const tiles = page.getByTestId("category-tile");
+  const tile = (key) => page.locator(`[data-testid="category-tile"][data-category="${key}"]`);
+  await expect(tiles.nth(0)).toHaveAttribute("data-category", "restaurants");
+  await expect(tiles.nth(1)).toHaveAttribute("data-category", "retail");
+  await expect(tiles.nth(2)).toHaveAttribute("data-category", "caterers_commissary");
+  for (let i = 0; i < 8; i++) {
+    await expect(tiles.nth(i)).toHaveAttribute("aria-pressed", String(i < 3));
+  }
+  const jefferson = page.getByTestId("county-switch-jefferson");
+  await expect(jefferson).toContainText("3 places"); // 2 restaurants and a bakery
+  await snap(page, testInfo, "13-categories-first-visit");
+
+  // Schools: one more read, for schools only. Off and on again reads nothing.
+  await tile("schools").click();
+  await expect(jefferson).toContainText("4 places");
+  expect(pinQueries).toHaveLength(2);
+  expect(pinQueries[1].get("or")).toBe("(and(facility_type.eq.605,subtype.eq.33))");
+  await tile("schools").click();
+  await tile("schools").click();
+  await expect(tile("schools")).toHaveAttribute("aria-pressed", "true");
+  expect(pinQueries).toHaveLength(2);
+
+  // A search says it only covers what's on, and offers the rest: one read for those.
+  await page.getByPlaceholder("Search map").fill("concessions");
+  const scope = page.getByTestId("search-scope");
+  await expect(scope).toContainText("Searching 4 of 8 place types");
+  await snap(page, testInfo, "13-categories-search-scope");
+  await page.getByTestId("search-all").click();
+  await expect(scope).toHaveCount(0);
+  await expect(jefferson).toContainText("5 places");
+  expect(pinQueries).toHaveLength(3);
+  // (What's asked for comes before "not.or(...)", which rules out the claimed pairs.)
+  const [asked] = pinQueries[2].get("or").split("not.or(");
+  expect(asked).toContain("and(facility_type.eq.603,subtype.eq.51)");
+  expect(asked).not.toContain("and(facility_type.eq.605,subtype.eq.33)");
+  expect(consoleErrors, "console errors").toEqual([]);
+  expect(unmocked, "Supabase calls with no fixture").toEqual([]);
+  await page.close();
+
+  // The choice and the pins are remembered: a second visit reads no pins.
+  const again = await context.newPage();
+  watch(again);
+  await openApp(again, { categories: null });
+  await expect(again.getByTestId("pins-loading")).toHaveCount(0);
+  await again.getByRole("button", { name: "Expand controls" }).click();
+  await again.getByRole("tab", { name: "Filter" }).click();
+  await expect(again.getByTestId("county-switch-jefferson")).toContainText("5 places");
+  expect(pinQueries).toHaveLength(3);
+});
+
+test("a link to a place whose category isn't loaded reads that one pin", async ({ page }) => {
+  const pinQueries = [];
+  page.on("request", (r) => {
+    const url = new URL(r.url());
+    if (url.pathname.endsWith("/v_facility_map_pins")) pinQueries.push(url.searchParams);
+  });
+  const school = byEid("100004");
+  await openApp(page, { path: "/?eid=100004", categories: null });
+  const drawer = page.getByTestId("info-drawer");
+  await expect(drawer).toContainText(school.name);
+  await expect(drawer).not.toContainText("No map location on file");
+  // The categories, then the one place: Schools itself stays off and unread.
+  expect(pinQueries.map((q) => q.get("establishment_id") ?? "categories")).toEqual([
+    "categories",
+    "in.(100004)",
+  ]);
+});
+
 test("the counties switched on are remembered, and come back from the browser", async ({
   page,
   context,

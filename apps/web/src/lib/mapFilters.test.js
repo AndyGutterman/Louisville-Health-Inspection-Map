@@ -233,6 +233,24 @@ describe("categoryFilter with counties that have no facility types", () => {
     ]);
   });
 
+  it("lets saved places and the open place through, whatever their category", () => {
+    const region = ["in", ["coalesce", ["get", "region"], "jefferson"], ["literal", ["bullitt"]]];
+    const ids = ["in", ["get", "establishment_id"], ["literal", ["12", "34"]]];
+    expect(categoryFilter(schoolsOnly(), ["bullitt"], ["12", "34"])).toEqual([
+      "any",
+      region,
+      ids,
+      categoryExpression(schoolsOnly()),
+    ]);
+    expect(categoryFilter(schoolsOnly(), [], ["12", "34"])).toEqual([
+      "any",
+      ids,
+      categoryExpression(schoolsOnly()),
+    ]);
+    const f = buildLayerFilters({ ...base, catToggles: schoolsOnly(), alwaysShow: ["12"] });
+    expect(f["points-green"]).toContainEqual(categoryFilter(schoolsOnly(), [], ["12"]));
+  });
+
   it("is the plain category expression when every county has types", () => {
     expect(categoryFilter(schoolsOnly(), [])).toEqual(categoryExpression(schoolsOnly()));
   });
