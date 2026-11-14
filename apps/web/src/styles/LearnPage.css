@@ -793,20 +793,34 @@
 }
 
 /* Sign-in form: the weekly digest checkbox */
+/* A box of its own with a title, so it reads as a question and not as fine print. */
 .ln-digest-opt {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   margin: 0 0 12px;
-  font-size: 0.76rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(52, 168, 83, 0.08);
+  border: 1px solid rgba(52, 168, 83, 0.28);
+  font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.62);
+  text-align: left;
   cursor: pointer;
 }
 .ln-digest-opt input {
-  margin: 2px 0 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
   accent-color: #34a853;
   flex-shrink: 0;
+}
+.ln-digest-opt-title {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f0f0f3;
 }
 
 /* Sign-in modal, step 2: the code from the email (LoginModal). */

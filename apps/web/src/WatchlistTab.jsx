@@ -5,7 +5,10 @@ import { formatLongDate } from "./lib/dates.js";
 import { DEFAULT_SORT, SORTS, sortPlaces, violationText } from "./lib/watchAreaSort.js";
 import "./styles/WatchlistTab.css";
 
+// The database enforces the same limits (enforce_row_cap triggers).
 const CAPS = { places: 30, areas: 3 };
+// An area lists at most this many places: the ones with the most violations.
+const ZONE_ROWS = 50;
 const PAGE = 25;
 
 const scoreClass = (s) =>
@@ -70,7 +73,7 @@ export default function WatchlistTab({
   const [pick, setPick] = useState(null);
   const [pickerKey, setPickerKey] = useState(0);
   const [areaLabel, setAreaLabel] = useState("");
-  const [areaRadius, setAreaRadius] = useState(5);
+  const [areaRadius, setAreaRadius] = useState(2);
   const [saving, setSaving] = useState(false);
 
   // Opened from a watch-area popup on the map: scroll to that area and flash it.
@@ -152,13 +155,20 @@ export default function WatchlistTab({
     let cancelled = false;
     areas.forEach((a) => {
       if (zones[a.id]) return;
-      supabase.rpc("watch_zone_places", { p_area_id: a.id }).then(({ data, error }) => {
-        if (cancelled) return;
-        setZones((prev) => ({
-          ...prev,
-          [a.id]: error ? { rows: [], error: error.message } : { rows: data || [] },
-        }));
-      });
+      // The database sorts and cuts the list, so a busy area costs 50 rows, not thousands.
+      supabase
+        .rpc("watch_zone_places", { p_area_id: a.id })
+        .order("violations_6mo", { ascending: false })
+        .order("failing", { ascending: false })
+        .order("score", { ascending: true, nullsFirst: false })
+        .limit(ZONE_ROWS)
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          setZones((prev) => ({
+            ...prev,
+            [a.id]: error ? { rows: [], error: error.message } : { rows: data || [] },
+          }));
+        });
     });
     return () => {
       cancelled = true;
@@ -383,6 +393,12 @@ export default function WatchlistTab({
                 {z && !z.error && rows.length === 0 && (
                   <div className="wl-empty" style={{ padding: 0 }}>
                     No restaurants inside this radius.
+                  </div>
+                )}
+
+                {rows.length >= ZONE_ROWS && (
+                  <div className="wl-quiet" data-testid="zone-capped">
+                    Showing the {ZONE_ROWS} places with the most violations.
                   </div>
                 )}
 

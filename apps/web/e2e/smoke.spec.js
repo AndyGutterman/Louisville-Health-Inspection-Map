@@ -134,6 +134,28 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps();
 });
 
+test("phone: the open filter card ends above the Table View button and scrolls inside", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the card only fills the screen on phones");
+  // Two counties on and a short screen (a phone with the browser's toolbars showing).
+  await page.setViewportSize({ width: 412, height: 640 });
+  await openApp(page, { counties: ["jefferson", "bullitt"] });
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+
+  const card = await page.getByTestId("filter-panel").boundingBox();
+  const button = await page.getByRole("button", { name: "Open table view" }).boundingBox();
+  expect(card.y + card.height).toBeLessThanOrEqual(button.y);
+
+  // The last county is below the fold: scrolling the card's body brings it into view.
+  const last = page.getByTestId("county-switches").locator("label").last();
+  await last.scrollIntoViewIfNeeded();
+  const row = await last.boundingBox();
+  expect(row.y + row.height).toBeLessThanOrEqual(card.y + card.height);
+  await snap(page, testInfo, "03b-filter-card-fits");
+});
+
 test("phone: panels have no blur, and the map draws at most 2x", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "phone", "the phone-only performance rules");
   await openApp(page);
@@ -838,6 +860,12 @@ test("sign in with the code from the email, no link needed", async ({ page }, te
   await openApp(page);
   await page.locator(".header-nav-btn--login").click();
   await page.getByPlaceholder("you@example.com").fill("test@example.com");
+  // The weekly digest is asked for here, ticked unless the visitor unticks it.
+  await expect(page.getByRole("checkbox", { name: "Email me the weekly digest" })).toBeChecked();
+  await snap(page, testInfo, "sign-in-digest-opt-in");
+  const optIn = page.waitForRequest(
+    (r) => r.method() === "PATCH" && r.url().includes("/rest/v1/profiles"),
+  );
   await page.getByRole("button", { name: "Email me a code" }).click();
 
   const step = page.getByTestId("sign-in-code-step");
@@ -852,4 +880,6 @@ test("sign in with the code from the email, no link needed", async ({ page }, te
   await expect(step).toHaveCount(0); // modal closes
   await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
   expect(verifyBodies[0]).toMatchObject({ email: "test@example.com", token: "123456" });
+  // Signed in with the box ticked: the account is subscribed.
+  expect((await optIn).postDataJSON()).toEqual({ alert_frequency: "weekly" });
 });
