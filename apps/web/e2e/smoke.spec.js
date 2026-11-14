@@ -860,6 +860,12 @@ test("sign in with the code from the email, no link needed", async ({ page }, te
   await openApp(page);
   await page.locator(".header-nav-btn--login").click();
   await page.getByPlaceholder("you@example.com").fill("test@example.com");
+  // The weekly digest is asked for here, ticked unless the visitor unticks it.
+  await expect(page.getByRole("checkbox", { name: "Email me the weekly digest" })).toBeChecked();
+  await snap(page, testInfo, "sign-in-digest-opt-in");
+  const optIn = page.waitForRequest(
+    (r) => r.method() === "PATCH" && r.url().includes("/rest/v1/profiles"),
+  );
   await page.getByRole("button", { name: "Email me a code" }).click();
 
   const step = page.getByTestId("sign-in-code-step");
@@ -874,4 +880,6 @@ test("sign in with the code from the email, no link needed", async ({ page }, te
   await expect(step).toHaveCount(0); // modal closes
   await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
   expect(verifyBodies[0]).toMatchObject({ email: "test@example.com", token: "123456" });
+  // Signed in with the box ticked: the account is subscribed.
+  expect((await optIn).postDataJSON()).toEqual({ alert_frequency: "weekly" });
 });

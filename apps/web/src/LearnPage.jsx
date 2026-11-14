@@ -410,15 +410,18 @@ export function LoginModal({ onClose }) {
                     e.target.style.borderColor = "rgba(255,255,255,0.14)";
                   }}
                 />
-                <label className="ln-digest-opt">
+                {/* Asked at every sign-in, ticked unless they untick it (lib/digest.js). */}
+                <label className="ln-digest-opt" data-testid="digest-opt-in">
                   <input
                     type="checkbox"
                     checked={digest}
                     onChange={(e) => setDigest(e.target.checked)}
+                    aria-label="Email me the weekly digest"
                   />
                   <span>
-                    Email me the weekly digest: this week&apos;s inspections, the ones that failed.
-                    Tuesdays, unsubscribe anytime.
+                    <span className="ln-digest-opt-title">Email me the weekly digest</span>
+                    This week&apos;s inspections, the ones that failed, and your watch areas.
+                    Tuesdays. Unsubscribe anytime.
                   </span>
                 </label>
                 <button
