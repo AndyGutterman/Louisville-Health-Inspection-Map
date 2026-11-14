@@ -1,12 +1,20 @@
 # Weekly digest email: this week's inspections to everyone subscribed (pipeline/digest/).
-# Run it by hand with a test group ("to") to check the look, or as a dry run, which sends
-# nothing and attaches the email as an artifact you can open in a browser.
+# The Tuesday schedule sends to every subscriber. A run by hand goes only to the owner
+# unless "audience" says otherwise, so a test can't email everyone by accident.
 name: Weekly digest email
 on:
   workflow_dispatch:
     inputs:
+      audience:
+        description: "Who gets it. me = just the owner (a test). group = the emails below. everyone = every subscriber."
+        type: choice
+        options:
+          - me
+          - group
+          - everyone
+        default: me
       to:
-        description: "Test group: comma-separated emails. Only these get it. Empty = every subscriber."
+        description: "For audience 'group': comma-separated emails. Only these get it."
         type: string
         default: ""
       dry_run:
@@ -50,12 +58,28 @@ jobs:
       - name: Test
         run: npm test
 
+      # "me" goes to DIGEST_TEST_TO (a secret: the owner's own sign-in email, so the test
+      # shows the owner's watch areas and the address stays out of the public logs), or to
+      # the account the digest sends from when that secret isn't set. Test sends are
+      # marked "[Test]" in the subject. The schedule has no inputs: every subscriber.
       - name: Build and send
         env:
-          TO: ${{ inputs.to }}
+          AUDIENCE: ${{ inputs.audience }}
+          GROUP: ${{ inputs.to }}
+          OWNER: ${{ secrets.DIGEST_TEST_TO }}
           DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
           DAYS: ${{ inputs.days || 7 }}
-        run: node digest/send.js $DRY --days=$DAYS ${TO:+--to=$TO}
+        run: |
+          case "$AUDIENCE" in
+            me) TO="${OWNER:-$SMTP_USERNAME}" ;;
+            group) TO="$GROUP" ;;
+            *) TO="" ;;
+          esac
+          if [ -n "$AUDIENCE" ] && [ "$AUDIENCE" != "everyone" ] && [ -z "$TO" ]; then
+            echo "::error::No address for audience '$AUDIENCE'. Fill in 'to', or set the DIGEST_TEST_TO secret."
+            exit 1
+          fi
+          node digest/send.js $DRY --days=$DAYS ${TO:+--to=$TO --test}
 
       - name: Attach the preview
         if: inputs.dry_run
