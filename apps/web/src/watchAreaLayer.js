@@ -1,8 +1,10 @@
 // Watch-area circles and their editor (popup + drag handles) for MapLibre.
 
-export const WATCH_RADIUS_OPTIONS = [1, 3, 5, 10];
+// 1 to 5 miles (migration 20261123000000 has the same limits). A big circle is cheap to
+// read: an area lists only its 50 places with the most violations (WatchlistTab.jsx).
+export const WATCH_RADIUS_OPTIONS = [1, 2, 3, 5];
 export const WATCH_MIN_MILES = 1;
-export const WATCH_MAX_MILES = 10;
+export const WATCH_MAX_MILES = 5;
 
 const MILE_M = 1609.34;
 
