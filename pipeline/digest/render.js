@@ -16,6 +16,7 @@ const DIM = "rgba(255,255,255,0.55)";
 const GREEN = "#6fcf8a";
 const AMBER = "#f97316";
 const RED = "#ff6b6b";
+const PLAIN = "#c9c9d1"; // a passing score that isn't perfect (watch-area parts only)
 const RULE = "1px solid rgba(255,255,255,0.07)";
 
 const esc = (s) =>
@@ -58,6 +59,35 @@ export function summarize(rows, { today, days = 7 }) {
   return { since, today, days, total: recent.length, byRegion, failing, perfect };
 }
 
+/**
+ * digest_watch_areas rows (one per place, the area's details and totals repeated on each;
+ * an area with nothing inspected is one row with no place) -> Map of user id -> that
+ * person's watch areas, in the order the rows came:
+ *   [{ id, name, radius, total, failing, places: [row, ...] }]
+ */
+export function groupWatchAreas(rows) {
+  const byUser = new Map();
+  const byArea = new Map();
+  for (const r of rows || []) {
+    let area = byArea.get(r.area_id);
+    if (!area) {
+      area = {
+        id: r.area_id,
+        name: (r.label || r.center_address || "Watch area").trim(),
+        radius: r.radius_miles,
+        total: Number(r.area_total ?? 0),
+        failing: Number(r.area_failing ?? 0),
+        places: [],
+      };
+      byArea.set(r.area_id, area);
+      if (!byUser.has(r.user_id)) byUser.set(r.user_id, []);
+      byUser.get(r.user_id).push(area);
+    }
+    if (r.establishment_id != null) area.places.push(r);
+  }
+  return byUser;
+}
+
 const placeLink = (r) => `${SITE}/?eid=${encodeURIComponent(r.establishment_id)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -79,6 +109,32 @@ function placeRow(r, colour) {
     </tr>`;
 }
 
+const scoreColour = (r) => (isC(r) ? RED : isFailing(r) ? AMBER : r.score === 100 ? GREEN : PLAIN);
+const areaCounts = (a) =>
+  a.total
+    ? `${plural(a.total, "inspection")} this week, ${a.failing ? `${a.failing} failing` : "none failing"}`
+    : "No inspections here this week.";
+
+// One watch area, as its own block: a title bar, its counts, then its places.
+function watchAreaSection(a) {
+  const rows = a.places.map((r) => placeRow(r, scoreColour(r))).join("");
+  const more =
+    a.total > a.places.length
+      ? `<tr><td style="padding:8px 0 0;border-top:${RULE};"><a href="${SITE}" style="color:${GREEN};font-size:13px;">and ${a.total - a.places.length} more on the map →</a></td></tr>`
+      : "";
+  return `
+    <tr><td style="padding:18px 0 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(249,115,22,0.07);border:1px solid rgba(249,115,22,0.28);border-radius:12px;">
+        <tr><td style="padding:14px 16px ${rows ? "6px" : "14px"};">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${AMBER};">Your watch area · ${esc(a.radius)} mi</div>
+          <div style="font-size:17px;font-weight:800;margin-top:4px;line-height:1.3;">${esc(a.name)}</div>
+          <div style="color:${DIM};font-size:13px;margin-top:2px;${rows ? "padding-bottom:10px;" : ""}">${esc(areaCounts(a))}</div>
+          ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}${more}</table>` : ""}
+        </td></tr>
+      </table>
+    </td></tr>`;
+}
+
 function section(title, rowsHtml) {
   return `
     <tr><td style="padding:22px 0 6px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${DIM};">${esc(title)}</td></tr>
@@ -87,17 +143,24 @@ function section(title, rowsHtml) {
 
 /**
  * The email: { subject, html, text }. unsubscribeUrl is per recipient; null for a preview.
+ * areas: the recipient's watch areas (groupWatchAreas); each is its own part of the
+ * email, above the part everyone gets. test: marks the subject, for a test send.
  */
 export function renderDigest(
   summary,
-  { unsubscribeUrl = null, maxFailing = 25, maxPerfect = 8 } = {},
+  { unsubscribeUrl = null, maxFailing = 25, maxPerfect = 8, areas = [], test = false } = {},
 ) {
   const { total, byRegion, failing, perfect, since, today } = summary;
   const counts = Object.entries(byRegion)
     .map(([region, n]) => `${n} in ${regionName(region)}`)
     .join(", ");
   const range = `${shortDate(since)} – ${shortDate(today)}`;
-  const subject = `${plural(total, "inspection")} this week, ${failing.length} failing · Louisville Food Safe`;
+  const subject = `${test ? "[Test] " : ""}${plural(total, "inspection")} this week, ${failing.length} failing · Louisville Food Safe`;
+  const areasHtml = areas.map(watchAreaSection).join("");
+  // With watch areas above it, the shared part gets its own heading.
+  const everywhere = areas.length
+    ? `<tr><td style="padding:26px 0 0;font-size:17px;font-weight:800;">Everywhere this week</td></tr>`
+    : "";
 
   const failingHtml = failing.length
     ? failing
@@ -131,6 +194,7 @@ export function renderDigest(
   <div style="color:${DIM};font-size:13px;margin-top:4px;">${esc(range)}${counts ? ` · ${esc(counts)}` : ""}</div>
 </td></tr>
 <tr><td style="padding:0 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  ${areasHtml}${everywhere}
   ${section(`Scored under ${FAIL_SCORE} or a C placard`, failingHtml + more)}
   ${perfect.length ? section("Perfect scores", perfectHtml) : ""}
   <tr><td style="padding:24px 0 0;" align="center">
@@ -146,8 +210,14 @@ export function renderDigest(
     `  ${r.score ?? "–"}${r.grade ? ` (${r.grade})` : ""}  ${r.premise_name}, ${r.address}`;
   const text = [
     `Louisville Food Safe: ${plural(total, "inspection")} this week (${range})${counts ? `, ${counts}` : ""}`,
+    ...areas.flatMap((a) => [
+      "",
+      `Your watch area: ${a.name} (${a.radius} mi). ${areaCounts(a)}`,
+      ...a.places.map(line),
+      ...(a.total > a.places.length ? [`  and ${a.total - a.places.length} more on the map`] : []),
+    ]),
     "",
-    `Scored under ${FAIL_SCORE} or a C placard:`,
+    `${areas.length ? "Everywhere. " : ""}Scored under ${FAIL_SCORE} or a C placard:`,
     ...(failing.length ? failing.slice(0, maxFailing).map(line) : ["  none"]),
     ...(perfect.length ? ["", "Perfect scores:", ...perfect.slice(0, maxPerfect).map(line)] : []),
     "",
