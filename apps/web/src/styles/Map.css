@@ -988,10 +988,31 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     min-width: 0;
   }
 
+  /* The open card ends above the Table View button (56px tall, 28px up: TableView.css)
+     and the phone's home bar, and its body scrolls inside it. The space is measured from
+     the card's own top to that line, so it holds whatever the header's height and the
+     browser's toolbars are (100dvh minus a guess cut the card off on Samsung Internet
+     and iPhones). */
+  .controls {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+  }
+
+  .control-card {
+    pointer-events: auto;
+    max-height: 100%;
+  }
+
+  .control-card .control-content {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .filters,
   .rgb-toggles {
-    max-height: calc(100dvh - 190px);
-    overflow: auto;
     padding: 8px 8px 10px;
   }
 

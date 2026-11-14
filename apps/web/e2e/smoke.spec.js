@@ -134,6 +134,28 @@ test("phone filter card has even side gaps, collapsed and expanded", async ({ pa
   await expectEvenGaps();
 });
 
+test("phone: the open filter card ends above the Table View button and scrolls inside", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the card only fills the screen on phones");
+  // Two counties on and a short screen (a phone with the browser's toolbars showing).
+  await page.setViewportSize({ width: 412, height: 640 });
+  await openApp(page, { counties: ["jefferson", "bullitt"] });
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+
+  const card = await page.getByTestId("filter-panel").boundingBox();
+  const button = await page.getByRole("button", { name: "Open table view" }).boundingBox();
+  expect(card.y + card.height).toBeLessThanOrEqual(button.y);
+
+  // The last county is below the fold: scrolling the card's body brings it into view.
+  const last = page.getByTestId("county-switches").locator("label").last();
+  await last.scrollIntoViewIfNeeded();
+  const row = await last.boundingBox();
+  expect(row.y + row.height).toBeLessThanOrEqual(card.y + card.height);
+  await snap(page, testInfo, "03b-filter-card-fits");
+});
+
 test("phone: panels have no blur, and the map draws at most 2x", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "phone", "the phone-only performance rules");
   await openApp(page);
