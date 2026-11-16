@@ -3,7 +3,7 @@
 //   useMapFeatures     loads the pins            useDrawer       the info drawer's data
 //   useWatchlist       saved places and areas    useMapLibre     the map, pins and popups
 //   useWatchAreaLayer  watch-area circles        AppHeader       the top bar
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 // Stylesheet order matters (later files win ties), so these keep their original order:
 // LearnPage.css, then MapLibre's CSS, then Map.css, then each panel's own stylesheet.
 import LearnPage, { LoginModal } from "./LearnPage.jsx";
@@ -43,6 +43,9 @@ import { useWatchAreaLayer } from "./features/map/useWatchAreaLayer.js";
 import { useCountyLoadLayer } from "./features/map/useCountyLoadLayer.js";
 import { parseDeepLink } from "./lib/deepLink.js";
 import PinsLoading from "./PinsLoading.jsx";
+
+// The email admin page (features/admin): its own chunk, so visitors never download it.
+const AdminPage = lazy(() => import("./features/admin/AdminPage.jsx"));
 
 // YYYY-MM-DD `days` ago, or null for "All time".
 function cutoffFor(dateFilterKey) {
@@ -133,7 +136,7 @@ export default function Map({ onMapReady }) {
   }, [pins]);
 
   // ── Pages and panels ─────────────────────────────────────────────────────────
-  const [page, setPage] = useState("map"); // "map" | "learn"
+  const [page, setPage] = useState("map"); // "map" | "learn" | "admin"
   // The Saved panel: beside the drawer on desktop, a full-screen page on phones.
   const [accountOpen, setAccountOpen] = useState(false);
   const [focusArea, setFocusArea] = useState(null); // { id, n }: scroll Saved to this area
@@ -343,7 +346,7 @@ export default function Map({ onMapReady }) {
   );
 
   // Links from the digest email (lib/deepLink.js): /?eid=<id> opens that place,
-  // /?page=learn the Learn page. Read once the map is drawn, then taken off the URL. The
+  // /?page=learn the Learn page (and /?page=admin the email admin page). Read once the map is drawn, then taken off the URL. The
   // place opens when its pin has arrived: its county is switched on if it wasn't (the
   // link asks for that place), and the pins may still be loading.
   const [linkedEid, setLinkedEid] = useState(null);
@@ -459,8 +462,15 @@ export default function Map({ onMapReady }) {
         />
       )}
 
+      {/* The email admin page: its code is fetched only when someone opens it */}
+      {page === "admin" && (
+        <Suspense fallback={null}>
+          <AdminPage onLogIn={() => setLoginOpen(true)} />
+        </Suspense>
+      )}
+
       {/* The Learn page renders its own copy of the sign-in modal */}
-      {page === "map" && loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+      {page !== "learn" && loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
 
       {page === "map" && accountOpen && user && (
         <AccountPage
@@ -473,6 +483,7 @@ export default function Map({ onMapReady }) {
           activeEid={drawer.selected?.establishment_id}
           onItemRemoved={watchlist.forgetSaved}
           refreshToken={watchlist.savedIds}
+          onOpenAdmin={() => setPage("admin")}
         />
       )}
 

@@ -30,7 +30,7 @@ export const ALL_CATEGORIES = [
 ];
 export async function openApp(
   page,
-  { path = "/", holds, failOnce, missing, counties, categories = ALL_CATEGORIES } = {},
+  { path = "/", holds, failOnce, missing, answers, counties, categories = ALL_CATEGORIES } = {},
 ) {
   const consoleErrors = [];
   page.on("console", (msg) => {
@@ -38,7 +38,7 @@ export async function openApp(
   });
   page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
 
-  const mock = await mockSupabase(page, { holds, failOnce, missing });
+  const mock = await mockSupabase(page, { holds, failOnce, missing, answers });
   // Netlify injects its feedback toolbar ("Netlify Drawer") into deploy previews. It
   // isn't part of the site and can log errors or cover buttons, so serve it empty.
   await page.route(/netlify-cdp-loader\.netlify\.app/, (route) =>
@@ -91,6 +91,48 @@ export async function openApp(
   await page.goto(path);
   await expect(page.getByTestId("splash-screen")).toHaveCount(0, { timeout: 20_000 });
   return { consoleErrors, unmocked: mock.unmocked, requested: mock.requested };
+}
+
+// Supabase Auth, mocked: sending the sign-in email, then checking the code. Returns the
+// bodies the site posted to check a code. Call before signIn.
+export const TEST_USER = { id: "00000000-0000-0000-0000-000000000001", email: "test@example.com" };
+export async function mockAuth(page) {
+  const verifyBodies = [];
+  await page.route(/\/auth\/v1\/(otp|verify)/, async (route) => {
+    const request = route.request();
+    const cors = {
+      "access-control-allow-origin": request.headers()["origin"] || "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+    };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    const json = (body) =>
+      route.fulfill({ status: 200, headers: cors, contentType: "application/json", body });
+    if (request.url().includes("/otp")) return json("{}");
+    verifyBodies.push(request.postDataJSON());
+    const now = Math.floor(Date.now() / 1000);
+    return json(
+      JSON.stringify({
+        access_token: "test-access-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        refresh_token: "test-refresh-token",
+        user: { ...TEST_USER, aud: "authenticated" },
+      }),
+    );
+  });
+  return verifyBodies;
+}
+
+// Signs in through the form that is already open: the email, then the code from it.
+export async function signIn(page) {
+  await page.getByPlaceholder("you@example.com").fill(TEST_USER.email);
+  await page.getByRole("button", { name: "Email me a code" }).click();
+  const step = page.getByTestId("sign-in-code-step");
+  await step.getByLabel("Sign-in code").fill("123456");
+  await step.getByRole("button", { name: "Sign in" }).click();
+  await expect(step).toHaveCount(0);
 }
 
 export async function openWhatsNew(page) {

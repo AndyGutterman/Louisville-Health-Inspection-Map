@@ -405,3 +405,126 @@ TABLES["rpc/get_latest_inspections"] = [...TABLES["rpc/get_whats_new"]].sort(
   (a, b) => rowDate(b).localeCompare(rowDate(a)) || a.premise_name.localeCompare(b.premise_name),
 );
 export const NEWEST_EID = TABLES["rpc/get_latest_inspections"][0].establishment_id;
+
+// ── The email admin page (features/admin, migration 20261125000000) ─────────────────
+// Three accounts: the signed-in tester and Jane get the weekly digest, Sam doesn't. Jane
+// has a watch area with this week's failing place in it. The mock ignores a function's
+// arguments, so every account is answered Jane's areas; the page keeps only the rows of
+// the person it asked about.
+export const JANE = { id: "00000000-0000-0000-0000-00000000000b", email: "jane@example.com" };
+const account = (id, email, fields) => ({
+  user_id: id,
+  email,
+  alert_frequency: "weekly",
+  created_at: `${daysAgo(60)}T12:00:00Z`,
+  watch_areas: 0,
+  saved_places: 0,
+  last_sent_at: null,
+  total: 3,
+  subscribers: 2,
+  ...fields,
+});
+export const QUEUED_JOB_ID = "11111111-1111-4111-8111-111111111111";
+const job = (fields) => ({
+  created_at: `${daysAgo(7)}T11:00:00Z`,
+  queued_at: `${daysAgo(7)}T11:00:00Z`,
+  source: "admin",
+  kind: "digest",
+  audience: "emails",
+  to_emails: null,
+  as_user_email: null,
+  days: 7,
+  test: false,
+  subject: null,
+  status: "sent",
+  recipient_count: 2,
+  sent_count: 2,
+  failed_count: 0,
+  error: null,
+  started_at: `${daysAgo(7)}T11:00:05Z`,
+  finished_at: `${daysAgo(7)}T11:00:20Z`,
+  run_url: null,
+  ...fields,
+});
+const NEWSLETTER = {
+  subject: "Oldham County is on the map",
+  body: "Oldham County's inspections are on the map now.\n\nSwitch it on in the Filter tab.",
+};
+Object.assign(TABLES, {
+  // Nobody is an admin unless a test says so (openApp's `answers`).
+  "rpc/is_admin": false,
+  "rpc/admin_subscribers": [
+    account("00000000-0000-0000-0000-000000000001", "test@example.com"),
+    account(JANE.id, JANE.email, {
+      watch_areas: 1,
+      saved_places: 4,
+      last_sent_at: `${daysAgo(7)}T11:00:10Z`,
+    }),
+    account("00000000-0000-0000-0000-00000000000c", "sam@example.com", {
+      alert_frequency: "off",
+    }),
+  ],
+  "rpc/admin_digest_watch_areas": [
+    {
+      user_id: JANE.id,
+      area_id: "22222222-2222-4222-8222-222222222222",
+      label: "Home",
+      center_address: "200 E MARKET ST",
+      radius_miles: 2,
+      area_total: 1,
+      area_failing: 1,
+      place_rank: 1,
+      ...whatsNewRow(PLACES[1]),
+      region: "jefferson",
+      posted_date: null,
+    },
+  ],
+  "rpc/admin_queue_email": QUEUED_JOB_ID,
+  "rpc/admin_email_jobs": [
+    job({
+      id: QUEUED_JOB_ID,
+      created_at: new Date().toISOString(),
+      to_emails: ["test@example.com"],
+      as_user_email: JANE.email,
+      test: true,
+      recipient_count: 1,
+      sent_count: 1,
+    }),
+    job({
+      id: "33333333-3333-4333-8333-333333333333",
+      created_at: `${daysAgo(3)}T15:00:00Z`,
+      kind: "custom",
+      audience: "subscribers",
+      subject: NEWSLETTER.subject,
+      status: "partial",
+      sent_count: 1,
+      failed_count: 1,
+      error: "1 of 2 could not be delivered.",
+    }),
+    job({
+      id: "44444444-4444-4444-8444-444444444444",
+      source: "schedule",
+      audience: "subscribers",
+    }),
+  ],
+  "rpc/admin_email_job": [
+    job({
+      id: "33333333-3333-4333-8333-333333333333",
+      kind: "custom",
+      ...NEWSLETTER,
+      with_button: true,
+    }),
+  ],
+  "rpc/admin_email_deliveries": [
+    {
+      email: "sam@example.com",
+      status: "failed",
+      error: "550 mailbox full",
+      at: `${daysAgo(3)}T15:00:09Z`,
+    },
+    { email: JANE.email, status: "sent", error: null, at: `${daysAgo(3)}T15:00:08Z` },
+  ],
+  "rpc/admin_set_subscription": true,
+  "rpc/admin_retry_email": true,
+  "rpc/admin_cancel_email": true,
+});

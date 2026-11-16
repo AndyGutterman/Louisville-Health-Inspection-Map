@@ -24,8 +24,8 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
 
 /**
  * @param {object} p
- * @param {"map"|"learn"} p.page
- * @param {boolean} p.showSearch     false on the Learn page and the phone account page
+ * @param {"map"|"learn"|"admin"} p.page
+ * @param {boolean} p.showSearch     false off the map and on the phone account page
  * @param {string} p.searchTerm
  * @param {Function} p.onSearchChange
  * @param {{on: number, of: number}|null} [p.searchScope]  set while a search is only
@@ -91,7 +91,12 @@ export default function AppHeader(p) {
               )}
             </div>
           ) : (
-            <button className="header-nav-btn" onClick={p.onBackToMap} style={{ gap: 5 }}>
+            <button
+              className="header-nav-btn"
+              onClick={p.onBackToMap}
+              style={{ gap: 5 }}
+              aria-label="Back to the map"
+            >
               <Icon size={13} strokeWidth={2.5}>
                 <path d="M19 12H5M12 5l-7 7 7 7" />
               </Icon>
