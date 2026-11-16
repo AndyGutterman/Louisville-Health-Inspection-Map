@@ -301,8 +301,11 @@ BEGIN
     IF p_expect_count IS DISTINCT FROM v_count THEN
       RAISE EXCEPTION 'There are % subscribers now. Check the number and confirm again.', v_count;
     END IF;
+    -- A send that died (still "sending" after 15 minutes) doesn't block the next one.
     IF EXISTS (SELECT 1 FROM email_jobs j
-                WHERE j.audience = 'subscribers' AND j.status IN ('queued', 'sending')) THEN
+                WHERE j.audience = 'subscribers'
+                  AND (j.status = 'queued'
+                    OR (j.status = 'sending' AND j.started_at > now() - interval '15 minutes'))) THEN
       RAISE EXCEPTION 'An email to every subscriber is already on its way';
     END IF;
     v_emails := NULL;
