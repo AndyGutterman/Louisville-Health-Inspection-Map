@@ -61,7 +61,7 @@ React 19 and Vite 7 · MapLibre GL · Supabase (Postgres, Auth, Edge Functions) 
 
 ## Run it locally
 
-You need Node 22 (see `.nvmrc`) and a Supabase project to read from. Everything runs from the repository root, which is an npm workspace: one `npm ci` installs the website and the pipeline.
+You need Node 22 (see `.nvmrc`) and a Supabase project to read from. Everything runs from the repository root, which is an npm workspace: one `npm ci` installs the website, the pipeline and the code they share.
 
 ```bash
 npm ci
@@ -90,8 +90,9 @@ apps/web/            the website (React app)
   src/lib/           pure logic (scoring, categories, filters, duplicate detection, bottom-sheet rules...), each with tests
   src/hooks/         shared React hooks
   src/styles/        component stylesheets
+packages/core/       rules shared by the website and the pipeline (the emails), with tests
 pipeline/            data pipeline, maintenance jobs (accuracy check, archiving) and their tests
-supabase/            full database schema (migrations) and the feedback edge function
+supabase/            full database schema (migrations) and the edge functions (feedback, email dispatch)
 docs/                architecture notes and a manual smoke-test checklist
 .github/workflows/   CI, ingest, backup, archive and accuracy-check jobs
 ```

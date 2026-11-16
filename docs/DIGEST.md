@@ -11,9 +11,15 @@ watch areas also gets each area as its own part of the email (see "Watch areas")
   (on by default) that is applied once the account exists (`lib/digest.js`,
   `AuthContext.jsx`); the Saved panel has a toggle. The unsubscribe link in the footer
   carries `profiles.digest_token` and calls `unsubscribe_by_token` (no sign-in needed).
-- **What it says:** `pipeline/digest/render.js`, pure, from `get_whats_new(2000)` filtered
-  to the last 7 days. Tested in `pipeline/tests/digest_render.test.js`.
-- **Sending:** `pipeline/digest/send.js` over SMTP (`SMTP_SERVER`, port 587). It logs in
+- **What it says:** `packages/core/email/digest.js`, pure, from the last 7 days of
+  `get_whats_new(2000)` (the window is part of the request, so only those rows are
+  downloaded). Tested in `packages/core/tests/email_digest.test.js`. The site's email
+  admin page previews anyone's digest with the same function (`docs/EMAIL_ADMIN.md`).
+- **Sending:** `pipeline/digest/send.js` builds the job and `pipeline/digest/run.js` sends
+  it, the same code that sends what the admin page queues. Each send is logged
+  (`email_jobs`, one row per address in `email_deliveries`), so it shows on the admin
+  page's Sent tab and a run that died part-way can be finished from there. On a database
+  without those tables the email still goes out, unlogged. It goes over SMTP (`SMTP_SERVER`, port 587). It logs in
   as `DIGEST_SMTP_USERNAME` / `DIGEST_SMTP_PASSWORD` when both secrets are set (the
   project's own Gmail, louisvillefoodsafe@gmail.com, with a Gmail app password), and
   otherwise as the backup job's `SMTP_USERNAME` / `SMTP_PASSWORD`. Gmail rewrites the From
@@ -33,6 +39,9 @@ downloads a few rows per area. On a database without that function the email goe
 without these parts, and the run's log says so.
 
 ## Sending a test to yourself
+
+The easy way is the email admin page (`/?page=admin`, `docs/EMAIL_ADMIN.md`): pick anyone,
+see their digest, "Send me this as a test". The workflow still works too.
 
 In the GitHub app or site: Actions, "Weekly digest email", Run workflow. **A run by hand
 goes only to you** unless you change "audience", so a test can't email everyone.
