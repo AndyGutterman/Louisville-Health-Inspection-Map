@@ -55,8 +55,10 @@ jobs:
       - name: Install
         working-directory: .
         run: npm ci -w pipeline
+      # The email's renderer lives in packages/core, the sender in pipeline.
       - name: Test
-        run: npm test
+        working-directory: .
+        run: npm test -w packages/core -w pipeline
 
       # "me" goes to DIGEST_TEST_TO (a secret: the owner's own sign-in email, so the test
       # shows the owner's watch areas and the address stays out of the public logs), or to

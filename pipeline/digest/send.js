@@ -23,7 +23,7 @@
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import nodemailer from "nodemailer";
-import { groupWatchAreas, renderDigest, summarize, SITE } from "./render.js";
+import { groupWatchAreas, renderDigest, summarize, SITE } from "@lfs/core/email/digest.js";
 import { readAllPages } from "../lib/paging.js";
 
 const args = process.argv.slice(2);

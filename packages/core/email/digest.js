@@ -1,29 +1,27 @@
 /**
- * digest/render.js — the weekly digest email, from get_whats_new rows. Pure: no network,
- * no clock (the caller passes `today`), so it can be tested and previewed. Styled like the
- * site: dark card, green accent, amber for violations, red for a C placard. Email clients
- * need tables and inline styles, so that's what this is.
+ * email/digest.js — the weekly digest email, from get_whats_new rows. Pure: no network,
+ * no clock (the caller passes `today`), so it can be tested, and previewed in the browser
+ * (the site's email admin page) exactly as the pipeline sends it.
  */
 import { regionName } from "./regions.js";
+import {
+  SITE,
+  TEXT,
+  DIM,
+  GREEN,
+  AMBER,
+  RED,
+  PLAIN,
+  RULE,
+  esc,
+  plural,
+  mapButton,
+  footerLinks,
+  page,
+} from "./theme.js";
 
-export const SITE = "https://louisvillefoodsafe.netlify.app";
+export { SITE };
 export const FAIL_SCORE = 85; // the site's "failing" line (What's New uses the same)
-
-const BG = "#0f0f12";
-const CARD = "#1b1b1f";
-const TEXT = "#f0f0f3";
-const DIM = "rgba(255,255,255,0.55)";
-const GREEN = "#6fcf8a";
-const AMBER = "#f97316";
-const RED = "#ff6b6b";
-const PLAIN = "#c9c9d1"; // a passing score that isn't perfect (watch-area parts only)
-const RULE = "1px solid rgba(255,255,255,0.07)";
-
-const esc = (s) =>
-  String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
 
 const isC = (r) => String(r.grade ?? "").toUpperCase() === "C";
 const isFailing = (r) => isC(r) || (r.score ?? 100) < FAIL_SCORE;
@@ -40,12 +38,27 @@ const shortDate = (iso) =>
     timeZone: "UTC",
   });
 
+/** The first day (YYYY-MM-DD) of a digest covering `days` days up to and including `today`. */
+export const windowStart = (today, days = 7) => daysBefore(today, days - 1);
+
+/**
+ * PostgREST filter (for .or()) keeping get_whats_new rows from `since` on, so a reader
+ * downloads the digest's window and not the function's whole 30 days. Undated rows go by
+ * the day they were posted, as in summarize.
+ */
+export const sinceFilter = (since) =>
+  `inspection_date.gte.${since},and(inspection_date.is.null,posted_date.gte.${since})`;
+
+// The columns of get_whats_new the email reads.
+export const DIGEST_COLUMNS =
+  "establishment_id,premise_name,address,score,grade,inspection_date,violation_count,region,posted_date";
+
 /**
  * What the email says, as data. rows: get_whats_new(limit_n) rows over any window; this
  * keeps the last `days` up to and including `today` (YYYY-MM-DD).
  */
 export function summarize(rows, { today, days = 7 }) {
-  const since = daysBefore(today, days - 1);
+  const since = windowStart(today, days);
   const recent = (rows || []).filter((r) => {
     const d = dateOf(r);
     return d != null && d >= since && d <= today;
@@ -89,7 +102,6 @@ export function groupWatchAreas(rows) {
 }
 
 const placeLink = (r) => `${SITE}/?eid=${encodeURIComponent(r.establishment_id)}`;
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function placeRow(r, colour) {
   const when = dateOf(r) ? shortDate(dateOf(r)) : "";
@@ -176,35 +188,18 @@ export function renderDigest(
     .slice(0, maxPerfect)
     .map((r) => placeRow(r, GREEN))
     .join("");
-  const footerLinks = [
-    unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color:${DIM};">Unsubscribe</a>` : "",
-    `<a href="${SITE}/?page=learn" style="color:${DIM};">About the data</a>`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(subject)}</title></head>
-<body style="margin:0;padding:0;background:${BG};color:${TEXT};font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${CARD};border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-<tr><td style="padding:22px 24px 0;">
-  <div style="font-size:12px;font-weight:800;letter-spacing:.14em;"><span style="color:${TEXT};">LOUISVILLE</span> <span style="color:${AMBER};">FOOD</span> <span style="color:${GREEN};">SAFE</span></div>
-  <div style="font-size:22px;font-weight:800;margin-top:10px;line-height:1.25;">${plural(total, "inspection")} this week</div>
-  <div style="color:${DIM};font-size:13px;margin-top:4px;">${esc(range)}${counts ? ` · ${esc(counts)}` : ""}</div>
-</td></tr>
-<tr><td style="padding:0 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-  ${areasHtml}${everywhere}
+  const html = page({
+    title: subject,
+    header: `<div style="font-size:22px;font-weight:800;margin-top:10px;line-height:1.25;">${plural(total, "inspection")} this week</div>
+  <div style="color:${DIM};font-size:13px;margin-top:4px;">${esc(range)}${counts ? ` · ${esc(counts)}` : ""}</div>`,
+    rows: `${areasHtml}${everywhere}
   ${section(`Scored under ${FAIL_SCORE} or a C placard`, failingHtml + more)}
   ${perfect.length ? section("Perfect scores", perfectHtml) : ""}
-  <tr><td style="padding:24px 0 0;" align="center">
-    <a href="${SITE}" style="display:inline-block;padding:11px 20px;border-radius:999px;background:rgba(52,168,83,0.16);border:1px solid rgba(52,168,83,0.34);color:${GREEN};font-weight:700;font-size:14px;text-decoration:none;">Open the map</a>
-  </td></tr>
+  ${mapButton()}
   <tr><td style="padding:22px 0 0;color:${DIM};font-size:11px;line-height:1.6;text-align:center;">
-    Scores and placards are the health departments' own. Bullitt County publishes no dates or placards.<br>${footerLinks}<br>Louisville Food Safe · Louisville, KY
-  </td></tr>
-</table></td></tr>
-</table></td></tr></table></body></html>`;
+    Scores and placards are the health departments' own. Bullitt County publishes no dates or placards.<br>${footerLinks(unsubscribeUrl)}<br>Louisville Food Safe · Louisville, KY
+  </td></tr>`,
+  });
 
   const line = (r) =>
     `  ${r.score ?? "–"}${r.grade ? ` (${r.grade})` : ""}  ${r.premise_name}, ${r.address}`;
