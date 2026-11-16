@@ -195,7 +195,10 @@ test("a one-off email is previewed as typed; every subscriber needs the count ty
   await expect(panel(page).getByTestId("email-preview-subject")).toHaveText(
     "[Test] Oldham County is here",
   );
-  await expect(frame.getByRole("link", { name: "https://example.com/oldham" })).toBeVisible();
+  // (The frame is a document of its own and loads after the typing stops: give it time.)
+  await expect(frame.getByRole("link", { name: "https://example.com/oldham" })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(frame.getByRole("listitem")).toHaveCount(2);
   await expect(frame.getByText("<b>Switch it on</b>")).toBeVisible();
   await expect(frame.getByRole("link", { name: "Open the map" })).toBeVisible();

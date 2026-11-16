@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDebounced } from "../../hooks/useDebounced.js";
 import { previewDoc } from "../../lib/adminEmail.js";
 
 /**
@@ -8,6 +9,9 @@ import { previewDoc } from "../../lib/adminEmail.js";
  */
 export default function EmailPreview({ email, loading = false, note }) {
   const [plain, setPlain] = useState(false);
+  // A frame reloads whenever its document changes. While a message is being typed that
+  // is every letter, so the frame follows a moment after the typing stops.
+  const html = useDebounced(email?.html ?? "", 200);
   if (!email) {
     return (
       <div className="adm-preview adm-preview--empty" data-testid="email-preview">
@@ -50,7 +54,7 @@ export default function EmailPreview({ email, loading = false, note }) {
           className="adm-preview-frame"
           title="Email preview"
           sandbox="allow-popups allow-popups-to-escape-sandbox"
-          srcDoc={previewDoc(email.html)}
+          srcDoc={previewDoc(html || email.html)}
         />
       )}
     </div>
