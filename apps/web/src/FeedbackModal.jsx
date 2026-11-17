@@ -220,7 +220,7 @@ export default function FeedbackModal({ supabase, onClose }) {
               {/* Email */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-email">
-                  Email <span>(optional — only if you want a reply)</span>
+                  Email <span>(optional)</span>
                 </label>
                 <input
                   id="fb-email"
