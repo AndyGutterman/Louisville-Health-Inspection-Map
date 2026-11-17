@@ -293,7 +293,7 @@ export default function Map({ onMapReady }) {
 
   // ── Opening places from the panels ───────────────────────────────────────────
   const { open: openDrawer } = drawer;
-  const { openPopup, hoverPopup, endHover, showRowPopup, easeTo, closePopups } = map;
+  const { openPopup, hoverPopup, endHover, easeTo, closePopups } = map;
   const popupsFor = useRef(categoriesKey);
   useEffect(() => {
     if (popupsFor.current === categoriesKey) return;
@@ -335,15 +335,14 @@ export default function Map({ onMapReady }) {
   // Table View: the place's popup, the map eased to it, and the drawer.
   const openFromTable = React.useCallback(
     async (row) => {
-      endHover();
       const f = await findFeature(row.establishment_id);
       if (f) {
-        showRowPopup(f);
+        openPopup(f); // the same popup as a pin click: save button, click to open
         easeTo({ center: f.geometry.coordinates, duration: 400 });
       }
       openDrawer(row.establishment_id, row);
     },
-    [findFeature, endHover, showRowPopup, easeTo, openDrawer],
+    [findFeature, openPopup, easeTo, openDrawer],
   );
 
   // Links from the digest email (lib/deepLink.js): /?eid=<id> opens that place,

@@ -1,5 +1,5 @@
-// Every map popup: the hover popup, the pinned popup a click opens, the "1 of 3" popup
-// for places sharing one spot, and the plain popup a Table View row opens.
+// Every map popup: the hover popup, the pinned popup a click opens (on a pin, or on a row
+// in What's New, Table View or Saved), and the "1 of 3" popup for places sharing one spot.
 import ReactDOM from "react-dom/client";
 import maplibregl from "maplibre-gl";
 import OverlapNav from "./OverlapNav.jsx";
@@ -73,15 +73,6 @@ export function popupHTML(p, { saved = false, overlapCount = 0 } = {}) {
     </div>
     ${aliasNote}
     ${overlap}
-  </div>`;
-}
-
-// The simpler popup a Table View row opens: no save button, no click handlers.
-function rowPopupHTML(p) {
-  return `<div class="popup-content" style="font-size:14px;max-width:220px">
-    <strong>${esc(p.name)}</strong><br/>
-    <small>${esc(p.address_full || p.address)}</small><br/>
-    Score: ${scoreText(p)}${gradeText(p)}
   </div>`;
 }
 
@@ -248,7 +239,7 @@ export function createPopups({
       showHover(feature, count);
     },
 
-    // Opened from a list (What's New, the account page): replaces any open popup.
+    // Opened from a list (What's New, Table View, the account page): replaces any open popup.
     openFor(feature) {
       clearPinned();
       hideHover();
@@ -258,15 +249,6 @@ export function createPopups({
     // Hovering a list row shows the same popup as hovering the pin.
     hoverFor(feature) {
       showHover(feature, 1);
-    },
-
-    // A Table View row: the plain popup.
-    showRow(feature) {
-      clearPinned();
-      pinnedSlot.current = new maplibregl.Popup(POPUP_OPTIONS)
-        .setLngLat(feature.geometry.coordinates)
-        .setHTML(rowPopupHTML(feature.properties))
-        .addTo(map);
     },
 
     // A pin click closes the watch-area editor if it holds the shared slot.
