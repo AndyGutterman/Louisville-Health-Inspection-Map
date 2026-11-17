@@ -11,18 +11,13 @@ import { featureSearchKey, matchesSearch, searchTokens } from "../../lib/searchT
 import { useLatest } from "../../hooks/useLatest.js";
 import { CLICKABLE_LAYERS, addPinLayers, applyFilters, pinLayersReady } from "./mapLayers.js";
 import { pickPin, uniqueHits } from "../../lib/pinPicking.js";
+import { closesDrawer } from "../../lib/outsideClick.js";
 import { createPopups } from "./popups.jsx";
 import { addRegionOutlines } from "./regionOutlines.js";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const NO_PINS = { type: "FeatureCollection", features: [] };
 
-// Panels that work beside the drawer: a click inside one doesn't close it. Any new
-// floating panel or toggle must be added here.
-const KEEP_DRAWER_OPEN =
-  ".wa-handle, .control-card, .info-drawer, .acct-panel, .header-nav-btn--account, .table-panel, .table-toggle-btn, .pins-loading, .county-load";
-// What's New also keeps the drawer open when a press only starts inside it (a resize).
-const WHATS_NEW = ".wn-panel, .wn-trigger";
 // The pointer resting near these doesn't auto-pan the map.
 const NO_EDGE_PAN = [".control-card", ".app-header", ".info-drawer", ".table-panel", ".wb2"];
 
@@ -219,7 +214,8 @@ export function useMapLibre(o) {
       lastDownTarget = ev.target;
     }
 
-    // A click anywhere outside the drawer and the panels that work beside it closes it.
+    // A click anywhere outside the drawer and the panels that work beside it closes it
+    // (the rule: lib/outsideClick.js).
     function closeOnOutsideClick(ev) {
       if (pressOnPin) {
         pressOnPin = false;
@@ -227,11 +223,8 @@ export function useMapLibre(o) {
       }
       const downTarget = lastDownTarget;
       lastDownTarget = null;
-      if (ev.target.closest?.(WHATS_NEW) || downTarget?.closest?.(WHATS_NEW)) return;
-      if (dragging) return;
-      if (popups.contains(ev.target)) return;
-      if (ev.target.closest?.(KEEP_DRAWER_OPEN)) return;
-      closeEverything();
+      const inPopup = popups.contains(ev.target);
+      if (closesDrawer({ target: ev.target, downTarget, dragging, inPopup })) closeEverything();
     }
 
     return () => {
