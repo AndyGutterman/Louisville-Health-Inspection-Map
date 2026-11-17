@@ -496,7 +496,7 @@ export default function Map({ onMapReady }) {
         />
       )}
 
-      {feedbackOpen && <FeedbackModal supabase={supabase} onClose={() => setFeedbackOpen(false)} />}
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
 
       {/* The map stays mounted off the map page, just hidden */}
       <div

@@ -16,15 +16,19 @@ const FEEDBACK_TYPES = [
   { value: "general", label: "💬  General feedback" },
 ];
 
-const FEEDBACK_FN_URL = import.meta.env.VITE_FEEDBACK_FUNCTION_URL;
+// The submit-feedback edge function. Its address follows from the Supabase project's, so
+// VITE_FEEDBACK_FUNCTION_URL is only for pointing somewhere else. The function is the only
+// way in: the database refuses a direct insert (migration 20261106120000).
+const FEEDBACK_FN_URL =
+  import.meta.env.VITE_FEEDBACK_FUNCTION_URL ||
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-feedback`;
 
 // ─── FeedbackModal ────────────────────────────────────────────────────────────
 /**
  * Props:
- *   supabase  – Supabase client (kept for fallback; primary path uses edge fn)
  *   onClose   – fn called to dismiss
  */
-export default function FeedbackModal({ supabase, onClose }) {
+export default function FeedbackModal({ onClose }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [fbType, setFbType] = useState("");
@@ -83,28 +87,22 @@ export default function FeedbackModal({ supabase, onClose }) {
         user_agent: navigator.userAgent.slice(0, 300),
       };
 
-      if (FEEDBACK_FN_URL) {
-        // Primary path: edge function with IP-based rate limiting
-        const res = await fetch(FEEDBACK_FN_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (res.status === 429) {
-          const body = await res.json().catch(() => ({}));
-          const wait = body.retryAfter ?? 60;
-          setError(`Too many submissions. Please wait ${wait} seconds.`);
-          setCooldown(wait);
-          return;
-        }
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `HTTP ${res.status}`);
-        }
-      } else {
-        // Fallback: direct Supabase insert (dev / edge fn not deployed yet)
-        const { error: sbErr } = await supabase.from("feedback").insert([payload]);
-        if (sbErr) throw sbErr;
+      // The edge function rate-limits by IP and writes the row.
+      const res = await fetch(FEEDBACK_FN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({}));
+        const wait = body.retryAfter ?? 60;
+        setError(`Too many submissions. Please wait ${wait} seconds.`);
+        setCooldown(wait);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
       }
 
       setSuccess(true);
