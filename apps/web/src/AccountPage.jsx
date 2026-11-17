@@ -71,6 +71,8 @@ export default function AccountPage({
   zIndex, // phones: lets Map.jsx put this page above or below the info drawer
   bottomInset, // phones: px of the info drawer sitting over the bottom of this page
   onOpenAdmin, // opens the email admin page; its button shows for admins only
+  areaEdit, // passed to WatchlistTab: a watch area just changed on the map
+  onAreasChange, // passed to WatchlistTab: its areas changed, so the map's circles follow
 }) {
   const { user, signOut } = useAuth();
   const admin = useIsAdmin(user);
@@ -133,6 +135,8 @@ export default function AccountPage({
           onItemRemoved={onItemRemoved}
           refreshToken={refreshToken}
           focusAreaId={focusAreaId}
+          areaEdit={areaEdit}
+          onAreasChange={onAreasChange}
         />
         <a
           className="privacy-link acct-privacy"

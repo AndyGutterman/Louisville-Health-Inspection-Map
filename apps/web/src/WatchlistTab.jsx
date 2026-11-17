@@ -13,6 +13,7 @@ import {
   updateWatchArea,
 } from "./api/watchlist.js";
 import { DEFAULT_SORT, SORTS, sortPlaces, violationText } from "./lib/watchAreaSort.js";
+import { applyAreaEdit, withoutZone } from "./lib/watchAreaEdits.js";
 import "./styles/WatchlistTab.css";
 
 // The database enforces the same limits (enforce_row_cap triggers).
@@ -68,6 +69,8 @@ export default function WatchlistTab({
   onItemRemoved, // (establishment_id) => void; tells the map the bookmark is gone
   refreshToken, // changes whenever the map/drawer adds or removes a bookmark
   focusAreaId, // { id, n } when the map asks to jump to one watch area
+  areaEdit, // { id, update, n }: an area just moved or resized on the map (useWatchlist)
+  onAreasChange, // (areas) => void; this list's areas after an add, remove or resize
 }) {
   const [items, setItems] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -120,27 +123,19 @@ export default function WatchlistTab({
     });
   }, [refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ...and the map's circle editor can move or resize a watch area while this list is on screen.
+  // ...and the map's circle editor can move or resize a watch area while this list is on
+  // screen. Its change is applied here, and only that area's places are read again.
   useEffect(() => {
-    if (!user) return;
-    let timer;
-    const onExternal = (e) => {
-      if (e.detail?.source === "watchlist") return; // our own change
-      clearTimeout(timer);
-      timer = setTimeout(async () => {
-        const { data } = await fetchWatchAreaRows(user.id);
-        if (data) {
-          setAreas(data);
-          setZones({});
-        }
-      }, 350);
-    };
-    window.addEventListener("watch-areas-changed", onExternal);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("watch-areas-changed", onExternal);
-    };
-  }, [user]);
+    if (!areaEdit) return;
+    setAreas((prev) => applyAreaEdit(prev, areaEdit));
+    setZones((prev) => withoutZone(prev, areaEdit.id));
+  }, [areaEdit]);
+
+  // This list changed: the map's circles follow (useWatchlist setWatchAreas).
+  const changeAreas = (next) => {
+    setAreas(next);
+    onAreasChange?.(next);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -185,10 +180,7 @@ export default function WatchlistTab({
       setBanner(`Couldn't save that area: ${error.message}`);
       return;
     }
-    setAreas((prev) => [data, ...prev]);
-    window.dispatchEvent(
-      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
-    );
+    changeAreas([data, ...areas]);
     setPick(null);
     setAreaLabel("");
     setPickerKey((k) => k + 1);
@@ -196,10 +188,7 @@ export default function WatchlistTab({
 
   async function removeArea(id) {
     await removeWatchArea(id);
-    setAreas((prev) => prev.filter((a) => a.id !== id));
-    window.dispatchEvent(
-      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
-    );
+    changeAreas(areas.filter((a) => a.id !== id));
   }
 
   async function updateAreaRadius(id, r) {
@@ -208,15 +197,8 @@ export default function WatchlistTab({
       setBanner(`Couldn't change that radius: ${error.message}`);
       return;
     }
-    setZones((prev) => {
-      const n = { ...prev };
-      delete n[id];
-      return n;
-    });
-    setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, radius_miles: r } : a)));
-    window.dispatchEvent(
-      new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
-    );
+    setZones((prev) => withoutZone(prev, id));
+    changeAreas(applyAreaEdit(areas, { id, update: { radius_miles: r } }));
   }
 
   if (loading) {

@@ -77,7 +77,7 @@ Left where they are, on purpose: everything about drawing a county (`apps/web/sr
 | `api/mapData.js`, `api/watchlist.js`                                  | the Supabase calls behind them                                         |
 | `lib/mapFilters.js`, `lib/mapFeatures.js`, `lib/inspectionHistory.js` | pure logic, tested                                                     |
 
-Not done, and still worth doing: the `data-map-overlay` attribute (the panel list is `KEEP_DRAWER_OPEN` in `useMapLibre.js`), and replacing the `watch-areas-changed` window event with shared state.
+Not done, and still worth doing: the `data-map-overlay` attribute (the panel list is `KEEP_DRAWER_OPEN` in `useMapLibre.js`). Done 2026-11-17: the `watch-areas-changed` window event became shared state in `useWatchlist` (`setWatchAreas`, `areaEdit`, applied with `lib/watchAreaEdits.js`), which also stopped a read of every watch area after each change (`e2e/saved.spec.js`).
 
 ## Decisions
 
