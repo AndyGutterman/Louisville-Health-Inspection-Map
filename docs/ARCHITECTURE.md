@@ -117,7 +117,7 @@ Website paths below are relative to `apps/web/`.
 | What the info drawer loads                                    | `src/features/map/useDrawer.js`, `src/lib/inspectionHistory.js`                          |
 | Saving places, watch-area data                                | `src/features/map/useWatchlist.js`, `src/api/watchlist.js`                               |
 | The header bar                                                | `src/features/map/AppHeader.jsx`                                                         |
-| Watchlist and account panel                                   | `src/AccountPage.jsx`, `src/WatchlistTab.jsx`                                            |
+| Watchlist and account panel                                   | `src/AccountPage.jsx`, `src/features/saved/`                                             |
 | The weekly digest and one-off emails, the email admin page    | `packages/core/email/`, `pipeline/digest/`, `src/features/admin/`, `docs/EMAIL_ADMIN.md` |
 | Nightly data load                                             | `pipeline/`, `.github/workflows/ingest.yml`                                              |
 | Database tables, views, functions and security rules          | `supabase/migrations/` (start with the baseline file)                                    |
