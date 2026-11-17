@@ -163,6 +163,7 @@ function ComingSoonBadge() {
 // The sign-in form's digest checkbox, kept until the code is verified (lib/digest.js).
 import { rememberDigestOptIn } from "./lib/digest.js";
 import { PRIVACY_PATH } from "./lib/privacy.js";
+import { fetchPlacesWithViolation, fetchViolationSummary } from "./api/learn.js";
 
 export function LoginModal({ onClose }) {
   const { user, sendMagicLink, verifyCode, signOut, loading } = useAuth();
@@ -493,7 +494,7 @@ const TIMELINE_OPTS = [
 // ─── Violations database section ─────────────────────────────────────────────
 const PAGE_SIZE = 40;
 
-function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment }) {
+function ViolationDatabase({ initialCutoffDate, onOpenEstablishment }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -508,7 +509,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   const [drillTotal, setDrillTotal] = useState(0);
 
   async function handleRowClick(desc) {
-    if (!supabase) return;
     if (expandedDesc === desc) {
       setExpandedDesc(null);
       return;
@@ -518,10 +518,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
     setDrillData([]);
     setDrillTotal(0);
     try {
-      const { data, error } = await supabase.rpc("get_establishments_for_violation", {
-        p_violation_desc: desc,
-        p_since_date: cutoffDate ?? null,
-      });
+      const { data, error } = await fetchPlacesWithViolation(desc, cutoffDate);
       if (error) throw error;
       setDrillData(data || []);
       setDrillTotal((data || []).length);
@@ -549,19 +546,13 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
   }, [timeline, initialCutoffDate]);
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setRows([]);
     setShowAll(false);
 
     (async () => {
       try {
-        const { data, error: err } = await supabase.rpc("get_violation_summary", {
-          since_date: cutoffDate ?? null,
-        });
+        const { data, error: err } = await fetchViolationSummary(cutoffDate);
 
         if (err) throw err;
 
@@ -577,7 +568,7 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
         setLoading(false);
       }
     })();
-  }, [supabase, cutoffDate]);
+  }, [cutoffDate]);
 
   // Word-boundary regex — "rat" won't match inside "temperature"
   const searchRegex = useMemo(() => {
@@ -629,13 +620,6 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
       </>
     );
   }
-
-  if (!supabase)
-    return (
-      <div className="ln-vdb-loading">
-        Violation database unavailable — supabase prop not provided.
-      </div>
-    );
 
   return (
     <>
@@ -816,13 +800,11 @@ function ViolationDatabase({ supabase, initialCutoffDate, onOpenEstablishment })
 // Props:
 //   loginOpen       boolean  — whether the login modal is open
 //   onCloseLogin    fn       — called to close the modal
-//   supabase        client   — supabase client for violations query (optional)
 //   mapCutoffDate   string   — ISO date from map's "Since" filter (optional)
 //   onOpenEstablishment fn   — (eid) called to close Learn and open drawer
 export default function LearnPage({
   loginOpen,
   onCloseLogin,
-  supabase,
   mapCutoffDate,
   onOpenEstablishment,
   onOpenPrivacy,
@@ -1030,7 +1012,6 @@ export default function LearnPage({
             Violation database
           </div>
           <ViolationDatabase
-            supabase={supabase}
             initialCutoffDate={mapCutoffDate ?? null}
             onOpenEstablishment={onOpenEstablishment}
           />
