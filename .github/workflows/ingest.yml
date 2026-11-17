@@ -34,6 +34,12 @@ jobs:
       - name: Recover failed runs
         run: node Recover.js
 
+      # First: facilities.(facility_type, subtype) is a foreign key to facility_categories,
+      # so a type/subtype pair the city adds must be in that table before backfill_types
+      # writes it onto a facility.
+      - name: Seed categories
+        run: node seed_categories.js
+
       - name: Seed facilities
         run: node seed_facilities.js
 
@@ -54,9 +60,6 @@ jobs:
 
       - name: Seed violations
         run: node seed_violations.js
-
-      - name: Seed categories
-        run: node seed_categories.js
 
       # GitHub switches a public repo's scheduled workflows off after 60 days without
       # commits, silently; a week later Supabase's free plan would pause the project for
