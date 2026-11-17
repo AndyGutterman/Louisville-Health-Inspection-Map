@@ -32,11 +32,13 @@ export const mapButton = (
     <a href="${href}" style="display:inline-block;padding:11px 20px;border-radius:999px;background:rgba(52,168,83,0.16);border:1px solid rgba(52,168,83,0.34);color:${GREEN};font-weight:700;font-size:14px;text-decoration:none;">${esc(label)}</a>
   </td></tr>`;
 
-// "Unsubscribe · About the data". unsubscribeUrl is per recipient; null leaves it out.
+// "Unsubscribe · About the data · Privacy". unsubscribeUrl is per recipient; null leaves
+// it out.
 export const footerLinks = (unsubscribeUrl) =>
   [
     unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color:${DIM};">Unsubscribe</a>` : "",
     `<a href="${SITE}/?page=learn" style="color:${DIM};">About the data</a>`,
+    `<a href="${SITE}/?page=privacy" style="color:${DIM};">Privacy</a>`,
   ]
     .filter(Boolean)
     .join(" · ");

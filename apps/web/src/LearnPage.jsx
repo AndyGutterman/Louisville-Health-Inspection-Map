@@ -162,6 +162,7 @@ function ComingSoonBadge() {
 // inside LearnPage OR standalone from the map header (which doesn't load LearnPage).
 // The sign-in form's digest checkbox, kept until the code is verified (lib/digest.js).
 import { rememberDigestOptIn } from "./lib/digest.js";
+import { PRIVACY_PATH } from "./lib/privacy.js";
 
 export function LoginModal({ onClose }) {
   const { user, sendMagicLink, verifyCode, signOut, loading } = useAuth();
@@ -463,7 +464,10 @@ export function LoginModal({ onClose }) {
                   lineHeight: 1.5,
                 }}
               >
-                Free account · No password · Unsubscribe anytime
+                Free account · No password · Unsubscribe anytime ·{" "}
+                <a className="privacy-link" href={PRIVACY_PATH} target="_blank" rel="noreferrer">
+                  Privacy
+                </a>
               </div>
             </>
           )}
@@ -821,6 +825,7 @@ export default function LearnPage({
   supabase,
   mapCutoffDate,
   onOpenEstablishment,
+  onOpenPrivacy,
 }) {
   return (
     <>
@@ -1068,6 +1073,12 @@ export default function LearnPage({
             </a>
             .
           </div>
+
+          <p className="ln-privacy">
+            <button type="button" className="privacy-link" onClick={onOpenPrivacy}>
+              Privacy: what this site stores about you
+            </button>
+          </p>
         </div>
       </div>
 

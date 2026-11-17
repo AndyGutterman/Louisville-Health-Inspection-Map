@@ -215,3 +215,10 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.acct-privacy {
+  display: block;
+  margin-top: 26px;
+  text-align: center;
+  font-size: 0.74rem;
+}

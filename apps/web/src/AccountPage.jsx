@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import WatchlistTab from "./WatchlistTab.jsx";
 import { OFF, WEEKLY, isSubscribed } from "./lib/digest.js";
+import { PRIVACY_PATH } from "./lib/privacy.js";
 import { useIsAdmin } from "./features/admin/useIsAdmin.js";
 import "./styles/AccountPage.css";
 
@@ -139,6 +140,14 @@ export default function AccountPage({
           refreshToken={refreshToken}
           focusAreaId={focusAreaId}
         />
+        <a
+          className="privacy-link acct-privacy"
+          href={PRIVACY_PATH}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy
+        </a>
       </div>
     </div>
   );

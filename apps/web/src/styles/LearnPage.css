@@ -924,3 +924,24 @@
     backdrop-filter: none;
   }
 }
+
+/* The small "Privacy" links other panels show (sign-in form, feedback form, Saved, Learn page).
+   Here because this stylesheet is always loaded; the privacy page itself loads on demand. */
+.privacy-link {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+  font-weight: 500;
+}
+.ln-privacy {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+.ln-privacy button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}

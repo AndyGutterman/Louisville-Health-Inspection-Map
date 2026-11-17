@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./styles/FeedbackModal.css";
+import { PRIVACY_PATH } from "./lib/privacy.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const COOLDOWN_MS = 30_000; // 30 seconds between submissions
@@ -219,7 +220,7 @@ export default function FeedbackModal({ supabase, onClose }) {
               {/* Email */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-email">
-                  Email <span>(optional — only if you want a reply)</span>
+                  Email <span>(optional)</span>
                 </label>
                 <input
                   id="fb-email"
@@ -247,7 +248,12 @@ export default function FeedbackModal({ supabase, onClose }) {
               </div>
 
               <div className="fb-row">
-                <div className="fb-note">Anonymous feedback is fine. No account required.</div>
+                <div className="fb-note">
+                  Anonymous feedback is fine. No account required.{" "}
+                  <a className="privacy-link" href={PRIVACY_PATH} target="_blank" rel="noreferrer">
+                    Privacy
+                  </a>
+                </div>
                 <button className="fb-submit" onClick={handleSubmit} disabled={!canSend}>
                   {submitting ? "Sending…" : cooldown > 0 ? `Wait ${cooldown}s` : "Send"}
                 </button>
