@@ -6,7 +6,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 // Stylesheet order matters (later files win ties), so these keep their original order:
 // LearnPage.css, then MapLibre's CSS, then Map.css, then each panel's own stylesheet.
-import LearnPage, { LoginModal } from "./LearnPage.jsx";
+import LearnPage, { LoginModal } from "./features/learn/LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/Map.css";
 import InfoDrawer from "./InfoDrawer.jsx";

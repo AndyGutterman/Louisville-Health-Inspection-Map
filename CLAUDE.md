@@ -147,8 +147,7 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 2. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
 3. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
 4. Refactor phases 3, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure; splitting the big components). `packages/core` (phase 2), `api/` for every panel (phase 4) and the Map.jsx split (phase 5) are done. Phase 3 changes the scripts that load production data: do it from a machine that can run them against the database (a dry run first), not blind from a cloud session.
-5. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).
-6. Later: consider TypeScript after the split.
+5. Later: consider TypeScript after the split.
 
 ## Working with the owner
 
