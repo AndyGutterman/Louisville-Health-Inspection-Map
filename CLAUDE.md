@@ -29,6 +29,7 @@ apps/web/                 React app (was InspectionWebsite/)
   src/features/table/     Table View: TableView (filter state, layout), useTableData (reads), useTableSort,
                           useTableResize, TableFilters, TableRows, TableFooter; paging maths in lib/tablePaging.js
   src/features/admin/     the email admin page (/?page=admin), its own chunk, loaded on demand
+  src/features/drawer/    the info drawer: InfoDrawer (shell), InspectionCard, History, useBottomSheet, useDrawerWidth
   src/api/                every Supabase query, one file per topic (mapData, watchlist, table, whatsNew,
                           learn, account, admin). Components don't call supabase.from/.rpc themselves.
   src/*.jsx               the other components (InfoDrawer, WhatsNew, FilterSearch, ...)
@@ -110,7 +111,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Categories:** `packages/core/categories.js` (the pipeline's coverage report reads it too); a category is a set of (facility type, subtype) pairs. Each pair belongs to exactly one category (tested). `lib/categories.js` re-exports it and adds the Filter tab's state.
 - **County ids and names:** `packages/core/regions.js`, for the site, the pipeline and the emails. A new county starts there.
 - **Same-coordinate pins:** `lib/dedupe.js` collapses to the worst establishment, keeps others searchable.
-- **Info drawer:** `InfoDrawer.jsx`. Desktop is a side panel. On phones (max-width 600px) it is a bottom sheet with two heights, peek (about 1.5 history rows) and expanded (about 74% of the screen), dragged by a handle; rules in `lib/bottomSheet.js`. Dragging well below peek, or flinging down from peek, closes it.
+- **Info drawer:** `features/drawer/` (`InfoDrawer.jsx` the shell, `InspectionCard.jsx`, `History.jsx`, `useBottomSheet.js`, `useDrawerWidth.js`; repeated citations are merged by `lib/violationGroups.js`). Desktop is a side panel. On phones (max-width 600px) it is a bottom sheet with two heights, peek (about 1.5 history rows) and expanded (about 74% of the screen), dragged by a handle; rules in `lib/bottomSheet.js`. Dragging well below peek, or flinging down from peek, closes it.
 - **Records with no map pin:** What's New rows with no coordinates still open the drawer (flagged `noLocation`, shows "No map location on file"), and the map does not move.
 - **Phone layering:** `mobileTop` state in Map.jsx ("account" or "drawer"). Opening Saved goes over the map and over any open drawer; tapping a record in Saved opens the drawer on top and replaces any drawer already open; closing the drawer leaves Saved open. Account page z-index is 3300 when on top, 50 otherwise.
 - **Header button** says "Saved" (class `header-nav-btn--account`); the panel title still says "My Account".
