@@ -26,10 +26,12 @@ apps/web/                 React app (was InspectionWebsite/)
   src/Map.jsx             the app shell (~400 lines): which panels are open, and the layout
   src/features/map/       the map: useMapLibre (map, pin clicks, outside-click), popups, mapLayers,
                           useMapFeatures (pins), useDrawer (drawer data), useWatchlist, AppHeader
+  src/features/table/     Table View: TableView (filter state, layout), useTableData (reads), useTableSort,
+                          useTableResize, TableFilters, TableRows, TableFooter; paging maths in lib/tablePaging.js
   src/features/admin/     the email admin page (/?page=admin), its own chunk, loaded on demand
   src/api/                every Supabase query, one file per topic (mapData, watchlist, table, whatsNew,
                           learn, account, admin). Components don't call supabase.from/.rpc themselves.
-  src/*.jsx               the other components (InfoDrawer, TableView, WhatsNew, FilterSearch, ...)
+  src/*.jsx               the other components (InfoDrawer, WhatsNew, FilterSearch, ...)
 packages/core/            shared by the website and the pipeline, pure: categories.js, grading.js (the
                           score scale), regions.js (county ids and names), email/ (the digest and one-off
                           emails, the rules for an email job); tests in packages/core/tests (node --test)
@@ -48,7 +50,7 @@ docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (man
 ```
 npm ci
 npm run dev
-npm run lint        # 0 errors expected; 1 known warning (see below)
+npm run lint        # 0 errors and 0 warnings expected
 npm test            # website (vitest), packages/core and pipeline (node --test)
 npm run build
 npm run format      # Prettier (CI runs format:check)
@@ -97,7 +99,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list (control card, drawer, account panel, table panel, What's New, a few buttons). Any new floating panel or toggle must be added to that list or it will close the drawer.
 - **Global CSS leaks into inline-styled elements.** `index.css` has a global `button` rule (padding, background). Inline-styled buttons must set `padding: 0` and sizing explicitly. A selector like `.info-drawer [style]` once forced padding onto every inline-styled element in the drawer and broke the bookmark button; never use broad `[style]` selectors.
 - **`!important` beats inline styles.** Check CSS files before debugging layout in JSX.
-- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The remaining lint warning is in TableView.jsx (`onResize`) and needs a TableView restructure, not a dependency tweak.
+- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The same trick keeps a parent's callback out of an effect's dependencies (`onResize` in `features/table/useTableResize.js`).
 - **No "critical" labels:** the data's `critical_yn` flag can't tell the Food Code's three kinds of violation (priority, priority foundation, core) apart, so the site shows every citation as a plain violation and never decides anything from the flag (owner's call, 2026-11-09, for accuracy and liability). Don't bring back critical chips, red rings or critical-first sorting. The database still stores the column; `critical_count`/`critical_6mo` in the functions are deprecated.
 - **Same-place detection:** `lib/samePlaceDetection.js` tags both features with each other's info; it never hides or merges pins. The sub-tenant regex must use `\bat\b` style word boundaries (it once contained raw backspace characters, and an older copy matched any name containing "at"). Tests pin this.
 - Shell caveat: in the sandbox `sh` was used, so brace expansion and `<( )` fail; prefer explicit paths.
