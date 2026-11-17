@@ -1,6 +1,7 @@
 // Table View: every inspection in the counties switched on (lib/counties.js), searchable
 // and sortable, read a page at a time from v_table_latest / v_table_inspections. On phones the filters fold away and
 // rows become cards, so the list gets the room.
+import { scoreBand } from "@lfs/core/grading.js";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { enabledRegions, nameList } from "./lib/regions.js";
@@ -19,13 +20,6 @@ import {
 
 // 100 at most: a page of 500 was about 100 KB from the database for every sort or page turn.
 const PAGE_SIZES = [10, 25, 50, 100];
-
-function scoreClass(s) {
-  if (s == null || s === 0) return "na";
-  if (s >= 95) return "ok";
-  if (s >= 85) return "warn";
-  return "bad";
-}
 
 // Bullitt's latest inspection is undated when it comes from the county's sheet (lib/bullitt.js).
 function fmt(val, region) {
@@ -681,7 +675,7 @@ export default function TableView({
                     data-testid="table-row"
                     onClick={() => openRow(row)}
                   >
-                    <span className={`tbl-score-badge ${scoreClass(row.score)}`}>
+                    <span className={`tbl-score-badge ${scoreBand(row.score)}`}>
                       {row.score || "N/A"}
                     </span>
                     <span className="tbl-card-main">
@@ -755,7 +749,7 @@ export default function TableView({
                       onClick={() => openRow(row)}
                     >
                       <td>
-                        <span className={`tbl-score-badge ${scoreClass(row.score)}`}>
+                        <span className={`tbl-score-badge ${scoreBand(row.score)}`}>
                           {row.score || "N/A"}
                         </span>
                       </td>

@@ -2,8 +2,9 @@
 // where the map goes when one is picked, and what each one's data can show. Pure data and
 // layer specs; features/map/regionOutlines.js puts the outlines on the map.
 //
-// To cover another county: add its outline to public/regions/<id>.geojson and an entry
-// here (with its `agency`, `source` and `dataNote`, which the Learn page shows). A county
+// To cover another county: add its id and name to packages/core/regions.js (the pipeline
+// and the emails read them there too), its outline to public/regions/<id>.geojson and an
+// entry here (with its `agency`, `source` and `dataNote`, which the Learn page shows). A county
 // read from Kentucky's inspection portal (pipeline/regions/kyportal) needs nothing else:
 // `feed: "portal"` loads its pins from v_portal_map_feed and its history from
 // portal_inspections (lib/portal.js). Bullitt has its own loader (lib/bullitt.js).
@@ -20,6 +21,8 @@
 //   formItems   its violations are every inspection-form item marked, not the inspector's
 //               citations: rings are much more common, so they are drawn lighter
 
+import { COUNTIES, DEFAULT_COUNTY } from "@lfs/core/regions.js";
+
 // Who's On First outlines are CC-BY: the credit shows in the map's attribution control.
 const WOF_CREDIT =
   '<a href="https://whosonfirst.org/docs/licenses/" target="_blank" rel="noopener">Who\'s On First</a>';
@@ -29,9 +32,8 @@ const CENSUS_CREDIT =
 
 export const REGIONS = [
   {
-    id: "jefferson",
-    name: "Jefferson County (Louisville Metro)",
-    shortName: "Jefferson",
+    ...COUNTIES.jefferson, // id, shortName
+    name: `${COUNTIES.jefferson.name} (Louisville Metro)`,
     boundaryUrl: "/regions/jefferson.geojson",
     enabled: true,
     attribution: WOF_CREDIT,
@@ -60,9 +62,7 @@ export const REGIONS = [
       "Every inspection back to about 2016, each with its date, score and A/B/C placard. Each violation names the Food Code item and includes the inspector's comments.",
   },
   {
-    id: "bullitt",
-    name: "Bullitt County",
-    shortName: "Bullitt",
+    ...COUNTIES.bullitt, // id, name, shortName
     boundaryUrl: "/regions/bullitt.geojson",
     enabled: true,
     attribution: WOF_CREDIT,
@@ -92,9 +92,7 @@ export const REGIONS = [
       "Only each place's latest inspection and its follow-up, dated through Kentucky's statewide inspection portal. When the portal is unavailable, the county's own list is used, which has no inspection date for the latest inspection. No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
   },
   {
-    id: "oldham",
-    name: "Oldham County",
-    shortName: "Oldham",
+    ...COUNTIES.oldham, // id, name, shortName
     boundaryUrl: "/regions/oldham.geojson",
     enabled: true,
     attribution: CENSUS_CREDIT,
@@ -128,7 +126,7 @@ export const REGIONS = [
   },
 ];
 
-export const DEFAULT_REGION = "jefferson";
+export const DEFAULT_REGION = DEFAULT_COUNTY;
 
 export const regionById = (id, regions = REGIONS) =>
   regions.find((r) => r.id === id) ?? regions.find((r) => r.id === DEFAULT_REGION);

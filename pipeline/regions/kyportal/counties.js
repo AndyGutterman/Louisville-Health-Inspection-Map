@@ -9,13 +9,15 @@
  * draws, and a file of pins placed by hand. To read another county, add it here
  * (docs/COUNTIES.md has the other steps).
  */
+import { countyName } from "@lfs/core/regions.js";
+
 export const COUNTIES = {
   // Also loaded from its own sheet (regions/bullitt), which stays as the fallback. Same
   // ids, geocode cache keys and hand-placed pins as the sheet's, so both agree.
   bullitt: {
     id: "bullitt",
     number: 15,
-    name: "Bullitt County",
+    name: countyName("bullitt"),
     county911: "Bullitt County",
     defaultCity: "Shepherdsville",
     outline: "apps/web/public/regions/bullitt.geojson",
@@ -24,7 +26,7 @@ export const COUNTIES = {
   oldham: {
     id: "oldham",
     number: 93,
-    name: "Oldham County",
+    name: countyName("oldham"),
     county911: "Oldham County",
     defaultCity: "La Grange",
     outline: "apps/web/public/regions/oldham.geojson",

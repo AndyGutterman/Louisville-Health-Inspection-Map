@@ -144,3 +144,14 @@ describe("nameList", () => {
     expect(nameList(["A", "B", "C"])).toBe("A, B and C");
   });
 });
+
+describe("the shared county list (@lfs/core/regions.js)", () => {
+  it("has every county the site draws, so the emails and the pipeline can name it", async () => {
+    const { COUNTIES, countyOfId } = await import("@lfs/core/regions.js");
+    for (const r of REGIONS) {
+      expect(COUNTIES[r.id]?.shortName, r.id).toBe(r.shortName);
+      // Both read the county from an id the same way.
+      expect(countyOfId(`${r.id}-x1`)).toBe(regionOfId(`${r.id}-x1`).id);
+    }
+  });
+});

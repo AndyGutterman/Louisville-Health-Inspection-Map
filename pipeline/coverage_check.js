@@ -15,6 +15,7 @@
  * Add to ingest.yml as the final step to surface data regressions in CI.
  */
 import "dotenv/config";
+import { categoryPairs } from "@lfs/core/categories.js";
 import { supa } from "./lib/db.js";
 
 const STRICT = process.argv.includes("--strict");
@@ -29,30 +30,9 @@ const THRESHOLDS = {
   maxStaleCount: 200, // how many stale facilities are acceptable before flagging
 };
 
-// The ft:st pairs your frontend CATEGORY_SPECS covers (excludes the explicit "unknown" bucket)
-const KNOWN_PAIRS = new Set([
-  "605:11",
-  "605:33",
-  "605:31",
-  "605:32", // restaurants, schools, daycare, hospitals
-  "603:51",
-  "603:53", // concessions
-  "605:42",
-  "605:43", // caterers/commissary
-  "610:61",
-  "610:62",
-  "610:63",
-  "610:64",
-  "610:65",
-  "610:73",
-  "610:212",
-  "607:54",
-  "607:55",
-  "605:54", // retail
-  "605:36",
-  "604:16",
-  "605:52", // explicit unknown/other
-]);
+// The type:subtype pairs the site's categories cover, "Other / Unknown" included: the same
+// list the Filter tab uses, so a pair added there is known here.
+const KNOWN_PAIRS = new Set(categoryPairs());
 
 function pct(n, d) {
   if (!d) return "—";

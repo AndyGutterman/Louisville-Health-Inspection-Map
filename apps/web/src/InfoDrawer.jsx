@@ -3,6 +3,7 @@ import "./styles/Violations.css";
 import "./styles/History.css";
 import "./styles/RestaurantInfo.css";
 import { formatDateSafe } from "./lib/dates.js";
+import { scoreBand } from "@lfs/core/grading.js";
 import { regionOfId } from "./lib/regions.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import {
@@ -42,8 +43,7 @@ function CurrentInspectionCard({
   const gradeDisplay = grade && String(grade).trim().length > 0 ? String(grade).trim() : "—";
   const scoreNum =
     score != null && Number.isFinite(Number(score)) && Number(score) > 0 ? Number(score) : null;
-  const badgeClass =
-    scoreNum == null ? "na" : scoreNum >= 95 ? "ok" : scoreNum >= 85 ? "warn" : "bad";
+  const badgeClass = scoreBand(scoreNum);
 
   const scoreText = scoreNum === 0 || scoreNum == null ? "N/A" : scoreNum;
 
@@ -333,8 +333,7 @@ function PastInspection({ row, showGrade = true }) {
 
   const scoreText = scoreNum == null ? "N/A" : scoreNum;
 
-  const badgeClass =
-    scoreNum == null ? "na" : scoreNum >= 95 ? "ok" : scoreNum >= 85 ? "warn" : "bad";
+  const badgeClass = scoreBand(scoreNum);
 
   const rawViols = Array.isArray(row.violations) ? row.violations : [];
   // Deduplicate by violation_desc: same type cited multiple times (per food item) → one row + ×N count
