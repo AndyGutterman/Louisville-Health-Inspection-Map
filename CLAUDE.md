@@ -61,6 +61,7 @@ Workspace-specific: `npm run <script> -w apps/web`, `-w packages/core` or `-w pi
 ## Conventions
 
 - New logic goes in `src/lib/` first, with a test next to it (`foo.js` + `foo.test.js`). Frontend tests are colocated; pipeline tests live in `pipeline/tests/`. Keep that split.
+- Component tests (`Foo.test.jsx` beside `Foo.jsx`): first line `// @vitest-environment jsdom`, Testing Library, and `vi.mock` the component's `api/` module so nothing reaches Supabase. Example: `WhatsNew.test.jsx`.
 - Component CSS goes in `src/styles/<Component>.css`, imported by the component. No CSS inside JS template strings.
 - One concern per commit. Conventional-style messages: `fix(drawer): ...`, `refactor: ...`, `chore: ...`.
 - The whole repo is Prettier-formatted (commit `973b174`, listed in `.git-blame-ignore-revs`). Run `npm run format` on files you change.

@@ -19,7 +19,8 @@ const buildCommit = {
 export default defineConfig({
   plugins: [react(), buildCommit],
   test: {
-    environment: "node", // switch to "jsdom" per-file when component tests arrive
+    // Component tests ask for a DOM in their first line: // @vitest-environment jsdom
+    environment: "node",
     include: ["src/**/*.test.{js,jsx}"],
     // `npm run test:coverage` (needs @vitest/coverage-v8). Scoped to the logic layer.
     coverage: {
