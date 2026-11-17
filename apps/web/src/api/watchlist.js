@@ -28,3 +28,36 @@ export async function fetchWatchAreas(userId) {
 
 export const updateWatchArea = (id, update) =>
   supabase.from("watchlist_areas").update(update).eq("id", id);
+
+// ── The Saved panel (WatchlistTab.jsx). Each returns the request: { data, error }. ──────
+
+// Saved places with each one's latest inspection.
+export const fetchSavedPlaces = (userId) =>
+  supabase.from("v_watchlist_with_latest").select("*").eq("user_id", userId);
+
+// The user's watch areas in full, newest first.
+export const fetchWatchAreaRows = (userId) =>
+  supabase
+    .from("watchlist_areas")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+// The places inside a watch area: most violations first, then failing, then lowest score.
+// The database sorts and cuts the list, so a busy area costs `limit` rows, not thousands.
+export const fetchZonePlaces = (areaId, limit) =>
+  supabase
+    .rpc("watch_zone_places", { p_area_id: areaId })
+    .order("violations_6mo", { ascending: false })
+    .order("failing", { ascending: false })
+    .order("score", { ascending: true, nullsFirst: false })
+    .limit(limit);
+
+// By the saved row's own id (the Saved panel has it; the map saves and unsaves by place).
+export const removeSavedPlace = (id) => supabase.from("watchlist").delete().eq("id", id);
+
+// Adds a watch area and returns the new row.
+export const addWatchArea = (area) =>
+  supabase.from("watchlist_areas").insert([area]).select().single();
+
+export const removeWatchArea = (id) => supabase.from("watchlist_areas").delete().eq("id", id);

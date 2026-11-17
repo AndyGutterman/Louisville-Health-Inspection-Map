@@ -17,7 +17,6 @@ import FeedbackModal from "./FeedbackModal.jsx";
 import AccountPage, { ACCOUNT_PANEL_W } from "./AccountPage.jsx";
 import WhatsNew from "./WhatsNew.jsx";
 import { useAuth } from "./AuthContext.jsx";
-import { supabase } from "./lib/supabase.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { useLatest } from "./hooks/useLatest.js";
 import { DATE_FILTER_OPTS } from "./lib/constants.js";
@@ -454,7 +453,6 @@ export default function Map({ onMapReady }) {
         <LearnPage
           loginOpen={loginOpen}
           onCloseLogin={() => setLoginOpen(false)}
-          supabase={supabase}
           mapCutoffDate={cutoffDate}
           onOpenPrivacy={() => setPage("privacy")}
           onOpenEstablishment={async (eid) => {
@@ -496,7 +494,7 @@ export default function Map({ onMapReady }) {
         />
       )}
 
-      {feedbackOpen && <FeedbackModal supabase={supabase} onClose={() => setFeedbackOpen(false)} />}
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
 
       {/* The map stays mounted off the map page, just hidden */}
       <div
@@ -595,7 +593,6 @@ export default function Map({ onMapReady }) {
           )}
 
           <WhatsNew
-            supabase={supabase}
             open={whatsNewOpen}
             onClose={() => setWhatsNewOpen(false)}
             onOpen={() => {
@@ -609,7 +606,6 @@ export default function Map({ onMapReady }) {
           />
 
           <TableView
-            supabase={supabase}
             onClose={() => setTableOpen(false)}
             onRowClick={openFromTable}
             onRowHover={hoverPlace}

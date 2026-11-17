@@ -1,6 +1,7 @@
 // Table View: every inspection in the counties switched on (lib/counties.js), searchable
 // and sortable, read a page at a time from v_table_latest / v_table_inspections. On phones the filters fold away and
 // rows become cards, so the list gets the room.
+import { fetchInspectionTypes, fetchTablePage } from "./api/table.js";
 import { scoreBand } from "@lfs/core/grading.js";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
@@ -132,7 +133,6 @@ const regionShort = (id) => TABLE_REGIONS.find((r) => r.id === id)?.shortName ??
 const regionName = (id) => TABLE_REGIONS.find((r) => r.id === id)?.name ?? "";
 
 export default function TableView({
-  supabase,
   onRowClick,
   onRowHover,
   onRowHoverEnd,
@@ -252,23 +252,20 @@ export default function TableView({
     if (!hidden) setTypesWanted(true);
   }, [hidden]);
   useEffect(() => {
-    if (!supabase || !typesWanted) return;
-    supabase
-      .from("v_inspection_types")
-      .select("ins_type_desc, cnt")
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn("v_inspection_types:", error.message);
-          return;
-        }
-        setTypes((data || []).map((r) => ({ type: r.ins_type_desc, count: Number(r.cnt) })));
-      });
-  }, [supabase, typesWanted]);
+    if (!typesWanted) return;
+    fetchInspectionTypes().then(({ data, error }) => {
+      if (error) {
+        console.warn("v_inspection_types:", error.message);
+        return;
+      }
+      setTypes((data || []).map((r) => ({ type: r.ins_type_desc, count: Number(r.cnt) })));
+    });
+  }, [typesWanted]);
 
   // Main data fetch. Nothing loads until the table is first opened, and the row count is
   // only asked for when the filters change, not on every page.
   useEffect(() => {
-    if (!supabase || !typesWanted) return;
+    if (!typesWanted) return;
     // No listed county is switched on: nothing to ask the database for.
     if (REGIONS.length === 0) {
       setRows([]);
@@ -302,25 +299,19 @@ export default function TableView({
     });
     const wantCount = countedFor.current !== key;
 
-    let q = supabase
-      .from(view)
-      .select(
-        "region, inspection_id, establishment_id, inspection_date, score, grade, ins_type_desc, name, address, city, zip",
-        wantCount ? { count: "exact" } : undefined,
-      )
-      .order(col, { ascending: asc, nullsFirst: false })
-      .order("inspection_id", { ascending: false })
-      .range(from, to);
-
-    // No region filter when every county the views hold is wanted.
-    if (wanted.length === 1) q = q.eq("region", wanted[0]);
-    else if (wanted.length < TABLE_REGIONS.length) q = q.in("region", wanted);
-    if (hideNA) q = q.gt("score", 0);
-    if (selTypes) q = q.in("ins_type_desc", [...selTypes]);
-    const or = combineOr(...searchFilters(dbSearch), facilityFilter(cats));
-    if (or) q = q.or(or);
-
-    q.then(({ data, error, count }) => {
+    fetchTablePage({
+      view,
+      wantCount,
+      col,
+      asc,
+      from,
+      to,
+      // No region filter when every county the views hold is wanted.
+      regions: wanted.length === 1 || wanted.length < TABLE_REGIONS.length ? wanted : null,
+      hideNA,
+      types: selTypes,
+      or: combineOr(...searchFilters(dbSearch), facilityFilter(cats)),
+    }).then(({ data, error, count }) => {
       if (cancelled) return;
       if (error) {
         setError(error.message);
@@ -338,7 +329,6 @@ export default function TableView({
       cancelled = true;
     };
   }, [
-    supabase,
     typesWanted,
     page,
     pageSize,

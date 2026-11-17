@@ -39,7 +39,7 @@ docs/
 | 1     | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` (done 2026-11-06)                                                        | Low        |
 | 2     | `packages/core`: categories, the score scale, county names, the emails; copies deleted (done 2026-11-17, see below)                                                                                              | Low        |
 | 3     | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first)                                                                                                                                | Medium     |
-| 4     | Web data layer: `api/` modules and hooks (map and drawer done 2026-11-08; TableView, WhatsNew, LearnPage, WatchlistTab still call Supabase directly)                                                             | Medium     |
+| 4     | Web data layer: every Supabase query in `api/` (map and drawer 2026-11-08; Table View, What's New, Learn, Saved and the account 2026-11-17). Not done: hooks around them                                         | Medium     |
 | 5     | Split `Map.jsx` (done 2026-11-08, see below)                                                                                                                                                                     | Highest    |
 | 6     | Remaining components, CSS clean-up, dead code                                                                                                                                                                    | Low–medium |
 | 7     | Docs: architecture, CONTRIBUTING, "adding a county", decision notes                                                                                                                                              | None       |
@@ -107,5 +107,5 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 
 ## Security and backups (fixed outside the refactor)
 
-- `feedback` let any signed-in user read all submissions (names, emails) and let anonymous users insert directly, skipping the edge function's rate limit. Fixed by `supabase/migrations/20261106120000_feedback_edge_function_only.sql`. Production uses the edge function (`VITE_FEEDBACK_FUNCTION_URL` is set in Netlify), so the `FeedbackModal.jsx` direct-insert fallback is now dead code: remove it in phase 6.
+- `feedback` let any signed-in user read all submissions (names, emails) and let anonymous users insert directly, skipping the edge function's rate limit. Fixed by `supabase/migrations/20261106120000_feedback_edge_function_only.sql`. Production uses the edge function (`VITE_FEEDBACK_FUNCTION_URL` is set in Netlify), so the `FeedbackModal.jsx` direct-insert fallback was dead code (removed 2026-11-17; the form now finds the function from the Supabase URL when that variable is unset).
 - The nightly backup had been committing empty files since at least July 2026: an old `pg_dump` refused the newer server, and the pipe into `gzip` hid the failure. Fixed in `db-backup.yml` (current client, `pipefail`, minimum-size check).

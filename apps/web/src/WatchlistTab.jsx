@@ -3,6 +3,15 @@ import React, { useState, useEffect } from "react";
 import AddressPicker from "./AddressPicker.jsx";
 import { WATCH_RADIUS_OPTIONS } from "./watchAreaLayer.js";
 import { formatLongDate } from "./lib/dates.js";
+import {
+  addWatchArea,
+  fetchSavedPlaces,
+  fetchWatchAreaRows,
+  fetchZonePlaces,
+  removeSavedPlace,
+  removeWatchArea,
+  updateWatchArea,
+} from "./api/watchlist.js";
 import { DEFAULT_SORT, SORTS, sortPlaces, violationText } from "./lib/watchAreaSort.js";
 import "./styles/WatchlistTab.css";
 
@@ -52,7 +61,6 @@ function PlaceRow({ p, active, onOpen }) {
 }
 
 export default function WatchlistTab({
-  supabase,
   user,
   compact = false,
   onOpenEstablishment, // (establishment_id, row) => void; makes restaurant rows clickable
@@ -86,15 +94,8 @@ export default function WatchlistTab({
   }, [focusAreaId, loading, areas]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
-    Promise.all([
-      supabase.from("v_watchlist_with_latest").select("*").eq("user_id", user.id),
-      supabase
-        .from("watchlist_areas")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false }),
-    ]).then(([wRes, aRes]) => {
+    if (!user) return;
+    Promise.all([fetchSavedPlaces(user.id), fetchWatchAreaRows(user.id)]).then(([wRes, aRes]) => {
       const e = wRes.error || aRes.error;
       if (e) {
         console.error("Watchlist load failed:", e);
@@ -104,7 +105,7 @@ export default function WatchlistTab({
       setAreas(aRes.data || []);
       setLoading(false);
     });
-  }, [supabase, user]);
+  }, [user]);
 
   // The map and info drawer can now change bookmarks while this list is on screen.
   const firstRefresh = React.useRef(true);
@@ -113,29 +114,21 @@ export default function WatchlistTab({
       firstRefresh.current = false;
       return;
     }
-    if (!supabase || !user) return;
-    supabase
-      .from("v_watchlist_with_latest")
-      .select("*")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (data) setItems(data);
-      });
+    if (!user) return;
+    fetchSavedPlaces(user.id).then(({ data }) => {
+      if (data) setItems(data);
+    });
   }, [refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ...and the map's circle editor can move or resize a watch area while this list is on screen.
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!user) return;
     let timer;
     const onExternal = (e) => {
       if (e.detail?.source === "watchlist") return; // our own change
       clearTimeout(timer);
       timer = setTimeout(async () => {
-        const { data } = await supabase
-          .from("watchlist_areas")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
+        const { data } = await fetchWatchAreaRows(user.id);
         if (data) {
           setAreas(data);
           setZones({});
@@ -147,26 +140,19 @@ export default function WatchlistTab({
       clearTimeout(timer);
       window.removeEventListener("watch-areas-changed", onExternal);
     };
-  }, [supabase, user]);
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
     areas.forEach((a) => {
       if (zones[a.id]) return;
-      // The database sorts and cuts the list, so a busy area costs 50 rows, not thousands.
-      supabase
-        .rpc("watch_zone_places", { p_area_id: a.id })
-        .order("violations_6mo", { ascending: false })
-        .order("failing", { ascending: false })
-        .order("score", { ascending: true, nullsFirst: false })
-        .limit(ZONE_ROWS)
-        .then(({ data, error }) => {
-          if (cancelled) return;
-          setZones((prev) => ({
-            ...prev,
-            [a.id]: error ? { rows: [], error: error.message } : { rows: data || [] },
-          }));
-        });
+      fetchZonePlaces(a.id, ZONE_ROWS).then(({ data, error }) => {
+        if (cancelled) return;
+        setZones((prev) => ({
+          ...prev,
+          [a.id]: error ? { rows: [], error: error.message } : { rows: data || [] },
+        }));
+      });
     });
     return () => {
       cancelled = true;
@@ -175,7 +161,7 @@ export default function WatchlistTab({
 
   async function removeItem(id) {
     const gone = items.find((i) => i.id === id);
-    await supabase.from("watchlist").delete().eq("id", id);
+    await removeSavedPlace(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
     if (gone) onItemRemoved?.(gone.establishment_id);
   }
@@ -186,20 +172,14 @@ export default function WatchlistTab({
     if (!pick || saving || areas.length >= CAPS.areas) return;
     setBanner("");
     setSaving(true);
-    const { data, error } = await supabase
-      .from("watchlist_areas")
-      .insert([
-        {
-          user_id: user.id,
-          label: areaLabel.trim() || null,
-          center_address: pick.address,
-          center_lat: pick.lat,
-          center_lon: pick.lon,
-          radius_miles: areaRadius,
-        },
-      ])
-      .select()
-      .single();
+    const { data, error } = await addWatchArea({
+      user_id: user.id,
+      label: areaLabel.trim() || null,
+      center_address: pick.address,
+      center_lat: pick.lat,
+      center_lon: pick.lon,
+      radius_miles: areaRadius,
+    });
     setSaving(false);
     if (error) {
       setBanner(`Couldn't save that area: ${error.message}`);
@@ -215,7 +195,7 @@ export default function WatchlistTab({
   }
 
   async function removeArea(id) {
-    await supabase.from("watchlist_areas").delete().eq("id", id);
+    await removeWatchArea(id);
     setAreas((prev) => prev.filter((a) => a.id !== id));
     window.dispatchEvent(
       new CustomEvent("watch-areas-changed", { detail: { source: "watchlist" } }),
@@ -223,10 +203,7 @@ export default function WatchlistTab({
   }
 
   async function updateAreaRadius(id, r) {
-    const { error } = await supabase
-      .from("watchlist_areas")
-      .update({ radius_miles: r })
-      .eq("id", id);
+    const { error } = await updateWatchArea(id, { radius_miles: r });
     if (error) {
       setBanner(`Couldn't change that radius: ${error.message}`);
       return;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { WHATS_NEW_TABS, scoreBadge, swipeTab, whatsNewDate } from "./lib/whatsNew.js";
 import { regionOfId } from "./lib/regions.js";
+import { fetchWhatsNewList } from "./api/whatsNew.js";
 import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
@@ -68,7 +69,6 @@ const PREVIEW_ROWS = 5; // a tab shows this many until "Show all"
 const COL_ICON = { issues: "⚠ ", perfect: "✓ " };
 
 export default function WhatsNew({
-  supabase,
   onOpenEstablishment,
   onHoverEstablishment,
   onHoverEstablishmentEnd,
@@ -90,20 +90,20 @@ export default function WhatsNew({
 
   // Each tab's rows load the first time it's shown; wide mode shows (and loads) them all.
   useEffect(() => {
-    if (!open || !supabase) return;
+    if (!open) return;
     const wanted = isWide ? WHATS_NEW_TABS : WHATS_NEW_TABS.filter((t) => t.id === tab);
     for (const t of wanted) {
       if (requestedRef.current.has(t.id)) continue;
       requestedRef.current.add(t.id);
       setLists((l) => ({ ...l, [t.id]: { rows: [], loading: true, error: null } }));
-      supabase.rpc(t.rpc, { limit_n: 20 }).then(({ data, error }) => {
+      fetchWhatsNewList(t.rpc).then(({ data, error }) => {
         setLists((l) => ({
           ...l,
           [t.id]: { rows: data || [], loading: false, error: error?.message ?? null },
         }));
       });
     }
-  }, [open, supabase, tab, isWide]);
+  }, [open, tab, isWide]);
 
   // Resize handle
   const onResizeDown = useCallback(

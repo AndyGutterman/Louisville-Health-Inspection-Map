@@ -1,39 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import WatchlistTab from "./WatchlistTab.jsx";
+import { fetchDigestChoice, saveDigestChoice } from "./api/account.js";
 import { OFF, WEEKLY, isSubscribed } from "./lib/digest.js";
 import { PRIVACY_PATH } from "./lib/privacy.js";
 import { useIsAdmin } from "./features/admin/useIsAdmin.js";
 import "./styles/AccountPage.css";
 
 // The weekly digest email, on or off (profiles.alert_frequency, lib/digest.js).
-function DigestToggle({ supabase, user }) {
+function DigestToggle({ user }) {
   const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let live = true;
-    supabase
-      .from("profiles")
-      .select("alert_frequency")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => live && setProfile(data ?? { alert_frequency: OFF }));
+    fetchDigestChoice(user.id).then(
+      ({ data }) => live && setProfile(data ?? { alert_frequency: OFF }),
+    );
     return () => {
       live = false;
     };
-  }, [supabase, user.id]);
+  }, [user.id]);
 
   const on = isSubscribed(profile);
   const toggle = async () => {
     const next = on ? OFF : WEEKLY;
     setSaving(true);
     setError(null);
-    const { error: e } = await supabase
-      .from("profiles")
-      .update({ alert_frequency: next })
-      .eq("id", user.id);
+    const { error: e } = await saveDigestChoice(user.id, next);
     setSaving(false);
     if (e) setError("Couldn't save that. Try again.");
     else setProfile({ alert_frequency: next });
@@ -77,7 +72,7 @@ export default function AccountPage({
   bottomInset, // phones: px of the info drawer sitting over the bottom of this page
   onOpenAdmin, // opens the email admin page; its button shows for admins only
 }) {
-  const { user, signOut, supabase } = useAuth();
+  const { user, signOut } = useAuth();
   const admin = useIsAdmin(user);
   const side = variant === "panel";
 
@@ -129,9 +124,8 @@ export default function AccountPage({
             Email admin
           </button>
         )}
-        <DigestToggle supabase={supabase} user={user} />
+        <DigestToggle user={user} />
         <WatchlistTab
-          supabase={supabase}
           user={user}
           compact={side}
           onOpenEstablishment={onOpenEstablishment}
