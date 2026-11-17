@@ -50,11 +50,11 @@ npm run dev
 npm run lint        # 0 errors expected; 1 known warning (see below)
 npm test            # website (vitest), packages/core and pipeline (node --test)
 npm run build
-npm run format      # Prettier
+npm run format      # Prettier (CI runs format:check)
 npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
 ```
 
-Workspace-specific: `npm run <script> -w apps/web`, `-w packages/core` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
+Workspace-specific: `npm run <script> -w apps/web`, `-w packages/core` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional: feedback goes to the project's own `submit-feedback` function without it). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
 
 ## Conventions
 
@@ -142,14 +142,12 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 
 ## To do, in rough order
 
-1. `git rm docs/good-first-issues.md`. Delete `apps/web/src/styles/App.css`, `apps/web/src/assets/react.svg`, `apps/web/public/vite.svg` only if `git grep -n "App.css\|react.svg\|vite.svg" apps/web` shows no real uses.
-2. Add a `LICENSE` file (MIT; README already says MIT). Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
-3. Add `npm run format:check` to `ci.yml`.
-4. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
-5. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
-6. Refactor phases 3, 4, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure, `api/` for the other panels). `packages/core` (phase 2) and the Map.jsx split (phase 5) are done.
-7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).
-8. Later: consider TypeScript after the split.
+1. Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
+2. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
+3. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
+4. Refactor phases 3, 4, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure, `api/` for the other panels). `packages/core` (phase 2) and the Map.jsx split (phase 5) are done.
+5. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).
+6. Later: consider TypeScript after the split.
 
 ## Working with the owner
 
