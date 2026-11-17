@@ -869,14 +869,15 @@ test("the privacy page says what is stored, and the sign-in form links to it", a
   const privacy = page.getByTestId("privacy-page");
   await expect(privacy.getByRole("heading", { name: "Privacy", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/$/); // the link is taken off the address
-  // The promises that matter, and the way to be deleted.
+  // What it says the site does...
   await expect(privacy).toContainText("no ads and no tracking");
-  await expect(privacy).toContainText("never sells or shares your information");
+  await expect(privacy).toContainText("doesn't sell or share your information");
   await expect(privacy).toContainText("The IP address itself is not stored");
-  await expect(privacy.getByRole("link", { name: /@/ }).first()).toHaveAttribute(
-    "href",
-    /^mailto:/,
-  );
+  // ...and nothing a person would have to keep: no deadline, no inbox to write to, and it
+  // says plainly that an account can't be deleted yet.
+  await expect(privacy).toContainText("There is no way to do that yet");
+  await expect(privacy).not.toContainText(/within \d+ days|will be deleted|told by email/);
+  await expect(privacy.locator('a[href^="mailto:"]')).toHaveCount(0);
   await snap(page, testInfo, "privacy-page");
 
   // "About the data" goes to the Learn page, whose last line comes back here.

@@ -1,8 +1,11 @@
 // The privacy page (/?page=privacy). Plain words, and every line has to stay true: when
 // the site starts storing or sending something new, say so here and move the date in
-// lib/privacy.js. docs/PRIVACY.md lists where each statement comes from in the code, and
-// how to handle a request to delete someone's data.
-import { CONTACT_EMAIL, PRIVACY_UPDATED } from "../../lib/privacy.js";
+// lib/privacy.js. docs/PRIVACY.md lists where each statement comes from in the code.
+//
+// It only says what the site does by itself. No promises that need a person to keep them
+// (a deadline, "ask and it will be deleted", "you will be told"): the owner's call,
+// 2026-11-17. If something isn't built, the page says so.
+import { PRIVACY_UPDATED } from "../../lib/privacy.js";
 import "../../styles/PrivacyPage.css";
 
 const REPO = "https://github.com/AndyGutterman/Louisville-Health-Inspection-Map";
@@ -18,7 +21,6 @@ function Section({ title, children }) {
 
 /** @param {{ onOpenLearn: Function }} p  opens the Learn page (about the inspection data) */
 export default function PrivacyPage({ onOpenLearn }) {
-  const mail = <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
   return (
     <div className="ln-page-wrap" data-testid="privacy-page">
       <div className="ln-page pv-page">
@@ -29,11 +31,11 @@ export default function PrivacyPage({ onOpenLearn }) {
 
         <p className="pv-lead">
           Louisville Food Safe is a free project run by one person. It has no ads and no tracking,
-          and it never sells or shares your information. You can use the whole map without an
+          and it doesn&apos;t sell or share your information. You can use the whole map without an
           account.
         </p>
 
-        <Section title="What is collected">
+        <Section title="What is stored">
           <dl className="pv-list">
             <dt>If you just look at the map</dt>
             <dd>
@@ -49,7 +51,10 @@ export default function PrivacyPage({ onOpenLearn }) {
               is remembered in your browser until you sign out.
             </dd>
             <dt>If you get the weekly email</dt>
-            <dd>A record of which emails were sent to your address, and when.</dd>
+            <dd>
+              The site keeps a log of which emails went to your address and when. It does this by
+              itself, so that nobody is sent the same email twice.
+            </dd>
             <dt>If you send feedback</dt>
             <dd>
               Your message, plus your name and email if you choose to give them. To keep spam out,
@@ -61,18 +66,18 @@ export default function PrivacyPage({ onOpenLearn }) {
 
         <Section title="What it is used for">
           <p>
-            Only to run the site: signing you in, showing your saved places and watch areas, sending
-            the weekly digest you asked for, and reading your feedback. Subscribers may now and then
-            get a short note about the site itself, such as a new county. Every email has an
-            unsubscribe link.
+            Only to run the site: signing you in, showing your saved places and watch areas, and
+            sending the weekly digest if you asked for it. Feedback is used to fix and improve the
+            site. People who get the digest may occasionally get another email about the site
+            itself. The digest and those emails each have an unsubscribe link.
           </p>
         </Section>
 
         <Section title="Who can see it">
           <p>
-            The person who runs the site can see account emails, saved places and watch areas, to
-            keep the service working and to fix problems. Nobody else. It is not sold, not shared
-            and not used for advertising.
+            The person who runs the site can see account emails, saved places, watch areas and
+            feedback. So can the services listed below, as far as each needs to for its job. It is
+            not sold and not used for advertising.
           </p>
         </Section>
 
@@ -117,26 +122,13 @@ export default function PrivacyPage({ onOpenLearn }) {
             </dd>
             <dt>Remove a saved place or a watch area</dt>
             <dd>Remove it in Saved. It is deleted straight away.</dd>
-            <dt>Delete your account, or ask what is held about you</dt>
+            <dt>Deleting the account itself</dt>
             <dd>
-              Email {mail} from the address on the account. Your account, saved places, watch areas
-              and email record are deleted within 30 days, usually much sooner.
+              There is no way to do that yet. Switching the weekly email off and removing your saved
+              places and watch areas leaves your email address and the log of emails sent to it.
+              Nothing is deleted on a schedule: what you don&apos;t remove stays.
             </dd>
           </dl>
-        </Section>
-
-        <Section title="How long it is kept">
-          <p>
-            Account information is kept for as long as you have the account. Feedback is kept so it
-            can be acted on; ask and yours will be deleted.
-          </p>
-        </Section>
-
-        <Section title="Children">
-          <p>
-            The site is not meant for children under 13 and does not knowingly collect information
-            from them.
-          </p>
         </Section>
 
         <Section title="The inspection data">
@@ -149,10 +141,10 @@ export default function PrivacyPage({ onOpenLearn }) {
           </p>
         </Section>
 
-        <Section title="Changes and contact">
+        <Section title="About this page">
           <p>
-            If this page changes in a way that matters, the date at the top changes and subscribers
-            are told by email. Questions go to {mail}. The site&apos;s code is public on{" "}
+            This page describes the site as it was on the date at the top. To report a problem, use
+            the Feedback button at the top of the site. The site&apos;s code is public on{" "}
             <a href={REPO} target="_blank" rel="noopener noreferrer">
               GitHub
             </a>
