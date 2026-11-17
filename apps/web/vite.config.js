@@ -25,7 +25,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.js"],
-      exclude: ["src/**/*.test.js"],
+      // supabase.js only creates the client: there is no logic in it to test.
+      exclude: ["src/**/*.test.js", "src/lib/supabase.js"],
       reporter: ["text", "lcov"],
     },
   },

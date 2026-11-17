@@ -50,6 +50,7 @@ npm ci
 npm run dev
 npm run lint        # 0 errors expected; 1 known warning (see below)
 npm test            # website (vitest), packages/core and pipeline (node --test)
+npm run test:coverage  # website logic-layer coverage (src/lib), about 98% of lines
 npm run build
 npm run format      # Prettier (CI runs format:check)
 npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
@@ -144,7 +145,7 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 ## To do, in rough order
 
 1. Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
-2. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
+2. Coverage: `npm run test:coverage` works (`@vitest/coverage-v8`, the same version as vitest; `src/lib` is about 98% of lines). Components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
 3. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
 4. Refactor phases 3, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure; splitting the big components). `packages/core` (phase 2), `api/` for every panel (phase 4) and the Map.jsx split (phase 5) are done. Phase 3 changes the scripts that load production data: do it from a machine that can run them against the database (a dry run first), not blind from a cloud session.
 5. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).

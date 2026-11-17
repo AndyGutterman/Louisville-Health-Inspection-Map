@@ -13,6 +13,7 @@
     "build": "npm run build -w apps/web",
     "lint": "npm run lint -w apps/web",
     "test": "npm test --workspaces",
+    "test:coverage": "npm run test:coverage -w apps/web",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "e2e": "npm run e2e -w apps/web"
