@@ -7,10 +7,10 @@
 
 An interactive map of health inspection scores for restaurants and other food service establishments in Louisville, KY. It pulls Louisville Metro's open inspection data on a schedule and makes it easy to browse: pins colored by score, full inspection histories, and the specific violations behind each score.
 
-<!-- Add screenshots to docs/images/, then uncomment:
-![Map with the inspection drawer open](docs/images/desktop.png)
-![Phone layout](docs/images/mobile.png)
--->
+<p align="center">
+  <img src="docs/images/desktop.png" alt="The map on a desktop, with a restaurant's score and inspection history open beside it" width="68%">
+  <img src="docs/images/mobile.png" alt="The map on a phone, pins coloured by score" width="22%">
+</p>
 
 ## What you can do
 
