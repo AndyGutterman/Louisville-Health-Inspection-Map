@@ -24,7 +24,7 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
 
 /**
  * @param {object} p
- * @param {"map"|"learn"|"admin"} p.page
+ * @param {"map"|"learn"|"admin"|"privacy"} p.page
  * @param {boolean} p.showSearch     false off the map and on the phone account page
  * @param {string} p.searchTerm
  * @param {Function} p.onSearchChange

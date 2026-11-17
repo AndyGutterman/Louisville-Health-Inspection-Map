@@ -75,6 +75,8 @@ describe("renderCustom", () => {
     const theirs = renderCustom(message);
     assert.doesNotMatch(theirs.html, /because you subscribed|Unsubscribe/);
     assert.match(theirs.html, /About the data/);
+    // Everyone gets the link to what the site stores about them.
+    assert.match(theirs.html, /href="https:\/\/louisvillefoodsafe\.netlify\.app\/\?page=privacy"/);
   });
 
   it("escapes the subject", () => {

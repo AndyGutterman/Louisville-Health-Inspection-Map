@@ -46,6 +46,8 @@ import PinsLoading from "./PinsLoading.jsx";
 
 // The email admin page (features/admin): its own chunk, so visitors never download it.
 const AdminPage = lazy(() => import("./features/admin/AdminPage.jsx"));
+// The privacy page: plain text most visitors never open, so it loads on demand too.
+const PrivacyPage = lazy(() => import("./features/privacy/PrivacyPage.jsx"));
 
 // YYYY-MM-DD `days` ago, or null for "All time".
 function cutoffFor(dateFilterKey) {
@@ -136,7 +138,7 @@ export default function Map({ onMapReady }) {
   }, [pins]);
 
   // ── Pages and panels ─────────────────────────────────────────────────────────
-  const [page, setPage] = useState("map"); // "map" | "learn" | "admin"
+  const [page, setPage] = useState("map"); // "map" | "learn" | "admin" | "privacy"
   // The Saved panel: beside the drawer on desktop, a full-screen page on phones.
   const [accountOpen, setAccountOpen] = useState(false);
   const [focusArea, setFocusArea] = useState(null); // { id, n }: scroll Saved to this area
@@ -454,6 +456,7 @@ export default function Map({ onMapReady }) {
           onCloseLogin={() => setLoginOpen(false)}
           supabase={supabase}
           mapCutoffDate={cutoffDate}
+          onOpenPrivacy={() => setPage("privacy")}
           onOpenEstablishment={async (eid) => {
             setPage("map");
             const f = await findFeature(eid);
@@ -466,6 +469,12 @@ export default function Map({ onMapReady }) {
       {page === "admin" && (
         <Suspense fallback={null}>
           <AdminPage onLogIn={() => setLoginOpen(true)} />
+        </Suspense>
+      )}
+
+      {page === "privacy" && (
+        <Suspense fallback={null}>
+          <PrivacyPage onOpenLearn={() => setPage("learn")} />
         </Suspense>
       )}
 

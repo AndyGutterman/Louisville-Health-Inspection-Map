@@ -861,3 +861,34 @@ test("sign in with the code from the email, no link needed", async ({ page }, te
   // Signed in with the box ticked: the account is subscribed.
   expect((await optIn).postDataJSON()).toEqual({ alert_frequency: "weekly" });
 });
+
+test("the privacy page says what is stored, and the sign-in form links to it", async ({
+  page,
+}, testInfo) => {
+  await openApp(page, { path: "/?page=privacy" });
+  const privacy = page.getByTestId("privacy-page");
+  await expect(privacy.getByRole("heading", { name: "Privacy", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/); // the link is taken off the address
+  // The promises that matter, and the way to be deleted.
+  await expect(privacy).toContainText("no ads and no tracking");
+  await expect(privacy).toContainText("never sells or shares your information");
+  await expect(privacy).toContainText("The IP address itself is not stored");
+  await expect(privacy.getByRole("link", { name: /@/ }).first()).toHaveAttribute(
+    "href",
+    /^mailto:/,
+  );
+  await snap(page, testInfo, "privacy-page");
+
+  // "About the data" goes to the Learn page, whose last line comes back here.
+  await privacy.getByRole("button", { name: "About the data" }).click();
+  await expect(page.getByRole("heading", { name: /Understanding Louisville/ })).toBeVisible();
+  await page.getByRole("button", { name: /Privacy: what this site stores/ }).click();
+  await expect(privacy).toBeVisible();
+
+  // The form that asks for an email links to it, in a new tab so the form isn't lost.
+  await page.getByRole("button", { name: "Back to the map" }).click();
+  await page.locator(".header-nav-btn--login").click();
+  const link = page.getByRole("link", { name: "Privacy" });
+  await expect(link).toHaveAttribute("href", "/?page=privacy");
+  await expect(link).toHaveAttribute("target", "_blank");
+});

@@ -1,0 +1,65 @@
+/* The privacy page (features/privacy). It sits in the Learn page's frame (.ln-page-wrap,
+   .ln-page, .ln-sh from LearnPage.css); these are only its own text styles. */
+.pv-page {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.74);
+}
+.pv-page a,
+.pv-link {
+  color: #6fcf8a;
+  font-weight: 600;
+}
+.pv-lead {
+  margin: 0 0 30px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(52, 168, 83, 0.08);
+  border: 1px solid rgba(52, 168, 83, 0.28);
+  color: #f0f0f3;
+  font-size: 0.95rem;
+}
+.pv-section {
+  margin-bottom: 28px;
+}
+.pv-section h2 {
+  margin-top: 0;
+}
+.pv-section p {
+  margin: 0 0 10px;
+}
+.pv-list {
+  margin: 0;
+}
+.pv-list dt {
+  color: #f0f0f3;
+  font-weight: 700;
+  margin-top: 12px;
+}
+.pv-list dt:first-child {
+  margin-top: 0;
+}
+.pv-list dd {
+  margin: 2px 0 0;
+}
+.pv-services {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+.pv-services li {
+  margin-bottom: 6px;
+}
+.pv-services strong {
+  color: #f0f0f3;
+}
+/* A text link that is a button (it changes the page, it doesn't go anywhere). The global
+   `button` rule in index.css would give it padding and a background. */
+.pv-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
