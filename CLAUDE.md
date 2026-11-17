@@ -29,7 +29,8 @@ apps/web/                 React app (was InspectionWebsite/)
   src/features/admin/     the email admin page (/?page=admin), its own chunk, loaded on demand
   src/api/                Supabase calls behind the map and drawer (other panels still call it directly)
   src/*.jsx               the other components (InfoDrawer, TableView, WhatsNew, FilterSearch, ...)
-packages/core/            shared by the website and the pipeline, pure: email/ (the digest and one-off
+packages/core/            shared by the website and the pipeline, pure: categories.js, grading.js (the
+                          score scale), regions.js (county ids and names), email/ (the digest and one-off
                           emails, the rules for an email job); tests in packages/core/tests (node --test)
 pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
 supabase/                 migrations (full schema baseline + later changes) and functions/ (submit-feedback,
@@ -102,8 +103,9 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## Key behaviors and where they live
 
-- **Pins and bands:** `lib/scoring.js` (presets loose/balanced/strict, `bandExprs`), colors in `Colors.jsx` (`PIN_COLORS`).
-- **Categories:** `lib/categories.js`; a category is a set of (facility type, subtype) pairs. Each pair belongs to exactly one category (tested).
+- **Pins and bands:** `lib/scoring.js` (presets loose/balanced/strict, `bandExprs`), colors in `Colors.jsx` (`PIN_COLORS`). These follow the visitor's sliders. Score **badges** don't: one fixed scale everywhere (95+ ok, 85 to 94 warn, under 85 bad), `scoreBand` in `packages/core/grading.js`, which also has `isFailing`. Don't write those numbers anywhere else.
+- **Categories:** `packages/core/categories.js` (the pipeline's coverage report reads it too); a category is a set of (facility type, subtype) pairs. Each pair belongs to exactly one category (tested). `lib/categories.js` re-exports it and adds the Filter tab's state.
+- **County ids and names:** `packages/core/regions.js`, for the site, the pipeline and the emails. A new county starts there.
 - **Same-coordinate pins:** `lib/dedupe.js` collapses to the worst establishment, keeps others searchable.
 - **Info drawer:** `InfoDrawer.jsx`. Desktop is a side panel. On phones (max-width 600px) it is a bottom sheet with two heights, peek (about 1.5 history rows) and expanded (about 74% of the screen), dragged by a handle; rules in `lib/bottomSheet.js`. Dragging well below peek, or flinging down from peek, closes it.
 - **Records with no map pin:** What's New rows with no coordinates still open the drawer (flagged `noLocation`, shows "No map location on file"), and the map does not move.
@@ -145,7 +147,7 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 3. Add `npm run format:check` to `ci.yml`.
 4. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
 5. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
-6. Refactor phases 2 to 4 and 6 to 7 in `docs/REFACTOR_PLAN.md` (shared `packages/core`, pipeline restructure, `api/` for the other panels). The Map.jsx split (phase 5) is done.
+6. Refactor phases 3, 4, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure, `api/` for the other panels). `packages/core` (phase 2) and the Map.jsx split (phase 5) are done.
 7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).
 8. Later: consider TypeScript after the split.
 
