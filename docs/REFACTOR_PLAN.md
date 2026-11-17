@@ -37,7 +37,7 @@ docs/
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 0     | Full schema into `supabase/migrations` (done 2026-11-06); `.gitattributes` for line endings. Tests for logic in `Map.jsx` are written as each piece is extracted (phases 4–5), since it can't be tested in place | Low        |
 | 1     | Move folders with `git mv`; npm workspaces; one Node version; one formatting-only commit; CI runs pipeline tests; update `netlify.toml` (done 2026-11-06)                                                        | Low        |
-| 2     | `packages/core`: region config, categories, scoring; delete the copies (started 2026-11-16 with `email/`, which the site and the pipeline both need)                                                             | Low        |
+| 2     | `packages/core`: categories, the score scale, county names, the emails; copies deleted (done 2026-11-17, see below)                                                                                              | Low        |
 | 3     | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first)                                                                                                                                | Medium     |
 | 4     | Web data layer: `api/` modules and hooks (map and drawer done 2026-11-08; TableView, WhatsNew, LearnPage, WatchlistTab still call Supabase directly)                                                             | Medium     |
 | 5     | Split `Map.jsx` (done 2026-11-08, see below)                                                                                                                                                                     | Highest    |
@@ -45,6 +45,19 @@ docs/
 | 7     | Docs: architecture, CONTRIBUTING, "adding a county", decision notes                                                                                                                                              | None       |
 
 After each phase: lint, tests, build and [SMOKE_TEST.md](SMOKE_TEST.md) pass.
+
+### packages/core (done 2026-11-17)
+
+What the website and the pipeline both need, in one place, pure and tested (`packages/core/tests`):
+
+| File                                      | Rule                                                        | Copies it replaced                                                         |
+| ----------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `categories.js`                           | which facility types make up each category                  | the pipeline's hand-kept list in `coverage_check.js`                       |
+| `grading.js`                              | the score badge's bands (95, 85) and what counts as failing | the drawer (twice), Table View, What's New, Saved, the digest email        |
+| `regions.js`                              | county ids and names                                        | the email's own list, the names in `pipeline/regions/kyportal/counties.js` |
+| `email/digest.js`, `custom.js`, `jobs.js` | the emails and the rules for an email job                   | (new with the email admin page: the preview and the send are one function) |
+
+Left where they are, on purpose: everything about drawing a county (`apps/web/src/lib/regions.js`) and loading one (`pipeline/regions/`) is used by one side only, so it stays with that side. The map's red/yellow/green pin bands (`lib/scoring.js`) are a visitor's own slider setting, not a rule, and stay in the website.
 
 ### Splitting Map.jsx (done 2026-11-08)
 
@@ -69,7 +82,7 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 ## Decisions
 
 1. **Bugs:** fixed after the refactor step, one commit each. Exception: popup HTML escaping is fixed during the refactor (no visible change).
-2. **Score badge colours:** one fixed scale everywhere (95+ green, 85–94 yellow, under 85 red), including the watchlist (which used 85/70). Badges do not follow the map's threshold sliders, so a restaurant shows the same colour everywhere. Easy to revert: it's one function in `packages/core/scoring.js`.
+2. **Score badge colours:** one fixed scale everywhere (95+ green, 85–94 yellow, under 85 red), including the watchlist (which used 85/70 until 2026-11-17). Badges do not follow the map's threshold sliders, so a restaurant shows the same colour everywhere. Easy to revert: it's one function, `scoreBand` in `packages/core/grading.js`.
 3. **TypeScript:** not during the refactor. JSDoc types on `core` and `api/`; revisit afterwards.
 4. **Folder rename** `InspectionWebsite/` → `apps/web/`: yes, with `netlify.toml` updated.
 5. **Counties:** add a `region` column (default Louisville) now. Changing database keys so two counties can share an establishment ID waits until a second county is real.

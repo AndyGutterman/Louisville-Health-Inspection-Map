@@ -1,6 +1,7 @@
 // What's New (WhatsNew.jsx): its tabs, and labels for its rows, from get_latest_inspections /
 // get_whats_new / get_top_scores (supabase/migrations/20261111010000_whats_new_both_counties.sql,
 // 20261118000000_whats_new_latest.sql). Pure.
+import { scoreBand } from "@lfs/core/grading.js";
 import { formatMonthDay } from "./dates.js";
 
 // Left to right; the first is the one that opens. `rpc` is called with { limit_n: 20 }.
@@ -25,13 +26,10 @@ export const WHATS_NEW_TABS = [
   },
 ];
 
-// The score badge's colour class. The Top Scores tab is all 100s and has its own look.
+// The score badge's colour class (the site's one scale, @lfs/core/grading.js). The Top Scores tab is all 100s and has its own look.
 export function scoreBadge(score, tabId) {
   if (tabId === "perfect") return "perfect";
-  if (score == null || score === 0) return "na";
-  if (score < 85) return "bad";
-  if (score < 95) return "warn";
-  return "ok";
+  return scoreBand(score);
 }
 
 // The tab a horizontal swipe lands on: left (dx < 0) is the next tab, right the one

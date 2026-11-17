@@ -3,7 +3,8 @@
  * no clock (the caller passes `today`), so it can be tested, and previewed in the browser
  * (the site's email admin page) exactly as the pipeline sends it.
  */
-import { regionName } from "./regions.js";
+import { FAIL_SCORE, isFailing } from "../grading.js";
+import { countyName as regionName } from "../regions.js";
 import {
   SITE,
   TEXT,
@@ -20,11 +21,9 @@ import {
   page,
 } from "./theme.js";
 
-export { SITE };
-export const FAIL_SCORE = 85; // the site's "failing" line (What's New uses the same)
+export { SITE, FAIL_SCORE };
 
 const isC = (r) => String(r.grade ?? "").toUpperCase() === "C";
-const isFailing = (r) => isC(r) || (r.score ?? 100) < FAIL_SCORE;
 const dateOf = (r) => r.inspection_date ?? r.posted_date ?? null;
 const daysBefore = (today, days) => {
   const d = new Date(`${today}T00:00:00Z`);

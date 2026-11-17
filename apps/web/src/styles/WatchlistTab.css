@@ -77,13 +77,13 @@
   color: rgba(255, 255, 255, 0.7);
   margin-top: 6px;
 }
-.wl-score.good {
+.wl-score.ok {
   color: #34a853;
 }
-.wl-score.fair {
+.wl-score.warn {
   color: #fbbc05;
 }
-.wl-score.poor {
+.wl-score.bad {
   color: #ea4335;
 }
 .wl-score .dt {
@@ -212,13 +212,13 @@
   font-weight: 800;
   color: rgba(255, 255, 255, 0.7);
 }
-.wl-place-score.good {
+.wl-place-score.ok {
   color: #34a853;
 }
-.wl-place-score.fair {
+.wl-place-score.warn {
   color: #fbbc05;
 }
-.wl-place-score.poor {
+.wl-place-score.bad {
   color: #ea4335;
 }
 .wl-place-date {

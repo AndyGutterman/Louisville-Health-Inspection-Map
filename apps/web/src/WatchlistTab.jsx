@@ -1,3 +1,4 @@
+import { scoreBand } from "@lfs/core/grading.js";
 import React, { useState, useEffect } from "react";
 import AddressPicker from "./AddressPicker.jsx";
 import { WATCH_RADIUS_OPTIONS } from "./watchAreaLayer.js";
@@ -10,9 +11,6 @@ const CAPS = { places: 30, areas: 3 };
 // An area lists at most this many places: the ones with the most violations.
 const ZONE_ROWS = 50;
 const PAGE = 25;
-
-const scoreClass = (s) =>
-  s == null || s === 0 ? "" : s >= 85 ? "good" : s >= 70 ? "fair" : "poor";
 
 function PlaceRow({ p, active, onOpen }) {
   return (
@@ -40,7 +38,7 @@ function PlaceRow({ p, active, onOpen }) {
         </div>
       </div>
       <div className="wl-place-side">
-        <div className={`wl-place-score ${scoreClass(p.score)}`}>
+        <div className={`wl-place-score ${scoreBand(p.score)}`}>
           {p.score ? p.score : "N/A"}
           {p.grade ? ` · ${p.grade}` : ""}
         </div>
@@ -299,7 +297,7 @@ export default function WatchlistTab({
                     <div className="wl-sub">
                       {[item.address, item.city].filter(Boolean).join(", ")}
                     </div>
-                    <div className={`wl-score ${scoreClass(item.score)}`}>
+                    <div className={`wl-score ${scoreBand(item.score)}`}>
                       {item.score ? `Score ${item.score}` : "Score N/A"}
                       {item.grade ? ` · Grade ${item.grade}` : ""}
                       {item.inspection_date && (
