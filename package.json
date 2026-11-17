@@ -5,6 +5,7 @@
   "license": "MIT",
   "workspaces": [
     "apps/web",
+    "packages/core",
     "pipeline"
   ],
   "scripts": {

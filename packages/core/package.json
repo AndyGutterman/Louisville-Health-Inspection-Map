@@ -1,0 +1,12 @@
+{
+  "name": "@lfs/core",
+  "private": true,
+  "description": "Rules shared by the website and the pipeline. Pure: no React, no database, no network.",
+  "type": "module",
+  "exports": {
+    "./email/*.js": "./email/*.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

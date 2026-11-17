@@ -16,7 +16,7 @@ A phased readability refactor is in progress: plan, decisions and known bugs are
 
 ## Repo layout (Windows, PowerShell; repo root is `Louisville-Health-Inspection-Map`)
 
-The root is an npm workspace (`apps/web`, `pipeline`) with one `package-lock.json`. Node 22 (`.nvmrc`).
+The root is an npm workspace (`apps/web`, `packages/core`, `pipeline`) with one `package-lock.json`. Node 22 (`.nvmrc`).
 
 ```
 apps/web/                 React app (was InspectionWebsite/)
@@ -26,12 +26,17 @@ apps/web/                 React app (was InspectionWebsite/)
   src/Map.jsx             the app shell (~400 lines): which panels are open, and the layout
   src/features/map/       the map: useMapLibre (map, pin clicks, outside-click), popups, mapLayers,
                           useMapFeatures (pins), useDrawer (drawer data), useWatchlist, AppHeader
+  src/features/admin/     the email admin page (/?page=admin), its own chunk, loaded on demand
   src/api/                Supabase calls behind the map and drawer (other panels still call it directly)
   src/*.jsx               the other components (InfoDrawer, TableView, WhatsNew, FilterSearch, ...)
+packages/core/            shared by the website and the pipeline, pure: email/ (the digest and one-off
+                          emails, the rules for an email job); tests in packages/core/tests (node --test)
 pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
-supabase/                 migrations (full schema baseline + later changes) and functions/submit-feedback
+supabase/                 migrations (full schema baseline + later changes) and functions/ (submit-feedback,
+                          email-dispatch)
 docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist), REFACTOR_PLAN.md
-.github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml, schema-dump.yml
+.github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml, schema-dump.yml,
+                          digest.yml, email-outbox.yml
 ```
 
 `src/lib/` modules: searchText, samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
@@ -42,13 +47,13 @@ docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (man
 npm ci
 npm run dev
 npm run lint        # 0 errors expected; 1 known warning (see below)
-npm test            # website (vitest, 113 tests in 10 files) and pipeline (node --test, 54 tests)
+npm test            # website (vitest), packages/core and pipeline (node --test)
 npm run build
 npm run format      # Prettier
 npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
 ```
 
-Workspace-specific: `npm run <script> -w apps/web` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
+Workspace-specific: `npm run <script> -w apps/web`, `-w packages/core` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
 
 ## Conventions
 
@@ -109,6 +114,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Auth:** Supabase email one-time **6-digit code** (not the magic link). `AuthContext.jsx` exposes the single client from `lib/supabase.js`. For local magic links to work, `http://localhost:5173/**` must be in Supabase Redirect URLs; the code flow avoids that.
 - **Feedback:** `FeedbackModal.jsx` posts to the `submit-feedback` edge function (IP rate limit, honeypot, cooldown).
 - **Weekly digest email:** `docs/DIGEST.md`. `pipeline/digest/`, `digest.yml` (Tuesdays), `profiles.alert_frequency = 'weekly'`, `lib/digest.js`, `lib/deepLink.js` (`/?eid=`, `/?page=learn`). Each of a subscriber's watch areas is its own part of the email (`digest_watch_areas`, migration `20261124000000`, a few rows per area). A run of the workflow by hand goes only to the owner (`audience: me`, the `DIGEST_TEST_TO` secret) unless `audience` is changed; `dry_run` attaches the email instead of sending.
+- **Email admin page:** read `docs/EMAIL_ADMIN.md` first. `/?page=admin` (and an "Email admin" button in the Saved panel, for admins only): preview anyone's digest, send tests and one-off emails, see what was sent. `features/admin/`, `api/admin.js`, `lib/adminEmail.js`. An admin is a row in `admin_users`, added by hand in SQL; every `admin_*` database function checks it (migration `20261125000000`), so the page hiding things is only a convenience. The site only queues a row in `email_jobs`; `pipeline/digest/outbox.js` (`email-outbox.yml`, started by the `email-dispatch` edge function) sends it with the same code as Tuesday's digest (`pipeline/digest/run.js`) and logs each address in `email_deliveries`, so "Send again" never sends twice. The emails are `packages/core/email/` (`digest.js`, `custom.js`): the preview and the email are one function, so change an email there. The outbox workflow's log is public: never print an address in `pipeline/digest/`. In e2e, `openApp(page, { answers: { "rpc/is_admin": true } })` plus `mockAuth`/`signIn` (`e2e/admin.spec.js`).
 - **Date filter and map cache constants:** `lib/constants.js`.
 - **Counties load on demand:** only Jefferson loads on a first visit. A county that is off is shaded with orange stripes and has a "Tap to load" button on the map (`features/map/useCountyLoadLayer.js`), and a checkbox in the Filter tab's Counties list. `shownCounties` in `Map.jsx` (rules in `lib/counties.js`, remembered in localStorage `lfs_counties`) decides what is loaded, drawn, searched, and listed in Table View and What's New. `useMapFeatures(shown)` reads each county at most once per page and caches it on its own (`lib/mapCache.js`, good until the next daily data load, `DATA_REFRESH_UTC_HOUR`); switching a county off and on never asks the database again. A new county needs `labelAt` in `lib/regions.js`. In e2e, `openApp(page, { counties: [...] })` starts with counties switched on.
 - **Categories load on demand:** a first visit has Restaurants, Retail and Kitchens on (`DEFAULT_CATEGORIES` in `lib/categories.js`, the first three tiles), and only those are read for Jefferson: `useMapFeatures(shown, categories)` asks `v_facility_map_pins` for the categories it lacks in one filtered read (`categoryOrFilter`), and caches each category on its own (`jefferson/schools` in `lib/mapCache.js`). Tapping a tile reads that category once; off and on again reads nothing. The choice is remembered (localStorage `lfs_categories`). A place of a category that isn't loaded (opened from What's New, Table View, Saved, a watch area or an email link, or one of the visitor's saved places) gets its pin from one small read (`loadPins`, `fetchPinsById`), and saved places and the open place pass the category filter (`alwaysShow` in `lib/mapFilters.js`). A map search only covers the categories that are on: the search box says "Searching 3 of 8 place types" with a "Search all" button. In e2e, `openApp` starts with every category on; pass `categories: null` for a first visit.
@@ -139,7 +145,7 @@ Applied and committed: lint cleanup, same-place extraction, scoring/categories/d
 4. Coverage: `npm i -D @vitest/coverage-v8@5.1.0 -w apps/web` (must match the installed vitest), add script `"test:coverage": "vitest run --coverage"`. Coverage of `src/lib` was about 99% lines; components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
 5. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
 6. Refactor phases 2 to 4 and 6 to 7 in `docs/REFACTOR_PLAN.md` (shared `packages/core`, pipeline restructure, `api/` for the other panels). The Map.jsx split (phase 5) is done.
-7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (the feature does not exist; check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`), and the dead unsubscribe-link handler in `AuthContext.jsx` (`unsubscribe_by_token` does not exist in the database).
+7. Cleanup candidates: leftover "get placard alerts" and "Unsubscribe anytime" text in `LearnPage.jsx` (check with `git grep -n -i "unsubscribe anytime\|placard alerts" apps/web/src`).
 8. Later: consider TypeScript after the split.
 
 ## Working with the owner

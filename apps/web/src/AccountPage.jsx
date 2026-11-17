@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import WatchlistTab from "./WatchlistTab.jsx";
 import { OFF, WEEKLY, isSubscribed } from "./lib/digest.js";
+import { useIsAdmin } from "./features/admin/useIsAdmin.js";
 import "./styles/AccountPage.css";
 
 // The weekly digest email, on or off (profiles.alert_frequency, lib/digest.js).
@@ -73,8 +74,10 @@ export default function AccountPage({
   focusAreaId,
   zIndex, // phones: lets Map.jsx put this page above or below the info drawer
   bottomInset, // phones: px of the info drawer sitting over the bottom of this page
+  onOpenAdmin, // opens the email admin page; its button shows for admins only
 }) {
   const { user, signOut, supabase } = useAuth();
+  const admin = useIsAdmin(user);
   const side = variant === "panel";
 
   if (!user) {
@@ -120,6 +123,11 @@ export default function AccountPage({
             </button>
           )}
         </div>
+        {admin && onOpenAdmin && (
+          <button className="acct-admin-link" data-testid="open-admin" onClick={onOpenAdmin}>
+            Email admin
+          </button>
+        )}
         <DigestToggle supabase={supabase} user={user} />
         <WatchlistTab
           supabase={supabase}

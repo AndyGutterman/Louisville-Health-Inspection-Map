@@ -48,12 +48,17 @@ function applyEqFilters(rows, params) {
   return out;
 }
 
+// answers: { path: value } replaces a fixture for one test (an admin's `rpc/is_admin`, say).
+// A fixture that isn't a list (a function returning true, or an id) is answered as it is.
 // holds: { path: Promise } keeps those responses back until the promise settles, to test
 // what shows while data is still loading.
 // failOnce: [path] answers the first request for each path with a 503, to test retries.
 // missing: [path] answers as a database that doesn't have that table or view yet (a
 // migration that hasn't been run), to test what the site falls back to.
-export async function mockSupabase(page, { holds = {}, failOnce = [], missing = [] } = {}) {
+export async function mockSupabase(
+  page,
+  { holds = {}, failOnce = [], missing = [], answers = {} } = {},
+) {
   const unmocked = [];
   const requested = [];
   const toFail = new Set(failOnce);
@@ -68,9 +73,9 @@ export async function mockSupabase(page, { holds = {}, failOnce = [], missing = 
 
     const url = new URL(request.url());
     const path = url.pathname.replace(/^.*\/rest\/v1\//, "");
-    const table = TABLES[path];
+    const table = path in answers ? answers[path] : TABLES[path];
     requested.push(path);
-    if (!table) unmocked.push(`${request.method()} ${path}`);
+    if (table === undefined) unmocked.push(`${request.method()} ${path}`);
 
     if (missing.includes(path)) {
       await route.fulfill({
@@ -89,6 +94,14 @@ export async function mockSupabase(page, { holds = {}, failOnce = [], missing = 
         status: 503,
         headers: { ...cors, "content-type": "application/json" },
         body: JSON.stringify({ message: "Service unavailable (test)" }),
+      });
+      return;
+    }
+    if (table !== undefined && !Array.isArray(table)) {
+      await route.fulfill({
+        status: 200,
+        headers: { ...cors, "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify(table),
       });
       return;
     }

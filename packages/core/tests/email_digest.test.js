@@ -1,9 +1,9 @@
 /**
- * tests/digest_render.test.js — what the weekly digest says for a week of mocked rows.
+ * tests/email_digest.test.js — what the weekly digest says for a week of mocked rows.
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { groupWatchAreas, renderDigest, summarize, FAIL_SCORE } from "../digest/render.js";
+import { groupWatchAreas, renderDigest, summarize, FAIL_SCORE } from "@lfs/core/email/digest.js";
 
 const row = (over) => ({
   establishment_id: "1",

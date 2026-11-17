@@ -2,7 +2,13 @@
 // a test says otherwise. Supabase is mocked (support/mockSupabase.js); the map
 // basemap loads for real. Tests check the DOM around the map, never canvas pins.
 import { test, expect } from "@playwright/test";
-import { openApp, openWhatsNew, whatsNewRow, openDrawerFromWhatsNew } from "./support/app.js";
+import {
+  mockAuth,
+  openApp,
+  openWhatsNew,
+  whatsNewRow,
+  openDrawerFromWhatsNew,
+} from "./support/app.js";
 import {
   byEid,
   BULLITT_EID,
@@ -827,35 +833,7 @@ test("a digest email link (/?eid=...) opens that place and cleans the URL", asyn
 
 test("sign in with the code from the email, no link needed", async ({ page }, testInfo) => {
   // Supabase Auth is mocked here: sending the email, then checking the code.
-  const verifyBodies = [];
-  await page.route(/\/auth\/v1\/(otp|verify)/, async (route) => {
-    const request = route.request();
-    const cors = {
-      "access-control-allow-origin": request.headers()["origin"] || "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "POST, OPTIONS",
-    };
-    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
-    const json = (body) =>
-      route.fulfill({ status: 200, headers: cors, contentType: "application/json", body });
-    if (request.url().includes("/otp")) return json("{}");
-    verifyBodies.push(request.postDataJSON());
-    const now = Math.floor(Date.now() / 1000);
-    return json(
-      JSON.stringify({
-        access_token: "test-access-token",
-        token_type: "bearer",
-        expires_in: 3600,
-        expires_at: now + 3600,
-        refresh_token: "test-refresh-token",
-        user: {
-          id: "00000000-0000-0000-0000-000000000001",
-          aud: "authenticated",
-          email: "test@example.com",
-        },
-      }),
-    );
-  });
+  const verifyBodies = await mockAuth(page);
 
   await openApp(page);
   await page.locator(".header-nav-btn--login").click();

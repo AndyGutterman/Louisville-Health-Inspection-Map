@@ -1,0 +1,44 @@
+# Email outbox: sends what the email admin page queued (docs/EMAIL_ADMIN.md,
+# pipeline/digest/outbox.js). The page's email-dispatch function starts this the moment
+# an email is queued; it can also be started by hand here, which sends whatever is
+# waiting. Nothing is sent that isn't a queued row of email_jobs, and a row queued more
+# than a day ago is marked expired instead.
+name: Email outbox
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Set by the admin page: the job that asked for this run. Every queued job is sent either way."
+        type: string
+        default: ""
+# One at a time. A run started while another is sending waits its turn, and every run
+# sends all that is queued, so nothing is left behind when GitHub drops an older waiting run.
+concurrency:
+  group: email-outbox
+  cancel-in-progress: false
+run-name: "Email outbox${{ inputs.job && format(' ({0})', inputs.job) || '' }}"
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      # The same login as the weekly digest (digest.yml explains the pair of secrets).
+      SMTP_USERNAME: ${{ secrets.DIGEST_SMTP_PASSWORD && secrets.DIGEST_SMTP_USERNAME || secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.DIGEST_SMTP_USERNAME && secrets.DIGEST_SMTP_PASSWORD || secrets.SMTP_PASSWORD }}
+      DIGEST_FROM: ${{ secrets.DIGEST_FROM }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        run: npm ci -w pipeline
+      - name: Test
+        run: npm test -w packages/core -w pipeline
+      - name: Send what is queued
+        working-directory: pipeline
+        run: node digest/outbox.js

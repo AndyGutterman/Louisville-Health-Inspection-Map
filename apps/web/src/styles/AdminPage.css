@@ -1,0 +1,484 @@
+/* The email admin page (features/admin). Phone first: one column, the preview under the
+   list; two columns from 900px. Every button sets its own padding and background, since
+   index.css has a global `button` rule. */
+.adm-wrap {
+  position: fixed;
+  inset: 0;
+  top: var(--header-h, var(--mobile-header-h, 64px));
+  background: #0d0d11;
+  color: #f0f0f3;
+  overflow-y: auto;
+  z-index: 1050;
+  -webkit-overflow-scrolling: touch;
+}
+.adm-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 22px 14px 80px;
+}
+.adm-page [hidden] {
+  display: none !important;
+}
+.adm-page a,
+.adm-link {
+  color: #6fcf8a;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.adm-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.adm-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.adm-dim {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.adm-hint {
+  display: block;
+  font-size: 0.76rem;
+}
+
+.adm-gate {
+  max-width: 420px;
+  margin: 12vh auto 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.adm-gate p {
+  margin: 0;
+}
+
+/* ── Tabs ── */
+.adm-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.adm-tab {
+  flex: 1;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.adm-tab.on {
+  background: #26262c;
+  color: #f0f0f3;
+}
+
+/* ── Notice after queueing ── */
+.adm-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: rgba(52, 168, 83, 0.12);
+  border: 1px solid rgba(52, 168, 83, 0.32);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.adm-notice--warn {
+  background: rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.34);
+}
+.adm-notice-x {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ── Cards and layout ── */
+.adm-card {
+  background: #1b1b1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.adm-digest,
+.adm-split {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.adm-week {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.adm-everyone {
+  border-color: rgba(249, 115, 22, 0.28);
+}
+.adm-previewing {
+  scroll-margin-top: 12px;
+}
+
+/* ── People list ── */
+.adm-people-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.adm-person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #f0f0f3;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.adm-person.on {
+  border-color: rgba(52, 168, 83, 0.55);
+  background: rgba(52, 168, 83, 0.1);
+}
+.adm-person-email {
+  font-size: 0.88rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.adm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.adm-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.adm-chip--on {
+  background: rgba(52, 168, 83, 0.18);
+  color: #6fcf8a;
+}
+.adm-chip--warn {
+  background: rgba(249, 115, 22, 0.16);
+  color: #f97316;
+}
+.adm-chip--bad {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+}
+
+/* ── Form controls ── */
+.adm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.adm-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.adm-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0;
+}
+.adm-input,
+.adm-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: #121216;
+  color: #f0f0f3;
+  font: inherit;
+  /* 16px keeps iOS from zooming the page when the field is tapped */
+  font-size: 16px;
+}
+.adm-select {
+  width: auto;
+  padding: 7px 9px;
+}
+.adm-input--short {
+  width: 210px;
+  max-width: 100%;
+}
+.adm-textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.adm-input:focus,
+.adm-select:focus {
+  outline: 2px solid rgba(52, 168, 83, 0.6);
+  outline-offset: 1px;
+}
+.adm-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+.adm-audience {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adm-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.adm-radio.on {
+  border-color: rgba(52, 168, 83, 0.5);
+  background: rgba(52, 168, 83, 0.08);
+}
+.adm-radio input {
+  margin-top: 3px;
+}
+.adm-radio-name {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* ── Buttons ── */
+.adm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.adm-btn {
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f0f0f3;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.adm-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.adm-btn--go {
+  background: rgba(52, 168, 83, 0.16);
+  border-color: rgba(52, 168, 83, 0.4);
+  color: #6fcf8a;
+}
+.adm-btn--warn {
+  background: rgba(249, 115, 22, 0.14);
+  border-color: rgba(249, 115, 22, 0.42);
+  color: #f97316;
+}
+.adm-btn--quiet {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+}
+.adm-error {
+  color: #ff6b6b;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ── Email preview ── */
+.adm-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-preview--empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.84rem;
+  text-align: center;
+  padding: 12px;
+}
+.adm-preview-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.adm-preview-subject {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.adm-seg {
+  display: flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+.adm-seg-btn {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.adm-seg-btn.on {
+  background: #2c2c33;
+  color: #f0f0f3;
+}
+.adm-preview-frame {
+  width: 100%;
+  height: min(72vh, 760px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: #0f0f12;
+}
+.adm-preview-text {
+  margin: 0;
+  padding: 12px;
+  max-height: min(72vh, 760px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: #121216;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Sent ── */
+.adm-sent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.adm-jobs,
+.adm-deliveries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.adm-job {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.adm-job-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.adm-job-what {
+  font-size: 0.9rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.adm-deliveries li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 0.82rem;
+}
+.adm-delivery-email {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 900px) {
+  .adm-page {
+    padding: 28px 22px 80px;
+  }
+  .adm-split {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .adm-split--write {
+    grid-template-columns: minmax(340px, 460px) minmax(0, 1fr);
+  }
+  .adm-people-list {
+    max-height: 62vh;
+  }
+  .adm-tabs {
+    max-width: 380px;
+  }
+}
