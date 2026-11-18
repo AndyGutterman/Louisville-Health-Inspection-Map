@@ -2,18 +2,15 @@
 // digest, send tests and one-off emails, and see what was sent. Loaded on demand, so
 // visitors never download it.
 //
-// What is shown here is a convenience. The lock is in the database: every admin_* call
-// checks the signed-in person against admin_users (migration 20261125000000).
+// Who may see it: AdminGate.jsx (the lock itself is in the database).
 import { useCallback, useState } from "react";
 import { checkJob } from "@lfs/core/email/jobs.js";
-import { useAuth } from "../../AuthContext.jsx";
 import { queueEmail, startSender } from "../../api/admin.js";
 import { EMPTY_MESSAGE, OUTBOX_WORKFLOW_URL, queuedNotice } from "../../lib/adminEmail.js";
 import DigestTab from "./DigestTab.jsx";
 import WriteTab from "./WriteTab.jsx";
 import SentTab from "./SentTab.jsx";
-import { useIsAdmin } from "./useIsAdmin.js";
-import "../../styles/AdminPage.css";
+import AdminGate, { AdminShell } from "./AdminGate.jsx";
 
 const TABS = [
   ["digest", "Digest"],
@@ -21,26 +18,7 @@ const TABS = [
   ["sent", "Sent"],
 ];
 
-function Shell({ children }) {
-  return (
-    <div className="adm-wrap" data-testid="admin-page">
-      <div className="adm-page">{children}</div>
-    </div>
-  );
-}
-
-function Gate({ title, children }) {
-  return (
-    <Shell>
-      <div className="adm-gate" data-testid="admin-gate">
-        <div className="adm-title">{title}</div>
-        {children}
-      </div>
-    </Shell>
-  );
-}
-
-function Admin({ user }) {
+function Admin({ user, onOpenPins }) {
   const [tab, setTab] = useState("digest");
   const [seen, setSeen] = useState(() => new Set(["digest"])); // tabs stay mounted once opened
   const [notice, setNotice] = useState(null);
@@ -68,10 +46,20 @@ function Admin({ user }) {
   );
 
   return (
-    <Shell>
+    <AdminShell>
       <div className="adm-head">
         <div className="adm-title">Email admin</div>
-        <div className="adm-dim">{user.email}</div>
+        <div className="adm-dim">
+          {user.email}
+          {onOpenPins && (
+            <>
+              {" · "}
+              <button type="button" className="adm-textlink" onClick={onOpenPins}>
+                Pin control center
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <div className="adm-tabs" role="tablist" aria-label="Email admin">
         {TABS.map(([name, label]) => (
@@ -160,32 +148,15 @@ function Admin({ user }) {
           />
         </div>
       )}
-    </Shell>
+    </AdminShell>
   );
 }
 
-/** @param {{ onLogIn: Function }} p  opens the site's sign-in form */
-export default function AdminPage({ onLogIn }) {
-  const { user, loading } = useAuth();
-  const admin = useIsAdmin(user);
-
-  if (loading || (user && admin === null)) return <Gate title="Checking…" />;
-  if (!user) {
-    return (
-      <Gate title="Email admin">
-        <p className="adm-dim">Sign in with an admin account to manage the site&apos;s email.</p>
-        <button type="button" className="adm-btn adm-btn--go" onClick={onLogIn}>
-          Log in
-        </button>
-      </Gate>
-    );
-  }
-  if (!admin) {
-    return (
-      <Gate title="Admins only">
-        <p className="adm-dim">{user.email} isn&apos;t an admin of this site.</p>
-      </Gate>
-    );
-  }
-  return <Admin user={user} />;
+/** @param {{ onLogIn: Function, onOpenPins?: Function }} p  onLogIn opens the site's sign-in form */
+export default function AdminPage({ onLogIn, onOpenPins }) {
+  return (
+    <AdminGate title="Email admin" purpose="manage the site's email" onLogIn={onLogIn}>
+      {(user) => <Admin user={user} onOpenPins={onOpenPins} />}
+    </AdminGate>
+  );
 }

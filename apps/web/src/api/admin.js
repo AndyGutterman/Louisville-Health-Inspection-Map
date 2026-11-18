@@ -6,6 +6,7 @@
 // get_whats_new, filtered in the database). The page asks for them once per window and
 // keeps them (features/admin/useDigestData.js); everything else is a few rows.
 import { supabase } from "../lib/supabase.js";
+import { startWorkflow } from "./dispatch.js";
 import {
   DIGEST_COLUMNS,
   groupSavedPlaces,
@@ -86,24 +87,7 @@ export async function queueEmail(job, expectCount = null) {
  * sender it says why, and the workflow can be started by hand.
  * @returns {Promise<{ started: boolean, reason?: string }>}
  */
-export async function startSender(jobId) {
-  try {
-    const { data, error } = await supabase.functions.invoke("email-dispatch", {
-      body: { job: jobId },
-    });
-    if (error) {
-      // The browser never got an answer: usually CORS (ALLOWED_ORIGIN doesn't match this
-      // site exactly), sometimes no connection. lib/adminEmail.js says which to check.
-      if (error.name === "FunctionsFetchError") return { started: false, reason: "unreachable" };
-      // A non-2xx answer carries the function's own JSON in error.context (a Response).
-      const body = await error.context?.json?.().catch(() => null);
-      return { started: false, reason: body?.reason || error.message };
-    }
-    return { started: !!data?.started, reason: data?.reason };
-  } catch (e) {
-    return { started: false, reason: e.message };
-  }
-}
+export const startSender = (jobId) => startWorkflow("email-dispatch", { job: jobId });
 
 export async function fetchJobs(limit = 10) {
   return must(await supabase.rpc("admin_email_jobs", { p_limit: limit }));

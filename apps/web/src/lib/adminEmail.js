@@ -76,14 +76,19 @@ export function queuedNotice(result) {
       text: "Queued, and the sender is starting. It usually lands in a minute or two.",
     };
   }
+  return {
+    ok: false,
+    text: `Queued, but the sender didn't start (${whyNotStarted(result.reason)}). Start it by hand:`,
+  };
+}
+
+/** Why a dispatch function (api/dispatch.js) didn't start its workflow, in words. */
+export function whyNotStarted(reason) {
   const why = {
     no_token: "the GitHub token isn't set up",
     not_admin: "this account isn't an admin",
     unreachable:
       "the browser couldn't reach it: check that the ALLOWED_ORIGIN secret is exactly this site's address, with no slash at the end",
-  }[result.reason];
-  return {
-    ok: false,
-    text: `Queued, but the sender didn't start (${why || result.reason || "no answer"}). Start it by hand:`,
-  };
+  }[reason];
+  return why || reason || "no answer";
 }
