@@ -115,6 +115,8 @@ workflow keeps it for 30 days instead.
 
 Geocoding is Bullitt's chain, shared in `pipeline/lib/countyGeocode.js`: hand-placed pins
 (`regions/kyportal/overrides/<county>.json`), 911 address points, Census, Nominatim.
+Pins are now fixed by hand in the pin control center (`docs/PINS.md`); the JSON files
+still work until they are imported.
 Cache keys start with the county (`oldham|...`).
 
 Courtesy: once a day per county is plenty (the Courier-Journal's lists move weekly).
