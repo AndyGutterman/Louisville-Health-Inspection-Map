@@ -10,7 +10,7 @@ import LearnPage, { LoginModal } from "./LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/Map.css";
 import InfoDrawer from "./InfoDrawer.jsx";
-import TableView from "./TableView.jsx";
+import TableView from "./features/table/TableView.jsx";
 import FilterSearch from "./FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import FeedbackModal from "./FeedbackModal.jsx";
