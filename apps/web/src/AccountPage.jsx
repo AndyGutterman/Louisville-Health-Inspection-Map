@@ -47,7 +47,8 @@ function DigestToggle({ user }) {
         <span>
           <span className="acct-digest-title">Weekly digest email</span>
           <span className="acct-digest-sub">
-            This week&apos;s inspections and the ones that failed, every Tuesday morning.
+            This week&apos;s inspections, the ones that failed, and news on your saved places and
+            watch areas, every Tuesday morning.
           </span>
         </span>
       </label>

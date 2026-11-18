@@ -51,17 +51,27 @@ export async function buildEmail(job, { store, today }) {
   // Every subscriber's areas in one read; a list of addresses reads only its accounts';
   // "as" someone reads only theirs, and every copy shows them.
   const ids = job.as_user ? [job.as_user] : to.map((r) => r.id).filter(Boolean);
-  const areasByUser =
-    everyone || ids.length ? await store.watchAreas(days, everyone ? null : ids) : new Map();
-  const areasOf = (r) => areasByUser.get(job.as_user ?? r.id) ?? [];
+  const personal = everyone || ids.length;
+  const scope = everyone ? null : ids;
+  // The watch areas and saved places, each in one read, side by side.
+  const [areasByUser, savedByUser] = personal
+    ? await Promise.all([store.watchAreas(days, scope), store.savedPlaces(days, scope)])
+    : [new Map(), new Map()];
+  const whose = (r) => job.as_user ?? r.id;
   return {
     to,
     summary,
     withAreas: areasByUser.size,
+    withSaved: savedByUser.size,
     renderFor: (r) => {
       const url = unsubscribeUrl(job, r);
       return {
-        ...renderDigest(summary, { unsubscribeUrl: url, areas: areasOf(r), test: job.test }),
+        ...renderDigest(summary, {
+          unsubscribeUrl: url,
+          areas: areasByUser.get(whose(r)) ?? [],
+          saved: savedByUser.get(whose(r)) ?? [],
+          test: job.test,
+        }),
         unsubscribeUrl: url,
       };
     },
@@ -74,7 +84,10 @@ export async function buildEmail(job, { store, today }) {
  * @returns {Promise<{ total, sent, failed, skipped }>} skipped: delivered by an earlier run
  */
 export async function runJob(job, { store, send, today, log = () => {} }) {
-  const { to, renderFor, summary, withAreas } = await buildEmail(job, { store, today });
+  const { to, renderFor, summary, withAreas, withSaved } = await buildEmail(job, {
+    store,
+    today,
+  });
   if (summary) {
     log(
       `${summary.total} inspections since ${summary.since}, ${summary.failing.length} failing, ` +
@@ -85,6 +98,7 @@ export async function runJob(job, { store, send, today, log = () => {} }) {
   log(
     `${to.length} recipients` +
       (withAreas != null ? `, ${withAreas} with watch areas` : "") +
+      (withSaved != null ? `, ${withSaved} with saved places` : "") +
       (already.size ? `, ${already.size} already delivered` : "") +
       ".",
   );
