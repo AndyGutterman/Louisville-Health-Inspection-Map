@@ -12,38 +12,32 @@ const PAGE = 1000;
 // Each page gets a time limit and two more tries (lib/retry.js): on a phone a request
 // can go unanswered, and the map would otherwise say "Loading places…" forever. A try
 // that runs out of time is cancelled, so the same page is never downloaded twice at once.
-// retryIf(error): see lib/retry.js.
-export async function readAllPages(page, pageSize = PAGE, onPage, retryIf) {
+export async function readAllPages(page, pageSize = PAGE, onPage) {
   let rows = [];
   for (let from = 0; ; from += pageSize) {
     const data = await retry(async (signal) => {
       const { data, error } = await page(from, from + pageSize - 1).abortSignal(signal);
       if (error) throw error;
       return data;
-    }, retryIf && { retryIf });
+    });
     rows = rows.concat(data || []);
     if (!data || data.length < pageSize) return rows;
     onPage?.(rows);
   }
 }
 
-// PostgREST's and Postgres's codes for "no such table or view".
-const NO_SUCH_VIEW = new Set(["PGRST205", "42P01"]);
-
 const PIN_COLUMNS =
   "establishment_id,premise_name,address,city,state,zip,facility_type,subtype,lon,lat,inspection_date_recent,score_recent,grade_recent,has_any_violation";
 
 // Rows of v_facility_map_pins: one per place with coordinates, with everything a pin
-// needs (name, address, facility type, latest score, violation ring), so Louisville's
-// pins cost one read instead of three (migration 20261122000000).
+// needs (name, address, facility type, latest score, violation ring), in one read
+// (migration 20261122000000).
 // orFilter limits the read to some categories' places (lib/categories.js
 // categoryOrFilter); null reads every place.
-// Resolves to the rows; to null if a request fails, so the caller can stop; and to
-// undefined when the database doesn't have the view yet, so the caller can fall back to
-// the three older reads below (one small failed request, not retried).
+// Resolves to the rows, or to null if a request fails, so the caller can stop (the pages
+// already read stay on the map, and the corner indicator offers to try again).
 // onPage(rowsSoFar) runs after each full page (see readAllPages).
 export async function fetchMapPins(onPage, orFilter = null) {
-  let missing = false;
   try {
     return await readAllPages(
       (from, to) => {
@@ -52,10 +46,8 @@ export async function fetchMapPins(onPage, orFilter = null) {
       },
       undefined,
       onPage,
-      (e) => !(missing = NO_SUCH_VIEW.has(e?.code)),
     );
   } catch (e) {
-    if (missing) return undefined;
     console.error(e);
     return null;
   }
@@ -79,74 +71,6 @@ export async function fetchPinsById(eids) {
     console.error(e);
     return null;
   }
-}
-
-// The three older reads, used until v_facility_map_pins exists.
-//
-// Every row of v_facility_map_feed (one per place with coordinates: name, address,
-// latest score). Returns null if a request fails, so the caller can stop.
-// onPage(rowsSoFar) runs after each full page (see readAllPages).
-export async function fetchMapFeed(onPage) {
-  try {
-    return await readAllPages(
-      (from, to) =>
-        publicDb
-          .from("v_facility_map_feed")
-          .select(
-            "establishment_id,premise_name,address,lon,lat,inspection_date_recent,score_recent,grade_recent",
-          )
-          .order("establishment_id")
-          .range(from, to),
-      undefined,
-      onPage,
-    );
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
-}
-
-// establishment id -> { has_any } for each place's latest inspection (the violation ring;
-// the RPC's has_critical column is not used: see mapLayers.js). Empty on an error.
-export async function fetchViolationFlags() {
-  const flags = new Map();
-  try {
-    const rows = await readAllPages((from, to) =>
-      publicDb.rpc("get_violation_flags").range(from, to),
-    );
-    for (const r of rows) flags.set(r.establishment_id, r);
-  } catch (e) {
-    console.error("violation flags fetch error", e);
-  }
-  return flags;
-}
-
-// establishment id -> { ft, st, address, city, state, zip } from facilities (type and
-// subtype drive the category filter). Empty on an error.
-export async function fetchFacilityMeta() {
-  const metaById = new Map();
-  try {
-    const rows = await readAllPages((from, to) =>
-      publicDb
-        .from("facilities")
-        .select("establishment_id, facility_type, subtype, address, city, state, zip")
-        .order("establishment_id")
-        .range(from, to),
-    );
-    for (const f of rows) {
-      metaById.set(f.establishment_id, {
-        ft: f.facility_type,
-        st: f.subtype,
-        zip: f.zip || null,
-        address: f.address || null,
-        city: f.city || null,
-        state: f.state || null,
-      });
-    }
-  } catch (e) {
-    console.error("facilities meta fetch error", e);
-  }
-  return metaById;
 }
 
 // The drawer's three queries. Each returns Supabase's { data, error }.

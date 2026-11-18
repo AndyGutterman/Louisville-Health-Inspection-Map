@@ -20,16 +20,10 @@
 //   coordIndex  location key -> every feature at that spot (for the "1 of 3" popup)
 //   retryFailed loads again the pieces that failed, and nothing else
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  fetchFacilityMeta,
-  fetchMapFeed,
-  fetchMapPins,
-  fetchPinsById,
-  fetchViolationFlags,
-} from "../../api/mapData.js";
+import { fetchMapPins, fetchPinsById } from "../../api/mapData.js";
 import { fetchBullittFeed } from "../../api/bullitt.js";
 import { fetchPortalFeed } from "../../api/portal.js";
-import { buildMapFeatures, buildPinFeatures, combineRegions } from "../../lib/mapFeatures.js";
+import { buildPinFeatures, combineRegions } from "../../lib/mapFeatures.js";
 import { BULLITT, buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildPortalFeatures } from "../../lib/portal.js";
 import { enabledRegions, regionById, regionOfId } from "../../lib/regions.js";
@@ -66,58 +60,22 @@ const saveCache = (pieceId, features) =>
 // How often, at most, the pins are redrawn while data is still arriving.
 const REDRAW_MS = 250;
 
-/**
- * Louisville Metro on a database without v_facility_map_pins (migration 20261122000000):
- * the whole county in three reads side by side. show(features) runs as they come in: each page of the feed, then the facility types and violation rings that refine the
- * pins. Resolves to { features, ok, complete }: ok is false if the feed failed part-way
- * (whatever loaded stays on the map); complete is false if the types or rings failed
- * (their reads come back empty), so the result isn't cached and the next visit tries
- * again instead of showing plain pins until the next data load.
- */
-async function loadJeffersonParts(show) {
-  const parts = { rows: [], meta: new Map(), flags: new Map() };
-  const build = () => buildMapFeatures(parts.rows, parts.meta, parts.flags);
-  let timer = null;
-  const soon = () => {
-    timer ??= setTimeout(() => {
-      timer = null;
-      show(build());
-    }, REDRAW_MS);
-  };
-  const [rows] = await Promise.all([
-    fetchMapFeed((soFar) => {
-      parts.rows = soFar;
-      soon();
-    }).then((all) => {
-      if (all) parts.rows = all;
-      soon();
-      return all;
-    }),
-    fetchFacilityMeta().then((m) => ((parts.meta = m), soon())),
-    fetchViolationFlags().then((f) => ((parts.flags = f), soon())),
-  ]);
-  clearTimeout(timer);
-  return {
-    features: build(),
-    ok: !!rows,
-    complete: !!rows && parts.meta.size > 0 && parts.flags.size > 0,
-  };
-}
-
 // A county with one read: null rows mean the read failed.
 const single = (rows, build) => ({
   features: build(rows ?? []),
   ok: rows != null,
-  complete: rows != null,
 });
 
-/** Reads a whole county from the database (see loadJeffersonParts for what it resolves to). */
-async function loadCounty(region, show) {
+/**
+ * Reads a whole county (one without facility types) from the database. Resolves to
+ * { features, ok }: ok is false if the read failed, and then nothing is cached.
+ */
+async function loadCounty(region) {
   if (region.id === BULLITT) return single(await fetchBullittFeed(), buildBullittFeatures);
   if (region.feed === "portal") {
     return single(await fetchPortalFeed([region.id]), buildPortalFeatures);
   }
-  return loadJeffersonParts(show);
+  throw new Error(`No way to load ${region.id} whole (lib/regions.js)`);
 }
 
 // A piece of the store: a whole county ("bullitt"), or one category of a county that
@@ -141,10 +99,6 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
   // piece id -> { region, state: "loading" | "ready" | "failed", features }. A piece
   // stays here once read, switched on or not, so it is never read twice.
   const store = useRef({});
-  // Counties with facility types that are read whole all the same: the database has no
-  // v_facility_map_pins to filter by category.
-  const whole = useRef(new Set());
-  const cacheChecked = useRef(new Set());
   // County id -> features read one place at a time (loadPins); establishment id -> that read.
   const extras = useRef({});
   const pinReads = useRef({});
@@ -153,10 +107,8 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
   const byEid = useRef({});
   const coordIndex = useRef(new Map());
 
-  const byCategory = useCallback(
-    (region) => region.has.categories && !whole.current.has(region.id),
-    [],
-  );
+  // A county whose data has facility types (Jefferson) loads one category at a time.
+  const byCategory = useCallback((region) => !!region.has.categories, []);
 
   // Everything loaded for one county. A county loaded by category is put together from
   // its categories and the places read singly, and only then tagged with similar places
@@ -224,14 +176,10 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
       }
       const piece = { region: id, state: "loading", features: [] };
       store.current[id] = piece;
-      const show = (features) => {
-        piece.features = features;
-        publish();
-      };
-      loadCounty(region, show).then(({ features, ok, complete }) => {
+      loadCounty(region).then(({ features, ok }) => {
         piece.features = features;
         piece.state = ok ? "ready" : "failed";
-        if (complete) saveCache(id, features);
+        if (ok) saveCache(id, features);
         publish();
       });
     },
@@ -262,15 +210,6 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
         }, REDRAW_MS);
       }, categoryOrFilter(wanted));
       clearTimeout(timer);
-
-      if (rows === undefined) {
-        // No such view on this database: read the county whole, the older way, once.
-        for (const c of CATEGORY_KEYS) delete store.current[pieceId(region.id, c)];
-        whole.current.add(region.id);
-        startWhole(region);
-        publish();
-        return;
-      }
       sort(rows ?? seen);
       for (const [c, piece] of mine) {
         piece.state = rows ? "ready" : "failed";
@@ -278,7 +217,7 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
       }
       publish();
     },
-    [publish, startWhole],
+    [publish],
   );
 
   // Starts what a county still lacks. Does nothing for pieces already read or being
@@ -286,11 +225,6 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
   const start = useCallback(
     (id) => {
       const region = regionById(id);
-      if (region.has.categories && !cacheChecked.current.has(id)) {
-        // A whole-county entry in the cache was saved by a visit that had to read it whole.
-        cacheChecked.current.add(id);
-        if (readCache(id)) whole.current.add(id);
-      }
       if (!byCategory(region)) return startWhole(region);
       const missing = [];
       for (const c of categoriesRef.current) {
