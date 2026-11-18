@@ -39,6 +39,13 @@ count of saved places, in one read for the whole send. The admin page previews i
 `admin_digest_saved_places`. On a database without that function the email goes out
 without this part, and the run's log says so.
 
+**Ready for several lists.** Saved places come back grouped by list (`list_id`,
+`list_name`, both null today: every account has one list). If accounts can one day keep
+several (say, for a paid tier), each list is its own part of the email ("Your list · Date
+night", "1 of 4 places in this list was inspected this week") with no change to the email
+code or the function's columns: only the function's query and a `watchlist.list_id`
+column would change.
+
 **Each place once.** A saved place listed here is left out of the watch areas and of the
 shared lists below it, and a place in two watch areas is listed in the first
 (`oncePerEmail` in `packages/core/email/digest.js`). Totals stay whole: an area says "5

@@ -204,18 +204,18 @@ describe("groupSavedPlaces", () => {
       { user_id: "u1", saved_total: 3, ...row({ establishment_id: "b" }) },
       { user_id: "u2", saved_total: 2, establishment_id: null },
     ]);
-    assert.equal(byUser.get("u1").total, 3);
+    assert.equal(byUser.get("u1")[0].total, 3);
     assert.deepEqual(
-      byUser.get("u1").places.map((r) => r.establishment_id),
+      byUser.get("u1")[0].places.map((r) => r.establishment_id),
       ["a", "b"],
     );
-    assert.deepEqual(byUser.get("u2"), { total: 2, places: [] });
+    assert.deepEqual(byUser.get("u2"), [{ id: null, name: null, total: 2, places: [] }]);
   });
 });
 
 describe("oncePerEmail", () => {
   const s = summarize(ROWS, { today: "2026-11-10" });
-  const saved = { total: 3, places: [ROWS[0]] }; // TACO, failing
+  const saved = [{ id: null, name: null, total: 3, places: [ROWS[0]] }]; // TACO, failing
   const area = (id, ids) => ({
     id,
     name: id,
@@ -270,7 +270,9 @@ describe("renderDigest with saved places", () => {
   const times = (text, needle) => text.split(needle).length - 1;
 
   it("puts the saved places first, and names each place once", () => {
-    const { html, text } = renderDigest(s, { saved: { total: 3, places: [ROWS[0]] } });
+    const { html, text } = renderDigest(s, {
+      saved: [{ id: null, name: null, total: 3, places: [ROWS[0]] }],
+    });
     assert.match(html, /Your saved places/);
     assert.match(html, /1 of your 3 saved places was inspected this week/);
     assert.ok(html.indexOf("Your saved places") < html.indexOf("Everywhere this week"));
@@ -280,25 +282,65 @@ describe("renderDigest with saved places", () => {
   });
 
   it("says so when none of them was inspected", () => {
-    const { html, text } = renderDigest(s, { saved: { total: 2, places: [] } });
+    const { html, text } = renderDigest(s, {
+      saved: [{ id: null, name: null, total: 2, places: [] }],
+    });
     assert.match(html, /None of your 2 saved places were inspected this week/);
     assert.match(text, /Your saved places: None of your 2 saved places/);
   });
 
   it("says the failing list is all above when every failing place is", () => {
-    const { html } = renderDigest(s, { saved: { total: 2, places: [ROWS[0], ROWS[1]] } });
+    const { html } = renderDigest(s, {
+      saved: [{ id: null, name: null, total: 2, places: [ROWS[0], ROWS[1]] }],
+    });
     assert.match(html, /Only the 2 places shown above\./);
   });
 
   it("has no saved part for someone with no saved places", () => {
-    const { html } = renderDigest(s, { saved: { total: 0, places: [] } });
+    const { html } = renderDigest(s, { saved: [{ id: null, name: null, total: 0, places: [] }] });
     assert.doesNotMatch(html, /Your saved places/);
     assert.doesNotMatch(html, /Everywhere this week/);
   });
 
   it("keeps the subject's counts whole", () => {
     const plain = renderDigest(s).subject;
-    const mine = renderDigest(s, { saved: { total: 3, places: [ROWS[0]] } }).subject;
+    const mine = renderDigest(s, {
+      saved: [{ id: null, name: null, total: 3, places: [ROWS[0]] }],
+    }).subject;
     assert.equal(mine, plain);
+  });
+});
+
+describe("saved lists (ready for several per account)", () => {
+  const s = summarize(ROWS, { today: "2026-11-10" });
+
+  it("groups rows by list, keeping each list's name and count", () => {
+    const byUser = groupSavedPlaces([
+      {
+        user_id: "u1",
+        list_id: "l1",
+        list_name: "Date night",
+        saved_total: 4,
+        ...row({ establishment_id: "a" }),
+      },
+      { user_id: "u1", list_id: "l2", list_name: " Kids ", saved_total: 2, establishment_id: null },
+    ]);
+    const [date, kids] = byUser.get("u1");
+    assert.deepEqual([date.name, date.total, date.places.length], ["Date night", 4, 1]);
+    assert.deepEqual([kids.name, kids.total, kids.places.length], ["Kids", 2, 0]);
+  });
+
+  it("gives a named list its own part, and names a place in two lists once", () => {
+    const lists = [
+      { id: "l1", name: "Date night", total: 4, places: [ROWS[0]] },
+      { id: "l2", name: "Kids", total: 2, places: [ROWS[0], ROWS[2]] },
+    ];
+    const { html, text } = renderDigest(s, { saved: lists });
+    assert.match(html, /Your list/);
+    assert.match(html, /Date night/);
+    assert.match(html, /1 of 4 places in this list was inspected this week\./);
+    assert.match(html, /2 of 2 places in this list were inspected this week\. \(1 shown above\)/);
+    assert.equal(html.split("TACO &lt;SHOP&gt;").length - 1, 1);
+    assert.match(text, /Your list: Kids\. 2 of 2 places in this list/);
   });
 });

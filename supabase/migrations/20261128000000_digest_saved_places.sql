@@ -8,6 +8,11 @@
 -- most. Someone whose saved places had no inspection returns one row with no place, so
 -- the email can say so; someone with no saved places returns nothing.
 --
+-- Lists: today every saved place is in one list per account, so list_id and list_name are
+-- null. The columns are here so accounts can one day keep several lists (each its own part
+-- of the email) without dropping and recreating this function; saved_total is the count
+-- of the list's places. The email already groups by list (groupSavedPlaces).
+--
 -- digest_saved_places: service role only (it reads other people's saved places).
 -- admin_digest_saved_places: the email admin page's preview of one person, for admins
 -- only (is_admin(), migration 20261125000000), like admin_digest_watch_areas.
@@ -19,6 +24,8 @@ CREATE OR REPLACE FUNCTION public.digest_saved_places(
 )
 RETURNS TABLE(
   user_id uuid,
+  list_id uuid,
+  list_name text,
   saved_total bigint,
   establishment_id text,
   premise_name text,
@@ -63,7 +70,7 @@ RETURNS TABLE(
   people as (
     select distinct s.user_id, s.saved_total from saved s
   )
-  select u.user_id, u.saved_total, h.establishment_id, h.premise_name, h.address,
+  select u.user_id, null::uuid, null::text, u.saved_total, h.establishment_id, h.premise_name, h.address,
     h.score, h.grade, h.inspection_date, h.posted_date, h.violation_count, h.region
   from people u
   left join hits h on h.user_id = u.user_id and h.newest = 1
@@ -79,6 +86,8 @@ DROP FUNCTION IF EXISTS public.admin_digest_saved_places(uuid, integer);
 CREATE FUNCTION public.admin_digest_saved_places(p_user_id uuid, p_days integer DEFAULT 7)
 RETURNS TABLE(
   user_id uuid,
+  list_id uuid,
+  list_name text,
   saved_total bigint,
   establishment_id text,
   premise_name text,

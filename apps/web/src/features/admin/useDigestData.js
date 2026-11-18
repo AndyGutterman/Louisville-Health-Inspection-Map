@@ -77,8 +77,8 @@ export function usePersonalParts(userId, days) {
       return { areas, saved };
     }),
   );
-  if (!userId) return { areas: [], saved: null, error: null, loading: false };
-  return { areas: data?.areas ?? null, saved: data?.saved ?? null, error, loading };
+  if (!userId) return { areas: [], saved: [], error: null, loading: false };
+  return { areas: data?.areas ?? null, saved: data?.saved ?? [], error, loading };
 }
 
 /** The accounts list: searched in the database, a page at a time. */

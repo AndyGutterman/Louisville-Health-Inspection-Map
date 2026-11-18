@@ -101,37 +101,53 @@ export function groupWatchAreas(rows) {
 }
 
 /**
- * digest_saved_places rows (one per saved place inspected in the window, the person's
- * count of saved places on each; someone whose saved places had none is one row with no
- * place) -> Map of user id -> { total, places: [row, ...] }.
+ * digest_saved_places rows (one per saved place inspected in the window, with its list's
+ * count of places; a list with none inspected is one row with no place) -> Map of user id
+ * -> that person's lists, in the order the rows came:
+ *   [{ id, name, total, places: [row, ...] }]
+ * Today each account has one list (id and name null: "Your saved places"); the shape is
+ * ready for several (migration 20261128000000).
  */
 export function groupSavedPlaces(rows) {
   const byUser = new Map();
+  const byList = new Map();
   for (const r of rows || []) {
-    let saved = byUser.get(r.user_id);
-    if (!saved) {
-      saved = { total: Number(r.saved_total ?? 0), places: [] };
-      byUser.set(r.user_id, saved);
+    const key = `${r.user_id}|${r.list_id ?? ""}`;
+    let list = byList.get(key);
+    if (!list) {
+      list = {
+        id: r.list_id ?? null,
+        name: r.list_name?.trim() || null,
+        total: Number(r.saved_total ?? 0),
+        places: [],
+      };
+      byList.set(key, list);
+      if (!byUser.has(r.user_id)) byUser.set(r.user_id, []);
+      byUser.get(r.user_id).push(list);
     }
-    if (r.establishment_id != null) saved.places.push(r);
+    if (r.establishment_id != null) list.places.push(r);
   }
   return byUser;
 }
 
 /**
- * The parts of one person's email that are theirs, with each place named once: a saved
- * place inspected this week is listed with the saved places and left out below; a place
- * in two watch areas is listed in the first. `above` counts what an area or list leaves
- * out for that reason, so its totals still add up.
- *   saved: { total, places } or null; areas: [area]; failing, perfect: the shared lists
+ * The parts of one person's email that are theirs, with each place named once, in the
+ * order they appear: their saved lists, then their watch areas, then the shared lists. A
+ * place goes in the first part that has it and is left out after; `above` counts what a
+ * part leaves out for that reason, so its totals still add up.
+ *   saved: [list] (groupSavedPlaces); areas: [area]; failing, perfect: the shared lists
  */
-export function oncePerEmail({ saved = null, areas = [], failing = [], perfect = [] }) {
-  const shown = new Set((saved?.places ?? []).map((r) => r.establishment_id));
+export function oncePerEmail({ saved = [], areas = [], failing = [], perfect = [] }) {
+  const shown = new Set();
   const take = (rows) => {
     const kept = rows.filter((r) => !shown.has(r.establishment_id));
     for (const r of kept) shown.add(r.establishment_id);
     return { kept, above: rows.length - kept.length };
   };
+  const listParts = saved.map((l) => {
+    const { kept, above } = take(l.places);
+    return { ...l, places: kept, above };
+  });
   const areaParts = areas.map((a) => {
     const { kept, above } = take(a.places);
     return { ...a, places: kept, above };
@@ -141,7 +157,7 @@ export function oncePerEmail({ saved = null, areas = [], failing = [], perfect =
   const personal = new Set(shown);
   const drop = (rows) => rows.filter((r) => !personal.has(r.establishment_id));
   return {
-    saved,
+    saved: listParts,
     areas: areaParts,
     failing: drop(failing),
     failingAbove: failing.length - drop(failing).length,
@@ -178,10 +194,16 @@ const areaCounts = (a) =>
 // Places in the area that the email doesn't list: past its top few, not counting those
 // listed above (oncePerEmail).
 const areaMore = (a) => Math.max(0, a.total - a.places.length - (a.above ?? 0));
-const savedCounts = (s) =>
-  s.places.length
-    ? `${s.places.length === 1 ? "1 of your" : `${s.places.length} of your`} ${plural(s.total, "saved place")} ${s.places.length === 1 ? "was" : "were"} inspected this week.`
-    : `None of your ${plural(s.total, "saved place")} ${s.total === 1 ? "was" : "were"} inspected this week.`;
+// "1 of your 12 saved places was inspected this week." A named list (one day, several per
+// account) says "places in this list"; one listed in an earlier list counts as shown above.
+const savedCounts = (l) => {
+  const inspected = l.places.length + (l.above ?? 0);
+  const what = l.name
+    ? `${plural(l.total, "place")} in this list`
+    : `your ${plural(l.total, "saved place")}`;
+  if (!inspected) return `None of ${what} ${l.total === 1 ? "was" : "were"} inspected this week.`;
+  return `${inspected} of ${what} ${inspected === 1 ? "was" : "were"} inspected this week.${shownAbove(l.above)}`;
+};
 
 // A personal part of the email (the saved places, a watch area): a tinted box with a
 // label, a title, a line of counts, then its places.
@@ -199,15 +221,16 @@ function personalBox({ label, accent, tint, title, counts, rows, more = "" }) {
     </td></tr>`;
 }
 
-// The recipient's saved places that were inspected this week.
-function savedSection(s) {
+// One of the recipient's saved lists, with its places inspected this week. Today the one
+// list is unnamed ("Your saved places"); a named list (one day) shows its name.
+function savedSection(l) {
   return personalBox({
-    label: "Your saved places",
+    label: l.name ? "Your list" : "Your saved places",
     accent: GREEN,
     tint: { bg: "rgba(52,168,83,0.07)", border: "rgba(52,168,83,0.28)" },
-    title: "",
-    counts: savedCounts(s),
-    rows: s.places.map((r) => placeRow(r, scoreColour(r))).join(""),
+    title: l.name ?? "",
+    counts: savedCounts(l),
+    rows: l.places.map((r) => placeRow(r, scoreColour(r))).join(""),
   });
 }
 
@@ -245,7 +268,7 @@ export function renderDigest(
     unsubscribeUrl = null,
     maxFailing = 25,
     maxPerfect = 8,
-    saved = null,
+    saved = [],
     areas = [],
     test = false,
   } = {},
@@ -259,14 +282,14 @@ export function renderDigest(
   const subject = `${test ? "[Test] " : ""}${plural(total, "inspection")} this week, ${summary.failing.length} failing · Louisville Food Safe`;
 
   const mine = oncePerEmail({
-    saved: saved && saved.total ? saved : null,
+    saved: (saved ?? []).filter((l) => l.total > 0),
     areas,
     failing: summary.failing,
     perfect: summary.perfect,
   });
   const { failing, perfect, failingAbove } = mine;
   const personalHtml =
-    (mine.saved ? savedSection(mine.saved) : "") + mine.areas.map(watchAreaSection).join("");
+    mine.saved.map(savedSection).join("") + mine.areas.map(watchAreaSection).join("");
   // With personal parts above it, the shared part gets its own heading.
   const everywhere = personalHtml
     ? `<tr><td style="padding:26px 0 0;font-size:17px;font-weight:800;">Everywhere this week</td></tr>`
@@ -307,9 +330,11 @@ export function renderDigest(
     `  ${r.score ?? "–"}${r.grade ? ` (${r.grade})` : ""}  ${r.premise_name}, ${r.address}`;
   const text = [
     `Louisville Food Safe: ${plural(total, "inspection")} this week (${range})${counts ? `, ${counts}` : ""}`,
-    ...(mine.saved
-      ? ["", `Your saved places: ${savedCounts(mine.saved)}`, ...mine.saved.places.map(line)]
-      : []),
+    ...mine.saved.flatMap((l) => [
+      "",
+      `${l.name ? `Your list: ${l.name}.` : "Your saved places:"} ${savedCounts(l)}`,
+      ...l.places.map(line),
+    ]),
     ...mine.areas.flatMap((a) => [
       "",
       `Your watch area: ${a.name} (${a.radius} mi). ${areaCounts(a)}`,

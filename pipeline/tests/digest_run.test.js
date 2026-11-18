@@ -29,7 +29,7 @@ const SAM = { id: "u-sam", email: "sam@example.com", token: "tok-sam" };
 // inspected (Jane can be given it too). Records what was asked of it.
 function fakeStore({ delivered = [], janeSaves = false } = {}) {
   const calls = { watchAreas: [], savedPlaces: [], recorded: [], weekRows: 0 };
-  const saved = { total: 2, places: ROWS };
+  const saved = [{ id: null, name: null, total: 2, places: ROWS }];
   return {
     calls,
     weekRows: async () => (calls.weekRows++, ROWS),

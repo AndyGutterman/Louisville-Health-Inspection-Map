@@ -99,7 +99,7 @@ export function makeStore(supa, { warn = console.warn } = {}) {
       }
     },
 
-    // Saved places inspected in the window: Map of user id -> { total, places }. userIds
+    // Saved places inspected in the window: Map of user id -> [list] (groupSavedPlaces). userIds
     // null: every subscriber. Rows only for saved places that were inspected, so it's a
     // few per person at most. Like the watch areas, the email goes out without them if the
     // read fails (a database without digest_saved_places, migration 20261128000000).

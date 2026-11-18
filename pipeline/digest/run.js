@@ -69,7 +69,7 @@ export async function buildEmail(job, { store, today }) {
         ...renderDigest(summary, {
           unsubscribeUrl: url,
           areas: areasByUser.get(whose(r)) ?? [],
-          saved: savedByUser.get(whose(r)) ?? null,
+          saved: savedByUser.get(whose(r)) ?? [],
           test: job.test,
         }),
         unsubscribeUrl: url,
