@@ -270,7 +270,7 @@ const whatsNewRow = (p) => ({
 
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
 export const TABLES = {
-  // Louisville's pins in one read (migration 20261122000000)...
+  // Louisville's pins in one read (migration 20261122000000).
   v_facility_map_pins: pinned.map((p) => ({
     establishment_id: p.eid,
     premise_name: p.name,
@@ -286,26 +286,6 @@ export const TABLES = {
     score_recent: p.score,
     grade_recent: p.grade,
     has_any_violation: !!p.critical,
-  })),
-  // ...and the three reads the site falls back to on a database without that view.
-  v_facility_map_feed: pinned.map((p) => ({
-    establishment_id: p.eid,
-    premise_name: p.name,
-    address: p.address,
-    lon: p.lon,
-    lat: p.lat,
-    inspection_date_recent: daysAgo(p.days),
-    score_recent: p.score,
-    grade_recent: p.grade,
-  })),
-  facilities: PLACES.map((p) => ({
-    establishment_id: p.eid,
-    facility_type: p.ft,
-    subtype: p.st,
-    address: p.address,
-    city: p.address ? "LOUISVILLE" : null,
-    state: p.address ? "KY" : null,
-    zip: p.address ? "40202" : null,
   })),
   inspections,
   inspection_violations: violations,
@@ -330,11 +310,6 @@ export const TABLES = {
   // back whatever is searched; tests check the request for the filter itself.
   v_table_latest: tableRows,
   v_table_inspections: tableRows,
-  "rpc/get_violation_flags": pinned.map((p) => ({
-    establishment_id: p.eid,
-    has_critical: !!p.critical,
-    has_any: !!p.critical,
-  })),
   v_bullitt_map_feed: BULLITT_PLACES.map((p) => ({
     establishment_id: p.eid,
     premise_name: p.name,

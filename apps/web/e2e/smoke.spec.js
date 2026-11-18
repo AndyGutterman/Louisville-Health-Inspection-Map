@@ -42,32 +42,28 @@ test("loads with no console errors", async ({ page }, testInfo) => {
 test("the map shows while the rest of the data loads, with a corner indicator", async ({
   page,
 }, testInfo) => {
-  // A database without v_facility_map_pins: the site reads the pins, types and rings
-  // separately. The rings are held back: the splash lifts on the first pins, not on them.
+  // Jefferson and Bullitt both switched on, with Bullitt's read held back: the splash
+  // lifts on Jefferson's pins, and the corner says the rest is still loading.
   let release;
-  const flagsArrive = new Promise((r) => (release = r));
-  const { consoleErrors, requested } = await openApp(page, {
-    missing: ["v_facility_map_pins"],
-    holds: { "rpc/get_violation_flags": flagsArrive },
+  const bullittArrives = new Promise((r) => (release = r));
+  const { consoleErrors } = await openApp(page, {
+    counties: ["jefferson", "bullitt"],
+    holds: { v_bullitt_map_feed: bullittArrives },
   });
-  // The missing view is asked for once, not retried.
-  expect(requested.filter((p) => p === "v_facility_map_pins")).toHaveLength(1);
   const pill = page.getByTestId("pins-loading");
   await expect(pill).toContainText("Loading places");
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("OpenStreetMap");
   await snap(page, testInfo, "01b-pins-loading");
   release();
   await expect(pill).toHaveCount(0);
-  // The browser logs the deliberate 404 itself; nothing else may error.
-  expect(consoleErrors.filter((e) => !e.includes("404"))).toEqual([]);
+  expect(consoleErrors).toEqual([]);
 });
 
-test("Louisville's pins are one read when the database has v_facility_map_pins", async ({
-  page,
-}) => {
+test("Louisville's pins are one read, and no whole table is read", async ({ page }) => {
   const { requested } = await openApp(page);
   await expect(page.getByTestId("pins-loading")).toHaveCount(0);
   expect(requested.filter((p) => p === "v_facility_map_pins")).toHaveLength(1);
+  // The old way read these three whole (the site no longer can): keep it that way.
   const older = ["v_facility_map_feed", "facilities", "rpc/get_violation_flags"];
   expect(requested.filter((p) => older.includes(p))).toEqual([]);
 });
@@ -77,15 +73,7 @@ test("a second visit the same day draws the pins from the browser, not the datab
   context,
 }) => {
   const pinReads = (requested) =>
-    requested.filter((p) =>
-      [
-        "v_facility_map_pins",
-        "v_facility_map_feed",
-        "facilities",
-        "rpc/get_violation_flags",
-        "v_bullitt_map_feed",
-      ].includes(p),
-    );
+    requested.filter((p) => ["v_facility_map_pins", "v_bullitt_map_feed"].includes(p));
   const first = await openApp(page);
   await expect(page.getByTestId("pins-loading")).toHaveCount(0); // complete, so it's kept
   expect(pinReads(first.requested)).toContain("v_facility_map_pins");
