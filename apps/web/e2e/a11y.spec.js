@@ -100,6 +100,15 @@ test("a11y: the Saved panel, signed in", async ({ page }) => {
   expect(await audit(page)).toEqual([]);
 });
 
+test("a11y: the pin control center, as an admin", async ({ page }) => {
+  await mockAuth(page);
+  await openApp(page, { path: "/?page=pins", answers: { "rpc/is_admin": true } });
+  await page.getByTestId("admin-gate").getByRole("button", { name: "Log in" }).click();
+  await signIn(page);
+  await expect(page.getByTestId("place-editor")).toBeVisible();
+  expect(await audit(page)).toEqual([]);
+});
+
 // The same views in Spanish: axe checks the translated text's contrast, names and lengths
 // (a longer label can overflow), and the page's lang.
 test.describe("a11y in Spanish", () => {
