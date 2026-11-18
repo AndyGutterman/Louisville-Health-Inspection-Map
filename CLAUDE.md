@@ -158,7 +158,7 @@ As of 2026-11-19 (PRs up to #88 merged). Four PRs from an overnight run are open
 - **#92 Accessibility part 2:** 320px reflow, reduced motion, dialog focus (`hooks/useDialogFocus.js`), 24px tap targets; `e2e/a11y-part2.spec.js`.
 - The refactor's phases 0, 1, 2, 4 and 5 are done, and phase 6 nearly: every big component is split into `features/`. Lint has 0 warnings.
 - Tests (with the open PRs): about 435 website unit and component tests, 73 in `packages/core`, 209 in the pipeline, and 212 Playwright runs (desktop and phone) including the axe checks (`e2e/a11y.spec.js`, in Spanish too) and `a11y-part2.spec.js`.
-- Gotcha from that run: never run Prettier over `pipeline/tests/fixtures/` (the portal's saved HTML is kept byte for byte; `.prettierignore` covers it only when run from the repo root, so run `npm run format` from there).
+- Gotcha from that run: running Prettier from inside `pipeline/` (`npx prettier --write tests`) reformatted `pipeline/tests/fixtures/kyportal_oldham.html`, the portal's saved page, and broke 13 tests. Run `npm run format` from the repo root, and `git status` before committing.
 - **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care. The overnight run made none.
 
 ## To do, in order
