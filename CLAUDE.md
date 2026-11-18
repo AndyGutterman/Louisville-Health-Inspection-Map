@@ -150,12 +150,16 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## State (verify with git)
 
-As of 2026-11-18 (PRs up to #87 merged; #86, saved places in the digest, open):
+As of 2026-11-19 (PRs up to #88 merged). Four PRs from an overnight run are open, all against `main`; **merge #89 first**: #90, #91 and #92 are built on its branch (`feat/i18n-spanish`), so until it merges their diffs also show its commits.
 
-- The refactor's phases 0, 1, 2, 4 and 5 are done, and phase 6 nearly: every big component is split into `features/` (map, table, drawer, filters, saved, learn, admin, privacy). Lint has 0 warnings.
-- Tests: about 400 website unit and component tests (`src/lib` about 98% of lines), 64 in `packages/core`, 206 in the pipeline, and 108 Playwright tests including 20 axe accessibility checks (`e2e/a11y.spec.js`, WCAG 2.2 AA).
-- Removed as unused (2026-11-18): the website's three-table fallback, the R2 archive job (Cloudflare was never set up), Upstash (feedback's spam limit now counts rows in `feedback`), and dead database objects (migration `20261127000000`).
-- **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care.
+- **#89 Spanish, finished** (issue #7): flag picker (inline US/Spain SVG, `features/map/LanguagePicker.jsx`) in the top left of every page, before the search box or the back button; every interface string in English and Spanish (`lib/strings.js` plus `strings.filters.js`, `.table.js`, `.saved.js`, `.pages.js`, merged there; `lib/i18n.test.js` enforces both languages have every key); the admin page stays English. The weekly email goes out in the subscriber's language: `profiles.language` (`en`/`es`), `packages/core/email/words.js` (tested word list; `renderDigest`/`renderCustom` take `lang`), `pipeline/digest` renders each copy in the recipient's language, the admin preview shows and uses it. Sign-up from the Spanish site saves `es`; a signed-in subscriber who switches language is offered the email in it once (`DigestLanguageOffer.jsx`), and the Saved panel always shows the choice. The privacy page says the language is stored (`PRIVACY_UPDATED` 2026-11-19).
+- **#90 Shelby and Spencer** from Kentucky's portal, like Oldham (off by default, loaded when switched on). Hardin (about twice Oldham's size) left out: `docs/COUNTIES.md`.
+- **#91 Violation rings:** Louisville amber-red, every other county goldenrod (`features/map/mapLayers.js`).
+- **#92 Accessibility part 2:** 320px reflow, reduced motion, dialog focus (`hooks/useDialogFocus.js`), 24px tap targets; `e2e/a11y-part2.spec.js`.
+- The refactor's phases 0, 1, 2, 4 and 5 are done, and phase 6 nearly: every big component is split into `features/`. Lint has 0 warnings.
+- Tests (with the open PRs): about 435 website unit and component tests, 73 in `packages/core`, 209 in the pipeline, and 212 Playwright runs (desktop and phone) including the axe checks (`e2e/a11y.spec.js`, in Spanish too) and `a11y-part2.spec.js`.
+- Gotcha from that run: running Prettier from inside `pipeline/` (`npx prettier --write tests`) reformatted `pipeline/tests/fixtures/kyportal_oldham.html`, the portal's saved page, and broke 13 tests. Run `npm run format` from the repo root, and `git status` before committing.
+- **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care. The overnight run made none.
 
 ## To do, in order
 
@@ -163,14 +167,16 @@ As of 2026-11-18 (PRs up to #87 merged; #86, saved places in the digest, open):
 
 1. Supabase → Edge Functions → Secrets: `ALLOWED_ORIGIN` must be `https://louisvillefoodsafe.netlify.app` with no trailing slash (a slash blocked the admin email button and all feedback from June to November 2026).
 2. Deploy both edge functions after #84: `npx supabase functions deploy submit-feedback --no-verify-jwt --project-ref iyahhhgqmhbadgczbfwy` and `npx supabase functions deploy email-dispatch --project-ref iyahhhgqmhbadgczbfwy`. Then delete the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` secrets, and send a test from the Feedback button.
-3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, and after #86 merges `20261128000000_digest_saved_places.sql`.
+3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, `20261128000000_digest_saved_places.sql`, and (after #89 merges) **`20261129000000_digest_language.sql`** (adds `profiles.language`; until it runs every email is English and the language offer stays hidden).
 4. Netlify: delete the unused `GEOAPIFY_KEY` variable (the site uses `VITE_GEOAPIFY_KEY`).
 5. Decide whether approximate Bullitt pins (`ky911-approx`) should look different (`docs/BULLITT.md`, Decisions 9).
+6. Merge order: #89, then #90, #91, #92. After #90, run "Ingest portal counties" by hand for `shelby` then `spencer`, check the geocoding report, then add them to the scheduled list in `portal-ingest.yml`. Look at the ring colours (#91) and the larger score switches (#92) on a phone.
+7. Have a Spanish speaker skim `lib/strings*.js`, `packages/core/email/words.js` and the Spanish privacy text.
 
 **Code, next in line:**
 
-1. **Spanish (issue #7).** A small built-in translation layer (no library): `lib/i18n.js` with an English and a Spanish dictionary, a `useT()` hook, and a language picker in the header. Use language names ("English / Español") with a globe icon, not flags (a flag is a country; also the accessibility advice). Remember the choice (localStorage), default to Spanish when the browser prefers it, and set `<html lang>`. Translate the interface only: place names, addresses, inspection types and the health departments' violation text stay as published, and so does the site's name. Order: the map screen (header, filter card, popups, drawer, What's New, Table View), then Saved, sign-in and feedback, then the Learn and privacy pages. The privacy page must stay true in both languages (update `lib/privacy.js`'s date). Add an axe run in Spanish to `e2e/a11y.spec.js`.
-2. **Accessibility, part 2** (`docs/ACCESSIBILITY.md`, "Not checked yet"): 200% zoom and a 320px-wide window, `prefers-reduced-motion` for the drawer and panels, focus moving into and out of the dialogs, tap targets of at least 24px.
+1. **Spanish leftovers:** the email admin page is English by design; raw Supabase error text still shows as received; a real screen-reader pass in Spanish.
+2. **Accessibility, still by hand** (`docs/ACCESSIBILITY.md`, "Not checked yet"): VoiceOver and TalkBack on the dialogs and the bottom sheet.
 3. **Pipeline (refactor phase 3)**, from a machine that can run against the database, dry run first, and only once egress has reset:
    - `overlay_geometry.js` never saves coordinates (it should write `geom` only);
    - `etl-accuracy-check.js` reads a different server and fields than the ingest;
@@ -179,7 +185,8 @@ As of 2026-11-18 (PRs up to #87 merged; #86, saved places in the digest, open):
    - the portal's Jefferson data could become Jefferson's fallback (not connected; `docs/COUNTIES.md`).
 4. **Phase 6 leftovers:** split `ScoreThreshold.jsx`; CSS clean-up; a component test for the info drawer (like `WhatsNew.test.jsx`).
 5. **Egress audit:** find what used 5 GB this cycle (the daily chart first), and keep a fresh map load and Table View as small as they can be.
-6. Later: consider TypeScript.
+6. Maybe: Hardin County from the portal (`docs/COUNTIES.md`); showing portal counties in Table View, Saved and What's New.
+7. Later: consider TypeScript.
 
 ## Working with the owner
 
