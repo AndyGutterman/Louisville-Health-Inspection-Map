@@ -57,9 +57,11 @@ export function deduplicateForRender(featureList) {
       },
     });
   }
-  // One line, not one per spot: a warning per spot was hundreds of console entries on
-  // every load, which is slow with DevTools open.
-  if (stacked) console.warn(`${stacked} spots have several places; each draws one pin.`);
+  // A note for development only: on the live site it printed on every redraw (each
+  // category toggle). One line, not one per spot: hundreds of entries were slow.
+  if (stacked && import.meta.env?.DEV) {
+    console.warn(`${stacked} spots have several places; each draws one pin.`);
+  }
   return out;
 }
 

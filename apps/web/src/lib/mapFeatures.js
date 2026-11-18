@@ -28,13 +28,15 @@ export function buildMapFeatures(feedRows, metaById, flagsById, { tag = true } =
     .map((r) => ({ ...r, lon: toNumber(r.lon), lat: toNumber(r.lat) }))
     .filter((r) => {
       if (hasCoordinates(r)) return true;
-      console.warn("Facility missing usable coordinates (no pin will render)", {
-        establishment_id: r.establishment_id,
-        name: r.premise_name,
-        address: r.address,
-        raw_lon: r.lon,
-        raw_lat: r.lat,
-      });
+      // Data-quality notes are for development; the pipeline's coverage report has them.
+      if (import.meta.env?.DEV)
+        console.warn("Facility missing usable coordinates (no pin will render)", {
+          establishment_id: r.establishment_id,
+          name: r.premise_name,
+          address: r.address,
+          raw_lon: r.lon,
+          raw_lat: r.lat,
+        });
       return false;
     });
 
@@ -70,7 +72,7 @@ export function buildMapFeatures(feedRows, metaById, flagsById, { tag = true } =
       },
     };
   });
-  if (unmapped.length) {
+  if (unmapped.length && import.meta.env?.DEV) {
     const pairs = [...new Set(unmapped)].join(", ");
     console.warn(`${unmapped.length} places have a type no category claims: ${pairs}`);
   }
