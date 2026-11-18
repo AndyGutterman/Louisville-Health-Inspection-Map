@@ -1,14 +1,16 @@
 // The sign-in form: an email, then the 6-digit code from it (AuthContext.jsx), with the
 // weekly digest opt-in. Opened from the map header and from the Learn page.
 import React, { useState, useEffect } from "react";
+import { useT } from "../../I18nContext.jsx";
 import { useAuth } from "../../AuthContext.jsx";
 import { cleanCode, isCompleteCode } from "../../lib/authCode.js";
 // The sign-in form's digest checkbox, kept until the code is verified (lib/digest.js).
-import { rememberDigestOptIn } from "../../lib/digest.js";
+import { rememberDigestOptIn, rememberSignupLanguage } from "../../lib/digest.js";
 import { PRIVACY_PATH } from "../../lib/privacy.js";
 import "../../styles/LearnPage.css";
 
 export default function LoginModal({ onClose }) {
+  const { t, lang } = useT();
   const { user, sendMagicLink, verifyCode, signOut, loading } = useAuth();
   const [authError, setAuthError] = useState(null);
   const [email, setEmail] = useState("");
@@ -29,7 +31,7 @@ export default function LoginModal({ onClose }) {
     const { error } = await verifyCode(email.trim(), code);
     setVerifying(false);
     if (error) {
-      setCodeError("That code didn't work. Check it, or send a new one.");
+      setCodeError(t("login.codeError"));
       return;
     }
     onClose(); // signed in: the header switches to Saved on its own
@@ -47,13 +49,11 @@ export default function LoginModal({ onClose }) {
     <>
       <div className="ln-mback" onClick={onClose}>
         <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
-          <button className="ln-modal-x" onClick={onClose} aria-label="Close">
+          <button className="ln-modal-x" onClick={onClose} aria-label={t("login.close")}>
             ×
           </button>
-          <div className="ln-modal-title">Sign in</div>
-          <div className="ln-modal-sub">
-            Create a free account to save your favorite restaurants and get the weekly digest.
-          </div>
+          <div className="ln-modal-title">{t("login.title")}</div>
+          <div className="ln-modal-sub">{t("login.sub")}</div>
 
           {loading ? (
             <div
@@ -64,7 +64,7 @@ export default function LoginModal({ onClose }) {
                 padding: "16px 0",
               }}
             >
-              Loading…
+              {t("login.loading")}
             </div>
           ) : user ? (
             <div className="ln-modal-box" style={{ alignItems: "flex-start", textAlign: "left" }}>
@@ -86,7 +86,7 @@ export default function LoginModal({ onClose }) {
                   {(user.email || "?")[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: ".88rem" }}>My Account</div>
+                  <div style={{ fontWeight: 700, fontSize: ".88rem" }}>{t("login.account")}</div>
                   <div
                     style={{
                       fontSize: ".74rem",
@@ -119,7 +119,7 @@ export default function LoginModal({ onClose }) {
                   fontFamily: "inherit",
                 }}
               >
-                Sign out
+                {t("login.signOut")}
               </button>
             </div>
           ) : sent ? (
@@ -128,14 +128,18 @@ export default function LoginModal({ onClose }) {
               <div className="ln-code-icon" aria-hidden="true">
                 ✉️
               </div>
-              <div className="ln-code-title">Check your email</div>
+              <div className="ln-code-title">{t("login.checkEmail")}</div>
               <div className="ln-code-text">
-                We sent a sign-in code to <strong>{email}</strong>. Type it here.
+                {t("login.sentTo", { email: "\u0000" })
+                  .split("\u0000")
+                  .flatMap((part, i) =>
+                    i === 0 ? [part] : [<strong key="e">{email}</strong>, part],
+                  )}
               </div>
               <form onSubmit={submitCode}>
                 <input
                   className="ln-code-input"
-                  aria-label="Sign-in code"
+                  aria-label={t("login.codeLabel")}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder="123456"
@@ -156,12 +160,10 @@ export default function LoginModal({ onClose }) {
                   className="ln-code-submit"
                   disabled={!isCompleteCode(code) || verifying}
                 >
-                  {verifying ? "Checking…" : "Sign in"}
+                  {verifying ? t("login.checking") : t("login.submitCode")}
                 </button>
               </form>
-              <div className="ln-code-hint">
-                On a computer you can tap the link in the email instead.
-              </div>
+              <div className="ln-code-hint">{t("login.codeHint")}</div>
               <button
                 type="button"
                 className="ln-code-other"
@@ -173,7 +175,7 @@ export default function LoginModal({ onClose }) {
                   setAuthError(null);
                 }}
               >
-                Use a different email
+                {t("login.otherEmail")}
               </button>
             </div>
           ) : (
@@ -187,8 +189,7 @@ export default function LoginModal({ onClose }) {
                   lineHeight: 1.5,
                 }}
               >
-                Enter your email and we'll send you a sign-in code. No password, no third-party
-                account needed.
+                {t("login.intro")}
               </div>
 
               {authError && (
@@ -216,9 +217,10 @@ export default function LoginModal({ onClose }) {
                   const { error } = await sendMagicLink(email.trim());
                   setSending(false);
                   if (error) {
-                    setAuthError(error.message || "Couldn't send the code. Try again.");
+                    setAuthError(error.message || t("login.sendError"));
                   } else {
                     rememberDigestOptIn(digest);
+                    rememberSignupLanguage(lang);
                     setSent(true);
                   }
                 }}
@@ -261,12 +263,11 @@ export default function LoginModal({ onClose }) {
                     type="checkbox"
                     checked={digest}
                     onChange={(e) => setDigest(e.target.checked)}
-                    aria-label="Email me the weekly digest"
+                    aria-label={t("login.digest.title")}
                   />
                   <span>
-                    <span className="ln-digest-opt-title">Email me the weekly digest</span>
-                    This week&apos;s inspections, the ones that failed, and news on your saved
-                    places and watch areas. Tuesdays. Unsubscribe anytime.
+                    <span className="ln-digest-opt-title">{t("login.digest.title")}</span>
+                    {t("login.digest.sub")}
                   </span>
                 </label>
                 <button
@@ -295,7 +296,7 @@ export default function LoginModal({ onClose }) {
                     e.target.style.background = "rgba(52,168,83,0.16)";
                   }}
                 >
-                  {sending ? "Sending…" : "Email me a code"}
+                  {sending ? t("login.sending") : t("login.sendCode")}
                 </button>
               </form>
 
@@ -308,9 +309,9 @@ export default function LoginModal({ onClose }) {
                   lineHeight: 1.5,
                 }}
               >
-                Free account · No password · Unsubscribe anytime ·{" "}
+                {t("login.footer")}{" "}
                 <a className="privacy-link" href={PRIVACY_PATH} target="_blank" rel="noreferrer">
-                  Privacy
+                  {t("login.privacy")}
                 </a>
               </div>
             </>

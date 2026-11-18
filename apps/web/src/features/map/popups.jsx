@@ -183,6 +183,7 @@ export function createPopups({
         total={features.length}
         onPrev={() => step(-1)}
         onNext={() => step(1)}
+        t={words().t}
       />,
     );
 

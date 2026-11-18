@@ -62,6 +62,8 @@ export default function DigestTab({ me, send, onSubscribers }) {
     return renderDigest(week.summary, {
       areas: mine.areas,
       saved: mine.saved,
+      // In the language they get it in (profiles.language; English before the migration).
+      lang: person?.language,
       // The footer as they'd see it; the real link's token never leaves the database.
       unsubscribeUrl: isOn(person) ? `${SITE}/?unsubscribe=preview` : null,
     });
@@ -191,6 +193,11 @@ export default function DigestTab({ me, send, onSubscribers }) {
           <div className="adm-card-title" data-testid="admin-preview-who">
             {person ? person.email : "Someone with nothing saved"}
           </div>
+          {person && (
+            <div className="adm-dim" data-testid="admin-preview-language">
+              Email language: {person.language === "es" ? "Spanish" : "English"}
+            </div>
+          )}
           {person && !isOn(person) && (
             <div className="adm-dim">
               Not subscribed: Tuesday&apos;s send skips them. This is what they&apos;d get.

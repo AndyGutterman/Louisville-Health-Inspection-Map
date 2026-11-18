@@ -8,6 +8,7 @@ import {
   toggleCounty,
   writeCountyChoice,
 } from "./counties.js";
+import { translate } from "./i18n.js";
 
 const REGIONS = [
   { id: "jefferson", has: { table: true } },
@@ -78,6 +79,15 @@ describe("countyStatusText", () => {
     expect(countyStatusText({ shown: true, state: "ready", places: 1 })).toBe("1 place");
     expect(countyStatusText({ shown: false, state: "ready", places: 250 })).toBe(
       "250 places, hidden",
+    );
+  });
+
+  it("speaks the language it is given", () => {
+    const es = (k, v) => translate("es", k, v);
+    expect(countyStatusText({ shown: false }, es)).toBe("Sin cargar");
+    expect(countyStatusText({ shown: true, state: "ready", places: 1 }, es)).toBe("1 lugar");
+    expect(countyStatusText({ shown: false, state: "ready", places: 2500 }, es)).toBe(
+      "2,500 lugares, ocultos",
     );
   });
 });

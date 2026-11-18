@@ -291,12 +291,14 @@ export default function Map({ onMapReady }) {
     pinnedSlot: map.pinnedSlot,
     onOpenPanel: (areaId) => openSavedPanel({ id: areaId, n: Date.now() }),
     onCommit: watchlist.commitAreaEdit,
+    t,
   });
   useCountyLoadLayer({
     mapRef: map.mapRef,
     mapReady: map.mapReady,
     counties,
     onShowCounty: showCounty,
+    t,
   });
 
   // ── Opening places from the panels ───────────────────────────────────────────
@@ -583,7 +585,7 @@ export default function Map({ onMapReady }) {
                 setTableOpen(true);
                 setWhatsNewOpen(false);
               }}
-              aria-label="Open table view"
+              aria-label={t("map.openTable")}
             >
               <svg
                 width="16"
@@ -597,7 +599,7 @@ export default function Map({ onMapReady }) {
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M3 9h18M3 15h18M9 3v18" />
               </svg>
-              Table View
+              {t("map.tableView")}
             </button>
           )}
 

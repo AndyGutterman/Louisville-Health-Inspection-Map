@@ -9,14 +9,14 @@ export const MIN_ZOOM = 11;
 // Pixel width of the screen edge that triggers auto-panning while dragging.
 export const EDGE_ZONE = 24;
 
-// "Since X" options for the date filter on the map.
+// "Since X" options (labelKey is the translated label; label is the English) for the date filter on the map.
 export const DATE_FILTER_OPTS = [
-  { key: "1w", label: "1 week", days: 7 },
-  { key: "1mo", label: "1 month", days: 30 },
-  { key: "3mo", label: "3 months", days: 91 },
-  { key: "6mo", label: "6 months", days: 182 },
-  { key: "1yr", label: "1 year", days: 365 },
-  { key: "all", label: "All time", days: null },
+  { key: "1w", labelKey: "filters.date.1w", label: "1 week", days: 7 },
+  { key: "1mo", labelKey: "filters.date.1mo", label: "1 month", days: 30 },
+  { key: "3mo", labelKey: "filters.date.3mo", label: "3 months", days: 91 },
+  { key: "6mo", labelKey: "filters.date.6mo", label: "6 months", days: 182 },
+  { key: "1yr", labelKey: "filters.date.1yr", label: "1 year", days: 365 },
+  { key: "all", labelKey: "filters.date.all", label: "All time", days: null },
 ];
 
 // Map pins are cached in localStorage, one entry per county, or per category of a county

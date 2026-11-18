@@ -192,6 +192,28 @@
   color: #ff9a9a;
 }
 
+/* The weekly email's language, when it isn't the site's (AccountPage.jsx). */
+.acct-digest-lang {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+.acct-digest-lang button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: rgba(52, 168, 83, 0.18);
+  border: 1px solid rgba(52, 168, 83, 0.45);
+  color: #9be3ad;
+  cursor: pointer;
+}
+
 /* Phones: no blur. Re-blurring the moving map behind a panel every frame made panning
    choppy on iPhones, so panels get solid backgrounds instead. */
 @media (max-width: 600px) {

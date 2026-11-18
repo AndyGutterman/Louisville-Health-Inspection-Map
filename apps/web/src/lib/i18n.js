@@ -13,6 +13,9 @@ export const LANGUAGES = [
 export const DEFAULT_LANGUAGE = "en";
 export const LANGUAGE_KEY = "lfs_lang"; // localStorage: the visitor's choice
 
+/** A language by its own name ("Español"); the code itself for one the site lacks. */
+export const languageName = (code) => LANGUAGES.find((l) => l.code === code)?.name ?? code;
+
 const known = (code) => LANGUAGES.some((l) => l.code === code);
 export const localeOf = (code) => (LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0]).locale;
 

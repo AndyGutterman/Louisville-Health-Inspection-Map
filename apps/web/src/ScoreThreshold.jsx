@@ -1,6 +1,7 @@
 import React from "react";
 import "./styles/AdjustFilter.css";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
+import { useT } from "./I18nContext.jsx";
 import { useLatest } from "./hooks/useLatest.js";
 import { RED_CAP, SCORE_MIN as LO, YEL_CAP } from "./lib/scoring.js";
 
@@ -13,6 +14,7 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, Math.round(n)));
 const toPct = (v) => ((v - LO) * 100) / (HI - LO);
 
 export function ScoreThresholdInline({ pins, setPins, preset, applyPreset }) {
+  const { t } = useT();
   // The cut-offs under the pointer while a handle is dragged; null otherwise.
   const [draft, setDraft] = React.useState(null);
   const [rMax, yMax] = draft || pins || [86, 94];
@@ -89,7 +91,7 @@ export function ScoreThresholdInline({ pins, setPins, preset, applyPreset }) {
           onClick={() => onPreset("loose")}
           style={{ flex: 1, padding: isMobile ? "6px 8px" : "8px 12px", whiteSpace: "nowrap" }}
         >
-          Loose
+          {t("score.loose")}
         </button>
         <button
           type="button"
@@ -97,7 +99,7 @@ export function ScoreThresholdInline({ pins, setPins, preset, applyPreset }) {
           onClick={() => onPreset("balanced")}
           style={{ flex: 1, padding: isMobile ? "6px 8px" : "8px 12px", whiteSpace: "nowrap" }}
         >
-          Balanced
+          {t("score.balanced")}
         </button>
         <button
           type="button"
@@ -105,7 +107,7 @@ export function ScoreThresholdInline({ pins, setPins, preset, applyPreset }) {
           onClick={() => onPreset("strict")}
           style={{ flex: 1, padding: isMobile ? "6px 8px" : "8px 12px", whiteSpace: "nowrap" }}
         >
-          Strict
+          {t("score.strict")}
         </button>
       </div>
 
@@ -160,6 +162,7 @@ function RowSingle({
   onDragStart,
   onDragEnd,
 }) {
+  const { t } = useT();
   const trackRef = React.useRef(null);
   const [drag, setDrag] = React.useState(false);
   const posPct = toPct(value);
@@ -244,7 +247,7 @@ function RowSingle({
           aria-valuemin={LO}
           aria-valuemax={HI}
           aria-valuenow={value}
-          aria-label={`${color} handle`}
+          aria-label={t("score.handle", { color: t(`score.color.${color}`) })}
         >
           <span className="wb2-thumb" />
         </button>
@@ -268,6 +271,7 @@ function RowDual({
   onDragStart,
   onDragEnd,
 }) {
+  const { t } = useT();
   const trackRef = React.useRef(null);
   const [active, setActive] = React.useState(null);
   const leftPct = toPct(leftValue);
@@ -357,7 +361,7 @@ function RowDual({
           aria-valuemin={LO}
           aria-valuemax={HI}
           aria-valuenow={leftValue}
-          aria-label="yellow left"
+          aria-label={t("score.yellowLeft")}
         >
           <span className="wb2-thumb" />
         </button>
@@ -371,7 +375,7 @@ function RowDual({
           aria-valuemin={LO}
           aria-valuemax={HI}
           aria-valuenow={rightValue}
-          aria-label="yellow right"
+          aria-label={t("score.yellowRight")}
         >
           <span className="wb2-thumb" />
         </button>

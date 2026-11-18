@@ -391,6 +391,7 @@ const account = (id, email, fields) => ({
   user_id: id,
   email,
   alert_frequency: "weekly",
+  language: "en",
   created_at: `${daysAgo(60)}T12:00:00Z`,
   watch_areas: 0,
   saved_places: 0,
@@ -437,6 +438,7 @@ Object.assign(TABLES, {
     }),
     account("00000000-0000-0000-0000-00000000000c", "sam@example.com", {
       alert_frequency: "off",
+      language: "es",
     }),
   ],
   "rpc/admin_digest_watch_areas": [

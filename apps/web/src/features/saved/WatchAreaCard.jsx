@@ -1,4 +1,5 @@
 // One watch area in the Saved panel: its radius, its sort, and the places inside it.
+import { useT } from "../../I18nContext.jsx";
 import { WATCH_RADIUS_OPTIONS } from "../../watchAreaLayer.js";
 import { DEFAULT_SORT, SORTS, sortPlaces } from "../../lib/watchAreaSort.js";
 import PlaceRow from "./PlaceRow.jsx";
@@ -21,6 +22,7 @@ export default function WatchAreaCard({
   removeArea,
   updateAreaRadius,
 }) {
+  const { t } = useT();
   const z = zones[area.id];
   const sortKey = zoneSort[area.id] || DEFAULT_SORT;
   const rows = z?.rows ? sortPlaces(z.rows, sortKey) : [];
@@ -33,7 +35,7 @@ export default function WatchAreaCard({
           <div className="wl-sub">{area.center_address}</div>
         </div>
         <button className="wl-remove" onClick={() => removeArea(area.id)}>
-          Remove
+          {t("saved.remove")}
         </button>
       </div>
 
@@ -44,23 +46,21 @@ export default function WatchAreaCard({
             className={area.radius_miles === r ? "on" : ""}
             onClick={() => updateAreaRadius(area.id, r)}
           >
-            {r} mi
+            {t("saved.miles", { n: r })}
           </button>
         ))}
       </div>
 
       <div className="wl-zone-hd">
-        <span>
-          {z ? `${z.rows.length} restaurant${z.rows.length === 1 ? "" : "s"} in zone` : "Loading…"}
-        </span>
-        <div className="wl-sort" role="group" aria-label="Sort restaurants">
+        <span>{z ? t("saved.area.count", { n: z.rows.length }) : t("saved.loading")}</span>
+        <div className="wl-sort" role="group" aria-label={t("saved.area.sort")}>
           {SORTS.map((s) => (
             <button
               key={s.key}
               className={sortKey === s.key ? "on" : ""}
               onClick={() => setZoneSort((prev) => ({ ...prev, [area.id]: s.key }))}
             >
-              {s.label}
+              {t(s.labelKey)}
             </button>
           ))}
         </div>
@@ -73,13 +73,13 @@ export default function WatchAreaCard({
       )}
       {z && !z.error && rows.length === 0 && (
         <div className="wl-empty" style={{ padding: 0 }}>
-          No restaurants inside this radius.
+          {t("saved.area.none")}
         </div>
       )}
 
       {rows.length >= ZONE_ROWS && (
         <div className="wl-quiet" data-testid="zone-capped">
-          Showing the {ZONE_ROWS} places with the most violations.
+          {t("saved.area.capped", { n: ZONE_ROWS })}
         </div>
       )}
 
@@ -97,7 +97,7 @@ export default function WatchAreaCard({
           className="wl-more"
           onClick={() => setZoneShown((prev) => ({ ...prev, [area.id]: shown + PAGE }))}
         >
-          Show {Math.min(PAGE, rows.length - shown)} more
+          {t("saved.area.more", { n: Math.min(PAGE, rows.length - shown) })}
         </button>
       )}
     </div>

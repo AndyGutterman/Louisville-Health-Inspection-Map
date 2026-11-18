@@ -1,5 +1,7 @@
 // The open filter card's pin switches: one labelled row per colour on desktop, a compact
 // row on phones.
+import { useT } from "../../I18nContext.jsx";
+
 export default function PinSwitches({
   isDesktop,
   showRedPins,
@@ -11,12 +13,13 @@ export default function PinSwitches({
   showMissing,
   setShowMissing,
 }) {
+  const { t } = useT();
   return (
     <div className="rgb-toggles">
       {isDesktop ? (
         <>
           <div className="rgb-row">
-            <span className="label">Show Red</span>
+            <span className="label">{t("filters.showRed")}</span>
             <label className="switch sm red">
               <input
                 type="checkbox"
@@ -27,7 +30,7 @@ export default function PinSwitches({
             </label>
           </div>
           <div className="rgb-row">
-            <span className="label">Show Yellow</span>
+            <span className="label">{t("filters.showYellow")}</span>
             <label className="switch sm yellow">
               <input
                 type="checkbox"
@@ -38,7 +41,7 @@ export default function PinSwitches({
             </label>
           </div>
           <div className="rgb-row">
-            <span className="label">Show Green</span>
+            <span className="label">{t("filters.showGreen")}</span>
             <label className="switch sm green">
               <input
                 type="checkbox"
@@ -49,7 +52,7 @@ export default function PinSwitches({
             </label>
           </div>
           <div className="rgb-row">
-            <span className="label">Show unscored</span>
+            <span className="label">{t("filters.showUnscored")}</span>
             <label className="switch sm missing">
               <input
                 type="checkbox"
@@ -63,7 +66,7 @@ export default function PinSwitches({
       ) : (
         <>
           <div className="rgb-inline">
-            <label className="switch sm red" aria-label="Red">
+            <label className="switch sm red" aria-label={t("filters.red")}>
               <input
                 type="checkbox"
                 checked={showRedPins}
@@ -71,7 +74,7 @@ export default function PinSwitches({
               />
               <span />
             </label>
-            <label className="switch sm yellow" aria-label="Yellow">
+            <label className="switch sm yellow" aria-label={t("filters.yellow")}>
               <input
                 type="checkbox"
                 checked={showYellowPins}
@@ -79,7 +82,7 @@ export default function PinSwitches({
               />
               <span />
             </label>
-            <label className="switch sm green" aria-label="Green">
+            <label className="switch sm green" aria-label={t("filters.green")}>
               <input
                 type="checkbox"
                 checked={showGreenPins}
@@ -89,7 +92,7 @@ export default function PinSwitches({
             </label>
           </div>
           <div className="rgb-row">
-            <span className="label">Unscored</span>
+            <span className="label">{t("filters.unscored")}</span>
             <label className="switch sm">
               <input
                 type="checkbox"

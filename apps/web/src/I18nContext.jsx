@@ -16,6 +16,7 @@ const I18n = createContext({
   lang: "en",
   locale: "en-US",
   setLang: () => {},
+  switches: 0,
   t: (key, vars) => translate("en", key, vars),
 });
 
@@ -28,9 +29,13 @@ export function I18nProvider({ children }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  // How many times the visitor has chosen a language on this page: the offer to get the
+  // weekly email in it (DigestLanguageOffer.jsx) waits for a choice, not for page load.
+  const [switches, setSwitches] = useState(0);
   const setLang = useCallback((code) => {
     saveLanguage(browserStorage(), code);
     setLangState(code);
+    setSwitches((n) => n + 1);
   }, []);
 
   const value = useMemo(
@@ -38,9 +43,10 @@ export function I18nProvider({ children }) {
       lang,
       locale: localeOf(lang),
       setLang,
+      switches,
       t: (key, vars) => translate(lang, key, vars),
     }),
-    [lang, setLang],
+    [lang, setLang, switches],
   );
   return <I18n.Provider value={value}>{children}</I18n.Provider>;
 }

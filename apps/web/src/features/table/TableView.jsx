@@ -14,8 +14,8 @@ import {
   facilityAppliesTo,
   typedCounties,
 } from "../../lib/tableQuery.js";
-import { nameList } from "../../lib/regions.js";
-import { ALL_IDS, ALL_REGIONS } from "./tableRegions.js";
+import { useT } from "../../I18nContext.jsx";
+import { ALL_IDS, ALL_REGIONS, joinNames } from "./tableRegions.js";
 import { useTableData } from "./useTableData.js";
 import { useTableResize } from "./useTableResize.js";
 import { useTableSort } from "./useTableSort.js";
@@ -36,6 +36,7 @@ export default function TableView({
   zIndex,
   onBringToFront,
 }) {
+  const { t } = useT();
   const isPhone = useMediaQuery("(max-width: 600px)");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -80,8 +81,8 @@ export default function TableView({
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => setDbSearch(search.trim()), 350);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDbSearch(search.trim()), 350);
+    return () => clearTimeout(timer);
   }, [search]);
 
   // Reset page on filter/sort change
@@ -201,8 +202,8 @@ export default function TableView({
 
       {/* header */}
       <div className="table-panel-header">
-        <span className="table-panel-title">Inspection Scores</span>
-        <button className="table-panel-close" onClick={onClose} aria-label="Close table view">
+        <span className="table-panel-title">{t("table.title")}</span>
+        <button className="table-panel-close" onClick={onClose} aria-label={t("table.close")}>
           ✕
         </button>
       </div>
@@ -223,8 +224,8 @@ export default function TableView({
           </svg>
           <input
             type="text"
-            placeholder={isPhone ? "Search both counties" : "Search name, address, city or zip"}
-            aria-label="Search the table"
+            placeholder={isPhone ? t("table.searchPhone") : t("table.searchPlaceholder")}
+            aria-label={t("table.searchLabel")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -237,40 +238,40 @@ export default function TableView({
             data-testid="table-filters-toggle"
             onClick={() => setFiltersOpen((v) => !v)}
           >
-            Filters{activeFilters ? ` · ${activeFilters}` : ""}
+            {activeFilters ? t("table.filtersCount", { n: activeFilters }) : t("table.filters")}
           </button>
         )}
 
         <div className="tbl-toolbar-right">
           <button
             className={`tbl-pill-btn ${latestOnly ? "active" : ""}`}
-            title="Show only the most recent inspection per type per facility"
+            title={t("table.uniqueTitle")}
             onClick={() => setLatestOnly((v) => !v)}
           >
-            Unique
+            {t("table.unique")}
           </button>
 
           <button
             className={`tbl-pill-btn ${hideNA ? "active" : ""}`}
-            title="Hide rows with no numerical score"
+            title={t("table.hideNATitle")}
             onClick={() => setHideNA((v) => !v)}
           >
-            Hide N/A
+            {t("table.hideNA")}
           </button>
 
           {/* Sort switch */}
-          <div className="tbl-sort-switch" role="group" aria-label="Sort by">
+          <div className="tbl-sort-switch" role="group" aria-label={t("table.sortBy")}>
             <button
               className={`tbl-sort-pill ${sortAxis === "date" ? "active" : ""}`}
               onClick={sort.handleDateSort}
-              title="Sort by date — click again to reverse"
+              title={t("table.sortDateTitle")}
             >
               {sort.dateSortLabel}
             </button>
             <button
               className={`tbl-sort-pill ${sortAxis === "score" ? "active" : ""}`}
               onClick={sort.handleScoreSort}
-              title="Sort by score — click again to reverse"
+              title={t("table.sortScoreTitle")}
             >
               {sort.scoreSortLabel}
             </button>
@@ -301,17 +302,20 @@ export default function TableView({
           <div className="tbl-error">
             ⚠ {error}
             <br />
-            <small>
-              Run supabase/migrations/20261111000000_both_counties.sql to create the table views.
-            </small>
+            <small>{t("table.migrationHint")}</small>
           </div>
         )}
         {REGIONS.length === 0 && (
           <div className="tbl-empty-counties" data-testid="table-no-counties">
             {unlisted.length > 0
-              ? `${nameList(unlisted.map((r) => r.name))} ${unlisted.length > 1 ? "aren't" : "isn't"} in Table View yet. `
-              : "No county is switched on. "}
-            Switch a county on in the Filter tab to list its places here.
+              ? `${t(unlisted.length > 1 ? "table.notInTable.many" : "table.notInTable.one", {
+                  names: joinNames(
+                    unlisted.map((r) => r.name),
+                    t,
+                  ),
+                })}. `
+              : `${t("table.noCounty")} `}
+            {t("table.switchOn")}
           </div>
         )}
         {isPhone ? (

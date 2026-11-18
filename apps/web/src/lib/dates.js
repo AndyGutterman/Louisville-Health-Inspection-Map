@@ -36,9 +36,9 @@ export function formatMonthDay(val, locale) {
 }
 
 // "Oct 28, 2026" for a YYYY-MM-DD string. null when there is no date.
-export function formatLongDate(d) {
+export function formatLongDate(d, locale = "en-US") {
   return d
-    ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", {
+    ? new Date(`${d}T00:00:00`).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
         year: "numeric",

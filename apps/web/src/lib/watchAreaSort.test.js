@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { translate } from "./i18n.js";
 import { DEFAULT_SORT, SORTS, sortPlaces, violationText } from "./watchAreaSort.js";
 
 const rows = [
@@ -40,5 +41,14 @@ describe("violationText", () => {
 
   it("counts Bullitt's latest inspection, which has no date", () => {
     expect(violationText({ violations_6mo: 2, region: "bullitt" })).toBe("2 violations · latest");
+  });
+
+  it("speaks Spanish when given t", () => {
+    const t = (lang) => (key, vars) => translate(lang, key, vars);
+    expect(violationText({ violations_6mo: 1 }, t("es"))).toBe("1 infracción · 6 meses");
+    expect(violationText({ violations_6mo: 2, region: "bullitt" }, t("es"))).toBe(
+      "2 infracciones · última",
+    );
+    for (const s of SORTS) expect(translate("es", s.labelKey)).not.toBe(s.labelKey);
   });
 });

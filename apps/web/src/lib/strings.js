@@ -71,6 +71,14 @@ const en = {
   "drawer.showAllViolations": "Show all {n}",
   "drawer.expand": "Expand details",
   "drawer.collapseDetails": "Collapse details",
+
+  // The weekly email's language (DigestLanguageOffer.jsx, the Saved panel)
+  "digestLang.offer": "Get your weekly email in {language} too?",
+  "digestLang.yes": "Yes",
+  "digestLang.no": "No thanks",
+  "digestLang.error": "Couldn't save that. Try again.",
+  "digestLang.row": "Weekly email language: {current}",
+  "digestLang.switch": "Send it in {language}",
 };
 
 const es = {
@@ -133,6 +141,24 @@ const es = {
   "drawer.showAllViolations": "Ver las {n}",
   "drawer.expand": "Ampliar detalles",
   "drawer.collapseDetails": "Reducir detalles",
+
+  "digestLang.offer": "¿Quieres recibir también tu resumen semanal en {language}?",
+  "digestLang.yes": "Sí",
+  "digestLang.no": "No, gracias",
+  "digestLang.error": "No se pudo guardar. Inténtalo de nuevo.",
+  "digestLang.row": "Idioma del correo semanal: {current}",
+  "digestLang.switch": "Enviarlo en {language}",
 };
 
-export const STRINGS = { en, es };
+// The other parts live beside this file (strings.<part>.js), one per area of the site, each
+// exporting { en, es }; they are merged here. Keys are "<part>.<what>", so parts never collide.
+import * as filters from "./strings.filters.js";
+import * as table from "./strings.table.js";
+import * as saved from "./strings.saved.js";
+import * as pages from "./strings.pages.js";
+
+const parts = [filters, table, saved, pages];
+export const STRINGS = {
+  en: Object.assign({}, en, ...parts.map((p) => p.en)),
+  es: Object.assign({}, es, ...parts.map((p) => p.es)),
+};

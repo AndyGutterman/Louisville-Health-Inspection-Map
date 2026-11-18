@@ -4,6 +4,7 @@
 // so a county someone turned on is still on next time. Pure apart from the storage
 // passed in; any storage error just means "the default".
 import { DEFAULT_REGION, enabledRegions } from "./regions.js";
+import { translate } from "./i18n.js";
 
 export const COUNTY_CHOICE_KEY = "lfs_counties";
 
@@ -52,16 +53,22 @@ export function toggleCounty(ids, id, on, regions = enabledRegions()) {
 export const tableCounties = (ids, regions = enabledRegions()) =>
   regions.filter((r) => r.has.table && ids.includes(r.id));
 
+const english = (key, vars) => translate("en", key, vars);
+
 /**
  * What a county's row or map button says under its name.
  * @param {{ shown: boolean, state?: "loading"|"ready"|"failed", places?: number }} c
+ * @param {(key: string, vars?: object) => string} [t]  the page's translator (English by default)
  */
-export function countyStatusText({ shown, state, places }) {
-  if (state === "loading") return "Loading…";
-  if (state === "failed") return "Couldn't load. Tap to retry";
+export function countyStatusText({ shown, state, places }, t = english) {
+  if (state === "loading") return t("counties.loading");
+  if (state === "failed") return t("counties.failed");
   if (state === "ready") {
-    const n = `${(places ?? 0).toLocaleString("en-US")} place${places === 1 ? "" : "s"}`;
-    return shown ? n : `${n}, hidden`;
+    const n = places ?? 0;
+    return t(shown ? "counties.places" : "counties.placesHidden", {
+      n,
+      count: n.toLocaleString("en-US"),
+    });
   }
-  return "Not loaded";
+  return t("counties.notLoaded");
 }

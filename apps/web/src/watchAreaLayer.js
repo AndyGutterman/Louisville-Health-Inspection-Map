@@ -2,6 +2,8 @@
 
 // 1 to 5 miles (migration 20261123000000 has the same limits). A big circle is cheap to
 // read: an area lists only its 50 places with the most violations (WatchlistTab.jsx).
+import { translate } from "./lib/i18n.js";
+
 export const WATCH_RADIUS_OPTIONS = [1, 2, 3, 5];
 export const WATCH_MIN_MILES = 1;
 export const WATCH_MAX_MILES = 5;
@@ -182,6 +184,7 @@ export function openWatchEditor({
   getAreas,
   onCommit,
   onOpenPanel,
+  t = (key) => translate("en", key), // the page's translator
 }) {
   popupRef.current?.remove();
   ensureStyles();
@@ -192,7 +195,7 @@ export function openWatchEditor({
     radius_miles: area.radius_miles,
   };
 
-  const name = area.label || area.center_address || "Watch area";
+  const name = area.label || area.center_address || t("watchEditor.defaultName");
   const sub =
     area.label && area.center_address && area.label !== area.center_address
       ? area.center_address
@@ -207,7 +210,7 @@ export function openWatchEditor({
       </div>
       <div class="wa-value"></div>
     </div>
-    <div class="wa-seg" role="radiogroup" aria-label="Watch radius in miles">
+    <div class="wa-seg" role="radiogroup" aria-label="${esc(t("watchEditor.radius"))}">
       ${WATCH_RADIUS_OPTIONS.map(
         (r) => `<button type="button" role="radio" data-wa-radius="${r}">${r} mi</button>`,
       ).join("")}
@@ -237,8 +240,8 @@ export function openWatchEditor({
   const commit = () => onCommit?.({ ...draft });
 
   // Handles
-  const moveEl = makeHandle("move", "Drag to move this area", ICON_MOVE);
-  const sizeEl = makeHandle("size", "Drag to resize this area", ICON_SIZE);
+  const moveEl = makeHandle("move", t("watchEditor.move"), ICON_MOVE);
+  const sizeEl = makeHandle("size", t("watchEditor.resize"), ICON_SIZE);
 
   const moveMarker = new maplibregl.Marker({ element: moveEl, draggable: true })
     .setLngLat([draft.center_lon, draft.center_lat])

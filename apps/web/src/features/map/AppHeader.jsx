@@ -66,8 +66,10 @@ export default function AppHeader(p) {
   return (
     <header className="app-header" ref={headerRef}>
       <div className="header-inner">
-        {/* Left: search on the map, a way back to the map elsewhere */}
+        {/* Left: the language flag, then search on the map or a way back to the map elsewhere.
+            The flag is first on every page, so it never moves. */}
         <div className="header-search">
+          <LanguagePicker />
           {p.showSearch ? (
             <div className="search-wrap">
               <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
@@ -122,7 +124,6 @@ export default function AppHeader(p) {
 
         {/* Right: Learn, Feedback, and Saved (signed in) or Log in */}
         <div className="header-actions">
-          <LanguagePicker />
           <button
             className={`header-nav-btn${p.page === "learn" ? " active" : ""}`}
             onClick={p.onOpenLearn}

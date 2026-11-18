@@ -99,3 +99,49 @@ test("a11y: the Saved panel, signed in", async ({ page }) => {
   await expect(page.getByTestId("digest-toggle")).toBeVisible();
   expect(await audit(page)).toEqual([]);
 });
+
+// The same views in Spanish: axe checks the translated text's contrast, names and lengths
+// (a longer label can overflow), and the page's lang.
+test.describe("a11y in Spanish", () => {
+  test.use({ locale: "es-MX" });
+
+  const SPANISH_VIEWS = {
+    "the map": async () => {},
+    "the open filter card": async (page) => {
+      await page.getByRole("button", { name: "Expandir controles" }).click();
+      await page.getByRole("tab", { name: "Filtrar" }).click();
+    },
+    "Table View": async (page) => {
+      await page.getByRole("button", { name: "Abrir la vista de tabla" }).click();
+      await expect(page.getByTestId("table-row").first()).toBeVisible();
+    },
+    "the sign-in form": async (page) => {
+      await page.locator(".header-nav-btn--login").click();
+      await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
+    },
+    "the feedback form": async (page) => {
+      await page.getByRole("button", { name: "Comentarios" }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  };
+  for (const [name, open] of Object.entries(SPANISH_VIEWS)) {
+    test(`a11y (es): ${name}`, async ({ page }) => {
+      await openApp(page);
+      await expect(page.locator("html")).toHaveAttribute("lang", "es");
+      await open(page);
+      expect(await audit(page)).toEqual([]);
+    });
+  }
+
+  test("a11y (es): the Learn page", async ({ page }) => {
+    await openApp(page, { path: "/?page=learn" });
+    await expect(page.locator(".ln-page")).toBeVisible();
+    expect(await audit(page)).toEqual([]);
+  });
+
+  test("a11y (es): the privacy page", async ({ page }) => {
+    await openApp(page, { path: "/?page=privacy" });
+    await expect(page.getByTestId("privacy-page")).toBeVisible();
+    expect(await audit(page)).toEqual([]);
+  });
+});

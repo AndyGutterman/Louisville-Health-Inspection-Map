@@ -118,7 +118,7 @@ export async function mockAuth(page) {
         expires_in: 3600,
         expires_at: now + 3600,
         refresh_token: "test-refresh-token",
-        user: { ...TEST_USER, aud: "authenticated" },
+        user: { ...TEST_USER, aud: "authenticated", created_at: new Date().toISOString() },
       }),
     );
   });
