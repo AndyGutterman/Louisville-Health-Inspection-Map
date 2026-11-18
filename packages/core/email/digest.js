@@ -15,11 +15,11 @@ import {
   PLAIN,
   RULE,
   esc,
-  plural,
   mapButton,
   footerLinks,
   page,
 } from "./theme.js";
+import { count, localeFor, wordsFor } from "./words.js";
 
 export { SITE, FAIL_SCORE };
 
@@ -30,8 +30,8 @@ const daysBefore = (today, days) => {
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 };
-const shortDate = (iso) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+const shortDate = (iso, lang = "en") =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString(localeFor(lang), {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -86,6 +86,7 @@ export function groupWatchAreas(rows) {
       area = {
         id: r.area_id,
         name: (r.label || r.center_address || "Watch area").trim(),
+        unnamed: !(r.label || r.center_address), // the email says "Watch area" in its language
         radius: r.radius_miles,
         total: Number(r.area_total ?? 0),
         failing: Number(r.area_failing ?? 0),
@@ -167,9 +168,10 @@ export function oncePerEmail({ saved = [], areas = [], failing = [], perfect = [
 
 const placeLink = (r) => `${SITE}/?eid=${encodeURIComponent(r.establishment_id)}`;
 
-function placeRow(r, colour) {
-  const when = dateOf(r) ? shortDate(dateOf(r)) : "";
-  const viol = r.violation_count > 0 ? plural(r.violation_count, "violation") : "";
+function placeRow(r, colour, lang) {
+  const w = wordsFor(lang);
+  const when = dateOf(r) ? shortDate(dateOf(r), lang) : "";
+  const viol = r.violation_count > 0 ? count(lang, r.violation_count, "violation") : "";
   const meta = [regionName(r.region), when, viol].filter(Boolean).join(" · ");
   return `
     <tr>
@@ -180,29 +182,32 @@ function placeRow(r, colour) {
       </td>
       <td align="right" valign="top" style="padding:10px 0 0 12px;border-top:${RULE};white-space:nowrap;">
         <span style="display:inline-block;min-width:34px;padding:6px 10px;border-radius:8px;background:${colour};color:#111;font-weight:800;font-size:15px;text-align:center;">${esc(r.score ?? "–")}</span>
-        ${r.grade ? `<div style="color:${DIM};font-size:12px;margin-top:4px;text-align:center;">${esc(r.grade)} placard</div>` : ""}
+        ${r.grade ? `<div style="color:${DIM};font-size:12px;margin-top:4px;text-align:center;">${esc(w.placard(r.grade))}</div>` : ""}
       </td>
     </tr>`;
 }
 
 const scoreColour = (r) => (isC(r) ? RED : isFailing(r) ? AMBER : r.score === 100 ? GREEN : PLAIN);
-const shownAbove = (n) => (n ? ` (${n} shown above)` : "");
-const areaCounts = (a) =>
-  a.total
-    ? `${plural(a.total, "inspection")} this week, ${a.failing ? `${a.failing} failing` : "none failing"}${shownAbove(a.above)}`
-    : "No inspections here this week.";
+const shownAbove = (n, lang) => (n ? wordsFor(lang).shownAbove(n) : "");
+const areaCounts = (a, lang) => {
+  const w = wordsFor(lang);
+  return a.total
+    ? `${w.areaCounts(count(lang, a.total, "inspection"), a.failing)}${shownAbove(a.above, lang)}`
+    : w.areaNone;
+};
 // Places in the area that the email doesn't list: past its top few, not counting those
 // listed above (oncePerEmail).
 const areaMore = (a) => Math.max(0, a.total - a.places.length - (a.above ?? 0));
 // "1 of your 12 saved places was inspected this week." A named list (one day, several per
 // account) says "places in this list"; one listed in an earlier list counts as shown above.
-const savedCounts = (l) => {
+const savedCounts = (l, lang) => {
+  const w = wordsFor(lang);
   const inspected = l.places.length + (l.above ?? 0);
   const what = l.name
-    ? `${plural(l.total, "place")} in this list`
-    : `your ${plural(l.total, "saved place")}`;
-  if (!inspected) return `None of ${what} ${l.total === 1 ? "was" : "were"} inspected this week.`;
-  return `${inspected} of ${what} ${inspected === 1 ? "was" : "were"} inspected this week.${shownAbove(l.above)}`;
+    ? w.savedWhatList(count(lang, l.total, "place"))
+    : w.savedWhatYours(count(lang, l.total, "savedPlace"));
+  if (!inspected) return w.savedNone(what, l.total);
+  return `${w.savedSome(inspected, what)}${shownAbove(l.above, lang)}`;
 };
 
 // A personal part of the email (the saved places, a watch area): a tinted box with a
@@ -223,29 +228,31 @@ function personalBox({ label, accent, tint, title, counts, rows, more = "" }) {
 
 // One of the recipient's saved lists, with its places inspected this week. Today the one
 // list is unnamed ("Your saved places"); a named list (one day) shows its name.
-function savedSection(l) {
+function savedSection(l, lang) {
+  const w = wordsFor(lang);
   return personalBox({
-    label: l.name ? "Your list" : "Your saved places",
+    label: l.name ? w.labelList : w.labelSaved,
     accent: GREEN,
     tint: { bg: "rgba(52,168,83,0.07)", border: "rgba(52,168,83,0.28)" },
     title: l.name ?? "",
-    counts: savedCounts(l),
-    rows: l.places.map((r) => placeRow(r, scoreColour(r))).join(""),
+    counts: savedCounts(l, lang),
+    rows: l.places.map((r) => placeRow(r, scoreColour(r), lang)).join(""),
   });
 }
 
 // One watch area, as its own block: a title bar, its counts, then its places.
-function watchAreaSection(a) {
+function watchAreaSection(a, lang) {
+  const w = wordsFor(lang);
   const more = areaMore(a)
-    ? `<tr><td style="padding:8px 0 0;border-top:${RULE};"><a href="${SITE}" style="color:${GREEN};font-size:13px;">and ${areaMore(a)} more on the map →</a></td></tr>`
+    ? `<tr><td style="padding:8px 0 0;border-top:${RULE};"><a href="${SITE}" style="color:${GREEN};font-size:13px;">${w.moreOnMap(areaMore(a))}</a></td></tr>`
     : "";
   return personalBox({
-    label: `Your watch area · ${a.radius} mi`,
+    label: w.labelArea(a.radius),
     accent: AMBER,
     tint: { bg: "rgba(249,115,22,0.07)", border: "rgba(249,115,22,0.28)" },
-    title: a.name,
-    counts: areaCounts(a),
-    rows: a.places.map((r) => placeRow(r, scoreColour(r))).join(""),
+    title: a.unnamed ? w.watchArea : a.name,
+    counts: areaCounts(a, lang),
+    rows: a.places.map((r) => placeRow(r, scoreColour(r), lang)).join(""),
     more,
   });
 }
@@ -271,15 +278,18 @@ export function renderDigest(
     saved = [],
     areas = [],
     test = false,
+    lang = "en",
   } = {},
 ) {
+  const w = wordsFor(lang);
   const { total, byRegion, since, today } = summary;
   const counts = Object.entries(byRegion)
-    .map(([region, n]) => `${n} in ${regionName(region)}`)
+    .map(([region, n]) => w.inRegion(n, regionName(region)))
     .join(", ");
-  const range = `${shortDate(since)} – ${shortDate(today)}`;
+  const range = `${shortDate(since, lang)} – ${shortDate(today, lang)}`;
+  const inspections = count(lang, total, "inspection");
   // The subject counts every failing inspection, including any listed in a personal part.
-  const subject = `${test ? "[Test] " : ""}${plural(total, "inspection")} this week, ${summary.failing.length} failing · Louisville Food Safe`;
+  const subject = `${test ? w.test : ""}${w.digestSubject(inspections, summary.failing.length)}`;
 
   const mine = oncePerEmail({
     saved: (saved ?? []).filter((l) => l.total > 0),
@@ -289,67 +299,69 @@ export function renderDigest(
   });
   const { failing, perfect, failingAbove } = mine;
   const personalHtml =
-    mine.saved.map(savedSection).join("") + mine.areas.map(watchAreaSection).join("");
+    mine.saved.map((l) => savedSection(l, lang)).join("") +
+    mine.areas.map((a) => watchAreaSection(a, lang)).join("");
   // With personal parts above it, the shared part gets its own heading.
   const everywhere = personalHtml
-    ? `<tr><td style="padding:26px 0 0;font-size:17px;font-weight:800;">Everywhere this week</td></tr>`
+    ? `<tr><td style="padding:26px 0 0;font-size:17px;font-weight:800;">${w.everywhere}</td></tr>`
     : "";
 
   const failingHtml = failing.length
     ? failing
         .slice(0, maxFailing)
-        .map((r) => placeRow(r, isC(r) ? RED : AMBER))
+        .map((r) => placeRow(r, isC(r) ? RED : AMBER, lang))
         .join("")
     : `<tr><td style="padding:10px 0;color:${DIM};font-size:14px;">${
         failingAbove
-          ? `Only the ${plural(failingAbove, "place")} shown above.`
-          : `Nothing scored under ${FAIL_SCORE} this week.`
+          ? w.onlyShownAbove(count(lang, failingAbove, "place"))
+          : w.nothingUnder(FAIL_SCORE)
       }</td></tr>`;
   const more =
     failing.length > maxFailing
-      ? `<tr><td style="padding:8px 0;"><a href="${SITE}" style="color:${GREEN};font-size:13px;">and ${failing.length - maxFailing} more on the map →</a></td></tr>`
+      ? `<tr><td style="padding:8px 0;"><a href="${SITE}" style="color:${GREEN};font-size:13px;">${w.moreOnMap(failing.length - maxFailing)}</a></td></tr>`
       : "";
   const perfectHtml = perfect
     .slice(0, maxPerfect)
-    .map((r) => placeRow(r, GREEN))
+    .map((r) => placeRow(r, GREEN, lang))
     .join("");
   const html = page({
     title: subject,
-    header: `<div style="font-size:22px;font-weight:800;margin-top:10px;line-height:1.25;">${plural(total, "inspection")} this week</div>
+    header: `<div style="font-size:22px;font-weight:800;margin-top:10px;line-height:1.25;">${esc(w.inspectionsThisWeek(total, inspections))}</div>
   <div style="color:${DIM};font-size:13px;margin-top:4px;">${esc(range)}${counts ? ` · ${esc(counts)}` : ""}</div>`,
     rows: `${personalHtml}${everywhere}
-  ${section(`Scored under ${FAIL_SCORE} or a C placard${shownAbove(failingAbove && failing.length ? failingAbove : 0)}`, failingHtml + more)}
-  ${perfect.length ? section("Perfect scores", perfectHtml) : ""}
-  ${mapButton()}
+  ${section(`${w.failingTitle(FAIL_SCORE)}${shownAbove(failingAbove && failing.length ? failingAbove : 0, lang)}`, failingHtml + more)}
+  ${perfect.length ? section(w.perfectTitle, perfectHtml) : ""}
+  ${mapButton(w.openMap)}
   <tr><td style="padding:22px 0 0;color:${DIM};font-size:11px;line-height:1.6;text-align:center;">
-    Scores and placards are the health departments' own. Bullitt and Oldham counties post scores, not placards.<br>${footerLinks(unsubscribeUrl)}<br>Louisville Food Safe · Louisville, KY
+    ${esc(w.disclaimer)}<br>${footerLinks(unsubscribeUrl, lang)}<br>Louisville Food Safe · Louisville, KY
   </td></tr>`,
+    lang,
   });
 
   const line = (r) =>
     `  ${r.score ?? "–"}${r.grade ? ` (${r.grade})` : ""}  ${r.premise_name}, ${r.address}`;
   const text = [
-    `Louisville Food Safe: ${plural(total, "inspection")} this week (${range})${counts ? `, ${counts}` : ""}`,
+    w.textHead(inspections, range, counts),
     ...mine.saved.flatMap((l) => [
       "",
-      `${l.name ? `Your list: ${l.name}.` : "Your saved places:"} ${savedCounts(l)}`,
+      w.textList(l.name, savedCounts(l, lang)),
       ...l.places.map(line),
     ]),
     ...mine.areas.flatMap((a) => [
       "",
-      `Your watch area: ${a.name} (${a.radius} mi). ${areaCounts(a)}`,
+      w.textArea(a.unnamed ? w.watchArea : a.name, a.radius, areaCounts(a, lang)),
       ...a.places.map(line),
-      ...(areaMore(a) ? [`  and ${areaMore(a)} more on the map`] : []),
+      ...(areaMore(a) ? [`  ${w.moreOnMapText(areaMore(a))}`] : []),
     ]),
     "",
-    `${personalHtml ? "Everywhere. " : ""}Scored under ${FAIL_SCORE} or a C placard:`,
+    w.textFailingHead(personalHtml ? w.everywhereText : "", FAIL_SCORE),
     ...(failing.length
       ? failing.slice(0, maxFailing).map(line)
-      : [failingAbove ? "  only those shown above" : "  none"]),
-    ...(perfect.length ? ["", "Perfect scores:", ...perfect.slice(0, maxPerfect).map(line)] : []),
+      : [failingAbove ? w.onlyThoseAbove : w.none]),
+    ...(perfect.length ? ["", w.textPerfectHead, ...perfect.slice(0, maxPerfect).map(line)] : []),
     "",
     SITE,
-    ...(unsubscribeUrl ? [`Unsubscribe: ${unsubscribeUrl}`] : []),
+    ...(unsubscribeUrl ? [w.unsubscribeText(unsubscribeUrl)] : []),
   ].join("\n");
 
   return { subject, html, text };

@@ -5,6 +5,7 @@
  * The message is plain text: a blank line starts a paragraph, a line starting "- " is a
  * list item, and web addresses become links. Nothing typed is treated as HTML.
  */
+import { wordsFor } from "./words.js";
 import { SITE, TEXT, DIM, GREEN, esc, mapButton, footerLinks, page } from "./theme.js";
 
 const URL_RE = /https?:\/\/[^\s<>"]+/g;
@@ -51,24 +52,26 @@ export function messageHtml(body) {
  * @param {string|null} [o.unsubscribeUrl]  per recipient; null for someone not subscribed
  * @param {boolean} [o.test]    marks the subject, for a test send
  * @param {boolean} [o.button]  the "Open the map" button under the message
+ * @param {string} [o.lang]     the recipient's language (en or es): the footer, the button
+ *   and the test mark; the message itself is as written
  */
 export function renderCustom(
   { subject, body },
-  { unsubscribeUrl = null, test = false, button = true } = {},
+  { unsubscribeUrl = null, test = false, button = true, lang = "en" } = {},
 ) {
+  const w = wordsFor(lang);
   const title = String(subject ?? "").trim();
-  const fullSubject = `${test ? "[Test] " : ""}${title}`;
-  const why = unsubscribeUrl
-    ? "You're getting this because you subscribed to the Louisville Food Safe weekly digest.<br>"
-    : "";
+  const fullSubject = `${test ? w.test : ""}${title}`;
+  const why = unsubscribeUrl ? `${esc(w.why)}<br>` : "";
   const html = page({
     title: fullSubject,
     header: `<div style="font-size:22px;font-weight:800;margin-top:10px;line-height:1.25;">${esc(title)}</div>`,
     rows: `<tr><td style="padding:18px 0 0;">${messageHtml(body)}</td></tr>
-  ${button ? mapButton() : ""}
+  ${button ? mapButton(w.openMap) : ""}
   <tr><td style="padding:22px 0 0;color:${DIM};font-size:11px;line-height:1.6;text-align:center;">
-    ${why}${footerLinks(unsubscribeUrl)}<br>Louisville Food Safe · Louisville, KY
+    ${why}${footerLinks(unsubscribeUrl, lang)}<br>Louisville Food Safe · Louisville, KY
   </td></tr>`,
+    lang,
   });
   const text = [
     title,
@@ -78,7 +81,7 @@ export function renderCustom(
       .trim(),
     "",
     SITE,
-    ...(unsubscribeUrl ? [`Unsubscribe: ${unsubscribeUrl}`] : []),
+    ...(unsubscribeUrl ? [w.unsubscribeText(unsubscribeUrl)] : []),
   ].join("\n");
   return { subject: fullSubject, html, text };
 }

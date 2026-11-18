@@ -27,13 +27,14 @@ const SAM = { id: "u-sam", email: "sam@example.com", token: "tok-sam" };
 
 // A database with two subscribers; Jane has a watch area, Sam a saved place that was
 // inspected (Jane can be given it too). Records what was asked of it.
-function fakeStore({ delivered = [], janeSaves = false } = {}) {
+function fakeStore({ delivered = [], janeSaves = false, samSpanish = false } = {}) {
+  const SAM_ = samSpanish ? { ...SAM, language: "es" } : SAM;
   const calls = { watchAreas: [], savedPlaces: [], recorded: [], weekRows: 0 };
   const saved = [{ id: null, name: null, total: 2, places: ROWS }];
   return {
     calls,
     weekRows: async () => (calls.weekRows++, ROWS),
-    subscribers: async () => [JANE, SAM],
+    subscribers: async () => [JANE, SAM_],
     accounts: async (emails) =>
       emails.map(
         (email) =>
@@ -54,6 +55,7 @@ function fakeStore({ delivered = [], janeSaves = false } = {}) {
         people.filter((id) => ids == null || ids.includes(id)).map((id) => [id, saved]),
       );
     },
+    language: async (id) => (id === SAM.id && samSpanish ? "es" : "en"),
     delivered: async () => new Set(delivered),
     recordDelivery: async (jobId, r, status, error) => {
       calls.recorded.push({ jobId, email: r.email, status, error });
@@ -200,6 +202,36 @@ describe("runJob", () => {
     assert.equal(outbox[0].to, "owner@example.com");
     assert.match(outbox[0].html, /Your watch area/);
     assert.equal(outbox[0].unsubscribeUrl, null);
+  });
+
+  it("each subscriber's digest is in their own language", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(digest(), { store, send, today: TODAY });
+    const jane = outbox.find((m) => m.to === JANE.email);
+    const sam = outbox.find((m) => m.to === SAM.email);
+    assert.match(jane.subject, /this week/);
+    assert.match(sam.subject, /esta semana/);
+    assert.match(sam.html, /Cancelar suscripción/);
+  });
+
+  it("a digest sent as a Spanish-language account is in Spanish, whoever gets it", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    const job = digest({ audience: "emails", to_emails: ["owner@example.com"], as_user: SAM.id });
+    await runJob(job, { store, send, today: TODAY });
+    assert.match(outbox[0].subject, /esta semana/);
+  });
+
+  it("a one-off email's footer follows the subscriber's language", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(
+      { kind: "custom", audience: "subscribers", subject: "Hi", body: "x" },
+      { store, send, today: TODAY },
+    );
+    assert.match(outbox.find((m) => m.to === SAM.email).html, /Cancelar suscripción/);
+    assert.match(outbox.find((m) => m.to === JANE.email).html, />Unsubscribe</);
   });
 
   it("a custom email is the typed message, with each subscriber's unsubscribe link", async () => {
