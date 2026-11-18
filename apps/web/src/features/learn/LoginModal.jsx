@@ -1,8 +1,9 @@
 // The sign-in form: an email, then the 6-digit code from it (AuthContext.jsx), with the
 // weekly digest opt-in. Opened from the map header and from the Learn page.
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useT } from "../../I18nContext.jsx";
 import { useAuth } from "../../AuthContext.jsx";
+import { useDialogFocus } from "../../hooks/useDialogFocus.js";
 import { cleanCode, isCompleteCode } from "../../lib/authCode.js";
 // The sign-in form's digest checkbox, kept until the code is verified (lib/digest.js).
 import { rememberDigestOptIn, rememberSignupLanguage } from "../../lib/digest.js";
@@ -37,22 +38,28 @@ export default function LoginModal({ onClose }) {
     onClose(); // signed in: the header switches to Saved on its own
   }
 
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
+  // Focus into the dialog, kept inside, Escape to close, back to the opener (WCAG 2.4.3).
+  const modalRef = useRef(null);
+  useDialogFocus(modalRef, onClose);
 
   return (
     <>
       <div className="ln-mback" onClick={onClose}>
-        <div className="ln-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="ln-modal"
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ln-modal-title"
+          tabIndex={-1}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button className="ln-modal-x" onClick={onClose} aria-label={t("login.close")}>
             ×
           </button>
-          <div className="ln-modal-title">{t("login.title")}</div>
+          <div className="ln-modal-title" id="ln-modal-title">
+            {t("login.title")}
+          </div>
           <div className="ln-modal-sub">{t("login.sub")}</div>
 
           {loading ? (

@@ -1,6 +1,7 @@
 // Creates the MapLibre map at once (pins are added as they load), and owns what happens on it:
 // the pin layers and their filters, hovering and clicking pins, closing the drawer on a
 // click outside it, and nudging the map when the pointer rests at a screen edge.
+import { cameraOptions } from "../../lib/motion.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl"; // its CSS is imported in Map.jsx, before Map.css
 import { PIN_COLORS } from "../../Colors.jsx";
@@ -274,8 +275,8 @@ export function useMapLibre(o) {
       openPopup: (feature) => popupsRef.current?.openFor(feature),
       hoverPopup: (feature) => isHoverDevice() && popupsRef.current?.hoverFor(feature),
       endHover: () => popupsRef.current?.hideHover(),
-      easeTo: (options) => mapRef.current?.easeTo(options),
-      fitBounds: (bounds, options) => mapRef.current?.fitBounds(bounds, options),
+      easeTo: (options) => mapRef.current?.easeTo(cameraOptions(options)),
+      fitBounds: (bounds, options) => mapRef.current?.fitBounds(bounds, cameraOptions(options)),
       closePopups: () => popupsRef.current?.clearAll(),
     }),
     [],

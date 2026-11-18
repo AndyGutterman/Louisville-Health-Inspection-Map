@@ -1084,3 +1084,15 @@ button.rx-switch[data-state="checked"] .rx-thumb {
     backdrop-filter: none;
   }
 }
+
+/* Very narrow phones: the collapsed filter card's toggles and date menu wrap onto a second
+   line instead of running past the edge (WCAG 1.4.10). */
+@media (max-width: 380px) {
+  .control-card .search-row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .control-card.collapsed {
+    width: auto !important;
+  }
+}

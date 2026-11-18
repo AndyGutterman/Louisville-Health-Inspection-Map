@@ -1,5 +1,6 @@
 // The Saved panel's contents: saved places (SavedPlaces) and watch areas (WatchAreaCard,
 // AddAreaForm). This file holds the state and the reads and writes (api/watchlist.js).
+import { scrollBehavior } from "../../lib/motion.js";
 import React, { useState, useEffect } from "react";
 import {
   addWatchArea,
@@ -48,7 +49,7 @@ export default function WatchlistTab({
     if (!focusAreaId || loading) return undefined;
     const el = document.querySelector(`[data-area-id="${focusAreaId.id}"]`);
     if (!el) return undefined;
-    el.scrollIntoView({ block: "start", behavior: "smooth" });
+    el.scrollIntoView({ block: "start", behavior: scrollBehavior() });
     el.classList.add("wl-flash");
     const t = setTimeout(() => el.classList.remove("wl-flash"), 1600);
     return () => clearTimeout(t);

@@ -782,6 +782,9 @@
   color: rgba(255, 255, 255, 0.85);
 }
 .ln-sources-head a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   font-size: 0.76rem;
   color: #3a86ff;
 }
@@ -928,6 +931,9 @@
 /* The small "Privacy" links other panels show (sign-in form, feedback form, Saved, Learn page).
    Here because this stylesheet is always loaded; the privacy page itself loads on demand. */
 .privacy-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: rgba(255, 255, 255, 0.6);
   text-decoration: underline;
   font-weight: 500;

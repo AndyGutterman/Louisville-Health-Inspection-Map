@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { scrollBehavior } from "../../lib/motion.js";
 import { SITE, renderDigest } from "@lfs/core/email/digest.js";
 import { setSubscription } from "../../api/admin.js";
 import { confirmsCount, errorText, whenText } from "../../lib/adminEmail.js";
@@ -75,7 +76,7 @@ export default function DigestTab({ me, send, onSubscribers }) {
     setError(null);
     // On a phone the preview is below the list: bring it into view.
     requestAnimationFrame(() =>
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      previewRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }),
     );
   };
   const act = async (name, work) => {

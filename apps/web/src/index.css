@@ -110,3 +110,19 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Reduced motion (WCAG 2.3.3): no sliding panels, fading or spinning when the system asks for
+   less. The map's own camera moves are handled in lib/motion.js. A near-zero duration, not
+   "none", so the end state of every transition and animation is still reached. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
