@@ -470,3 +470,26 @@
     font-size: 0.86rem;
   }
 }
+
+/* Very narrow phones (320px, or a zoomed-in window): the name shrinks to fit the width, and
+   the search row and the buttons keep their room (WCAG 1.4.10, no sideways scrolling). */
+@media (max-width: 380px) {
+  /* The name's font ("Tilt Neon", from Google Fonts) is wider than the fallback it shows
+     while loading, so the three words may wrap onto two lines instead of running off. */
+  .app-header .brand {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 2px;
+    max-width: 100%;
+  }
+  .app-header .brand > span,
+  .brand > span {
+    font-size: 6.4vw;
+    padding: 0 2px;
+  }
+  .app-header .header-inner {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    column-gap: 6px !important;
+  }
+}

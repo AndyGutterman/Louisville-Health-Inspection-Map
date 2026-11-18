@@ -154,6 +154,7 @@
 }
 
 .viol-toggle {
+  min-height: 24px;
   justify-self: start;
   margin-left: 0;
   padding: 2px 8px;

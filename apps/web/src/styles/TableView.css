@@ -422,6 +422,7 @@
 .table-chip {
   display: inline-flex;
   align-items: center;
+  min-height: 24px;
   gap: 4px;
   padding: 3px 9px;
   border-radius: 999px;

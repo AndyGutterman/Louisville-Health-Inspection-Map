@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./styles/FeedbackModal.css";
 import { useT } from "./I18nContext.jsx";
+import { useDialogFocus } from "./hooks/useDialogFocus.js";
 import { PRIVACY_PATH } from "./lib/privacy.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,14 +38,9 @@ export default function FeedbackModal({ onClose }) {
   const [cooldown, setCooldown] = useState(0); // seconds remaining
   const timerRef = useRef(null);
 
-  // Escape key
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
+  // Focus into the dialog, kept inside, Escape to close, back to the opener (WCAG 2.4.3).
+  const modalRef = useRef(null);
+  useDialogFocus(modalRef, onClose);
 
   // Cooldown tick
   useEffect(() => {
@@ -129,7 +125,7 @@ export default function FeedbackModal({ onClose }) {
         aria-modal="true"
         aria-label={t("feedback.dialog")}
       >
-        <div className="fb-modal">
+        <div className="fb-modal" ref={modalRef} tabIndex={-1}>
           <button className="fb-x" onClick={onClose} aria-label={t("feedback.close")}>
             ×
           </button>
@@ -161,6 +157,7 @@ export default function FeedbackModal({ onClose }) {
                 </label>
                 <select
                   id="fb-type"
+                  data-autofocus
                   className="fb-select"
                   value={fbType}
                   onChange={(e) => setFbType(e.target.value)}
