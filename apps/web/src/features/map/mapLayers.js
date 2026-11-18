@@ -17,16 +17,20 @@ export const CLICKABLE_LAYERS = [...PIN_LAYERS, RING_LAYER, HIT_LAYER];
 // How far past the ring the tap target reaches, in pixels.
 const HIT_PADDING = 8;
 
-// Amber: stands out from the red, yellow and green pins.
-export const RING_COLOR = "rgba(249,115,22,0.90)";
-// Bullitt County's sheet lists every inspection-form item marked at a visit, so its rings are
-// far more common than Louisville's and mean less (docs/BULLITT.md). A cooler colour keeps
-// the two from being read on the same scale.
-export const BULLITT_RING_COLOR = "rgba(125,211,252,0.85)";
-// Oldham's portal data lists form items the same way, so it gets the same rings.
+// Louisville's rings: an amber-red ("Go Cards" red), set apart from the red, yellow and
+// green pins.
+export const RING_COLOR = "rgba(222,52,30,0.92)";
+// Every other Kentucky county's rings: goldenrod. Their data lists every inspection-form item
+// marked at a visit (Bullitt's sheet, the state portal's counties), including routine ones
+// Louisville's data doesn't publish, so their rings are far more common and mean less
+// (docs/BULLITT.md). A different colour keeps them from being read on Louisville's scale.
+export const OTHER_COUNTY_RING_COLOR = "rgba(218,165,32,0.92)";
+// Louisville's pins carry no region (or "jefferson"); every other county's pin carries its id.
+const isJefferson = ["==", ["coalesce", ["get", "region"], "jefferson"], "jefferson"];
+export const ringColor = ["case", isJefferson, RING_COLOR, OTHER_COUNTY_RING_COLOR];
+// Form-item counties' rings also fade (below).
 const isFormItemRegion = ["in", ["get", "region"], ["literal", formItemRegionIds()]];
-const ringColor = ["case", isFormItemRegion, BULLITT_RING_COLOR, RING_COLOR];
-// Bullitt's ring fades with the zoom and with how many violations the place lists, so
+// The other counties' rings fade with the zoom and with how many violations the place lists, so
 // from afar only the places with a lot stand out, and up close every ring is readable.
 // Louisville's rings always show in full: a ring is rare there and means "any violation".
 // In November 2026, of 240 Bullitt places 132 listed violations: half of those listed 1,

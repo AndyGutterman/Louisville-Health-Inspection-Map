@@ -149,9 +149,10 @@ but passed usually shows no violations at all. Bullitt lists every marked form i
 violation ring therefore means less in Louisville than it looks. Open question: say so in
 the drawer for those Louisville inspections, or find a source with every violation.
 
-So the map doesn't read the two counties on one scale, Bullitt's violation rings are light
-blue instead of amber (`BULLITT_RING_COLOR` in `features/map/mapLayers.js`). They also fade
-with the zoom and with the number of violations the latest record lists
+So the map doesn't read the counties on one scale, Louisville's violation rings are
+amber-red ("Go Cards" red, `RING_COLOR` in `features/map/mapLayers.js`) and every other
+Kentucky county's, Bullitt's included, are goldenrod (`OTHER_COUNTY_RING_COLOR`). The others
+also fade with the zoom and with the number of violations the latest record lists
 (`BULLITT_RING_FADE`, the feature's `violation_count`): half the ringed places list one
 violation, so from county zoom only the ones with several stand out, and up close every
 ring is readable.
