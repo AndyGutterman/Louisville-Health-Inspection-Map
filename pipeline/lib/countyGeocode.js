@@ -93,7 +93,9 @@ export function countyGeocoder(
   const inCounty = (r) => !!r && containsPoint(outline, [r.lon, r.lat]);
   const lookupRow = (row) => fixedRow(row, fixes.get(row.id));
   const queryFor = (row) => buildQuery(lookupRow(row), defaults);
-  const keyFor = (row) => `${keyPrefix}|${cacheKey(queryFor(row))}`;
+  // Jefferson's keys have no prefix (geocode_missing.js wrote them before counties had any).
+  const keyFor = (row) =>
+    keyPrefix ? `${keyPrefix}|${cacheKey(queryFor(row))}` : cacheKey(queryFor(row));
 
   // The pin placed by hand for a place, if any: the pin control center's first, then the
   // county's overrides.json (matched on the corrected address, like the geocoders).

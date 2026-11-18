@@ -1,0 +1,34 @@
+# Pin fixes: geocodes the address fixes made in the pin control center (/?page=pins,
+# docs/PINS.md, pipeline/pins/run.js) and puts each pin found inside its county on the
+# map. The page's "Geocode now" button starts it through the pins-dispatch function; it
+# can also be started by hand here, which looks up whatever is waiting.
+#
+# At most 50 fixes a run, each a handful of geocoder requests; nothing else is read or
+# written. The log is public: it names places and addresses (published anyway), never
+# the admin.
+name: Pin fixes
+on:
+  workflow_dispatch:
+# One at a time. Every run takes all that is waiting, so a run that GitHub drops while
+# another is going leaves nothing behind.
+concurrency:
+  group: pin-fixes
+  cancel-in-progress: false
+jobs:
+  geocode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        run: npm ci -w pipeline
+      - name: Geocode the address fixes
+        working-directory: pipeline
+        run: node pins/run.js
