@@ -5,7 +5,7 @@
 
 **Live site: https://louisvillefoodsafe.netlify.app**
 
-An interactive map of health inspection scores for restaurants and other food service establishments in Louisville, KY. It pulls Louisville Metro's open inspection data on a schedule and makes it easy to browse: pins colored by score, full inspection histories, and the specific violations behind each score.
+An interactive map of health inspection scores for restaurants and other food service establishments in Louisville, KY (Jefferson County), with Bullitt and Oldham counties next door. It loads each county's public inspection data every day and makes it easy to browse: pins colored by score, full inspection histories, and the specific violations behind each score.
 
 <p align="center">
   <img src="docs/images/desktop.png" alt="The map on a desktop, with a restaurant's score and inspection history open beside it" width="68%">
@@ -18,40 +18,78 @@ An interactive map of health inspection scores for restaurants and other food se
 - **Open any place** to see its latest score, grade and date, its full inspection history, and the violations from each visit with the inspector's comments.
 - **See what's new.** A panel lists the latest inspections, the same ones failing first, and the latest perfect scores.
 - **Use the table view** for a sortable, filterable list with paging.
-- **Save places and watch areas.** Sign in with a one-time email code to bookmark restaurants, or to watch a radius (1, 3, 5 or 10 miles) around an address and see the places inside it, sorted with the ones that need attention first.
+- **Save places and watch areas.** Sign in with a one-time email code to bookmark restaurants, or to watch a radius (1, 2, 3 or 5 miles) around an address and see the places inside it, sorted with the ones that need attention first. A weekly digest email (Tuesdays, opt-in) sums up the week and each watch area.
 - **Spot duplicate listings.** When the city re-files a permit under a slightly different name at the same spot, the records are linked ("may also be listed as") instead of being merged or hidden.
 - **Use it on a phone.** The inspection drawer is a bottom sheet that rests low so you can still see the map, and drags up for more.
 - Read more on the **Learn** page, which includes a violation database, or send feedback from the site.
 
 ## How it works
 
+### Data in: three counties, three daily jobs
+
 ```mermaid
 flowchart LR
-  src["Louisville Metro<br/>inspection data (ArcGIS REST)"]
+  arcgis["Louisville Metro<br/>ArcGIS"]
+  portal["Kentucky<br/>inspection portal"]
+  sheet["Bullitt County<br/>Google Sheet"]
 
-  subgraph actions["GitHub Actions"]
-    ingest["ingest.yml<br/>runs the pipeline/ scripts"]
-    backup["db-backup.yml"]
-    archive["archive.yml<br/>archives old inspections"]
-    check["etl-check.yml<br/>weekly accuracy check"]
-  end
+  ingest["ingest.yml<br/>Jefferson"]
+  portaljob["portal-ingest.yml<br/>Oldham, Bullitt"]
+  bullittjob["bullitt-ingest.yml<br/>Bullitt"]
 
-  db[("Supabase<br/>Postgres, Auth, Edge Function")]
-  site["Netlify<br/>React + Vite site"]
-  geo["Geoapify<br/>address search"]
+  geocode["Geocoders<br/>KY 911, Census,<br/>Nominatim"]
+  db[("Supabase<br/>Postgres")]
 
-  src --> ingest --> db
-  db --> backup
-  db --> archive
-  check -.-> db
-  db <-->|supabase-js| site
-  site --> geo
+  arcgis --> ingest --> db
+  portal --> portaljob --> db
+  sheet --> bullittjob --> db
+  ingest -.-> geocode
+  portaljob -.-> geocode
+  bullittjob -.-> geocode
+  portal -.->|has Jefferson too,<br/>not connected| ingest
 ```
 
-- **Pipeline** (`pipeline/`): Node scripts fetch inspection records from the city's ArcGIS REST API and load facilities, inspections, violations and categories into Supabase. Each run is recorded, so a failed or partial sync can be recovered. Missing coordinates are filled in by a geocoding step.
-- **Checks:** a weekly job (`pipeline/etl-accuracy-check.js`) runs an accuracy check on the loaded data. A separate job backs the database up.
-- **Frontend** (`apps/web/`): a React app that reads from Supabase and draws the map with MapLibre GL. Accounts use Supabase Auth with email one-time codes, and feedback goes through a rate-limited Supabase Edge Function.
-- **Database:** views and functions live in `supabase/migrations/`.
+| County    | Source                            | Fallback                                                                                                                        |
+| --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Jefferson | Louisville Metro's ArcGIS feeds   | **None connected.** The state portal lists Jefferson too (about 8,300 places), but no job reads it for Jefferson                |
+| Bullitt   | The state portal, which has dates | **Connected:** the county's own sheet is loaded every day, and the site switches to it when the portal has been down for 3 days |
+| Oldham    | The state portal                  | **None:** it is the only online source. The last good load stays on the map                                                     |
+
+Each job writes only its own tables. The portal and Bullitt jobs also refuse a source that looks broken (changed columns, a county under half its usual size), so the last good data stays up; Jefferson's job has no such check yet. Places without coordinates are geocoded (dashed lines), and the results are cached in the database. More in [docs/COUNTIES.md](docs/COUNTIES.md) and [docs/BULLITT.md](docs/BULLITT.md).
+
+### Data out, and the jobs around it
+
+```mermaid
+flowchart LR
+  db[("Supabase<br/>Postgres, Auth,<br/>Edge Functions")]
+  site["Website<br/>React on Netlify"]
+  geo["Geoapify<br/>address search"]
+
+  subgraph weekly["Scheduled"]
+    digest["digest.yml<br/>Tuesday email"]
+    backup["db-backup.yml<br/>Sunday backup"]
+    check["etl-check.yml<br/>Monday check"]
+    archive["archive.yml<br/>monthly archive"]
+  end
+
+  outbox["email-outbox.yml<br/>one-off emails"]
+  r2[("Cloudflare R2<br/>old inspections")]
+
+  db <-->|supabase-js| site
+  site --> geo
+  db --> digest
+  db --> backup
+  check -.-> db
+  db --> archive --> r2
+  site -->|admin page| db
+  db -->|email-dispatch| outbox
+```
+
+- **Pipeline** (`pipeline/`): Node scripts load each county into Supabase. Every run is recorded, so a failed or partial sync can be recovered (`Recover.js`).
+- **Website** (`apps/web/`): reads pins, inspections and violations through `supabase-js` and draws the map with MapLibre GL. Each county and each place type loads only when it's switched on, and is kept in the browser until the next daily load. Accounts use email one-time codes, and feedback goes through a rate-limited edge function.
+- **Emails:** the weekly digest (Tuesdays) and one-off emails from the admin page are sent by GitHub Actions with the same code (`packages/core/email/`).
+- **Upkeep:** a weekly backup of the tables that can't be rebuilt, a weekly accuracy check of the loaded data, and a monthly job that moves inspections over 3 years old (for places with 10 or more) to Cloudflare R2.
+- **Database:** tables, views and functions live in `supabase/migrations/`.
 
 More detail, with module diagrams, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -99,11 +137,16 @@ docs/                architecture notes and a manual smoke-test checklist
 
 ## Testing
 
-CI runs lint, the unit tests and a production build on every push and pull request. The unit tests cover the logic layer in `apps/web/src/lib`: score bands, category rules, duplicate-place detection, date and address helpers, pan limits and the phone bottom-sheet rules. The React components are checked by hand with [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md). The pipeline tests run in the same `npm test`.
+CI runs lint, the unit tests and a production build on every push and pull request, and Playwright runs the site on a desktop and a phone screen against each pull request's Netlify preview, with screenshots posted to the PR.
+
+- **Unit tests** (`npm test`): the logic layer in `apps/web/src/lib` (score bands, categories, search, duplicate places, map filters and caching, paging, dates, the phone bottom sheet, and more; about 98% of its lines, `npm run test:coverage`), the shared rules and emails in `packages/core`, and the pipeline.
+- **Component tests** with Testing Library, starting with What's New.
+- **End-to-end tests** (`npm run e2e`): Supabase is mocked with fixed data, so they never touch the database.
+- What the automated tests can't see is checked by hand with [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md).
 
 ## About the data
 
-Inspection data comes from [Louisville Metro Open Data](https://data.louisvilleky.gov/) through its ArcGIS REST API. It is refreshed periodically and may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government.
+Inspection data comes from each county's public records: [Louisville Metro Open Data](https://data.louisvilleky.gov/) (its ArcGIS REST API) for Jefferson County, Kentucky's statewide food inspection portal for Oldham and Bullitt counties, and the Bullitt County Health Department's published sheet. It is refreshed daily and may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government or any county health department.
 
 ## License
 
