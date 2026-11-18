@@ -99,7 +99,7 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 - Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
 - Fixed 2026-11-17: `seed_categories` ran last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would have made `backfill_types` fail. `ingest.yml` now loads the categories first.
 - `facilities.lon`/`lat` are generated from `geom`: the `trg_sync_lonlat` trigger does nothing, and fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error).
-- Redundant indexes: `facilities_establishment_id_uidx` duplicates the primary key; `inspections_establishment_id_idx` is covered by `inspections_est_idx`.
+- Redundant indexes: `facilities_establishment_id_uidx` duplicates the primary key; `inspections_establishment_id_idx` is covered by `inspections_est_idx`. Dropped by `supabase/migrations/20261126000000_drop_redundant_indexes.sql` (the first is kept if a foreign key is tied to it).
 
 ## Region-specific facts in the database
 
