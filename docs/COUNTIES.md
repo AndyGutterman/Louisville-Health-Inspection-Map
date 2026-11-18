@@ -1,8 +1,24 @@
 # More counties, from Kentucky's inspection portal
 
-Status (2026-11-12): the pipeline reads a county from the portal and **stores** it in the
-`portal_*` tables, daily (`pipeline/regions/kyportal/`, `portal-ingest.yml`). Nothing is
-shown on the site yet. Oldham County is first. The steps are at the end.
+## Paused (2026-11-18)
+
+The portal is **off** until there is permission to use it ("Terms of use" below). Nothing
+was deleted; the code, the tables and their rows are all kept, so it can come back.
+
+- **Site:** Oldham, Shelby and Spencer are `enabled: false` in
+  `apps/web/src/lib/regions.js`: no map button, no Filter switch, no Learn page entry.
+- **Bullitt:** back to the county's own sheet only. `bullitt_results` ignores the portal
+  (migration `20261201000000_portal_off.sql`), so routine inspections are undated again
+  and "By" estimates apply (`docs/BULLITT.md`).
+- **Database:** that migration also revokes the site's read access (anon, authenticated)
+  to the `portal_*` tables and `v_portal_map_feed`. The pipeline's service role keeps it.
+- **Pipeline:** `portal-ingest.yml` has no schedule. Don't run it by hand while paused.
+
+To bring a county back once permission is in writing: run the undo lines at the top of
+that migration, put the schedule back in `portal-ingest.yml`, set the county's
+`enabled: true`, and restore the Bullitt wording and tests from the commits that paused it.
+
+What follows describes how the portal was read and stored (2026-11-12 to 2026-11-18).
 
 ## Which source for which county
 
@@ -30,7 +46,8 @@ https://public.cdpehs.com/KYEnvPBL/VW_PUBLIC_EST_INSP/ShowVW_PUBLIC_EST_INSPTabl
 `n` is the county's place in the alphabetical list of Kentucky's 120 counties: Adair 1,
 Bullitt 15, Fayette 34, Jefferson 56, Oldham 93, Woodford 120. Every number answers
 (checked November 2026: Oldham 336 rows, Bullitt 250, Jefferson 8,330, Fayette 2,805).
-It is where the Courier-Journal's weekly inspection lists come from.
+The Courier-Journal's weekly inspection lists may come from it; that is a guess from
+matching rows, not something the paper says.
 
 One row per place and kind of inspection, with only the **latest** result:
 
@@ -127,11 +144,16 @@ Courtesy: once a day per county is plenty (the Courier-Journal's lists move week
   "personal, non-commercial transitory viewing only" and forbid copying and public display.
   They read as a stock template, don't name the portal, and the portal doesn't link them.
 - The scores are the health departments' public records (Kentucky Open Records Act, KRS
-  61.870 to 61.884), and facts aren't copyrightable; the Courier-Journal republishes them
-  weekly. Using records for "sale, resale, solicitation, rent, or lease" is a commercial
-  purpose (KRS 61.870(4)): keep the site free and never sell the data.
-- Not legal advice. The owner is asking Oldham County Health Department
-  (ochd.admin@ky.gov, 502-222-3516) before Oldham shows on the site.
+  61.870 to 61.884), and facts aren't copyrightable. That covers the records, not CDP's
+  site: it doesn't make copying from the portal permitted under CDP's terms.
+- KRS 61.870(4)(a) (checked 2026-11-18) makes a "commercial purpose" any use "for sale,
+  resale, solicitation, rent, or lease of a service, or any use by which the user expects
+  a profit". Paid accounts (premium alerts) would count, even with the data never sold.
+  Newspapers, periodicals and broadcast news are excluded (61.870(4)(b)); this site isn't
+  one. A commercial purpose isn't forbidden: it changes how records are requested (the
+  agency may charge a fee and ask for a signed statement of the use, KRS 61.874).
+- No permission has been asked for or given, by CDP, the state or any county health
+  department. Not legal advice.
 
 ## If the portal goes away
 
