@@ -14,15 +14,15 @@ and stores watch areas, which for most people are their home.
 Change the page, and the date in `apps/web/src/lib/privacy.js`, whenever the site starts
 to store something new about a person, sends data to a new service, or adds analytics.
 
-| The page says                                       | Where that is in the code                                                                                                                    |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| No analytics, no tracking cookies                   | Nothing of the kind in `apps/web` (`git grep -i "analytics\|gtag" apps/web`)                                                                 |
-| Settings and map data kept on the device            | localStorage: `lfs_counties`, `lfs_categories`, `lfs_geodata_*`, `lfs_digest_optin`                                                          |
-| An account stores email, saved places, watch areas  | `profiles`, `watchlist`, `watchlist_areas` (the baseline migration)                                                                          |
-| A record of emails sent                             | `email_jobs`, `email_deliveries` (migration `20261125000000`)                                                                                |
-| Feedback keeps browser type and a scrambled IP      | `supabase/functions/submit-feedback` (`user_agent`, `ip_hash`), Upstash rate limit                                                           |
-| The owner can see emails, saved places, watch areas | The email admin page and the Supabase dashboard (`docs/EMAIL_ADMIN.md`)                                                                      |
-| Supabase, Netlify, Google, Geoapify, CARTO, Upstash | `lib/supabase.js`, `netlify.toml`, the digest's SMTP and `index.html`'s fonts, `AddressPicker.jsx`, the basemap style, the feedback function |
+| The page says                                       | Where that is in the code                                                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| No analytics, no tracking cookies                   | Nothing of the kind in `apps/web` (`git grep -i "analytics\|gtag" apps/web`)                                          |
+| Settings and map data kept on the device            | localStorage: `lfs_counties`, `lfs_categories`, `lfs_geodata_*`, `lfs_digest_optin`                                   |
+| An account stores email, saved places, watch areas  | `profiles`, `watchlist`, `watchlist_areas` (the baseline migration)                                                   |
+| A record of emails sent                             | `email_jobs`, `email_deliveries` (migration `20261125000000`)                                                         |
+| Feedback keeps browser type and a scrambled IP      | `supabase/functions/submit-feedback` (`user_agent`, `ip_hash`; the spam limit counts `ip_hash` in the same table)     |
+| The owner can see emails, saved places, watch areas | The email admin page and the Supabase dashboard (`docs/EMAIL_ADMIN.md`)                                               |
+| Supabase, Netlify, Google, Geoapify, CARTO          | `lib/supabase.js`, `netlify.toml`, the digest's SMTP and `index.html`'s fonts, `AddressPicker.jsx`, the basemap style |
 
 ## What the page does not promise, on purpose
 

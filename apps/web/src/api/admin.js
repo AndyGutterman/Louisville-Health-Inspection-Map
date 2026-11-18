@@ -83,6 +83,9 @@ export async function startSender(jobId) {
       body: { job: jobId },
     });
     if (error) {
+      // The browser never got an answer: usually CORS (ALLOWED_ORIGIN doesn't match this
+      // site exactly), sometimes no connection. lib/adminEmail.js says which to check.
+      if (error.name === "FunctionsFetchError") return { started: false, reason: "unreachable" };
       // A non-2xx answer carries the function's own JSON in error.context (a Response).
       const body = await error.context?.json?.().catch(() => null);
       return { started: false, reason: body?.reason || error.message };

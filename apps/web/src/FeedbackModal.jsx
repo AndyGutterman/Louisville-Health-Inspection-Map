@@ -96,6 +96,11 @@ export default function FeedbackModal({ onClose }) {
       if (res.status === 429) {
         const body = await res.json().catch(() => ({}));
         const wait = body.retryAfter ?? 60;
+        // The function allows 3 a minute and 20 a day (submit-feedback).
+        if (wait > 120) {
+          setError("That's a lot of feedback for one day. Please try again tomorrow.");
+          return;
+        }
         setError(`Too many submissions. Please wait ${wait} seconds.`);
         setCooldown(wait);
         return;

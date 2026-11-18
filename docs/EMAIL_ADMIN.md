@@ -86,7 +86,10 @@ for 4 minutes at most.
 4. **The edge function.** Deploy `supabase/functions/email-dispatch` (Supabase dashboard →
    Edge Functions, or `supabase functions deploy email-dispatch`), leaving "Verify JWT"
    on. Then, under Edge Functions → Secrets, add `GITHUB_DISPATCH_TOKEN` with the token
-   from step 3.
+   from step 3. `ALLOWED_ORIGIN` (shared with the feedback form) is the site's address,
+   `https://louisvillefoodsafe.netlify.app`: a browser only lets the page call the function
+   when it matches exactly. The functions drop a trailing slash (`_shared/cors.ts`), since
+   one once blocked every call, feedback included.
 
 Nothing changes on Netlify, and no new GitHub secret is needed: the outbox workflow uses
 the digest's.
@@ -99,6 +102,11 @@ the digest's.
   Sent within a minute or two, and the email arrives marked "[Test]".
 - In the SQL editor, `SELECT status, kind, audience, sent_count FROM email_jobs ORDER BY created_at DESC LIMIT 5;`
   shows the same history.
+- "Queued, but the sender didn't start (the browser couldn't reach it…)": the function never
+  got the request. Check what it allows from a terminal:
+  `curl -si -X OPTIONS -H "Origin: https://louisvillefoodsafe.netlify.app" https://<project>.supabase.co/functions/v1/email-dispatch | grep -i allow-origin`
+  must print the site's address exactly. A job that was queued meanwhile goes out on the
+  next run of the "Email outbox" workflow (Actions → Email outbox → Run workflow).
 
 ## Removing an admin, or everything
 

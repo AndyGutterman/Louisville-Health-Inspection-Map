@@ -87,6 +87,13 @@ describe("queuedNotice", () => {
     expect(queuedNotice({ started: true })).toMatchObject({ ok: true });
   });
 
+  it("points at the ALLOWED_ORIGIN secret when the browser couldn't reach the function", () => {
+    const { ok, text } = queuedNotice({ started: false, reason: "unreachable" });
+    expect(ok).toBe(false);
+    expect(text).toMatch(/ALLOWED_ORIGIN/);
+    expect(text).toMatch(/no slash at the end/);
+  });
+
   it("says why when it didn't, in plain words", () => {
     expect(queuedNotice({ started: false, reason: "no_token" }).text).toMatch(
       /didn't start \(the GitHub token isn't set up\)/,
