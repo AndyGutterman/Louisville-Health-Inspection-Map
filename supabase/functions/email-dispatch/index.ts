@@ -15,18 +15,13 @@
 //                          { started: false, reason: "no_token" } and the page says so.
 //   GITHUB_REPO            optional, "owner/name"; defaults to this project's repository
 //   ALLOWED_ORIGIN         optional, the site's address; the same secret submit-feedback uses
+//                          (../_shared/cors.ts)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const REPO = Deno.env.get("GITHUB_REPO") ?? "AndyGutterman/Louisville-Health-Inspection-Map";
 const WORKFLOW = "email-outbox.yml";
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {

@@ -1,14 +1,20 @@
+// submit-feedback: saves a message from the site's feedback form (FeedbackModal.jsx).
+//
+// Spam limit: at most 3 messages a minute and 20 a day from one scrambled IP address,
+// counted in the feedback table itself (its ip_hash column). Until November 2026 this
+// counted in Upstash Redis; the free database was deleted while unused, and every call
+// failed. Counting here needs no other service.
+//
+// Secrets (Supabase dashboard, Edge Functions, Secrets): ALLOWED_ORIGIN (../_shared/cors.ts)
+// and RATE_LIMIT_SALT (scrambles the IP). Deployed with "Verify JWT" off: the form sends
+// no sign-in token.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Redis } from "https://esm.sh/@upstash/redis@1";
-import { Ratelimit } from "https://esm.sh/@upstash/ratelimit@1";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const LIMITS = [
+  { seconds: 60, max: 3 },
+  { seconds: 24 * 60 * 60, max: 20 },
+];
 
 async function hashIP(ip: string): Promise<string> {
   const salt = Deno.env.get("RATE_LIMIT_SALT") ?? "lfs-feedback";
@@ -38,22 +44,26 @@ Deno.serve(async (req) => {
 
   const ipHash = await hashIP(ip);
 
-  // Rate limit: 3 submissions per 60 s sliding window, keyed by hashed IP
-  const redis = new Redis({
-    url: Deno.env.get("UPSTASH_REDIS_REST_URL")!,
-    token: Deno.env.get("UPSTASH_REDIS_REST_TOKEN")!,
-  });
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(3, "60 s"),
-    prefix: "lfs_feedback",
-  });
+  // Spam limit (LIMITS): count this scrambled IP's recent messages. A count that fails
+  // lets the message through rather than lose it.
+  let retryAfter = 0;
+  for (const { seconds, max } of LIMITS) {
+    const since = new Date(Date.now() - seconds * 1000).toISOString();
+    const { count, error } = await supabase
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("ip_hash", ipHash)
+      .gte("created_at", since);
+    if (error) console.error("Feedback count failed:", error.message);
+    else if ((count ?? 0) >= max) retryAfter = Math.max(retryAfter, seconds);
+  }
 
-  const { success, reset } = await ratelimit.limit(ipHash.slice(0, 32));
-
-  if (!success) {
-    const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+  if (retryAfter) {
     return new Response(
       JSON.stringify({ error: "Too many feedback submissions. Please wait.", retryAfter }),
       {
@@ -84,11 +94,6 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
 
   const { error } = await supabase.from("feedback").insert([
     {

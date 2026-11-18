@@ -79,6 +79,8 @@ export function queuedNotice(result) {
   const why = {
     no_token: "the GitHub token isn't set up",
     not_admin: "this account isn't an admin",
+    unreachable:
+      "the browser couldn't reach it: check that the ALLOWED_ORIGIN secret is exactly this site's address, with no slash at the end",
   }[result.reason];
   return {
     ok: false,

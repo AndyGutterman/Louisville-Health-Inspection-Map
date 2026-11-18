@@ -102,10 +102,6 @@ export default function PrivacyPage({ onOpenLearn }) {
             <li>
               <strong>CARTO</strong> serves the background map, drawn from OpenStreetMap.
             </li>
-            <li>
-              <strong>Upstash</strong> counts feedback messages per scrambled IP address, to limit
-              spam.
-            </li>
           </ul>
           <p>
             As with any website, these services see your IP address when your browser asks them for
