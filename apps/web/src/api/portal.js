@@ -12,6 +12,7 @@ export async function fetchPortalFeed(regionIds) {
     return await readAllPages((from, to) =>
       publicDb
         .from("v_portal_map_feed")
+        // check-allow: no-select-star-in-browser whole-county map read, on the egress audit list in CLAUDE.md
         .select("*")
         .in("region", regionIds)
         .order("establishment_id")

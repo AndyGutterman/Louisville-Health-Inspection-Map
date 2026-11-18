@@ -33,12 +33,14 @@ export const updateWatchArea = (id, update) =>
 
 // Saved places with each one's latest inspection.
 export const fetchSavedPlaces = (userId) =>
+  // check-allow: no-select-star-in-browser the user's own saved places, capped at 30 rows
   supabase.from("v_watchlist_with_latest").select("*").eq("user_id", userId);
 
 // The user's watch areas in full, newest first.
 export const fetchWatchAreaRows = (userId) =>
   supabase
     .from("watchlist_areas")
+    // check-allow: no-select-star-in-browser the user's own watch areas, capped at 3 rows
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });

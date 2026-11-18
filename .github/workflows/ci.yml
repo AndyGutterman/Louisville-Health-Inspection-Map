@@ -28,5 +28,6 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
+      - run: npm run check:rules # repeat mistakes, see checks/rules.mjs
       - run: npm test # website, packages/core and pipeline
       - run: npm run build
