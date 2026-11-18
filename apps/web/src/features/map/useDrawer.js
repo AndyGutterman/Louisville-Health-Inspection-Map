@@ -71,7 +71,7 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
         dateCaption: header?.date_estimated ? ESTIMATED : undefined,
         score: header?.score ?? s.score,
         _displayedInspectionId: header?.inspection_id ?? null,
-        sourceNote: [bullittSourceNote(rows, regionById(BULLITT).agency.name)]
+        sourceNote: [bullittSourceNote(regionById(BULLITT).agency.name)]
           .concat(anyEstimate ? [ESTIMATE_NOTE] : [])
           .join(" "),
       }));

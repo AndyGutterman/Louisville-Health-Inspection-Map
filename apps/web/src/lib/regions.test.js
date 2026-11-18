@@ -37,10 +37,9 @@ describe("REGIONS", () => {
     expect(region.attribution).toBeTruthy();
   });
 
-  it("covers Jefferson, Bullitt and the portal counties", () => {
-    expect(enabledRegions().map((r) => r.id)).toEqual([
-      "jefferson",
-      "bullitt",
+  it("shows Jefferson and Bullitt; the portal counties are kept but switched off", () => {
+    expect(enabledRegions().map((r) => r.id)).toEqual(["jefferson", "bullitt"]);
+    expect(REGIONS.filter((r) => !r.enabled).map((r) => r.id)).toEqual([
       "oldham",
       "shelby",
       "spencer",
@@ -121,14 +120,17 @@ describe("undatedRegionIds", () => {
 
 describe("untypedRegionIds", () => {
   it("lists counties whose data has no facility types", () => {
-    expect(untypedRegionIds()).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
+    expect(untypedRegionIds()).toEqual(["bullitt"]);
+    expect(untypedRegionIds(REGIONS)).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
   });
 });
 
 describe("formItemRegionIds and portalRegionIds", () => {
   it("lists counties whose violations are form items, and those read from the portal", () => {
-    expect(formItemRegionIds()).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
-    expect(portalRegionIds()).toEqual(["oldham", "shelby", "spencer"]);
+    expect(formItemRegionIds()).toEqual(["bullitt"]);
+    expect(portalRegionIds()).toEqual([]); // switched off
+    expect(formItemRegionIds(REGIONS)).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
+    expect(portalRegionIds(REGIONS)).toEqual(["oldham", "shelby", "spencer"]);
   });
 });
 

@@ -34,6 +34,7 @@ const isHoverDevice = () => !!window.matchMedia?.("(hover: hover)").matches;
  * @param {Set<string>} o.savedIds           saved places, for the popups' save buttons
  * @param {boolean} o.drawerOpen
  * @param {string} o.searchTerm
+ * @param {"all"|"name"|"address"} [o.searchField]  what the search looks through
  * @param {Function} o.onToggleSaved         (eid) save or unsave
  * @param {Function} o.onOpenDrawer          (eid, props) open the info drawer
  * @param {Function} o.onBackgroundClick     a click on empty map or outside the panels
@@ -150,9 +151,11 @@ export function useMapLibre(o) {
     };
     // In a "1 of 3" popup, start on the place matching the search, if any.
     const startIndex = (features) => {
-      const term = latest.current.searchTerm;
+      const { searchTerm: term, searchField: field } = latest.current;
       if (!searchTokens(term).length) return 0;
-      const i = features.findIndex(({ properties: p }) => matchesSearch(featureSearchKey(p), term));
+      const i = features.findIndex(({ properties: p }) =>
+        matchesSearch(featureSearchKey(p, field), term),
+      );
       return Math.max(i, 0);
     };
 

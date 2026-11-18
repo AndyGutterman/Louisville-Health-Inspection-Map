@@ -2,10 +2,10 @@
 // Louisville's, so the map, popups and drawer can show them. Pure.
 //
 // Only each place's latest inspection and follow-up are published, with no facility types
-// or placards. Kentucky's inspection portal dates them; the county's own sheet, the
-// fallback when the portal isn't answering, leaves the routine inspection undated. The
-// database picks the source (bullitt_results, migration 20261120000000). See
-// docs/BULLITT.md and docs/COUNTIES.md.
+// or placards. They come from the county's own sheet, which leaves the routine inspection
+// undated (bullitt_results; Kentucky's portal is off, migration 20261201000000). Dated
+// routine rows are still handled, for when it comes back. See docs/BULLITT.md and
+// docs/COUNTIES.md.
 import { joinAddress } from "./mapFeatures.js";
 import { formatDateSafe } from "./dates.js";
 
@@ -187,18 +187,13 @@ export function historyRow(r, { trackingSince = null, note }) {
 export const bullittHeader = (history) => history[0] ?? null;
 
 /**
- * The drawer's note on where the history comes from. Routine inspections are dated when
- * the results came from Kentucky's portal, and undated when they came from the county's
- * sheet; follow-ups are dated either way.
- * @param {object[]} history  bullittHistory(...)
- * @param {string} agency     the health department's name
+ * The drawer's note on where the history comes from: the county's own sheet, which
+ * leaves the routine inspection undated (Kentucky's portal is off, docs/COUNTIES.md).
+ * @param {string} agency  the health department's name
  */
-export function bullittSourceNote(history, agency) {
-  const routines = (history || []).filter((r) => r.kind === "routine");
-  const dated = routines.length > 0 && routines.every((r) => r.inspection_date);
-  return dated
-    ? `From the ${agency}, through Kentucky's inspection portal, which shows each place's ` +
-        "latest inspection and follow-up. Earlier ones appear here as this site records them."
-    : `From the ${agency}, which publishes each place's latest inspection without its ` +
-        "date. Earlier ones appear here as this site records them.";
+export function bullittSourceNote(agency) {
+  return (
+    `From the ${agency}, which publishes each place's latest inspection without its ` +
+    "date. Earlier ones appear here as this site records them."
+  );
 }

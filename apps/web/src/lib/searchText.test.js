@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compact,
   featureSearchKey,
+  featureSearchKeys,
   looseRegex,
   matchesSearch,
   searchKey,
@@ -71,5 +72,21 @@ describe("looseRegex", () => {
   it("still needs the characters in order, with no letters between", () => {
     expect(pg("mcdonalds").test("Donatos Pizza")).toBe(false);
     expect(pg("mcdonalds").test("McDowell Donalds")).toBe(false);
+  });
+});
+
+describe("featureSearchKey by field", () => {
+  const p = { name: "Joe's Bar", address: "100 W Main St", address_full: null, zip: "40202" };
+  it("keeps the name and the address apart", () => {
+    expect(featureSearchKey(p, "name")).toBe("joesbar");
+    expect(featureSearchKey(p, "address")).toBe("100wmainst 40202");
+    expect(featureSearchKey(p)).toBe("joesbar 100wmainst 40202");
+  });
+  it("gives every field as pin properties", () => {
+    expect(featureSearchKeys(p)).toEqual({
+      search_key: "joesbar 100wmainst 40202",
+      search_name: "joesbar",
+      search_addr: "100wmainst 40202",
+    });
   });
 });

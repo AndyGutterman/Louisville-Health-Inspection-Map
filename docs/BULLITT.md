@@ -5,6 +5,13 @@ Filter tab).
 
 ## Where the data comes from
 
+**Since 2026-11-18 only the county's sheet is used.** Kentucky's portal is paused until
+there is permission to use it (`docs/COUNTIES.md`, "Paused"): `bullitt_results` reads
+the sheet whatever `portal_regions` says (migration `20261201000000_portal_off.sql`), and
+`portal-ingest.yml` no longer runs. So everything below about undated results and
+estimates applies all the time. The rest of this section describes the two-source setup,
+for when the portal comes back.
+
 Two sources, both loaded every day, and the site picks one:
 
 | Source                                                          | Job                  | Dates                                     | Used                                                      |
