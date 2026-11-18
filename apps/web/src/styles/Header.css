@@ -412,3 +412,66 @@
 .acct-initial::before {
   content: attr(data-initial);
 }
+
+/* Names-only and addresses-only toggles inside the search box (AppHeader.jsx), like a
+   code editor's find bar: dim until pressed. Phones show them only while the search is
+   in use, to keep the header quiet. */
+.search-fields {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.header-search .search-wrap input {
+  padding-right: 64px;
+}
+
+.search-field-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.search-field-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.search-field-btn:focus-visible {
+  outline: 2px solid #ffb655;
+  outline-offset: 1px;
+}
+
+.search-field-btn[aria-pressed="true"] {
+  color: #ffb655;
+  background: rgba(255, 159, 28, 0.16);
+  border-color: rgba(255, 159, 28, 0.55);
+}
+
+@media (max-width: 640px) {
+  .search-fields {
+    display: none;
+  }
+  .header-search .search-wrap input {
+    padding-right: 12px;
+  }
+  .search-wrap:focus-within .search-fields,
+  .search-wrap--busy .search-fields {
+    display: flex;
+  }
+  .header-search .search-wrap:focus-within input,
+  .header-search .search-wrap--busy input {
+    padding-right: 64px;
+  }
+}

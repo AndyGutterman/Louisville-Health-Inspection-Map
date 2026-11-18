@@ -22,12 +22,44 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
   );
 }
 
+// The search box's toggles, like a code editor's find bar: names only, or addresses only.
+// Pressing the one that's on goes back to searching both.
+const FIELD_TOGGLES = [
+  {
+    field: "name",
+    label: "Search names only",
+    placeholder: "Search names",
+    icon: (
+      <>
+        <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+        <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
+        <path d="M2 7h20" />
+        <path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7" />
+      </>
+    ),
+  },
+  {
+    field: "address",
+    label: "Search addresses only",
+    placeholder: "Search addresses",
+    icon: (
+      <>
+        <path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0" />
+        <circle cx="12" cy="10" r="3" />
+      </>
+    ),
+  },
+];
+
 /**
  * @param {object} p
  * @param {"map"|"learn"|"admin"|"privacy"} p.page
  * @param {boolean} p.showSearch     false off the map and on the phone account page
  * @param {string} p.searchTerm
  * @param {Function} p.onSearchChange
+ * @param {"all"|"name"|"address"} [p.searchField]  what the search looks through
+ * @param {Function} [p.onSearchFieldChange]
  * @param {{on: number, of: number}|null} [p.searchScope]  set while a search is only
  *   looking through some of the place types (the categories switched on)
  * @param {Function} [p.onSearchAll]  switches every category on
@@ -41,6 +73,8 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
  */
 export default function AppHeader(p) {
   const headerRef = useRef(null);
+  const field = p.searchField ?? "all";
+  const fieldToggle = FIELD_TOGGLES.find((t) => t.field === field);
 
   useEffect(() => {
     const root = document.documentElement.style;
@@ -66,7 +100,9 @@ export default function AppHeader(p) {
         {/* Left: search on the map, a way back to the map elsewhere */}
         <div className="header-search">
           {p.showSearch ? (
-            <div className="search-wrap">
+            <div
+              className={`search-wrap${p.searchTerm || fieldToggle ? " search-wrap--busy" : ""}`}
+            >
               <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
                 <path
                   d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z"
@@ -75,10 +111,32 @@ export default function AppHeader(p) {
               </svg>
               <input
                 type="text"
-                placeholder="Search map"
+                placeholder={fieldToggle?.placeholder ?? "Search map"}
                 value={p.searchTerm}
                 onChange={(e) => p.onSearchChange(e.target.value)}
               />
+              {p.onSearchFieldChange && (
+                <div className="search-fields" role="group" aria-label="Search in" data-map-overlay>
+                  {FIELD_TOGGLES.map((t) => (
+                    <button
+                      key={t.field}
+                      type="button"
+                      className="search-field-btn"
+                      data-testid={`search-field-${t.field}`}
+                      aria-label={t.label}
+                      aria-pressed={field === t.field}
+                      title={t.label}
+                      // Keep the keyboard up on phones: the input keeps focus.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => p.onSearchFieldChange(field === t.field ? "all" : t.field)}
+                    >
+                      <Icon size={14} strokeWidth={2}>
+                        {t.icon}
+                      </Icon>
+                    </button>
+                  ))}
+                </div>
+              )}
               {p.searchScope && (
                 <div className="search-scope" data-testid="search-scope" role="status">
                   <span>

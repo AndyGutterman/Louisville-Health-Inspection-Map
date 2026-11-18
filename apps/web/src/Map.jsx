@@ -79,6 +79,7 @@ export default function Map({ onMapReady }) {
   // (Bullitt has no dates or facility types, lib/regions.js), lib/mapFilters.js lets its
   // pins through the date filter and files them under "Other".
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchField, setSearchField] = useState("all"); // or "name", "address"
   const [pins, setPins] = useState(PRESETS.balanced); // red/yellow score cut-offs
   const [preset, setPreset] = useState("balanced");
   const [showRedPins, setShowRedPins] = useState(true);
@@ -112,6 +113,7 @@ export default function Map({ onMapReady }) {
       },
       catToggles,
       searchTerm,
+      searchField,
       cutoffDate,
     }),
     [
@@ -122,6 +124,7 @@ export default function Map({ onMapReady }) {
       showMissing,
       catToggles,
       searchTerm,
+      searchField,
       cutoffDate,
     ],
   );
@@ -270,6 +273,7 @@ export default function Map({ onMapReady }) {
     savedIds: watchlist.savedIds,
     drawerOpen: !!drawer.selected,
     searchTerm,
+    searchField,
     onToggleSaved: watchlist.toggleSaved,
     onOpenDrawer: drawer.open,
     onBackgroundClick: drawer.close,
@@ -441,6 +445,8 @@ export default function Map({ onMapReady }) {
         showSearch={page === "map" && !accountFullscreen}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        searchField={searchField}
+        onSearchFieldChange={setSearchField}
         searchScope={searchScope}
         onSearchAll={() => setCatToggles(buildInitialCatToggles())}
         onBackToMap={backToMap}

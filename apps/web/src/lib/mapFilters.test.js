@@ -11,6 +11,7 @@ import {
   searchExpression,
 } from "./mapFilters.js";
 import { buildInitialCatToggles } from "./categories.js";
+import { deduplicateForRender } from "./dedupe.js";
 import { PRESETS, bandExprs } from "./scoring.js";
 
 const allOn = { red: true, yellow: true, green: true, missing: true };
@@ -23,6 +24,12 @@ const base = {
   undatedRegions: [],
   untypedRegions: [],
 };
+
+const pin = (id, coordinates, props) => ({
+  type: "Feature",
+  geometry: { type: "Point", coordinates },
+  properties: { establishment_id: id, ...props },
+});
 
 describe("searchExpression", () => {
   it("is null for an empty or blank term", () => {
@@ -51,6 +58,41 @@ describe("searchExpression", () => {
     const expr = searchExpression("mc donalds dixie");
     expect(expr[0]).toBe("all");
     expect(expr.slice(1).map((e) => e[1][1])).toEqual(["mc", "donalds", "dixie"]);
+  });
+
+  it("looks in the name or address key when the search is narrowed", () => {
+    const key = (field) => searchExpression("bar", field)[1][2][1][1];
+    expect(key("name")).toBe("search_name");
+    expect(key("address")).toBe("search_addr");
+    expect(key("all")).toBe("search_key");
+    expect(key(undefined)).toBe("search_key");
+    expect(key("nonsense")).toBe("search_key");
+  });
+
+  // Evaluated by MapLibre's own expression engine, as the map would.
+  describe("on real pins", () => {
+    const pins = deduplicateForRender([
+      pin("bar", [0, 0], { name: "Joe's Bar", address: "500 Bardstown Rd" }),
+      pin("diner", [1, 1], { name: "Main Street Diner", address: "12 Barret Ave" }),
+      pin("cafe", [2, 2], { name: "Corner Cafe", address: "100 W Main St" }),
+    ]);
+    const found = (term, field) => {
+      const { filter } = featureFilter(searchExpression(term, field));
+      return pins
+        .filter((f) => filter({ zoom: 10 }, { type: 1, properties: f.properties, geometry: [] }))
+        .map((f) => f.properties.establishment_id);
+    };
+
+    it("finds a word anywhere by default", () => {
+      expect(found("bar")).toEqual(["bar", "diner"]);
+      expect(found("main")).toEqual(["diner", "cafe"]);
+    });
+    it("names only: 'bar' skips the diner on Barret Ave", () => {
+      expect(found("bar", "name")).toEqual(["bar"]);
+    });
+    it("addresses only: 'main' skips Main Street Diner", () => {
+      expect(found("main", "address")).toEqual(["cafe"]);
+    });
   });
 });
 
@@ -126,6 +168,11 @@ describe("buildLayerFilters", () => {
     const f = buildLayerFilters({ ...base, show: { ...allOn, missing: false } });
     expect(f["points-zero"]).toEqual(HIDDEN);
     expect(f["points-null"]).toEqual(HIDDEN);
+  });
+
+  it("narrows the search to the field asked for", () => {
+    const f = buildLayerFilters({ ...base, searchTerm: "taco", searchField: "address" });
+    expect(f["points-green"]).toContainEqual(searchExpression("taco", "address"));
   });
 
   it("adds search and date to the pins and the rings", () => {
