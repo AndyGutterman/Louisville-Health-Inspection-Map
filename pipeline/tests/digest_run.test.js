@@ -25,9 +25,11 @@ const AREA = { id: "x", name: "Home", radius: 2, total: 1, failing: 1, places: R
 const JANE = { id: "u-jane", email: "jane@example.com", token: "tok-jane" };
 const SAM = { id: "u-sam", email: "sam@example.com", token: "tok-sam" };
 
-// A database with two subscribers; Jane has a watch area. Records what was asked of it.
-function fakeStore({ delivered = [] } = {}) {
-  const calls = { watchAreas: [], recorded: [], weekRows: 0 };
+// A database with two subscribers; Jane has a watch area, Sam a saved place that was
+// inspected (Jane can be given it too). Records what was asked of it.
+function fakeStore({ delivered = [], janeSaves = false } = {}) {
+  const calls = { watchAreas: [], savedPlaces: [], recorded: [], weekRows: 0 };
+  const saved = [{ id: null, name: null, total: 2, places: ROWS }];
   return {
     calls,
     weekRows: async () => (calls.weekRows++, ROWS),
@@ -44,6 +46,13 @@ function fakeStore({ delivered = [] } = {}) {
     watchAreas: async (days, ids) => {
       calls.watchAreas.push({ days, ids });
       return new Map(ids == null || ids.includes(JANE.id) ? [[JANE.id, [AREA]]] : []);
+    },
+    savedPlaces: async (days, ids) => {
+      calls.savedPlaces.push({ days, ids });
+      const people = [SAM.id, ...(janeSaves ? [JANE.id] : [])];
+      return new Map(
+        people.filter((id) => ids == null || ids.includes(id)).map((id) => [id, saved]),
+      );
     },
     delivered: async () => new Set(delivered),
     recordDelivery: async (jobId, r, status, error) => {
@@ -89,6 +98,28 @@ describe("runJob", () => {
         ["job-1", SAM.email, "sent"],
       ],
     );
+  });
+
+  it("puts each subscriber's saved places in their copy, read once for everyone", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    await runJob(digest({ id: "job-1" }), { store, send, today: TODAY });
+
+    assert.deepEqual(store.calls.savedPlaces, [{ days: 7, ids: null }]);
+    assert.doesNotMatch(outbox[0].html, /Your saved places/); // Jane saved nothing
+    assert.match(outbox[1].html, /Your saved places/);
+    assert.match(outbox[1].html, /1 of your 2 saved places was inspected this week/);
+  });
+
+  it("names a place once when it's both saved and in a watch area", async () => {
+    const store = fakeStore({ janeSaves: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(digest({ id: "job-1" }), { store, send, today: TODAY });
+
+    const jane = outbox[0];
+    assert.equal(jane.html.split("TACO SHOP").length - 1, 1);
+    assert.equal(jane.text.split("TACO SHOP").length - 1, 1);
+    assert.match(jane.html, /1 inspection this week, 1 failing \(1 shown above\)/);
   });
 
   it("a second run of the same job skips everyone already delivered", async () => {

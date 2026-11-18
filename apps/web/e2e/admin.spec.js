@@ -112,10 +112,18 @@ test("an admin previews a subscriber's digest and sends it to themselves as a te
   await expect(emailFrame(page).getByText("Your watch area · 2 mi")).toBeVisible();
   await expect(emailFrame(page).getByText("Home", { exact: true })).toBeVisible();
   await expect(emailFrame(page).getByRole("link", { name: "Unsubscribe" })).toBeVisible();
+  // Her saved places come first. River City Tacos is saved, in her watch area and failing:
+  // it is listed once, with the saved places.
+  await expect(emailFrame(page).getByText("Your saved places")).toBeVisible();
+  await expect(emailFrame(page).getByText("1 of your 4 saved places was inspected")).toBeVisible();
+  await expect(emailFrame(page).getByText("River City Tacos")).toHaveCount(1);
   await snap(page, testInfo, "admin-digest-preview");
 
   // The plain-text version some mail apps show.
   await panel(page).getByRole("button", { name: "Plain text" }).click();
+  await expect(panel(page).getByTestId("email-preview-text")).toContainText(
+    "Your saved places: 1 of your 4 saved places was inspected this week.",
+  );
   await expect(panel(page).getByTestId("email-preview-text")).toContainText(
     "Your watch area: Home (2 mi)",
   );

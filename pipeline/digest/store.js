@@ -8,6 +8,7 @@
  */
 import {
   DIGEST_COLUMNS,
+  groupSavedPlaces,
   groupWatchAreas,
   sinceFilter,
   windowStart,
@@ -94,6 +95,25 @@ export function makeStore(supa, { warn = console.warn } = {}) {
         return groupWatchAreas(rows);
       } catch (e) {
         warn(`Watch areas left out (${e.message}).`);
+        return new Map();
+      }
+    },
+
+    // Saved places inspected in the window: Map of user id -> [list] (groupSavedPlaces). userIds
+    // null: every subscriber. Rows only for saved places that were inspected, so it's a
+    // few per person at most. Like the watch areas, the email goes out without them if the
+    // read fails (a database without digest_saved_places, migration 20261128000000).
+    async savedPlaces(days, userIds) {
+      try {
+        const rows = await readAllPages((from, to) =>
+          supa
+            .rpc("digest_saved_places", { p_days: days, p_user_ids: userIds })
+            .order("user_id")
+            .range(from, to),
+        );
+        return groupSavedPlaces(rows);
+      } catch (e) {
+        warn(`Saved places left out (${e.message}).`);
         return new Map();
       }
     },

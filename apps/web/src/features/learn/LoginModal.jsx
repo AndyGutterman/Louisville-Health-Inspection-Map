@@ -265,8 +265,8 @@ export default function LoginModal({ onClose }) {
                   />
                   <span>
                     <span className="ln-digest-opt-title">Email me the weekly digest</span>
-                    This week&apos;s inspections, the ones that failed, and your watch areas.
-                    Tuesdays. Unsubscribe anytime.
+                    This week&apos;s inspections, the ones that failed, and news on your saved
+                    places and watch areas. Tuesdays. Unsubscribe anytime.
                   </span>
                 </label>
                 <button
