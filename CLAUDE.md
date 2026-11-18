@@ -94,7 +94,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## Things that will bite you (learned the hard way)
 
-- **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list (control card, drawer, account panel, table panel, What's New, a few buttons). Any new floating panel or toggle must be added to that list or it will close the drawer.
+- **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list in `lib/outsideClick.js` (control card, drawer, account panel, table panel, What's New, a few buttons; the rule is `closesDrawer`, tested). Any new floating panel or toggle must get the `data-map-overlay` attribute or be added to that list, or it will close the drawer.
 - **Global CSS leaks into inline-styled elements.** `index.css` has a global `button` rule (padding, background). Inline-styled buttons must set `padding: 0` and sizing explicitly. A selector like `.info-drawer [style]` once forced padding onto every inline-styled element in the drawer and broke the bookmark button; never use broad `[style]` selectors.
 - **`!important` beats inline styles.** Check CSS files before debugging layout in JSX.
 - **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The remaining lint warning is in TableView.jsx (`onResize`) and needs a TableView restructure, not a dependency tweak.
