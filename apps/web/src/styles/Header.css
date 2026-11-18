@@ -451,3 +451,22 @@
 .lang-picker .icon {
   flex-shrink: 0;
 }
+
+/* Phones: the flag takes less room, so the search box's words fit. */
+@media (max-width: 640px) {
+  .header-search {
+    gap: 6px;
+  }
+  .lang-picker {
+    min-width: 34px;
+    padding: 0 4px;
+  }
+  .lang-picker .flag {
+    width: 20px;
+    height: 13px;
+  }
+  .header-search input {
+    padding-right: 6px;
+    font-size: 0.86rem;
+  }
+}
