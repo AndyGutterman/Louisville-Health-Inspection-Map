@@ -9,9 +9,9 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import LearnPage, { LoginModal } from "./features/learn/LearnPage.jsx";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/Map.css";
-import InfoDrawer from "./InfoDrawer.jsx";
+import InfoDrawer from "./features/drawer/InfoDrawer.jsx";
 import TableView from "./features/table/TableView.jsx";
-import FilterSearch from "./FilterSearch.jsx";
+import FilterSearch from "./features/filters/FilterSearch.jsx";
 import { ScoreThresholdInline } from "./ScoreThreshold.jsx";
 import FeedbackModal from "./FeedbackModal.jsx";
 import AccountPage, { ACCOUNT_PANEL_W } from "./AccountPage.jsx";
