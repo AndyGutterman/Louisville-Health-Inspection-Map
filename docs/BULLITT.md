@@ -1,18 +1,25 @@
-# Bullitt County (MVP)
+# Bullitt County
 
-> Kentucky's statewide portal has Bullitt too, **with inspection dates** (`docs/COUNTIES.md`).
-> Since November 2026 the site shows Bullitt's results from the portal, dated, whenever
-> the portal has answered in the last 3 days, and from the sheet below otherwise. The
-> `bullitt_results` view picks (migration `20261120000000`); every Bullitt reader uses
-> it. The sheet import keeps running as the fallback (`docs/COUNTIES.md`, "If the portal
-> goes away"). Everything below about undated results and estimates applies when the
-> sheet is the source.
-
-Status: working MVP on the `feat/bullitt-county` branch, not merged. Its job is to show
-what Bullitt's data can and can't do, so the design decisions below can be made with
-real data on the map.
+On the map since November 2026, beside Jefferson County (switched on from the map or the
+Filter tab).
 
 ## Where the data comes from
+
+Two sources, both loaded every day, and the site picks one:
+
+| Source                                                          | Job                  | Dates                                     | Used                                                      |
+| --------------------------------------------------------------- | -------------------- | ----------------------------------------- | --------------------------------------------------------- |
+| **Kentucky's statewide inspection portal** (`docs/COUNTIES.md`) | `portal-ingest.yml`  | Every result dated                        | Whenever the portal has answered in the last 3 days       |
+| **The county's Google Sheet** (below)                           | `bullitt-ingest.yml` | The latest routine inspection has no date | Only when the portal has been silent for more than 3 days |
+
+The `bullitt_results` view decides (migration `20261120000000`), and every Bullitt reader
+uses it: the map, What's New, Top Scores, Table View, saved places and watch areas. Both
+sources have the same 250 places with the same ids, so switching changes nothing a
+visitor saved. The sheet import never stops: it is the fallback (`docs/COUNTIES.md`, "If
+the portal goes away"). Everything below about undated results and estimates applies
+only while the sheet is the source.
+
+### The sheet
 
 The [Bullitt County Health Department food page](https://www.bullitthealth.org/food) has
 an "Inspection Scores" tab: a drop-down of establishments and a View Inspection button.
@@ -42,7 +49,7 @@ One row per establishment, about 250 rows. The page says it is updated weekly.
 
 ## How it differs from Louisville's data
 
-| Louisville (ArcGIS)                             | Bullitt (sheet)                                             | MVP handling                                                             |
+| Louisville (ArcGIS)                             | Bullitt (sheet)                                             | How the site handles it                                                  |
 | ----------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Establishment ids                               | none                                                        | id = `bullitt-` + hash of name and address                               |
 | Every inspection, with dates, back to ~2016     | **only the latest**, with **no date** (follow-ups have one) | history builds up from the first load; latest shows "Date not published" |
@@ -109,7 +116,12 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   (shown as "posted <date>", never as an inspection date; the first load doesn't count). County capabilities, agency and data
   sources live in `apps/web/src/lib/regions.js`; the Learn page lists the sources from there.
 
-## Estimated dates
+## Estimated dates (sheet only)
+
+Only used while the sheet is the source: with the portal answering, every result has its
+real date and nothing is estimated (`lib/bullitt.js` estimates only when the feed has no
+`routine_date`). It is how the fallback still says something better than "Date not
+published".
 
 The sheet never dates the latest routine inspection, but the job loads it daily, so a
 result that first appears after the first load was posted that day: the inspection was
@@ -123,14 +135,7 @@ still ignores estimates (`date` stays null).
 
 ## Why Bullitt seems to have more violations
 
-On the map, Bullitt's violation rings are light blue instead of amber (`BULLITT_RING_COLOR`
-in `features/map/mapLayers.js`), so the two counties aren't read on one scale. They also fade
-with the zoom and with the number of violations the latest record lists (`BULLITT_RING_FADE`,
-the feature's `violation_count`): half the ringed places list one violation, so from county
-zoom only the ones with several stand out, and up close every ring is readable. Before, every
-ring was full strength and they piled up over Shepherdsville and Mount Washington.
-
-It doesn't; the two sources list different things. Measured in November 2026:
+It doesn't; the two sources list different things. Measured on the sheet in November 2026:
 
 | Score band | Louisville inspections (last 12 months) with violations listed | Bullitt routine inspections with items listed |
 | ---------- | -------------------------------------------------------------- | --------------------------------------------- |
@@ -143,6 +148,13 @@ Restaurants" (`pipeline/seed_violations.js`), so a Louisville inspection that lo
 but passed usually shows no violations at all. Bullitt lists every marked form item. A
 violation ring therefore means less in Louisville than it looks. Open question: say so in
 the drawer for those Louisville inspections, or find a source with every violation.
+
+So the map doesn't read the two counties on one scale, Bullitt's violation rings are light
+blue instead of amber (`BULLITT_RING_COLOR` in `features/map/mapLayers.js`). They also fade
+with the zoom and with the number of violations the latest record lists
+(`BULLITT_RING_FADE`, the feature's `violation_count`): half the ringed places list one
+violation, so from county zoom only the ones with several stand out, and up close every
+ring is readable.
 
 ## Geocoding results (dry run, November 2026)
 
@@ -160,39 +172,41 @@ the drawer for those Louisville inspections, or find a source with every violati
   start of street names, so "135 NORTH POPLAR" was looked up as "135" and got a wrong
   pin. Fixed for both counties.
 
-## Decisions to make before merging
+## Decisions
 
-1. **Dates.** The latest inspection has no date. Options: show "Date not published"
-   (MVP); show "on the list since <first time we saw it>" (accurate from the second
-   change on, meaningless for the first load); or ask the department to add an
-   inspection-date column to the sheet. Asking is the best fix; the sheet is clearly
-   maintained by hand.
-2. **Date filter.** Louisville defaults to "1 year". Bullitt has no dates, so it is
-   hidden. Should undated places count as recent, or only once history builds up?
-3. **Which score the pin shows.** The MVP uses the routine inspection's score, like the
-   department's "Last Inspection Score". The follow-up score is in the drawer.
-   The violation ring follows the latest record, by the same rule as Louisville: a
-   follow-up still on the sheet decides it by its listed violations, otherwise the routine
-   inspection's (`latestHasViolations` in `lib/bullitt.js`; the follow-up's count comes from
-   migration `20261112000000`, and before it runs the follow-up's score below 100 stands in).
-4. **Categories.** No facility types. Options: leave them off, guess from names
-   ("ELEMENTARY", "SCHOOL", "DAY CARE", "@ KROGER"), or ask the department.
-5. **Grades and standards.** Kentucky's satisfactory mark is 85 with no critical
-   violation; Louisville layers its A/B/C placard on top. Do Bullitt pins use the same
-   red/yellow/green cut-offs? (The MVP does.) What does the Learn page say for Bullitt?
-6. **Risk factor vs good retail practice.** The uppercase/lowercase split above. Using it
-   would be the first time the site sorts violations by kind; it needs the same care as
-   the decision to drop "critical".
-7. **One schema or two.** Keep `bullitt_*` tables, or move both counties into shared
-   tables with a `region` column (the refactor plan's idea). Shared tables would give
-   Bullitt What's New, Table View, saved places and watch areas for free, but every
-   Louisville query and pipeline job would need checking first.
-8. **Toggle or both at once.** Decided: both at once (November 2026). Undated Bullitt pins
-   always pass the date filter (2) and always pass the map's category filter (changed November 2026; before, they showed only while every category was on), and Table View's facility chips switch to Jefferson (4).
-9. **Geocoding order.** Decided: 911 address points first (November 2026), after
-   Nominatim's street-level answers put several places on the wrong spot. Should
-   approximate (`ky911-approx`) pins look different on the map? Geoapify was also tried: 3
-   of 6 sample misses found, but two confident wrong answers, so it is not used.
+These were the open questions while Bullitt was an unmerged trial. All but one are
+settled; each says what the site does now.
+
+1. **Dates. Settled by the portal.** Every result is dated while the portal answers. On
+   the sheet fallback, the latest routine inspection is estimated when it can be ("By
+   <date>", above) and says "Date not published" when it can't.
+2. **Date filter. Decided:** dated Bullitt results are filtered like Louisville's; an
+   undated pin (sheet fallback only) always passes, since it shows the latest inspection
+   (`lib/mapFilters.js`).
+3. **Which score the pin shows. Decided:** the routine inspection's score, like the
+   department's "Last Inspection Score"; a follow-up is in the drawer. The violation ring
+   follows the latest record, by the same rule as Louisville (`latestHasViolations` in
+   `lib/bullitt.js`).
+4. **Categories. Decided: off.** Bullitt's data has no facility types, so its pins always
+   pass the category filter, and the Filter tab lists Bullitt apart from the category
+   tiles with a one-line note. Guessing types from names was not done.
+5. **Grades and standards. Decided:** the same red/yellow/green cut-offs and score badges
+   as Louisville. No letter grades: the Learn page says placards are Louisville Metro's
+   program and Bullitt posts scores only.
+6. **Risk factor vs good retail practice. Not done, on purpose:** sorting violations by
+   kind needs the same care as the decision to show no "critical" labels (CLAUDE.md), so
+   every item is a plain violation in both counties.
+7. **One schema or two. Decided: two.** `bullitt_*` tables stay separate; views
+   (`bullitt_results`, the table views, the What's New and saved-place functions) give
+   Bullitt What's New, Table View, saved places and watch areas without touching
+   Louisville's tables.
+8. **Toggle or both at once. Decided: both at once.** Bullitt loads when it is switched on
+   (from the map or the Filter tab), and Table View's facility chips switch to Jefferson.
+9. **Geocoding order. Decided:** 911 address points first, after Nominatim's street-level
+   answers put several places on the wrong spot. Geoapify was tried (3 of 6 sample misses
+   found, but two confident wrong answers) and is not used. **Still open:** should
+   approximate (`ky911-approx`) pins look different on the map? Today they look like any
+   other pin.
 
 ## Known limits
 
