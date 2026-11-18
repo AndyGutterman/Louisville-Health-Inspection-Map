@@ -43,6 +43,10 @@ const ALL_VIEWS = [...Object.keys(VIEWS), ...Object.keys(PAGES)];
 // ── Reflow: no sideways scrolling at 320px wide, or at 200% zoom ────────────────────────
 // 200% zoom on a 1280px window is a 640 x 360 CSS-pixel page. Table View is exempt (WCAG
 // allows two-dimensional scrolling for data tables), and the map itself is a canvas.
+// The real name font ("Tilt Neon") comes from Google Fonts, which the tests may not reach, and
+// is wider than the fallback: so the name is also measured in a much wider font.
+const WIDE_NAME =
+  ".brand > span { font-family: 'DejaVu Sans', Verdana, sans-serif !important; font-weight: 800 !important; letter-spacing: 0.08em !important; }";
 const overflow = (page) =>
   page.evaluate(() => {
     const width = document.documentElement.clientWidth;
@@ -72,6 +76,7 @@ for (const [label, size] of [
     for (const name of ALL_VIEWS) {
       test(`${name} has no sideways scrolling`, async ({ page }) => {
         await openView(page, name);
+        await page.addStyleTag({ content: WIDE_NAME });
         const o = await overflow(page);
         expect(
           o.scrollWidth,
