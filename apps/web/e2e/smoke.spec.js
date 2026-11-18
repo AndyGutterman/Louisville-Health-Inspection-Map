@@ -39,6 +39,34 @@ test("loads with no console errors", async ({ page }, testInfo) => {
   expect(unmocked, "Supabase calls with no fixture").toEqual([]);
 });
 
+test("the search box narrows to names or addresses", async ({ page }, testInfo) => {
+  await openApp(page);
+  const search = page.getByPlaceholder("Search map");
+  const byName = page.getByTestId("search-field-name");
+  const byAddress = page.getByTestId("search-field-address");
+
+  // Phones keep the header quiet: the toggles show once the search is in use.
+  if (testInfo.project.name === "phone") await expect(byName).toBeHidden();
+  await search.click();
+  await expect(byName).toBeVisible();
+  await expect(byName).toHaveAttribute("aria-pressed", "false");
+
+  await byName.click();
+  await expect(byName).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByPlaceholder("Search names")).toBeFocused(); // keyboard stays up
+  await page.getByPlaceholder("Search names").fill("bar");
+  await snap(page, testInfo, "01c-search-names-only");
+
+  // One at a time; pressing the one that's on searches everything again.
+  await byAddress.click();
+  await expect(byAddress).toHaveAttribute("aria-pressed", "true");
+  await expect(byName).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByPlaceholder("Search addresses")).toBeVisible();
+  await byAddress.click();
+  await expect(byAddress).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByPlaceholder("Search map")).toHaveValue("bar");
+});
+
 test("the map shows while the rest of the data loads, with a corner indicator", async ({
   page,
 }, testInfo) => {
