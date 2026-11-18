@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
-import WatchlistTab from "./WatchlistTab.jsx";
+import WatchlistTab from "./features/saved/WatchlistTab.jsx";
 import { fetchDigestChoice, saveDigestChoice } from "./api/account.js";
 import { OFF, WEEKLY, isSubscribed } from "./lib/digest.js";
 import { PRIVACY_PATH } from "./lib/privacy.js";
