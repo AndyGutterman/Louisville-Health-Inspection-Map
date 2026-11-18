@@ -337,6 +337,40 @@ const pinReads = (requested, tables) => requested.filter((p) => tables.includes(
 const BULLITT_FEED = ["v_bullitt_map_feed"];
 const OLDHAM_FEED = ["v_portal_map_feed"];
 
+test("Shelby and Spencer are off at first, load only their own places when switched on, and are listed on the Learn page", async ({
+  page,
+}) => {
+  const feedReads = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/v_portal_map_feed")) feedReads.push(decodeURIComponent(r.url()));
+  });
+  await openApp(page);
+  expect(feedReads).toEqual([]);
+  await expect(page.getByTestId("county-load-shelby")).toContainText("Shelby County");
+  await expect(page.getByTestId("county-load-spencer")).toContainText("Spencer County");
+
+  await page.getByRole("button", { name: "Expand controls" }).click();
+  await page.getByRole("tab", { name: "Filter" }).click();
+  const shelby = page.getByTestId("county-switch-shelby");
+  const spencer = page.getByTestId("county-switch-spencer");
+  await expect(shelby).toContainText("Not loaded");
+  await shelby.getByRole("checkbox").check();
+  await expect(shelby).toContainText("2 places");
+  await expect(spencer).toContainText("Not loaded");
+  expect(feedReads).toHaveLength(1);
+  expect(feedReads[0]).toContain("region=in.(shelby)");
+
+  await spencer.getByRole("checkbox").check();
+  await expect(spencer).toContainText("1 place");
+  expect(feedReads).toHaveLength(2);
+  expect(feedReads[1]).toContain("region=in.(spencer)");
+
+  await openApp(page, { path: "/?page=learn" });
+  const sources = page.getByTestId("data-sources");
+  await expect(sources).toContainText("Shelby County");
+  await expect(sources).toContainText("Spencer County");
+});
+
 test("a first visit loads only Jefferson; other counties load when switched on, once", async ({
   page,
 }, testInfo) => {
@@ -732,15 +766,18 @@ test("the Learn page links one data source per county and says how they differ",
   await openApp(page);
   await page.getByRole("button", { name: "Learn" }).click();
   const sources = page.getByTestId("data-sources");
-  await expect(sources.getByRole("listitem")).toHaveCount(3);
-  await expect(sources.getByRole("link")).toHaveCount(3);
+  // Jefferson, Bullitt, then Oldham, Shelby and Spencer, which share the state's portal.
+  await expect(sources.getByRole("listitem")).toHaveCount(5);
+  await expect(sources.getByRole("link")).toHaveCount(5);
   await expect(
     sources.getByRole("link", { name: "Bullitt County Health Department" }),
   ).toHaveAttribute("href", "https://www.bullitthealth.org/food");
   await expect(sources.getByRole("link", { name: "Louisville Metro Open Data" })).toBeVisible();
   await expect(
     sources.getByRole("link", { name: "Kentucky's food inspection portal" }),
-  ).toBeVisible();
+  ).toHaveCount(3);
+  await expect(sources).toContainText("Shelby County");
+  await expect(sources).toContainText("Spencer County");
   await expect(sources).toContainText("Kentucky's statewide inspection portal");
   await expect(sources).toContainText("no inspection date"); // the fallback, said plainly
 });

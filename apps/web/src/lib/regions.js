@@ -124,6 +124,72 @@ export const REGIONS = [
     dataNote:
       "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal, which the health department links to. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
   },
+  {
+    ...COUNTIES.shelby, // id, name, shortName
+    boundaryUrl: "/regions/shelby.geojson",
+    enabled: true,
+    attribution: CENSUS_CREDIT,
+    bounds: [
+      [-85.49, 38.017],
+      [-84.937, 38.378],
+    ],
+    labelAt: [-85.17, 38.22],
+    feed: "portal",
+    // Dated results from Kentucky's portal, no types or placards. Saved places, watch
+    // areas, What's New and Table View don't read the portal's tables yet
+    // (docs/COUNTIES.md, "What's next").
+    has: {
+      categories: false,
+      dates: true,
+      grades: false,
+      saving: false,
+      table: false,
+      formItems: true,
+    },
+    agency: {
+      name: "Shelby County Health Department",
+      url: "https://public.cdpehs.com/KYEnvPBL/VW_PUBLIC_EST_INSP/ShowVW_PUBLIC_EST_INSPTable.aspx?County=106",
+    },
+    source: {
+      name: "Kentucky's food inspection portal",
+      url: "https://public.cdpehs.com/KYEnvPBL/VW_PUBLIC_EST_INSP/ShowVW_PUBLIC_EST_INSPTable.aspx?County=106",
+    },
+    dataNote:
+      "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+  },
+  {
+    ...COUNTIES.spencer, // id, name, shortName
+    boundaryUrl: "/regions/spencer.geojson",
+    enabled: true,
+    attribution: CENSUS_CREDIT,
+    bounds: [
+      [-85.537, 37.92],
+      [-85.082, 38.167],
+    ],
+    labelAt: [-85.31, 38.03],
+    feed: "portal",
+    // Dated results from Kentucky's portal, no types or placards. Saved places, watch
+    // areas, What's New and Table View don't read the portal's tables yet
+    // (docs/COUNTIES.md, "What's next").
+    has: {
+      categories: false,
+      dates: true,
+      grades: false,
+      saving: false,
+      table: false,
+      formItems: true,
+    },
+    agency: {
+      name: "Spencer County Health Department",
+      url: "https://public.cdpehs.com/KYEnvPBL/VW_PUBLIC_EST_INSP/ShowVW_PUBLIC_EST_INSPTable.aspx?County=108",
+    },
+    source: {
+      name: "Kentucky's food inspection portal",
+      url: "https://public.cdpehs.com/KYEnvPBL/VW_PUBLIC_EST_INSP/ShowVW_PUBLIC_EST_INSPTable.aspx?County=108",
+    },
+    dataNote:
+      "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+  },
 ];
 
 export const DEFAULT_REGION = DEFAULT_COUNTY;

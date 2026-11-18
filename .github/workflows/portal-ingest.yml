@@ -10,7 +10,7 @@ on:
       county:
         description: "County to load"
         type: choice
-        options: [oldham, bullitt]
+        options: [oldham, bullitt, shelby, spencer]
         default: oldham
       redo_geocoding:
         description: "Geocode every place again (not hand-placed pins), ignoring the cache"

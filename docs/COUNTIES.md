@@ -14,6 +14,8 @@ sooner) or has **more**, and no county loses its old source: it stays as the fal
 | Jefferson | ArcGIS (Louisville Metro), unchanged          | As fresh as the portal (its newest rows match the Courier-Journal's), plus history, types, coordinates; one load, not 9                  |
 | Bullitt   | both: the sheet, and the portal since 11/2026 | Same 250 places and ids; the portal has dates and posts sooner (3 results dated 11/12 not on the sheet yet). The sheet stays as fallback |
 | Oldham    | the portal                                    | The only online source (the health department links to it)                                                                               |
+| Shelby    | the portal                                    | Same as Oldham. About 390 rows on the portal in November 2026                                                                            |
+| Spencer   | the portal                                    | Same as Oldham. About 110 rows on the portal in November 2026                                                                            |
 
 ## The source
 
@@ -151,6 +153,26 @@ that:
   keeps its page for 30 days as a workflow artifact), with no portal request.
 - **Turning it off:** disable `portal-ingest.yml` in GitHub (Actions, the workflow, "...",
   Disable workflow). Nothing else depends on it.
+
+## Shelby, Spencer (added 2026-11-19) and Hardin (left out)
+
+Shelby (portal county 106) and Spencer (108) are set up exactly like Oldham: a line in
+`packages/core/regions.js`, `pipeline/regions/kyportal/counties.js` (with an empty
+hand-placed pins file in `overrides/`), an outline from Census TIGERweb in
+`apps/web/public/regions/`, and an entry in `apps/web/src/lib/regions.js`. They are off by
+default and load only when switched on. The database needs nothing: `v_portal_map_feed` is
+read by region. Counted on the portal (one table row each, page chrome included): Shelby about
+390, Spencer about 110, Oldham 336.
+
+**Hardin (47) is not added**: about 620 rows, nearly twice Oldham, so its first geocoding
+run and its map would be a different size of job. Add it the same way when wanted
+(it is under the portal's 999-row page limit).
+
+To load them: run "Ingest portal counties" by hand (Actions) with `county` set to `shelby`
+and then `spencer`. `--dry-run` first from `pipeline/` shows what it would store. Add them
+to the scheduled list in `portal-ingest.yml` once a first load looks right (the list is the
+`fromJSON('["oldham", "bullitt"]')` line); hand-placed pins for addresses no geocoder finds
+go in `overrides/shelby.json` and `overrides/spencer.json`.
 
 ## What's next
 

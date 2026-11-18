@@ -269,6 +269,60 @@ const whatsNewRow = (p) => ({
 });
 
 // Rows keyed by the PostgREST path the app requests (after /rest/v1/).
+// Places from Kentucky's inspection portal (Shelby, Spencer): v_portal_map_feed rows, dated.
+const portalPlace = (region, n, name, address, city, lon, lat, score, days) => ({
+  establishment_id: `${region}-${n}`,
+  region,
+  premise_name: name,
+  address,
+  city,
+  lon,
+  lat,
+  score_recent: score,
+  violation_count_recent: score < 90 ? 2 : 0,
+  follow_up_date: null,
+  follow_up_score: null,
+  follow_up_violation_count: null,
+  routine_first_seen: daysAgo(days),
+  tracking_since: daysAgo(30),
+  routine_date: daysAgo(days),
+});
+export const PORTAL_PLACES = [
+  portalPlace(
+    "shelby",
+    "a1",
+    "SHELBYVILLE DINER",
+    "500 MAIN ST",
+    "SHELBYVILLE",
+    -85.2245,
+    38.2123,
+    96,
+    6,
+  ),
+  portalPlace(
+    "shelby",
+    "a2",
+    "CLEAR CREEK GRILL",
+    "900 MIDLAND TRL",
+    "SHELBYVILLE",
+    -85.2,
+    38.22,
+    82,
+    12,
+  ),
+  portalPlace(
+    "spencer",
+    "b1",
+    "TAYLORSVILLE PIZZA",
+    "10 MAIN ST",
+    "TAYLORSVILLE",
+    -85.3436,
+    38.0314,
+    91,
+    9,
+  ),
+];
+
 export const TABLES = {
   // Louisville's pins in one read (migration 20261122000000).
   v_facility_map_pins: pinned.map((p) => ({
@@ -328,8 +382,9 @@ export const TABLES = {
     tracking_since: daysAgo(30),
     routine_date: p.routineDays != null ? daysAgo(p.routineDays) : null,
   })),
-  // Oldham (lib/portal.js): none in the fixtures yet.
-  v_portal_map_feed: [],
+  // The counties read from Kentucky's portal (lib/portal.js): Shelby and Spencer have a few
+  // places; Oldham none. The mock filters this by region, so each switch reads only its own.
+  v_portal_map_feed: PORTAL_PLACES,
   portal_inspections: [],
   bullitt_results: bullittInspections,
   bullitt_inspections: bullittInspections,

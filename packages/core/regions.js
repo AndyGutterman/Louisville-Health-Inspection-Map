@@ -8,6 +8,8 @@ export const COUNTIES = {
   jefferson: { id: "jefferson", name: "Jefferson County", shortName: "Jefferson" },
   bullitt: { id: "bullitt", name: "Bullitt County", shortName: "Bullitt" },
   oldham: { id: "oldham", name: "Oldham County", shortName: "Oldham" },
+  shelby: { id: "shelby", name: "Shelby County", shortName: "Shelby" },
+  spencer: { id: "spencer", name: "Spencer County", shortName: "Spencer" },
 };
 
 // Louisville's ids are the city's own numbers; every other county's start with its id.
