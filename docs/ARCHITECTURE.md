@@ -1,32 +1,39 @@
 # Architecture
 
-Louisville Food Safe is a map of Louisville Metro food-establishment inspections. A set of scripts pulls the city's data into a Supabase database, and a React site reads it.
+Louisville Food Safe is a map of food-establishment inspections in Jefferson County (Louisville Metro), Bullitt County and Oldham County. Daily jobs load each county's public data into a Supabase database, and a React site reads it.
 
 ## System overview
 
 ```mermaid
 flowchart LR
-  src["Louisville Metro<br/>inspection data (ArcGIS REST)"]
-
-  subgraph actions["GitHub Actions"]
-    ingest["ingest.yml<br/>runs the pipeline/ scripts"]
-    backup["db-backup.yml"]
-    archive["archive.yml<br/>archives old inspections"]
+  subgraph sources["Sources"]
+    arcgis["Louisville Metro<br/>ArcGIS"]
+    portal["Kentucky<br/>inspection portal"]
+    sheet["Bullitt<br/>Google Sheet"]
   end
 
-  db[("Supabase<br/>Postgres, Auth, Edge Function")]
-  site["Netlify<br/>React + Vite site"]
-  geo["Geoapify<br/>address search"]
+  subgraph jobs["GitHub Actions"]
+    ingest["ingest.yml"]
+    portaljob["portal-ingest.yml"]
+    bullittjob["bullitt-ingest.yml"]
+    emails["digest.yml<br/>email-outbox.yml"]
+  end
 
-  src --> ingest --> db
-  db --> backup
-  db --> archive
+  db[("Supabase<br/>Postgres, Auth,<br/>Edge Functions")]
+  site["Website<br/>React on Netlify"]
+
+  arcgis --> ingest --> db
+  portal --> portaljob --> db
+  sheet --> bullittjob --> db
+  db --> emails
   db <-->|supabase-js| site
-  site --> geo
 ```
 
-- **Data in:** the scripts in `pipeline/` fetch the city's data and write it to Supabase. `pipeline/tests/` covers the helpers.
-- **Data out:** the site reads pins, inspections and violations through `supabase-js`. Accounts use email one-time codes, and watchlists and watch areas are stored per user.
+The README's [How it works](../README.md#how-it-works) draws both halves in more detail: which source feeds which county, the fallbacks (connected and not), geocoding, and the scheduled backup, check and archive jobs.
+
+- **Data in:** each county has its own job and its own tables (Jefferson: `facilities`, `inspections`, `inspection_violations`; Bullitt: `bullitt_*`; portal counties: `portal_*`). `pipeline/tests/` covers the helpers.
+- **Data out:** the site reads pins, inspections and violations through `supabase-js` (every query is in `apps/web/src/api/`). Accounts use email one-time codes, and saved places and watch areas are stored per user.
+- **Emails:** `packages/core/email/` builds the weekly digest and one-off emails; the admin page's preview uses the same function as the send.
 - **Feedback:** the feedback form posts to the `submit-feedback` edge function (`supabase/functions/`), which rate-limits by IP.
 - **Address search** for watch areas calls Geoapify directly from the browser.
 
@@ -38,30 +45,33 @@ flowchart TD
   main --> splash["withSplashScreen"]
   splash --> map["Map.jsx<br/>app shell: panels and layout"]
 
-  map --> filters["FilterSearch<br/>ScoreThreshold"]
-  map --> drawer["InfoDrawer"]
-  map --> table["TableView"]
-  map --> whatsnew["WhatsNew"]
-  map --> acct["AccountPage"] --> wl["WatchlistTab"] --> addr["AddressPicker"]
-  map --> learn["LearnPage"]
-  map --> feedback["FeedbackModal"]
   map --> mapfeat["features/map/<br/>useMapLibre, popups, mapLayers,<br/>useMapFeatures, useDrawer, useWatchlist,<br/>useWatchAreaLayer, AppHeader"]
-  mapfeat --> wal["watchAreaLayer.js"]
-  mapfeat --> api["api/<br/>mapData, watchlist"] --> sb
-  mapfeat --> lib["lib/<br/>scoring, categories, dedupe, dates, mapFilters,<br/>mapFeatures, inspectionHistory, samePlaceDetection,<br/>geocode, bottomSheet, constants"]
-  map --> hooks["hooks/useMediaQuery"]
-  filters --> hooks
-  drawer --> hooks
-  addr --> lib
+  map --> filters["features/filters/<br/>FilterSearch, PinBar, FilterTab<br/>+ ScoreThreshold"]
+  map --> drawer["features/drawer/<br/>InfoDrawer, InspectionCard, History,<br/>useBottomSheet"]
+  map --> table["features/table/<br/>TableView, useTableData, TableRows"]
+  map --> whatsnew["WhatsNew"]
+  map --> acct["AccountPage"] --> saved["features/saved/<br/>WatchlistTab, WatchAreaCard,<br/>AddAreaForm"] --> addr["AddressPicker"]
+  map --> learn["features/learn/<br/>LearnPage, ViolationDatabase,<br/>LoginModal"]
+  map --> lazy["features/admin/, features/privacy/<br/>loaded on demand"]
+  map --> feedback["FeedbackModal"]
 
-  drawer --> sb["lib/supabase.js"]
-  whatsnew --> sb
-  table --> sb
-  wl --> sb
-  learn --> sb
+  mapfeat --> api
+  table --> api
+  whatsnew --> api
+  saved --> api
+  learn --> api
+  lazy --> api
+  api["api/<br/>one file per topic"] --> sb["lib/supabase.js"]
+
+  mapfeat --> lib["lib/<br/>pure, tested logic"]
+  filters --> lib
+  drawer --> lib
+  table --> lib
+  saved --> lib
+  lib --> core["packages/core<br/>categories, grading, regions, email"]
 ```
 
-`src/lib/` is pure logic and is fully unit tested. `features/map/` holds the map and the data behind it, as hooks that the shell (`Map.jsx`) wires together. The other components under `src/` are the panels.
+`src/lib/` is pure logic, unit tested beside each file. `features/` has one folder per part of the screen; `features/map/` holds the map and the data behind it, as hooks that the shell (`Map.jsx`) wires together. Every Supabase query lives in `api/`, so components never call the database themselves. `packages/core` holds what the website and the pipeline share.
 
 ## Example: clicking a row in What's New
 
