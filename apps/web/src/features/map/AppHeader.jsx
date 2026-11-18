@@ -2,6 +2,8 @@
 // Log in or Saved. Publishes its height and the search box's left edge as CSS variables
 // (--header-h, --mobile-header-h, --controls-left) that other panels position against.
 import { useEffect, useRef } from "react";
+import { useT } from "../../I18nContext.jsx";
+import LanguagePicker from "./LanguagePicker.jsx";
 
 // Lucide-style stroke icon, 14px unless sized otherwise.
 function Icon({ size = 14, strokeWidth = 2.2, children }) {
@@ -41,6 +43,7 @@ function Icon({ size = 14, strokeWidth = 2.2, children }) {
  */
 export default function AppHeader(p) {
   const headerRef = useRef(null);
+  const { t } = useT();
 
   useEffect(() => {
     const root = document.documentElement.style;
@@ -75,17 +78,17 @@ export default function AppHeader(p) {
               </svg>
               <input
                 type="text"
-                placeholder="Search map"
+                placeholder={t("header.search")}
                 value={p.searchTerm}
                 onChange={(e) => p.onSearchChange(e.target.value)}
               />
               {p.searchScope && (
                 <div className="search-scope" data-testid="search-scope" role="status">
                   <span>
-                    Searching {p.searchScope.on} of {p.searchScope.of} place types
+                    {t("header.searchScope", { on: p.searchScope.on, of: p.searchScope.of })}
                   </span>
                   <button type="button" data-testid="search-all" onClick={p.onSearchAll}>
-                    Search all
+                    {t("header.searchAll")}
                   </button>
                 </div>
               )}
@@ -95,12 +98,12 @@ export default function AppHeader(p) {
               className="header-nav-btn"
               onClick={p.onBackToMap}
               style={{ gap: 5 }}
-              aria-label="Back to the map"
+              aria-label={t("header.backToMap")}
             >
               <Icon size={13} strokeWidth={2.5}>
                 <path d="M19 12H5M12 5l-7 7 7 7" />
               </Icon>
-              <span className="nav-btn-label">Map</span>
+              <span className="nav-btn-label">{t("header.map")}</span>
             </button>
           )}
         </div>
@@ -119,30 +122,35 @@ export default function AppHeader(p) {
 
         {/* Right: Learn, Feedback, and Saved (signed in) or Log in */}
         <div className="header-actions">
+          <LanguagePicker />
           <button
             className={`header-nav-btn${p.page === "learn" ? " active" : ""}`}
             onClick={p.onOpenLearn}
-            aria-label="Learn"
+            aria-label={t("header.learn")}
           >
             <Icon>
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
             </Icon>
-            <span className="nav-btn-label learn-label">Learn</span>
+            <span className="nav-btn-label learn-label">{t("header.learn")}</span>
           </button>
           {/* Phones hide the text labels, so each button carries its name itself. */}
-          <button className="header-nav-btn" onClick={p.onOpenFeedback} aria-label="Feedback">
+          <button
+            className="header-nav-btn"
+            onClick={p.onOpenFeedback}
+            aria-label={t("header.feedback")}
+          >
             <Icon>
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </Icon>
-            <span className="nav-btn-label">Feedback</span>
+            <span className="nav-btn-label">{t("header.feedback")}</span>
           </button>
           {p.user ? (
             <button
               className={`header-nav-btn header-nav-btn--account${p.accountActive ? " active" : ""}`}
               onClick={p.onToggleAccount}
               title={p.user.email}
-              aria-label="Saved"
+              aria-label={t("header.saved")}
             >
               {/* The account's initial is decoration: the button's name is "Saved". It is
                   drawn by CSS (.acct-initial::before), so it isn't part of the button's text,
@@ -165,19 +173,19 @@ export default function AppHeader(p) {
                   flexShrink: 0,
                 }}
               />
-              <span className="nav-btn-label">Saved</span>
+              <span className="nav-btn-label">{t("header.saved")}</span>
             </button>
           ) : (
             <button
               className="header-nav-btn header-nav-btn--login"
               onClick={p.onLogIn}
-              aria-label="Log in"
+              aria-label={t("header.logIn")}
             >
               <Icon>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </Icon>
-              <span className="nav-btn-label">Log in</span>
+              <span className="nav-btn-label">{t("header.logIn")}</span>
             </button>
           )}
         </div>

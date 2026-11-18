@@ -2,8 +2,10 @@
 // and close buttons, "may also be listed as", and the "More info" details.
 import React from "react";
 import { scoreBand } from "@lfs/core/grading.js";
+import { useT } from "../../I18nContext.jsx";
 
-const displayField = (v) => (v === null ? "not listed" : v === undefined || v === "" ? "—" : v);
+const displayField = (v, notListed) =>
+  v === null ? notListed : v === undefined || v === "" ? "—" : v;
 
 export default function InspectionCard({
   data,
@@ -13,8 +15,9 @@ export default function InspectionCard({
   onSaveToWatchlist,
   onClose,
 }) {
-  // Hooks must run on every render, so this sits above the early return.
+  // Hooks must run on every render, so these sit above the early return.
   const [open, setOpen] = React.useState(false);
+  const { t } = useT();
   if (!data) return null;
   const {
     name,
@@ -39,10 +42,19 @@ export default function InspectionCard({
 
   const items = details
     ? [
-        { label: "Opening date", value: displayField(details.opening_date) },
-        { label: "Facility type", value: displayField(details.facility_type) },
-        { label: "Subtype", value: displayField(details.subtype) },
-        { label: "Permit number", value: displayField(details.permit_number) },
+        {
+          label: t("drawer.openingDate"),
+          value: displayField(details.opening_date, t("drawer.notListed")),
+        },
+        {
+          label: t("drawer.facilityType"),
+          value: displayField(details.facility_type, t("drawer.notListed")),
+        },
+        { label: t("drawer.subtype"), value: displayField(details.subtype, t("drawer.notListed")) },
+        {
+          label: t("drawer.permit"),
+          value: displayField(details.permit_number, t("drawer.notListed")),
+        },
       ]
     : [];
 
@@ -81,7 +93,7 @@ export default function InspectionCard({
                   color: "rgba(255,255,255,0.60)",
                 }}
               >
-                No map location on file for this establishment.
+                {t("drawer.noLocation")}
               </div>
             )}
             {sourceNote && (
@@ -98,8 +110,8 @@ export default function InspectionCard({
             {onSaveToWatchlist && (
               <button
                 onClick={() => onSaveToWatchlist(data.establishment_id)}
-                aria-label={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
-                title={watchlisted ? "Remove from watchlist" : "Save to watchlist"}
+                aria-label={t(watchlisted ? "popup.unsave" : "popup.save")}
+                title={t(watchlisted ? "popup.unsave" : "popup.save")}
                 style={{
                   width: 28,
                   height: 28,
@@ -139,7 +151,7 @@ export default function InspectionCard({
             {onClose && (
               <button
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t("drawer.close")}
                 style={{
                   background: "none",
                   border: "none",
@@ -175,7 +187,7 @@ export default function InspectionCard({
             }}
           >
             <div style={{ fontWeight: 700, color: "rgba(255,193,7,0.80)", marginBottom: 4 }}>
-              ⚠ This address may also be listed under a separate permit record:
+              ⚠ {t("drawer.alsoListed")}
             </div>
             {similar.map((s) => (
               <div key={s.eid} style={{ marginBottom: 3 }}>
@@ -204,7 +216,7 @@ export default function InspectionCard({
                     e.currentTarget.style.background = "rgba(255,255,255,0.07)";
                     e.currentTarget.style.color = "rgba(255,255,255,0.75)";
                   }}
-                  title={`Switch to permit record: ${s.name}`}
+                  title={t("drawer.switchTo", { name: s.name })}
                 >
                   {s.name} →
                 </button>
@@ -218,9 +230,7 @@ export default function InspectionCard({
                 lineHeight: 1.4,
               }}
             >
-              These are separate health department records shown independently. Inspection histories
-              reflect each permit only. Data is displayed as received from Louisville Metro Health
-              and has not been verified.
+              {t("drawer.separateRecords")}
             </div>
           </div>
         )}
@@ -229,12 +239,12 @@ export default function InspectionCard({
       <div className="inspect-card_stats">
         <div className="inspect-stat">
           <div className={`inspect-badge ${badgeClass}`}>{scoreText}</div>
-          <div className="inspect-stat_label">Score</div>
+          <div className="inspect-stat_label">{t("drawer.score")}</div>
         </div>
 
         <div className="inspect-stat">
           <div className="inspect-date">{inspectionDate}</div>
-          <div className="inspect-stat_label">{dateCaption ?? "Date"}</div>
+          <div className="inspect-stat_label">{dateCaption ?? t("drawer.date")}</div>
         </div>
 
         {showGrade && (
@@ -242,7 +252,7 @@ export default function InspectionCard({
             <div className={`inspect-pill ${gradeDisplay === "—" ? "muted" : ""}`}>
               {gradeDisplay}
             </div>
-            <div className="inspect-stat_label">Grade</div>
+            <div className="inspect-stat_label">{t("drawer.grade")}</div>
           </div>
         )}
       </div>
@@ -259,7 +269,7 @@ export default function InspectionCard({
               setOpen((v) => !v);
             }}
           >
-            <span>More info</span>
+            <span>{t("drawer.moreInfo")}</span>
             <svg viewBox="0 0 24 24" width="16" height="16" className="chev" aria-hidden="true">
               <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { WHATS_NEW_TABS, scoreBadge, swipeTab, whatsNewDate } from "./lib/whatsNew.js";
 import { regionOfId } from "./lib/regions.js";
 import { fetchWhatsNewList } from "./api/whatsNew.js";
+import { useT } from "./I18nContext.jsx";
 import "./styles/WhatsNew.css";
 
 function FlameIcon({ className, style }) {
@@ -21,6 +22,8 @@ function FlameIcon({ className, style }) {
 }
 
 function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
+  const { t, locale } = useT();
+  const date = whatsNewDate(item, { posted: t("whatsNew.posted"), locale });
   return (
     <div
       data-testid="whats-new-row"
@@ -42,18 +45,16 @@ function ScoreCard({ item, score, badgeClass, onOpen, onHover, onHoverEnd }) {
           {/* First, so it survives the line's ellipsis */}
           {item.region === "bullitt" && <span className="wn-county">Bullitt</span>}
           {item.address ? (
-            [item.address, whatsNewDate(item)].filter(Boolean).join(" · ")
+            [item.address, date].filter(Boolean).join(" · ")
           ) : (
             <>
-              <span className="wn-noloc">Location unavailable</span>
-              {whatsNewDate(item) && ` · ${whatsNewDate(item)}`}
+              <span className="wn-noloc">{t("whatsNew.noLocation")}</span>
+              {date && ` · ${date}`}
             </>
           )}
         </div>
         {item.violation_count > 0 && (
-          <div className="wn-viol">
-            {item.violation_count} {item.violation_count === 1 ? "violation" : "violations"}
-          </div>
+          <div className="wn-viol">{t("violations", { n: item.violation_count })}</div>
         )}
       </div>
     </div>
@@ -77,6 +78,7 @@ export default function WhatsNew({
   onClose,
   onOpen,
 }) {
+  const { t } = useT();
   const [tab, setTab] = useState(WHATS_NEW_TABS[0].id);
   const [lists, setLists] = useState({}); // tab id -> { rows, loading, error }
   const [showAll, setShowAll] = useState(false);
@@ -91,15 +93,15 @@ export default function WhatsNew({
   // Each tab's rows load the first time it's shown; wide mode shows (and loads) them all.
   useEffect(() => {
     if (!open) return;
-    const wanted = isWide ? WHATS_NEW_TABS : WHATS_NEW_TABS.filter((t) => t.id === tab);
-    for (const t of wanted) {
-      if (requestedRef.current.has(t.id)) continue;
-      requestedRef.current.add(t.id);
-      setLists((l) => ({ ...l, [t.id]: { rows: [], loading: true, error: null } }));
-      fetchWhatsNewList(t.rpc).then(({ data, error }) => {
+    const wanted = isWide ? WHATS_NEW_TABS : WHATS_NEW_TABS.filter((d) => d.id === tab);
+    for (const d of wanted) {
+      if (requestedRef.current.has(d.id)) continue;
+      requestedRef.current.add(d.id);
+      setLists((l) => ({ ...l, [d.id]: { rows: [], loading: true, error: null } }));
+      fetchWhatsNewList(d.rpc).then(({ data, error }) => {
         setLists((l) => ({
           ...l,
-          [t.id]: { rows: data || [], loading: false, error: error?.message ?? null },
+          [d.id]: { rows: data || [], loading: false, error: error?.message ?? null },
         }));
       });
     }
@@ -145,7 +147,12 @@ export default function WhatsNew({
   if (!open) {
     return (
       <>
-        <button className="wn-trigger" onClick={onOpen} aria-label="What's New" title="What's New">
+        <button
+          className="wn-trigger"
+          onClick={onOpen}
+          aria-label={t("whatsNew.open")}
+          title={t("whatsNew.open")}
+        >
           <FlameIcon className="wn-trigger-icon" />
         </button>
       </>
@@ -160,18 +167,18 @@ export default function WhatsNew({
       : list.rows;
 
   // One tab's rows (all of them, or the first `limit`), or its loading/empty/error line.
-  const renderRows = (t, limit) => {
-    const list = lists[t.id];
-    if (!list || list.loading) return <div className="wn-loading">Loading…</div>;
-    if (list.error) return <div className="wn-error">Could not load.</div>;
+  const renderRows = (d, limit) => {
+    const list = lists[d.id];
+    if (!list || list.loading) return <div className="wn-loading">{t("whatsNew.loading")}</div>;
+    if (list.error) return <div className="wn-error">{t("whatsNew.error")}</div>;
     const rows = rowsOf(list);
-    if (!rows.length) return <div className="wn-empty">{t.empty}</div>;
+    if (!rows.length) return <div className="wn-empty">{t(`whatsNew.empty.${d.id}`)}</div>;
     return (limit ? rows.slice(0, limit) : rows).map((item, i) => (
       <ScoreCard
         key={`${item.establishment_id}-${i}`}
         item={item}
         score={item.score}
-        badgeClass={scoreBadge(item.score, t.id)}
+        badgeClass={scoreBadge(item.score, d.id)}
         onOpen={onOpenEstablishment}
         onHover={onHoverEstablishment}
         onHoverEnd={onHoverEstablishmentEnd}
@@ -179,7 +186,7 @@ export default function WhatsNew({
     ));
   };
 
-  const active = WHATS_NEW_TABS.find((t) => t.id === tab);
+  const active = WHATS_NEW_TABS.find((d) => d.id === tab);
   const activeList = lists[tab];
 
   return (
@@ -199,17 +206,17 @@ export default function WhatsNew({
         {/* Single-row header: flame | tabs | close */}
         <div className="wn-header">
           <FlameIcon className="wn-header-flame" />
-          {WHATS_NEW_TABS.map((t) => (
+          {WHATS_NEW_TABS.map((d) => (
             <button
-              key={t.id}
-              className={`wn-tab${tab === t.id ? ` active-${t.id}` : ""}`}
-              aria-pressed={tab === t.id}
-              onClick={() => switchTab(t.id)}
+              key={d.id}
+              className={`wn-tab${tab === d.id ? ` active-${d.id}` : ""}`}
+              aria-pressed={tab === d.id}
+              onClick={() => switchTab(d.id)}
             >
-              {t.label}
+              {t(`whatsNew.tab.${d.id}`)}
             </button>
           ))}
-          <button className="wn-close" onClick={onClose} aria-label="Close What's New">
+          <button className="wn-close" onClick={onClose} aria-label={t("whatsNew.close")}>
             ×
           </button>
         </div>
@@ -217,13 +224,13 @@ export default function WhatsNew({
         {isWide ? (
           /* ── Every tab side by side ── */
           <div className="wn-dual">
-            {WHATS_NEW_TABS.map((t) => (
-              <div className="wn-col" key={t.id}>
-                <div className={`wn-col-hd ${t.id}`}>
-                  {COL_ICON[t.id] ?? ""}
-                  {t.label}
+            {WHATS_NEW_TABS.map((d) => (
+              <div className="wn-col" key={d.id}>
+                <div className={`wn-col-hd ${d.id}`}>
+                  {COL_ICON[d.id] ?? ""}
+                  {t(`whatsNew.tab.${d.id}`)}
                 </div>
-                <div className="wn-col-body">{renderRows(t)}</div>
+                <div className="wn-col-body">{renderRows(d)}</div>
               </div>
             ))}
           </div>
@@ -239,7 +246,9 @@ export default function WhatsNew({
             </div>
             {activeList && !activeList.loading && rowsOf(activeList).length > PREVIEW_ROWS && (
               <button className="wn-more" onClick={() => setShowAll((v) => !v)}>
-                {showAll ? "Show fewer" : `Show all ${rowsOf(activeList).length}`}
+                {showAll
+                  ? t("whatsNew.showFewer")
+                  : t("whatsNew.showAll", { n: rowsOf(activeList).length })}
               </button>
             )}
           </>

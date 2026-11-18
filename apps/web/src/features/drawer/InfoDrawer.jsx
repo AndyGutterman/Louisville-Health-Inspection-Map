@@ -10,6 +10,7 @@ import InspectionCard from "./InspectionCard.jsx";
 import History, { HistorySkeleton } from "./History.jsx";
 import { useBottomSheet } from "./useBottomSheet.js";
 import { useDrawerWidth } from "./useDrawerWidth.js";
+import { useT } from "../../I18nContext.jsx";
 
 // rightOffset (desktop only): px to slide left so another right-hand panel (the account panel) can sit beside it.
 export default function InfoDrawer({
@@ -28,6 +29,7 @@ export default function InfoDrawer({
   onSheetHeight,
 }) {
   const isMobile = useMediaQuery("(max-width: 600px)");
+  const { t } = useT();
   const {
     sheetRef,
     bodyRef,
@@ -126,7 +128,7 @@ export default function InfoDrawer({
           data-testid="drawer-handle"
           role="button"
           tabIndex={0}
-          aria-label={snap === "peek" ? "Expand details" : "Collapse details"}
+          aria-label={snap === "peek" ? t("drawer.expand") : t("drawer.collapseDetails")}
           onPointerDown={onHandleDown}
           onPointerMove={onHandleMove}
           onPointerUp={onHandleUp}

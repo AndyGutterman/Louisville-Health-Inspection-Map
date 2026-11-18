@@ -5,25 +5,12 @@ import { scoreBand } from "@lfs/core/grading.js";
 import { formatMonthDay } from "./dates.js";
 
 // Left to right; the first is the one that opens. `rpc` is called with { limit_n: 20 }.
+// Each tab's name and empty message are words in lib/strings.js (whatsNew.tab.<id>,
+// whatsNew.empty.<id>), in every language.
 export const WHATS_NEW_TABS = [
-  {
-    id: "latest",
-    label: "Latest",
-    rpc: "get_latest_inspections",
-    empty: "No inspections in the last 30 days.",
-  },
-  {
-    id: "issues",
-    label: "Violations",
-    rpc: "get_whats_new",
-    empty: "No flagged inspections in the last 30 days.",
-  },
-  {
-    id: "perfect",
-    label: "Top Scores",
-    rpc: "get_top_scores",
-    empty: "No perfect scores found.",
-  },
+  { id: "latest", rpc: "get_latest_inspections" },
+  { id: "issues", rpc: "get_whats_new" },
+  { id: "perfect", rpc: "get_top_scores" },
 ];
 
 // The score badge's colour class (the site's one scale, @lfs/core/grading.js). The Top Scores tab is all 100s and has its own look.
@@ -42,10 +29,11 @@ export function swipeTab(currentId, dx, tabs = WHATS_NEW_TABS) {
 
 // The row's date: the inspection date when there is one. A Bullitt routine row has none
 // (the health department doesn't publish it), so it shows the day the score was posted
-// to the department's sheet instead, labelled as such.
-export function whatsNewDate(item) {
+// to the department's sheet instead, labelled as such. posted: the wording, with {date}
+// (lib/strings.js whatsNew.posted); locale: the site's language's (lib/i18n.js).
+export function whatsNewDate(item, { posted = "posted {date}", locale } = {}) {
   const inspected = item.inspection_date ?? item.inspection_date_recent;
-  if (inspected) return formatMonthDay(inspected);
-  if (item.posted_date) return `posted ${formatMonthDay(item.posted_date)}`;
+  if (inspected) return formatMonthDay(inspected, locale);
+  if (item.posted_date) return posted.replace("{date}", formatMonthDay(item.posted_date, locale));
   return "";
 }
