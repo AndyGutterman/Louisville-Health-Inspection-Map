@@ -4,6 +4,9 @@
  * Geocodes facilities that have an address but no geometry.
  * Falls back: Nominatim → US Census Bureau (no API key needed for either).
  *
+ * Places fixed in the pin control center (lib/placeFixes.js): an address correction is
+ * what gets looked up, and a place left off the map is never looked up.
+ *
  * Usage:
  *   node geocode_missing.js                   # skip anything already in geocode_cache
  *   node geocode_missing.js --retry-failures  # also retry cached null-result entries
@@ -23,6 +26,7 @@ import {
   geocodeNominatim,
   sleep,
 } from "./lib/geocode.js";
+import { fixedRow, readFixes } from "./lib/placeFixes.js";
 
 const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -31,8 +35,11 @@ const PAGE_SIZE = 1000;
 // Default city/state for Louisville Metro facilities when the DB row is missing them.
 // All facilities in this dataset are Jefferson County, KY.
 const DEFAULTS = { city: "Louisville", state: "KY" };
-const buildQuery = (row) => buildQueryWith(row, DEFAULTS);
-const geocodeCensus = (row) => geocodeCensusWith(row, DEFAULTS);
+// Set once the pin control center's fixes are read (run, below).
+let fixes = new Map();
+const lookupRow = (row) => fixedRow(row, fixes.get(row.establishment_id));
+const buildQuery = (row) => buildQueryWith(lookupRow(row), DEFAULTS);
+const geocodeCensus = (row) => geocodeCensusWith(lookupRow(row), DEFAULTS);
 
 const RETRY_FAILURES = process.argv.includes("--retry-failures");
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -47,7 +54,7 @@ if (DRY_RUN) console.log("Mode: --dry-run  (no writes)");
   for (;;) {
     const { data, error } = await supa
       .from("facilities")
-      .select("establishment_id, name, address, city, state, zip")
+      .select("establishment_id, name, address, city, state, zip, geocode_provider")
       .is("geom", null)
       .not("address", "is", null)
       .range(offset, offset + PAGE_SIZE - 1);
@@ -58,7 +65,17 @@ if (DRY_RUN) console.log("Mode: --dry-run  (no writes)");
     offset += PAGE_SIZE;
   }
 
-  console.log(`Facilities with address but no geometry: ${allRows.length}`);
+  // Left off the map by hand: never looked up.
+  fixes = await readFixes(supa, ["jefferson"]);
+  const hidden = (r) =>
+    r.geocode_provider === "hidden" || fixes.get(r.establishment_id)?.action === "hide";
+  const hiddenCount = allRows.filter(hidden).length;
+  allRows = allRows.filter((r) => !hidden(r));
+
+  console.log(
+    `Facilities with address but no geometry: ${allRows.length}` +
+      (hiddenCount ? ` (and ${hiddenCount} left off the map by hand)` : ""),
+  );
   if (!allRows.length) {
     console.log("Nothing to do.");
     return;
