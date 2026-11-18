@@ -97,7 +97,7 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 - The Learn page drill-down shows each place's _current_ score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
 - `AuthContext.jsx` calls `unsubscribe_by_token`, which doesn't exist, so every unsubscribe link reports "isn't valid". Alert emails were never built.
 - Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
-- Pipeline order: `seed_categories` runs last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would make `backfill_types` fail. Categories should load first.
+- Fixed 2026-11-17: `seed_categories` ran last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would have made `backfill_types` fail. `ingest.yml` now loads the categories first.
 - `facilities.lon`/`lat` are generated from `geom`: the `trg_sync_lonlat` trigger does nothing, and fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error).
 - Redundant indexes: `facilities_establishment_id_uidx` duplicates the primary key; `inspections_establishment_id_idx` is covered by `inspections_est_idx`.
 
