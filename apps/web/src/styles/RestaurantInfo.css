@@ -68,18 +68,18 @@
 }
 
 .inspect-badge.ok {
-  background: #34a853;
+  background: #188038;
 }
 .inspect-badge.warn {
   background: #fbbc05;
   color: #111;
 }
 .inspect-badge.bad {
-  background: #ea4335;
+  background: #d93025;
 }
 .inspect-badge.na {
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.62);
   border: 1px dashed rgba(255, 255, 255, 0.18);
   font-size: 0.88rem;
 }
@@ -131,15 +131,25 @@
   margin: 8px 0 12px;
 }
 
+/* A real button (index.css styles every button, so this undoes that look). */
 .inspect-more-inline {
   margin-top: 8px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  padding: 2px 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
   color: rgba(255, 255, 255, 0.6);
+  font: inherit;
   font-weight: 700;
   font-size: 0.84rem;
+  cursor: pointer;
   user-select: none;
+}
+.inspect-more-inline:hover {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .inspect-more-inline .chev {

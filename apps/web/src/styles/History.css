@@ -160,14 +160,14 @@
 }
 
 .hist-score.ok {
-  background: #34a853;
+  background: #188038;
 }
 .hist-score.warn {
   background: #fbbc05;
   color: #111;
 }
 .hist-score.bad {
-  background: #ea4335;
+  background: #d93025;
 }
 .hist-score.na {
   background: rgba(255, 255, 255, 0.06);

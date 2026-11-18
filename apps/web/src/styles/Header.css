@@ -407,3 +407,8 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+/* The Saved button's round initial (AppHeader.jsx): drawn here, not as text. */
+.acct-initial::before {
+  content: attr(data-initial);
+}

@@ -130,7 +130,8 @@ export default function AppHeader(p) {
             </Icon>
             <span className="nav-btn-label learn-label">Learn</span>
           </button>
-          <button className="header-nav-btn" onClick={p.onOpenFeedback}>
+          {/* Phones hide the text labels, so each button carries its name itself. */}
+          <button className="header-nav-btn" onClick={p.onOpenFeedback} aria-label="Feedback">
             <Icon>
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </Icon>
@@ -143,7 +144,13 @@ export default function AppHeader(p) {
               title={p.user.email}
               aria-label="Saved"
             >
+              {/* The account's initial is decoration: the button's name is "Saved". It is
+                  drawn by CSS (.acct-initial::before), so it isn't part of the button's text,
+                  which must match its name (WCAG 2.5.3). */}
               <span
+                aria-hidden="true"
+                className="acct-initial"
+                data-initial={(p.user.email || "?")[0].toUpperCase()}
                 style={{
                   width: 18,
                   height: 18,
@@ -157,13 +164,15 @@ export default function AppHeader(p) {
                   fontWeight: 800,
                   flexShrink: 0,
                 }}
-              >
-                {(p.user.email || "?")[0].toUpperCase()}
-              </span>
+              />
               <span className="nav-btn-label">Saved</span>
             </button>
           ) : (
-            <button className="header-nav-btn header-nav-btn--login" onClick={p.onLogIn}>
+            <button
+              className="header-nav-btn header-nav-btn--login"
+              onClick={p.onLogIn}
+              aria-label="Log in"
+            >
               <Icon>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />

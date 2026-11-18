@@ -112,7 +112,7 @@ export default function LearnPage({
               passes its follow-up and reopens after a closure, a score below 60, or two failed
               inspections in a row.
             </p>
-            <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: ".78rem" }}>
+            <p style={{ marginTop: 8, color: "rgba(255,255,255,0.62)", fontSize: ".78rem" }}>
               Pin colors on the map show the <strong>score only</strong>, and you can adjust them. A
               amber ring means at least one violation was cited on the latest inspection. Rings are
               not placards: the grade in a place&apos;s details is the one the health department
