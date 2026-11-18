@@ -32,7 +32,7 @@ export const en = {
   "learn.callout.p1":
     "A place can score 90 and still get a **C (red) placard** if the inspector found a priority violation. A B placard is about history: it is posted once a place passes its follow-up and reopens after a closure, a score below 60, or two failed inspections in a row.",
   "learn.callout.p2":
-    "Pin colors on the map show the **score only**, and you can adjust them. A amber ring means at least one violation was cited on the latest inspection. Rings are not placards: the grade in a place's details is the one the health department recorded. Bullitt County's rings are light blue: its sheet lists every form item marked at a visit, including routine ones Louisville's data doesn't publish, so rings are far more common there and don't mean a place is worse. From afar only the places with several violations show a ring; zoom in to see them all.",
+    "Pin colors on the map show the **score only**, and you can adjust them. A red ring (Louisville's) means at least one violation was cited on the latest inspection. Rings are not placards: the grade in a place's details is the one the health department recorded. Every other Kentucky county's rings are goldenrod: their data lists every form item marked at a visit, including routine ones Louisville's data doesn't publish, so rings are far more common there and don't mean a place is worse. From afar only the places with several violations show a ring; zoom in to see them all.",
 
   // ── Learn page: duration table ──
   "learn.duration.h": "How long each placard is posted",
@@ -212,7 +212,7 @@ export const es = {
   "learn.callout.p1":
     "Un lugar puede sacar 90 y aun así recibir un **cartel C (rojo)** si el inspector encontró una infracción prioritaria. El cartel B tiene que ver con el historial: se exhibe cuando un lugar pasa su inspección de seguimiento y reabre después de un cierre, de un puntaje menor de 60 o de dos inspecciones reprobadas seguidas.",
   "learn.callout.p2":
-    "Los colores de los pines en el mapa muestran **solo el puntaje**, y se pueden ajustar. Un aro ámbar significa que en la última inspección se citó al menos una infracción. Los aros no son carteles: la calificación en los detalles de un lugar es la que registró el departamento de salud. Los aros del condado de Bullitt son azul claro: su hoja enumera cada punto del formulario marcado en una visita, incluidos los de rutina que los datos de Louisville no publican, así que allí los aros son mucho más comunes y no significan que un lugar sea peor. De lejos, solo los lugares con varias infracciones muestran un aro; acerca el mapa para verlos todos.",
+    "Los colores de los pines en el mapa muestran **solo el puntaje**, y se pueden ajustar. Un aro rojo (el de Louisville) significa que en la última inspección se citó al menos una infracción. Los aros no son carteles: la calificación en los detalles de un lugar es la que registró el departamento de salud. Los aros de los demás condados de Kentucky son color vara de oro: sus datos enumeran cada punto del formulario marcado en una visita, incluidos los de rutina que los datos de Louisville no publican, así que allí los aros son mucho más comunes y no significan que un lugar sea peor. De lejos, solo los lugares con varias infracciones muestran un aro; acerca el mapa para verlos todos.",
 
   "learn.duration.h": "Cuánto tiempo se exhibe cada cartel",
   "learn.th.grade": "Calificación",
