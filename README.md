@@ -69,18 +69,15 @@ flowchart LR
     digest["digest.yml<br/>Tuesday email"]
     backup["db-backup.yml<br/>Sunday backup"]
     check["etl-check.yml<br/>Monday check"]
-    archive["archive.yml<br/>monthly archive"]
   end
 
   outbox["email-outbox.yml<br/>one-off emails"]
-  r2[("Cloudflare R2<br/>old inspections")]
 
   db <-->|supabase-js| site
   site --> geo
   db --> digest
   db --> backup
   check -.-> db
-  db --> archive --> r2
   site -->|admin page| db
   db -->|email-dispatch| outbox
 ```
@@ -88,7 +85,7 @@ flowchart LR
 - **Pipeline** (`pipeline/`): Node scripts load each county into Supabase. Every run is recorded, so a failed or partial sync can be recovered (`Recover.js`).
 - **Website** (`apps/web/`): reads pins, inspections and violations through `supabase-js` and draws the map with MapLibre GL. Each county and each place type loads only when it's switched on, and is kept in the browser until the next daily load. Accounts use email one-time codes, and feedback goes through a rate-limited edge function.
 - **Emails:** the weekly digest (Tuesdays) and one-off emails from the admin page are sent by GitHub Actions with the same code (`packages/core/email/`).
-- **Upkeep:** a weekly backup of the tables that can't be rebuilt, a weekly accuracy check of the loaded data, and a monthly job that moves inspections over 3 years old (for places with 10 or more) to Cloudflare R2.
+- **Upkeep:** a weekly backup of the tables that can't be rebuilt (db-backup.yml) and a weekly accuracy check of the loaded data (etl-check.yml).
 - **Database:** tables, views and functions live in `supabase/migrations/`.
 
 More detail, with module diagrams, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -132,7 +129,7 @@ packages/core/       rules shared by the website and the pipeline (the emails), 
 pipeline/            data pipeline, maintenance jobs (accuracy check, archiving) and their tests
 supabase/            full database schema (migrations) and the edge functions (feedback, email dispatch)
 docs/                architecture notes and a manual smoke-test checklist
-.github/workflows/   CI, ingest, backup, archive and accuracy-check jobs
+.github/workflows/   CI, e2e, the three ingest jobs, emails, backup and accuracy check
 ```
 
 ## Testing

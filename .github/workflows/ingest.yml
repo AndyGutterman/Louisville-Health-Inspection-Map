@@ -65,13 +65,18 @@ jobs:
       # commits, silently; a week later Supabase's free plan would pause the project for
       # inactivity. Enabling a workflow is a no-op while it is on and counts as activity
       # on it (GitHub's own API, no third-party action). Runs even when a step above failed.
+      # Every workflow with a schedule is found by its `cron:` line, so a new scheduled
+      # workflow is kept on without editing this list (a hand-kept list once left the
+      # portal ingest and the weekly digest out).
       - name: Keep the scheduled workflows enabled
         if: always()
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for wf in ingest.yml bullitt-ingest.yml db-backup.yml archive.yml etl-check.yml; do
+          for path in $(grep -l "cron:" .github/workflows/*.yml); do
+            wf=$(basename "$path")
+            echo "enable $wf"
             gh workflow enable "$wf" -R "$GITHUB_REPOSITORY"
           done
 
