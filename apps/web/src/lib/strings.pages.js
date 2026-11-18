@@ -183,6 +183,12 @@ export const en = {
   "regions.oldham.source": "Kentucky's food inspection portal",
   "regions.oldham.dataNote":
     "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal, which the health department links to. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+  "regions.shelby.source": "Kentucky's food inspection portal",
+  "regions.shelby.dataNote":
+    "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+  "regions.spencer.source": "Kentucky's food inspection portal",
+  "regions.spencer.dataNote":
+    "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
 };
 
 export const es = {
@@ -358,4 +364,10 @@ export const es = {
   "regions.oldham.source": "Portal de inspección de alimentos de Kentucky",
   "regions.oldham.dataNote":
     "Solo la última inspección de cada lugar y su seguimiento, con sus fechas, tomadas del portal estatal de inspecciones de Kentucky, al que enlaza el departamento de salud. Incluye hoteles, piscinas y escuelas además de servicio de alimentos, y un lugar puede tener un resultado por cada tipo de inspección (la cocina de una escuela y su patio de juegos). No hay calificación con letra ni comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",
+  "regions.shelby.source": "Portal de inspección de alimentos de Kentucky",
+  "regions.shelby.dataNote":
+    "Solo la última inspección de cada lugar y su seguimiento, con sus fechas, tomadas del portal estatal de inspecciones de Kentucky. Incluye hoteles, piscinas y escuelas además de servicio de alimentos, y un lugar puede tener un resultado por cada tipo de inspección (la cocina de una escuela y su patio de juegos). No hay calificación con letra ni comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",
+  "regions.spencer.source": "Portal de inspección de alimentos de Kentucky",
+  "regions.spencer.dataNote":
+    "Solo la última inspección de cada lugar y su seguimiento, con sus fechas, tomadas del portal estatal de inspecciones de Kentucky. Incluye hoteles, piscinas y escuelas además de servicio de alimentos, y un lugar puede tener un resultado por cada tipo de inspección (la cocina de una escuela y su patio de juegos). No hay calificación con letra ni comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",
 };

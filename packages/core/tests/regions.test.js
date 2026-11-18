@@ -9,7 +9,9 @@ describe("counties", () => {
   it("names a county by its id, and gives an unknown id back", () => {
     assert.equal(countyName("jefferson"), "Jefferson County");
     assert.equal(countyName("oldham"), "Oldham County");
-    assert.equal(countyName("shelby"), "shelby");
+    assert.equal(countyName("shelby"), "Shelby County");
+    assert.equal(countyName("spencer"), "Spencer County");
+    assert.equal(countyName("nowhere"), "nowhere");
   });
 
   it("keys each county by its own id", () => {
@@ -19,6 +21,8 @@ describe("counties", () => {
   it("reads the county from an establishment id's prefix; a bare id is Louisville's", () => {
     assert.equal(countyOfId("bullitt-abc123"), "bullitt");
     assert.equal(countyOfId("oldham-9"), "oldham");
+    assert.equal(countyOfId("shelby-9"), "shelby");
+    assert.equal(countyOfId("spencer-9"), "spencer");
     assert.equal(countyOfId("100234"), "jefferson");
     assert.equal(countyOfId(100234), "jefferson");
     assert.equal(countyOfId(null), "jefferson");

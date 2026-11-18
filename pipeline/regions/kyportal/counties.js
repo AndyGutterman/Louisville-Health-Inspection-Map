@@ -2,7 +2,7 @@
  * regions/kyportal/counties.js — the counties read from Kentucky's inspection portal.
  *
  * `number` is the county's place in the alphabetical list of Kentucky's 120 counties
- * (the portal's ?County= value: Adair 1 ... Bullitt 15 ... Oldham 93 ... Woodford 120).
+ * (the portal's ?County= value: Adair 1 ... Bullitt 15 ... Oldham 93 ... Shelby 106, Spencer 108 ... Woodford 120).
  * `id` is the region id used across the site and database; ids of its places start with
  * `<id>-`. The rest is for geocoding (lib/countyGeocode.js): `county911` as Kentucky's
  * 911 layer writes it, `defaultCity` for rows missing a town, the outline the website
@@ -31,6 +31,24 @@ export const COUNTIES = {
     defaultCity: "La Grange",
     outline: "apps/web/public/regions/oldham.geojson",
     overrides: "pipeline/regions/kyportal/overrides/oldham.json",
+  },
+  shelby: {
+    id: "shelby",
+    number: 106,
+    name: countyName("shelby"),
+    county911: "Shelby County",
+    defaultCity: "Shelbyville",
+    outline: "apps/web/public/regions/shelby.geojson",
+    overrides: "pipeline/regions/kyportal/overrides/shelby.json",
+  },
+  spencer: {
+    id: "spencer",
+    number: 108,
+    name: countyName("spencer"),
+    county911: "Spencer County",
+    defaultCity: "Taylorsville",
+    outline: "apps/web/public/regions/spencer.geojson",
+    overrides: "pipeline/regions/kyportal/overrides/spencer.json",
   },
 };
 

@@ -208,7 +208,33 @@ describe("counties", () => {
     assert.equal(bullitt.overrides, "pipeline/regions/bullitt/overrides.json");
   });
 
+  it("knows Shelby as 106 and Spencer as 108: alphabetical places in Kentucky's 120 counties", () => {
+    for (const [id, number] of [
+      ["shelby", 106],
+      ["spencer", 108],
+    ]) {
+      const county = countyById(id);
+      assert.equal(county.number, number);
+      assert.equal(idPrefix(county), `${id}-`);
+      assert.equal(county.name, `${id[0].toUpperCase()}${id.slice(1)} County`);
+    }
+  });
+
+  it("gives every county an outline and a hand-placed pins file that load", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { parseOverrides } = await import("../lib/overrides.js");
+    for (const county of Object.values(COUNTIES)) {
+      const outline = JSON.parse(await readFile(`../${county.outline}`, "utf8"));
+      assert.equal(outline.features[0].properties.id, county.id, county.id);
+      const overrides = JSON.parse(await readFile(`../${county.overrides}`, "utf8"));
+      assert.ok(parseOverrides(overrides) instanceof Map, county.id);
+    }
+  });
+
   it("names the known counties when asked for another", () => {
-    assert.throws(() => countyById("narnia"), /Unknown county "narnia". Known: bullitt, oldham/);
+    assert.throws(
+      () => countyById("narnia"),
+      /Unknown county "narnia". Known: bullitt, oldham, shelby, spencer/,
+    );
   });
 });
