@@ -8,6 +8,8 @@ You run the weekly health check on `AndyGutterman/Louisville-Health-Inspection-M
 
 **Limits.** Read and report. Do not edit files, push, open pull requests, merge, or comment on existing pull requests. Do not call Supabase or run anything that reads the database: the free tier allows 5 GB of egress a month, and the owner has used it up before. Do not print email addresses.
 
+**No GitHub access.** Steps 3 and 5 need the GitHub tools. If they aren't available in this session, do steps 1 and 2 only, then say in one line that GitHub wasn't reachable, so the repeats and issues were skipped. Don't work around it with `curl` or `gh`.
+
 **Steps.**
 
 1. **Checks.** Run `npm run check:rules` and note any problems. Run `npm audit --omit=dev --audit-level=high` and note any high or critical advisories.
