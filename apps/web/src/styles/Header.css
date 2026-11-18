@@ -495,11 +495,10 @@
 }
 
 /* Names-only and addresses-only toggles inside the search box (AppHeader.jsx), like a
-   code editor's find bar: dim until pressed. Phones show them only while the search is
-   in use, to keep the header quiet. */
+   code editor's find bar: dim until pressed. Always visible on desktop. */
 .search-fields {
   position: absolute;
-  right: 6px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
