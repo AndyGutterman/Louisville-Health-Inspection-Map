@@ -1,5 +1,10 @@
 // The signed-in user's saved places and watch areas. One save/unsave for the map popups
 // and the info drawer, and the watch-area list the map draws as circles.
+//
+// The Saved panel (WatchlistTab.jsx) keeps its own fuller list of areas. The two stay in
+// step without reading the database again: the panel hands its new list to setWatchAreas
+// after it adds, removes or resizes one, and a circle moved or resized on the map is
+// announced in areaEdit, which the panel applies to its list (lib/watchAreaEdits.js).
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchSavedIds,
@@ -10,14 +15,13 @@ import {
 } from "../../api/watchlist.js";
 import { useLatest } from "../../hooks/useLatest.js";
 
-// The account page and the map announce watch-area edits with this window event.
-const AREAS_CHANGED = "watch-areas-changed";
-
 // similarEids: establishment id -> other permits at the same place (useMapFeatures).
 // onSignInNeeded: called when a signed-out visitor tries to save.
 export function useWatchlist({ user, similarEids, onSignInNeeded }) {
   const [savedIds, setSavedIds] = useState(new Set());
   const [watchAreas, setWatchAreas] = useState([]);
+  // The last area moved or resized on the map: { id, update, n }, n making each one new.
+  const [areaEdit, setAreaEdit] = useState(null);
   const latest = useLatest({ savedIds, watchAreas, onSignInNeeded });
 
   useEffect(() => {
@@ -34,13 +38,6 @@ export function useWatchlist({ user, similarEids, onSignInNeeded }) {
       return;
     }
     fetchWatchAreas(user.id).then(setWatchAreas);
-    // Reload when the account page adds, removes or resizes an area, so new circles show.
-    const reload = (e) => {
-      if (e?.detail?.source === "map") return; // our own edit; state is already current
-      fetchWatchAreas(user.id).then(setWatchAreas);
-    };
-    window.addEventListener(AREAS_CHANGED, reload);
-    return () => window.removeEventListener(AREAS_CHANGED, reload);
   }, [user]);
 
   // Saving also saves similar nearby permits (the same place under another permit
@@ -85,13 +82,20 @@ export function useWatchlist({ user, similarEids, onSignInNeeded }) {
       const { error } = await updateWatchArea(area.id, update);
       if (error) return;
       setWatchAreas((list) => list.map((a) => (a.id === area.id ? { ...a, ...update } : a)));
-      // Lets an open account panel refresh this area
-      window.dispatchEvent(new CustomEvent(AREAS_CHANGED, { detail: { source: "map" } }));
+      setAreaEdit({ id: area.id, update, n: Date.now() }); // an open Saved panel follows
     },
     [latest],
   );
 
-  return { savedIds, toggleSaved, forgetSaved, watchAreas, commitAreaEdit };
+  return {
+    savedIds,
+    toggleSaved,
+    forgetSaved,
+    watchAreas,
+    setWatchAreas,
+    areaEdit,
+    commitAreaEdit,
+  };
 }
 
 function withoutId(set, eid) {

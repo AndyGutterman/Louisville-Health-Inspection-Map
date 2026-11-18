@@ -489,6 +489,8 @@ export default function Map({ onMapReady }) {
           activeEid={drawer.selected?.establishment_id}
           onItemRemoved={watchlist.forgetSaved}
           refreshToken={watchlist.savedIds}
+          areaEdit={watchlist.areaEdit}
+          onAreasChange={watchlist.setWatchAreas}
           onOpenAdmin={() => setPage("admin")}
         />
       )}
