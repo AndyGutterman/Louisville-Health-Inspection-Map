@@ -1090,7 +1090,13 @@ button.rx-switch[data-state="checked"] .rx-thumb {
 @media (max-width: 380px) {
   .control-card .search-row {
     flex-wrap: wrap;
-    row-gap: 8px;
+    gap: 8px 6px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .control-card .search-row > * {
+    min-width: 0;
+    max-width: 100%;
   }
   .control-card.collapsed {
     width: auto !important;

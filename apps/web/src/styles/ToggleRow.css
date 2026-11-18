@@ -114,3 +114,18 @@
     transform: translateX(16px);
   }
 }
+
+/* Very narrow phones: the colour toggles may wrap instead of pushing the card past the edge. */
+@media (max-width: 380px) {
+  .control-card .rgb-compact,
+  .control-card .search-row .rgb-compact {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0;
+    white-space: normal;
+  }
+  .control-card select {
+    max-width: 100%;
+  }
+}

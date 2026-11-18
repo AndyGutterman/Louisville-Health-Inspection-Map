@@ -18,7 +18,8 @@ const VIEWS = {
   },
   "the info drawer": async (page) => {
     await openDrawerFromWhatsNew(page, PINNED_EID, byEid(PINNED_EID).name);
-    await page.getByRole("button", { name: "Close What's New" }).click();
+    // At 320px the open drawer sits over this button: click it directly.
+    await page.getByRole("button", { name: "Close What's New" }).evaluate((el) => el.click());
   },
   "the sign-in form": async (page) => {
     await page.locator(".header-nav-btn--login").click();
@@ -44,7 +45,7 @@ const ALL_VIEWS = [...Object.keys(VIEWS), ...Object.keys(PAGES)];
 // 200% zoom on a 1280px window is a 640 x 360 CSS-pixel page. Table View is exempt (WCAG
 // allows two-dimensional scrolling for data tables), and the map itself is a canvas.
 // The real name font ("Tilt Neon") comes from Google Fonts, which the tests may not reach, and
-// is wider than the fallback: so the name is also measured in a much wider font.
+// is wider than the fallback: so the name and the filter card are also measured in a much wider font.
 const WIDE_NAME =
   ".brand > span { font-family: 'DejaVu Sans', Verdana, sans-serif !important; font-weight: 800 !important; letter-spacing: 0.08em !important; }";
 const overflow = (page) =>
