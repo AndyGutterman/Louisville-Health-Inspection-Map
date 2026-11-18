@@ -240,7 +240,11 @@ export default function Map({ onMapReady }) {
     () => [...savedIds, ...(openEid ? [openEid] : [])],
     [savedIds, openEid],
   );
-  const mapFilters = useMemo(() => ({ ...filters, alwaysShow }), [filters, alwaysShow]);
+  // The map's layer filters leave categories out: the pins handed to the map are already
+  // only the places whose category is on (drawnRef, below). With categories in the layer
+  // filters too, every toggle made MapLibre rebuild every tile twice, once for the new
+  // filter and once for the new pins, and the pins came back a tile at a time.
+  const mapFilters = useMemo(() => ({ ...filters, catToggles: null }), [filters]);
   // Places sharing a spot draw one pin, chosen among the places whose category is on.
   // So a category change redraws the pins (no reload) and closes any open popup: its
   // "1 of 3" list may hold places that are now off.
