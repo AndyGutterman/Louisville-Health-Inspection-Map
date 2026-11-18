@@ -4,6 +4,8 @@
  * inline styles, so that's what this is. Styled like the site: dark card, green accent,
  * amber for violations, red for a C placard.
  */
+import { wordsFor } from "./words.js";
+
 export const SITE = "https://louisvillefoodsafe.netlify.app";
 
 export const BG = "#0f0f12";
@@ -22,11 +24,9 @@ export const esc = (s) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
   );
 
-export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
 // The green pill at the bottom of an email, as a table row.
 export const mapButton = (
-  label = "Open the map",
+  label = wordsFor("en").openMap,
   href = SITE,
 ) => `<tr><td style="padding:24px 0 0;" align="center">
     <a href="${href}" style="display:inline-block;padding:11px 20px;border-radius:999px;background:rgba(52,168,83,0.16);border:1px solid rgba(52,168,83,0.34);color:${GREEN};font-weight:700;font-size:14px;text-decoration:none;">${esc(label)}</a>
@@ -34,21 +34,23 @@ export const mapButton = (
 
 // "Unsubscribe · About the data · Privacy". unsubscribeUrl is per recipient; null leaves
 // it out.
-export const footerLinks = (unsubscribeUrl) =>
-  [
-    unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color:${DIM};">Unsubscribe</a>` : "",
-    `<a href="${SITE}/?page=learn" style="color:${DIM};">About the data</a>`,
-    `<a href="${SITE}/?page=privacy" style="color:${DIM};">Privacy</a>`,
+export const footerLinks = (unsubscribeUrl, lang = "en") => {
+  const w = wordsFor(lang);
+  return [
+    unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color:${DIM};">${w.unsubscribe}</a>` : "",
+    `<a href="${SITE}/?page=learn" style="color:${DIM};">${w.aboutData}</a>`,
+    `<a href="${SITE}/?page=privacy" style="color:${DIM};">${w.privacy}</a>`,
   ]
     .filter(Boolean)
     .join(" · ");
+};
 
 /**
  * The whole document. header: HTML under the brand line (the headline). rows: the table
  * rows of the body, each a <tr>.
  */
-export const page = ({ title, header, rows }) => `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title></head>
+export const page = ({ title, header, rows, lang = "en" }) => `<!doctype html>
+<html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title></head>
 <body style="margin:0;padding:0;background:${BG};color:${TEXT};font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};"><tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${CARD};border:1px solid rgba(255,255,255,0.08);border-radius:14px;">

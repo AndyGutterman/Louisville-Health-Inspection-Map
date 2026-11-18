@@ -96,6 +96,8 @@ export function useMapLibre(o) {
       onOpenDrawer: (eid, props) => latest.current.onOpenDrawer(eid, props),
       onGroupShow: switchDrawerTo,
       colorForScore,
+      // The site's language as it is now (I18nContext.jsx, passed in by Map.jsx).
+      words: () => ({ t: latest.current.t, locale: latest.current.locale }),
     });
     popupsRef.current = popups;
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase.js";
-import { WEEKLY, takeDigestOptIn } from "./lib/digest.js";
-import { saveDigestChoice, unsubscribeByToken } from "./api/account.js";
+import { WEEKLY, isNewAccount, takeDigestOptIn, takeSignupLanguage } from "./lib/digest.js";
+import { saveDigestChoice, saveDigestLanguage, unsubscribeByToken } from "./api/account.js";
 
 const AuthContext = createContext(null);
 
@@ -31,6 +31,17 @@ export function AuthProvider({ children }) {
     if (!user || !takeDigestOptIn()) return;
     saveDigestChoice(user.id, WEEKLY).then(({ error }) => {
       if (error) console.warn("digest opt-in not saved:", error.message);
+    });
+  }, [user]);
+
+  // A new account takes the language the site was in when they asked for the code, for
+  // their weekly email. (An older account keeps its own until the offer changes it.)
+  useEffect(() => {
+    if (!user) return;
+    const lang = takeSignupLanguage();
+    if (lang !== "es" || !isNewAccount(user)) return;
+    saveDigestLanguage(user.id, lang).then(({ error }) => {
+      if (error) console.warn("email language not saved:", error.message);
     });
   }, [user]);
 

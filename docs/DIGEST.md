@@ -61,6 +61,26 @@ places per area with the area's totals, in one read for the whole send, so the j
 downloads a few rows per area. On a database without that function the email goes out
 without these parts, and the run's log says so.
 
+## Language
+
+Each email goes out in its subscriber's language, English or Spanish (`profiles.language`,
+default `en`; migration `20261129000000_digest_language.sql`, which the owner runs).
+
+- Set when someone **signs up** from the Spanish site (a brand-new account only; the site
+  remembers its language when the code is asked for), and when a signed-in subscriber
+  accepts the offer to get the email in the site's language. That offer appears once, right
+  after they switch the site's language to one their email isn't in (`DigestLanguageOffer.jsx`),
+  and stays in the Saved panel. Nobody else sees it.
+- The wording is `packages/core/email/words.js`, a tested word list for both languages;
+  `renderDigest` and `renderCustom` take `lang`. Place names, addresses and county names stay
+  as published, and a one-off email's message is as written (only its frame, button and
+  footer are translated). `pipeline/digest/run.js` renders each copy in the recipient's own
+  language; a digest sent "as" someone is in their language, whoever receives it.
+- The email admin page shows each person's language in the list and the preview.
+- No extra reads: `language` rides along on the subscriber read (`store.subscribers()`).
+  The site reads one row of `profiles` (one column) only when a signed-in person opens Saved
+  or switches the language.
+
 ## Sending a test to yourself
 
 The easy way is the email admin page (`/?page=admin`, `docs/EMAIL_ADMIN.md`): pick anyone,

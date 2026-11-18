@@ -85,6 +85,22 @@ test("an admin reaches the page from the Saved panel", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Digest" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("the preview is in the language the person gets their email in", async ({ page }) => {
+  await openAdmin(page);
+  await page.getByTestId("admin-person").filter({ hasText: "jane@example.com" }).click();
+  await expect(page.getByTestId("admin-preview-language")).toHaveText("Email language: English");
+  await expect(panel(page).getByTestId("email-preview-subject")).toContainText("this week");
+  await page.getByTestId("admin-person").filter({ hasText: "sam@example.com" }).click();
+  await expect(page.getByTestId("admin-preview-language")).toHaveText("Email language: Spanish");
+  await expect(panel(page).getByTestId("email-preview-subject")).toContainText("esta semana");
+  await expect(
+    emailFrame(page)
+      .getByText("Puntuaciones perfectas")
+      .or(emailFrame(page).getByText(/Menos de 85/))
+      .first(),
+  ).toBeVisible();
+});
+
 test("an admin previews a subscriber's digest and sends it to themselves as a test", async ({
   page,
 }, testInfo) => {

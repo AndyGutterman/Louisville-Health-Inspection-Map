@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./styles/FeedbackModal.css";
+import { useT } from "./I18nContext.jsx";
 import { PRIVACY_PATH } from "./lib/privacy.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -8,13 +9,8 @@ const MAX_MSG = 1200;
 const MAX_NAME = 80;
 const MAX_EMAIL = 120;
 
-const FEEDBACK_TYPES = [
-  { value: "", label: "Select a type…" },
-  { value: "bug", label: "🐛  Bug report" },
-  { value: "wrong_data", label: "📍  Incorrect restaurant info" },
-  { value: "feature", label: "💡  Feature request" },
-  { value: "general", label: "💬  General feedback" },
-];
+// The values sent to the function; the labels are feedback.type.<value> words.
+const FEEDBACK_TYPES = ["", "bug", "wrong_data", "feature", "general"];
 
 // The submit-feedback edge function. Its address follows from the Supabase project's, so
 // VITE_FEEDBACK_FUNCTION_URL is only for pointing somewhere else. The function is the only
@@ -29,6 +25,7 @@ const FEEDBACK_FN_URL =
  *   onClose   – fn called to dismiss
  */
 export default function FeedbackModal({ onClose }) {
+  const { t } = useT();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [fbType, setFbType] = useState("");
@@ -68,13 +65,13 @@ export default function FeedbackModal({ onClose }) {
       return;
     }
 
-    if (!fbType) return setError("Please select a feedback type.");
-    if (message.trim().length < 10) return setError("Message is too short (10 chars min).");
-    if (msgLen > MAX_MSG) return setError(`Message is too long (${MAX_MSG} chars max).`);
+    if (!fbType) return setError(t("feedback.err.type"));
+    if (message.trim().length < 10) return setError(t("feedback.err.short"));
+    if (msgLen > MAX_MSG) return setError(t("feedback.err.long", { max: MAX_MSG }));
 
     // Basic email format check
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return setError("That email address doesn't look right.");
+      return setError(t("feedback.err.email"));
     }
 
     setSubmitting(true);
@@ -98,10 +95,10 @@ export default function FeedbackModal({ onClose }) {
         const wait = body.retryAfter ?? 60;
         // The function allows 3 a minute and 20 a day (submit-feedback).
         if (wait > 120) {
-          setError("That's a lot of feedback for one day. Please try again tomorrow.");
+          setError(t("feedback.err.day"));
           return;
         }
-        setError(`Too many submissions. Please wait ${wait} seconds.`);
+        setError(t("feedback.err.rate", { n: wait }));
         setCooldown(wait);
         return;
       }
@@ -114,7 +111,7 @@ export default function FeedbackModal({ onClose }) {
       setCooldown(COOLDOWN_MS / 1000);
     } catch (err) {
       console.error("Feedback submit error:", err);
-      setError("Something went wrong. Please try again in a moment.");
+      setError(t("feedback.err.generic"));
     } finally {
       setSubmitting(false);
     }
@@ -130,30 +127,26 @@ export default function FeedbackModal({ onClose }) {
         }}
         role="dialog"
         aria-modal="true"
-        aria-label="Send feedback"
+        aria-label={t("feedback.dialog")}
       >
         <div className="fb-modal">
-          <button className="fb-x" onClick={onClose} aria-label="Close">
+          <button className="fb-x" onClick={onClose} aria-label={t("feedback.close")}>
             ×
           </button>
 
           {success ? (
             <div className="fb-success">
               <div className="fb-success-icon">✓</div>
-              <div className="fb-success-title">Thanks for the feedback!</div>
-              <div className="fb-success-sub">
-                We read every submission. If you left an email we may follow up.
-              </div>
+              <div className="fb-success-title">{t("feedback.thanks")}</div>
+              <div className="fb-success-sub">{t("feedback.thanksSub")}</div>
               <button className="fb-success-close" onClick={onClose}>
-                Close
+                {t("feedback.close")}
               </button>
             </div>
           ) : (
             <>
-              <div className="fb-title">Feedback</div>
-              <div className="fb-sub">
-                Found a bug, wrong data, or have a suggestion? Let us know.
-              </div>
+              <div className="fb-title">{t("feedback.title")}</div>
+              <div className="fb-sub">{t("feedback.sub")}</div>
 
               {error && (
                 <div className="fb-error" role="alert">
@@ -164,7 +157,7 @@ export default function FeedbackModal({ onClose }) {
               {/* Type */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-type">
-                  Type <span>(required)</span>
+                  {t("feedback.typeLabel")} <span>{t("feedback.required")}</span>
                 </label>
                 <select
                   id="fb-type"
@@ -172,9 +165,9 @@ export default function FeedbackModal({ onClose }) {
                   value={fbType}
                   onChange={(e) => setFbType(e.target.value)}
                 >
-                  {FEEDBACK_TYPES.map((t) => (
-                    <option key={t.value} value={t.value} disabled={!t.value}>
-                      {t.label}
+                  {FEEDBACK_TYPES.map((v) => (
+                    <option key={v} value={v} disabled={!v}>
+                      {t(v ? `feedback.type.${v}` : "feedback.type.select")}
                     </option>
                   ))}
                 </select>
@@ -183,17 +176,18 @@ export default function FeedbackModal({ onClose }) {
               {/* Message */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-msg">
-                  Message <span>(required, 10–{MAX_MSG} chars)</span>
+                  {t("feedback.messageLabel")}{" "}
+                  <span>{t("feedback.messageHint", { max: MAX_MSG })}</span>
                 </label>
                 <textarea
                   id="fb-msg"
                   className="fb-textarea"
                   placeholder={
                     fbType === "wrong_data"
-                      ? "Which restaurant? What's incorrect? (e.g. wrong score, address, missing data)"
+                      ? t("feedback.ph.wrong_data")
                       : fbType === "bug"
-                        ? "What happened? Steps to reproduce if possible."
-                        : "Describe your feedback…"
+                        ? t("feedback.ph.bug")
+                        : t("feedback.ph.other")
                   }
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -207,13 +201,13 @@ export default function FeedbackModal({ onClose }) {
               {/* Name */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-name">
-                  Name <span>(optional)</span>
+                  {t("feedback.nameLabel")} <span>{t("feedback.optional")}</span>
                 </label>
                 <input
                   id="fb-name"
                   className="fb-input"
                   type="text"
-                  placeholder="Your name"
+                  placeholder={t("feedback.namePh")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={MAX_NAME}
@@ -223,7 +217,7 @@ export default function FeedbackModal({ onClose }) {
               {/* Email */}
               <div className="fb-field">
                 <label className="fb-label" htmlFor="fb-email">
-                  Email <span>(optional)</span>
+                  {t("feedback.emailLabel")} <span>{t("feedback.optional")}</span>
                 </label>
                 <input
                   id="fb-email"
@@ -239,7 +233,7 @@ export default function FeedbackModal({ onClose }) {
 
               {/* Honeypot — hidden from real users */}
               <div className="fb-trap" aria-hidden="true">
-                <label htmlFor="fb-website">Website</label>
+                <label htmlFor="fb-website">{t("feedback.website")}</label>
                 <input
                   id="fb-website"
                   type="text"
@@ -252,13 +246,17 @@ export default function FeedbackModal({ onClose }) {
 
               <div className="fb-row">
                 <div className="fb-note">
-                  Anonymous feedback is fine. No account required.{" "}
+                  {t("feedback.note")}{" "}
                   <a className="privacy-link" href={PRIVACY_PATH} target="_blank" rel="noreferrer">
-                    Privacy
+                    {t("feedback.privacy")}
                   </a>
                 </div>
                 <button className="fb-submit" onClick={handleSubmit} disabled={!canSend}>
-                  {submitting ? "Sending…" : cooldown > 0 ? `Wait ${cooldown}s` : "Send"}
+                  {submitting
+                    ? t("feedback.sending")
+                    : cooldown > 0
+                      ? t("feedback.wait", { n: cooldown })
+                      : t("feedback.send")}
                 </button>
               </div>
             </>

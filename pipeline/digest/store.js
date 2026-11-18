@@ -3,7 +3,8 @@
  * functions, so digest/run.js can be tested with stand-ins. `supa` is a service-role
  * client (lib/db.js).
  *
- * A recipient is { id, email, token }: id is the account (null for an address without
+ * A recipient is { id, email, token, language }: language is "en" or "es" (profiles.language;
+ * English for an address without an account); id is the account (null for an address without
  * one), token its unsubscribe token (null when it isn't subscribed).
  */
 import {
@@ -13,6 +14,7 @@ import {
   sinceFilter,
   windowStart,
 } from "@lfs/core/email/digest.js";
+import { emailLanguage } from "@lfs/core/email/words.js";
 import { readAllPages } from "../lib/paging.js";
 
 const must = ({ data, error }, what) => {
@@ -40,14 +42,28 @@ export function makeStore(supa, { warn = console.warn } = {}) {
       const rows = await readAllPages((from, to) =>
         supa
           .from("profiles")
-          .select("id, email, alert_email, digest_token")
+          .select("id, email, alert_email, digest_token, language")
           .eq("alert_frequency", "weekly")
           .order("id")
           .range(from, to),
       );
       return rows
-        .map((p) => ({ id: p.id, email: addressOf(p), token: p.digest_token }))
+        .map((p) => ({
+          id: p.id,
+          email: addressOf(p),
+          token: p.digest_token,
+          language: emailLanguage(p.language),
+        }))
         .filter((r) => r.email.includes("@"));
+    },
+
+    // One account's language ("en" or "es"), for a digest sent "as" them.
+    async language(userId) {
+      const row = must(
+        await supa.from("profiles").select("language").eq("id", userId).maybeSingle(),
+        "read the account's language",
+      );
+      return emailLanguage(row?.language);
     },
 
     // These addresses, each with its account when it has one (so the email shows that
@@ -59,7 +75,7 @@ export function makeStore(supa, { warn = console.warn } = {}) {
         const rows = must(
           await supa
             .from("profiles")
-            .select("id, email, alert_email, digest_token, alert_frequency")
+            .select("id, email, alert_email, digest_token, alert_frequency, language")
             .in(column, [...new Set([...emails, ...lower])]),
           "read the accounts of those addresses",
         );
@@ -75,6 +91,7 @@ export function makeStore(supa, { warn = console.warn } = {}) {
           id: p?.id ?? null,
           email,
           token: p?.alert_frequency === "weekly" ? p.digest_token : null,
+          language: emailLanguage(p?.language),
         };
       });
     },

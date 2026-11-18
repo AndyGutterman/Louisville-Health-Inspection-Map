@@ -21,6 +21,7 @@ import {
   pickHeaderInspection,
 } from "../../lib/inspectionHistory.js";
 import { joinAddress } from "../../lib/mapFeatures.js";
+import { useT } from "../../I18nContext.jsx";
 import { formatDateSafe } from "../../lib/dates.js";
 
 const HEADER_NOTE =
@@ -32,6 +33,8 @@ const ESTIMATED = "Date (estimated)";
 // countyOnMap(regionId): whether that county's pins are on the map. A place in a county
 // that is switched off has no feature either, but that doesn't mean it has no location.
 export function useDrawer(getFeature, countyOnMap = () => true) {
+  // The drawer's dates are written when it opens, in the language of the moment.
+  const { locale } = useT();
   const [selected, setSelected] = useState(null);
   const [history, setHistory] = useState(null);
   const [details, setDetails] = useState(null);
@@ -63,7 +66,7 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
       setSelected((s) => ({
         ...s,
         inspectionDate: header
-          ? (header.date_label ?? formatDateSafe(header.inspection_date))
+          ? (header.date_label ?? formatDateSafe(header.inspection_date, locale))
           : s.inspectionDate,
         dateCaption: header?.date_estimated ? ESTIMATED : undefined,
         score: header?.score ?? s.score,
@@ -76,30 +79,33 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
       setDetails(null);
       setLoading(false);
     },
-    [getFeature],
+    [getFeature, locale],
   );
 
   // A county read from Kentucky's portal (Oldham): like Bullitt's, but every result is
   // dated, and the header shows what the pin does (lib/portal.js).
-  const loadPortal = useCallback(async (eid, seq, region) => {
-    const { data, error } = await fetchPortalInspections(eid);
-    if (seq !== loadSeq.current) return;
-    if (error) console.error(`${region.shortName} history fetch error`, error);
-    const rows = portalHistory(data, { county: region.name });
-    const header = portalHeader(rows);
-    setSelected((s) => ({
-      ...s,
-      inspectionDate: header?.inspection_date
-        ? formatDateSafe(header.inspection_date)
-        : s.inspectionDate,
-      score: header?.score ?? s.score,
-      _displayedInspectionId: header?.inspection_id ?? null,
-      sourceNote: portalSourceNote(rows, region.agency.name),
-    }));
-    setHistory(rows);
-    setDetails(null);
-    setLoading(false);
-  }, []);
+  const loadPortal = useCallback(
+    async (eid, seq, region) => {
+      const { data, error } = await fetchPortalInspections(eid);
+      if (seq !== loadSeq.current) return;
+      if (error) console.error(`${region.shortName} history fetch error`, error);
+      const rows = portalHistory(data, { county: region.name });
+      const header = portalHeader(rows);
+      setSelected((s) => ({
+        ...s,
+        inspectionDate: header?.inspection_date
+          ? formatDateSafe(header.inspection_date, locale)
+          : s.inspectionDate,
+        score: header?.score ?? s.score,
+        _displayedInspectionId: header?.inspection_id ?? null,
+        sourceNote: portalSourceNote(rows, region.agency.name),
+      }));
+      setHistory(rows);
+      setDetails(null);
+      setLoading(false);
+    },
+    [locale],
+  );
 
   const open = useCallback(
     async (eid, p) => {
@@ -116,7 +122,7 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
         establishment_id: eid,
         name: p.name,
         address: p.address_full || p.address,
-        inspectionDate: p.date_text ?? formatDateSafe(p.date),
+        inspectionDate: p.date_text ?? formatDateSafe(p.date, locale),
         dateCaption: p.date_estimated ? ESTIMATED : undefined,
         score: p.score ?? null,
         grade: p.grade ?? null,
@@ -155,7 +161,7 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
             establishment_id: eid,
             name: p.name,
             address: p.address,
-            inspectionDate: formatDateSafe(header.inspection_date),
+            inspectionDate: formatDateSafe(header.inspection_date, locale),
             score: header.score ?? null,
             grade: header.grade ?? null,
             _displayedInspectionId: header.inspection_id,
@@ -167,7 +173,7 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
             establishment_id: eid,
             name: p.name,
             address: p.address,
-            inspectionDate: formatDateSafe(p.date),
+            inspectionDate: formatDateSafe(p.date, locale),
             score: p.score ?? null,
             grade: p.grade ?? null,
             _displayedInspectionId: null,
@@ -190,14 +196,14 @@ export function useDrawer(getFeature, countyOnMap = () => true) {
       setSelected({ ...summary, address: fullAddress || summary.address });
       setHistory(rows);
       setDetails({
-        opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date) : null,
+        opening_date: fac?.opening_date ? formatDateSafe(fac.opening_date, locale) : null,
         facility_type: fac?.facility_type_description ?? fac?.facility_type ?? null,
         subtype: fac?.subtype_description ?? fac?.subtype ?? null,
         permit_number: fac?.permit_number ?? null,
       });
       setLoading(false);
     },
-    [getFeature, countyOnMap, loadBullitt, loadPortal],
+    [getFeature, countyOnMap, loadBullitt, loadPortal, locale],
   );
 
   return { selected, history, details, loading, open, close };

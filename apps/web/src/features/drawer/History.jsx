@@ -4,9 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { scoreBand } from "@lfs/core/grading.js";
 import { formatDateSafe } from "../../lib/dates.js";
 import { groupViolations } from "../../lib/violationGroups.js";
+import { useT } from "../../I18nContext.jsx";
 
 function ViolationRow({ v }) {
-  const title = v.violation_desc || "Violation";
+  const { t } = useT();
+  const title = v.violation_desc || t("drawer.violation");
   const body = (v.insp_viol_comments || "").trim();
   const count = v._count || 1;
   const [open, setOpen] = React.useState(false);
@@ -33,7 +35,7 @@ function ViolationRow({ v }) {
               setOpen((x) => !x);
             }}
           >
-            {open ? "Show less" : "Read more"}
+            {open ? t("drawer.showLess") : t("drawer.readMore")}
           </button>
         )}
       </div>
@@ -42,7 +44,8 @@ function ViolationRow({ v }) {
 }
 
 function PastInspection({ row, showGrade = true }) {
-  const date = row.date_label ?? formatDateSafe(row.inspection_date);
+  const { t, locale } = useT();
+  const date = row.date_label ?? formatDateSafe(row.inspection_date, locale);
   const gradeDisplay =
     row.grade && String(row.grade).trim().length > 0 ? String(row.grade).trim() : "—";
 
@@ -82,7 +85,7 @@ function PastInspection({ row, showGrade = true }) {
           <div className={`hist-score ${badgeClass}`}>{scoreText}</div>
           <div className="hist-meta">
             <div className="hist-date">{date}</div>
-            <div className="hist-type">{row.ins_type_desc || "Inspection"}</div>
+            <div className="hist-type">{row.ins_type_desc || t("drawer.inspection")}</div>
           </div>
         </div>
 
@@ -99,12 +102,12 @@ function PastInspection({ row, showGrade = true }) {
             title={
               showToggle
                 ? open
-                  ? "Collapse"
-                  : `Show all ${rawViols.length}`
-                : `${rawViols.length} violations`
+                  ? t("drawer.collapse")
+                  : t("drawer.showAllViolations", { n: rawViols.length })
+                : t("violations", { n: rawViols.length })
             }
           >
-            {rawViols.length} {rawViols.length === 1 ? "violation" : "violations"}
+            {t("violations", { n: rawViols.length })}
             {showToggle && (
               <span className="chev" aria-hidden="true">
                 ▾
@@ -143,9 +146,10 @@ function PastInspection({ row, showGrade = true }) {
 }
 
 export function HistorySkeleton() {
+  const { t } = useT();
   return (
     <div className="hist-skeleton">
-      <div className="hist-skeleton-title">Inspection History</div>
+      <div className="hist-skeleton-title">{t("drawer.history")}</div>
       {[0, 1, 2].map((i) => (
         <div key={i} className="hist-skeleton-row">
           <div className="skel-badge skel-pulse" />
@@ -161,10 +165,11 @@ export function HistorySkeleton() {
 }
 
 export default function History({ rows, pins, showGrade = true }) {
+  const { t } = useT();
   if (!rows || rows.length === 0) return null;
   return (
     <div className="hist-wrap">
-      <div className="hist-title">Inspection History</div>
+      <div className="hist-title">{t("drawer.history")}</div>
       <div className="hist-list">
         {rows.map((r) => (
           <PastInspection

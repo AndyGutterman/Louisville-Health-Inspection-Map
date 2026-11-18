@@ -1,14 +1,58 @@
 import React, { useEffect, useState } from "react";
+import { useT } from "./I18nContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import WatchlistTab from "./features/saved/WatchlistTab.jsx";
-import { fetchDigestChoice, saveDigestChoice } from "./api/account.js";
-import { OFF, WEEKLY, isSubscribed } from "./lib/digest.js";
+import {
+  fetchDigestChoice,
+  fetchDigestLanguage,
+  saveDigestChoice,
+  saveDigestLanguage,
+} from "./api/account.js";
+import { OFF, WEEKLY, isSubscribed, shouldOfferLanguage } from "./lib/digest.js";
+import { languageName } from "./lib/i18n.js";
 import { PRIVACY_PATH } from "./lib/privacy.js";
 import { useIsAdmin } from "./features/admin/useIsAdmin.js";
 import "./styles/AccountPage.css";
 
+// For a subscriber whose weekly email is in another language than the site: say which, and
+// offer to switch it (profiles.language). Nothing for anyone else, and nothing when the
+// database has no language column yet.
+function DigestLanguageRow({ user, subscribed }) {
+  const { t, lang } = useT();
+  const [digestLanguage, setDigestLanguage] = useState(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetchDigestLanguage(user.id).then(({ data, error: e }) => {
+      if (live && !e) setDigestLanguage(data?.language ?? null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [user.id]);
+  if (!shouldOfferLanguage({ subscribed, digestLanguage, siteLanguage: lang, always: true })) {
+    return null;
+  }
+  const change = async () => {
+    setError(false);
+    const { error: e } = await saveDigestLanguage(user.id, lang);
+    if (e) setError(true);
+    else setDigestLanguage(lang);
+  };
+  return (
+    <div className="acct-digest-lang" data-testid="digest-language-row">
+      <span>{t("digestLang.row", { current: languageName(digestLanguage) })}</span>
+      <button type="button" onClick={change}>
+        {t("digestLang.switch", { language: languageName(lang) })}
+      </button>
+      {error && <span className="acct-digest-error">{t("digestLang.error")}</span>}
+    </div>
+  );
+}
+
 // The weekly digest email, on or off (profiles.alert_frequency, lib/digest.js).
 function DigestToggle({ user }) {
+  const { t } = useT();
   const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -30,7 +74,7 @@ function DigestToggle({ user }) {
     setError(null);
     const { error: e } = await saveDigestChoice(user.id, next);
     setSaving(false);
-    if (e) setError("Couldn't save that. Try again.");
+    if (e) setError(t("account.digest.error"));
     else setProfile({ alert_frequency: next });
   };
 
@@ -42,17 +86,15 @@ function DigestToggle({ user }) {
           checked={on}
           disabled={!profile || saving}
           onChange={toggle}
-          aria-label="Weekly digest email"
+          aria-label={t("account.digest.title")}
         />
         <span>
-          <span className="acct-digest-title">Weekly digest email</span>
-          <span className="acct-digest-sub">
-            This week&apos;s inspections, the ones that failed, and news on your saved places and
-            watch areas, every Tuesday morning.
-          </span>
+          <span className="acct-digest-title">{t("account.digest.title")}</span>
+          <span className="acct-digest-sub">{t("account.digest.sub")}</span>
         </span>
       </label>
       {error && <div className="acct-digest-error">{error}</div>}
+      <DigestLanguageRow user={user} subscribed={on} />
     </div>
   );
 }
@@ -75,6 +117,7 @@ export default function AccountPage({
   areaEdit, // passed to WatchlistTab: a watch area just changed on the map
   onAreasChange, // passed to WatchlistTab: its areas changed, so the map's circles follow
 }) {
+  const { t } = useT();
   const { user, signOut } = useAuth();
   const admin = useIsAdmin(user);
   const side = variant === "panel";
@@ -87,7 +130,7 @@ export default function AccountPage({
         style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
       >
         <div style={{ color: "rgba(255,255,255,0.45)", fontSize: ".9rem" }}>
-          Sign in to manage your account.
+          {t("account.signInPrompt")}
         </div>
       </div>
     );
@@ -105,18 +148,18 @@ export default function AccountPage({
         <div className="acct-head">
           <div className="acct-avatar">{(user.email || "?")[0].toUpperCase()}</div>
           <div className="acct-who">
-            <div className="acct-title">My Account</div>
+            <div className="acct-title">{t("account.title")}</div>
             <div className="acct-email">{user.email}</div>
           </div>
           <button className="acct-signout" onClick={() => signOut()}>
-            Sign out
+            {t("account.signOut")}
           </button>
           {side && (
             <button
               className="acct-close"
               onClick={onClose}
-              aria-label="Close account panel"
-              title="Close"
+              aria-label={t("account.closePanel")}
+              title={t("account.close")}
             >
               ×
             </button>
@@ -124,7 +167,7 @@ export default function AccountPage({
         </div>
         {admin && onOpenAdmin && (
           <button className="acct-admin-link" data-testid="open-admin" onClick={onOpenAdmin}>
-            Email admin
+            {t("account.admin")}
           </button>
         )}
         <DigestToggle user={user} />
@@ -145,7 +188,7 @@ export default function AccountPage({
           target="_blank"
           rel="noreferrer"
         >
-          Privacy
+          {t("account.privacy")}
         </a>
       </div>
     </div>

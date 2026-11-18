@@ -2,6 +2,7 @@
 // data has facility types (Jefferson).
 import React from "react";
 import { nameList } from "../../lib/regions.js";
+import { useT } from "../../I18nContext.jsx";
 import { allCategoriesOff, shortCategoryLabel } from "../../lib/categoryTiles.js";
 import Icon from "./CategoryIcon.jsx";
 import CountySwitch from "./CountySwitch.jsx";
@@ -19,6 +20,16 @@ export default function FilterTab({
   CATEGORY_SPECS,
   buildInitialCatToggles,
 }) {
+  const { t, lang, locale } = useT();
+  // A word from the dictionary, or the English one the data gave when there is none.
+  const word = (key, fallback) => {
+    const w = t(key);
+    return w === key ? fallback : w;
+  };
+  const list = (names) =>
+    lang === "en"
+      ? nameList(names)
+      : new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
   // Categories only mean something for counties whose data has facility types
   // (Jefferson). The others list below the category tiles, apart from them, and their
   // places always show (lib/mapFilters.js categoryFilter).
@@ -56,14 +67,14 @@ export default function FilterTab({
           and off only show and hide it. The category tiles sit with the counties they
           apply to. */}
       <fieldset className="county-switches" data-testid="county-switches">
-        <legend className="county-switches-title">Counties</legend>
+        <legend className="county-switches-title">{t("filters.counties")}</legend>
         <div className="county-group" data-testid="county-group-typed">
           {typedCounties.map((c) => (
             <CountySwitch key={c.id} county={c} onToggle={onToggleCounty} />
           ))}
           <div
             className="cat-filters"
-            aria-label="Categories"
+            aria-label={t("filters.categories")}
             data-testid="category-filters"
             data-inactive={!categoriesApply}
           >
@@ -71,7 +82,7 @@ export default function FilterTab({
               <div
                 className="seg-toggle"
                 role="radiogroup"
-                aria-label="Toggle all categories"
+                aria-label={t("filters.toggleAll")}
                 style={{ margin: "0 auto" }}
               >
                 <button
@@ -81,7 +92,7 @@ export default function FilterTab({
                   className={`seg-option ${allOff ? "checked" : ""}`}
                   onClick={handleAllOff}
                 >
-                  All off
+                  {t("filters.allOff")}
                 </button>
                 <button
                   type="button"
@@ -90,7 +101,7 @@ export default function FilterTab({
                   className={`seg-option ${allOn ? "checked" : ""}`}
                   onClick={handleAllOn}
                 >
-                  All on
+                  {t("filters.allOn")}
                 </button>
               </div>
             </div>
@@ -98,7 +109,7 @@ export default function FilterTab({
             <div className="cat-grid">
               {Object.entries(CATEGORY_SPECS).map(([key, spec]) => {
                 const enabled = !!catToggles[key]?.enabled;
-                const label = shortLabel(spec.label);
+                const label = word(`filters.cat.${key}`, shortLabel(spec.label));
                 const accent = CAT_ACCENT;
                 return (
                   <button
@@ -110,7 +121,7 @@ export default function FilterTab({
                     data-checked={enabled}
                     aria-pressed={enabled}
                     onClick={() => toggleCategory(key, spec, !enabled)}
-                    title={spec.label}
+                    title={word(`filters.catFull.${key}`, spec.label)}
                     style={{ "--tile-accent": accent }}
                   >
                     <span className="cat-icon">
@@ -129,9 +140,9 @@ export default function FilterTab({
               <CountySwitch key={c.id} county={c} onToggle={onToggleCounty} />
             ))}
             <p className="county-group-note" data-testid="county-note">
-              No place types in this data, so categories don&apos;t apply: every place shows.
+              {t("filters.countyNote")}
               {undatedNames.length > 0 &&
-                ` Undated ${nameList(undatedNames)} places ignore the date filter.`}
+                ` ${t("filters.undatedNote", { names: list(undatedNames) })}`}
             </p>
           </div>
         )}

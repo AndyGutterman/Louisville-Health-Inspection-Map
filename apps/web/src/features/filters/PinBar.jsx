@@ -1,6 +1,7 @@
 // The top row of the filter card, always showing: a switch per pin colour (and the
 // unscored pins), and the "Since" date picker.
 import * as Switch from "@radix-ui/react-switch";
+import { useT } from "../../I18nContext.jsx";
 
 export default function PinBar({
   showRedPins,
@@ -15,19 +16,20 @@ export default function PinBar({
   setDateFilterKey,
   dateFilterOpts,
 }) {
+  const { t } = useT();
   return (
-    <div className="rgb-compact" role="group" aria-label="Show pins">
+    <div className="rgb-compact" role="group" aria-label={t("filters.showPins")}>
       <div className="tog-item">
         <Switch.Root
           className="rx-switch xs red"
           checked={showRedPins}
           onCheckedChange={setShowRedPins}
-          aria-label="Show red pins"
+          aria-label={t("filters.showRedPins")}
         >
           <Switch.Thumb className="rx-thumb" />
         </Switch.Root>
         <span className="tog-lbl" style={{ color: "#ef4444" }}>
-          Red
+          {t("filters.red")}
         </span>
       </div>
       <div className="tog-item">
@@ -35,12 +37,12 @@ export default function PinBar({
           className="rx-switch xs yellow"
           checked={showYellowPins}
           onCheckedChange={setShowYellowPins}
-          aria-label="Show yellow pins"
+          aria-label={t("filters.showYellowPins")}
         >
           <Switch.Thumb className="rx-thumb" />
         </Switch.Root>
         <span className="tog-lbl" style={{ color: "#f59e0b" }}>
-          Yellow
+          {t("filters.yellow")}
         </span>
       </div>
       <div className="tog-item">
@@ -48,12 +50,12 @@ export default function PinBar({
           className="rx-switch xs green"
           checked={showGreenPins}
           onCheckedChange={setShowGreenPins}
-          aria-label="Show green pins"
+          aria-label={t("filters.showGreenPins")}
         >
           <Switch.Thumb className="rx-thumb" />
         </Switch.Root>
         <span className="tog-lbl" style={{ color: "#22c55e" }}>
-          Green
+          {t("filters.green")}
         </span>
       </div>
       <div className="tog-item">
@@ -61,12 +63,12 @@ export default function PinBar({
           className="rx-switch xs purple"
           checked={showMissing}
           onCheckedChange={setShowMissing}
-          aria-label="Show unscored pins"
+          aria-label={t("filters.showUnscoredPins")}
         >
           <Switch.Thumb className="rx-thumb" />
         </Switch.Root>
         <span className="tog-lbl" style={{ color: "#888" }}>
-          N/A
+          {t("filters.na")}
         </span>
       </div>
 
@@ -101,8 +103,8 @@ export default function PinBar({
           <select
             value={dateFilterKey}
             onChange={(e) => setDateFilterKey(e.target.value)}
-            aria-label="Filter pins by inspection date"
-            title="Show pins inspected since…"
+            aria-label={t("filters.dateLabel")}
+            title={t("filters.dateTitle")}
             style={{
               background: "rgba(255,255,255,0.07)",
               border: "1px solid rgba(255,255,255,0.14)",
@@ -124,7 +126,7 @@ export default function PinBar({
           >
             {dateFilterOpts.map((opt) => (
               <option key={opt.key} value={opt.key} style={{ background: "#1a1a1e" }}>
-                {opt.label}
+                {opt.labelKey ? t(opt.labelKey) : opt.label}
               </option>
             ))}
           </select>

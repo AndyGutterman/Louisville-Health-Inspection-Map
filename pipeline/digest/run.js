@@ -38,7 +38,12 @@ export async function buildEmail(job, { store, today }) {
       renderFor: (r) => {
         const url = unsubscribeUrl(job, r);
         return {
-          ...renderCustom(job, { unsubscribeUrl: url, test: job.test, button: job.with_button }),
+          ...renderCustom(job, {
+            unsubscribeUrl: url,
+            test: job.test,
+            button: job.with_button,
+            lang: r.language,
+          }),
           unsubscribeUrl: url,
         };
       },
@@ -58,6 +63,8 @@ export async function buildEmail(job, { store, today }) {
     ? await Promise.all([store.watchAreas(days, scope), store.savedPlaces(days, scope)])
     : [new Map(), new Map()];
   const whose = (r) => job.as_user ?? r.id;
+  // A digest sent "as" someone is in their language, whoever receives it.
+  const asLanguage = job.as_user ? await store.language(job.as_user) : null;
   return {
     to,
     summary,
@@ -71,6 +78,7 @@ export async function buildEmail(job, { store, today }) {
           areas: areasByUser.get(whose(r)) ?? [],
           saved: savedByUser.get(whose(r)) ?? [],
           test: job.test,
+          lang: asLanguage ?? r.language,
         }),
         unsubscribeUrl: url,
       };
