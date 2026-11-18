@@ -66,6 +66,10 @@ test("Table View: hovering a row shows its popup, clicking opens the drawer", as
   const drawer = page.getByTestId("info-drawer");
   await expect(drawer.getByText(byEid(PINNED_EID).name, { exact: true })).toBeVisible();
   await expect(popup(page)).toContainText(byEid(PINNED_EID).name);
+  // The same popup a pin click opens: one popup, with its date and save button.
+  await expect(popup(page)).toHaveCount(1);
+  await expect(popup(page)).toContainText("Inspected:");
+  await expect(popup(page).getByRole("button", { name: "Save to watchlist" })).toBeVisible();
   await snap(page, testInfo, "10-table-view-row");
 });
 
