@@ -71,10 +71,9 @@ export const REGIONS = [
       [-85.429, 38.118],
     ],
     labelAt: [-85.7, 37.96],
-    // No facility types or placards. Results are dated through Kentucky's inspection
-    // portal; the county's sheet, used when the portal isn't answering, has no date for
-    // the latest routine inspection, so pins can be undated (dates: false lets those past
-    // the date filter). Saving needs the 20261111000000 migration.
+    // No facility types or placards. Results come from the county's sheet, which has no
+    // date for the latest routine inspection, so pins can be undated (dates: false lets
+    // those past the date filter). Saving needs the 20261111000000 migration.
     has: {
       categories: false,
       dates: false,
@@ -89,12 +88,13 @@ export const REGIONS = [
     },
     source: { name: "Bullitt County Health Department", url: "https://www.bullitthealth.org/food" },
     dataNote:
-      "Only each place's latest inspection and its follow-up, dated through Kentucky's statewide inspection portal. When the portal is unavailable, the county's own list is used, which has no inspection date for the latest inspection. No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+      "Only each place's latest inspection and its follow-up, with no inspection date, no letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
   },
   {
     ...COUNTIES.oldham, // id, name, shortName
     boundaryUrl: "/regions/oldham.geojson",
-    enabled: true,
+    // Off: Kentucky's portal is read only with permission (docs/COUNTIES.md, "Paused").
+    enabled: false,
     attribution: CENSUS_CREDIT,
     bounds: [
       [-85.638, 38.285],
@@ -127,7 +127,8 @@ export const REGIONS = [
   {
     ...COUNTIES.shelby, // id, name, shortName
     boundaryUrl: "/regions/shelby.geojson",
-    enabled: true,
+    enabled: false, // as Oldham
+
     attribution: CENSUS_CREDIT,
     bounds: [
       [-85.49, 38.017],
@@ -160,7 +161,7 @@ export const REGIONS = [
   {
     ...COUNTIES.spencer, // id, name, shortName
     boundaryUrl: "/regions/spencer.geojson",
-    enabled: true,
+    enabled: false, // as Oldham
     attribution: CENSUS_CREDIT,
     bounds: [
       [-85.537, 37.92],

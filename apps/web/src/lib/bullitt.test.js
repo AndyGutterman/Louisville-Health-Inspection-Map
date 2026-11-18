@@ -279,18 +279,11 @@ describe("bullittHistory", () => {
 
 describe("bullittSourceNote", () => {
   const AGENCY = "Bullitt County Health Department";
-  const routine = (inspection_date) => ({ kind: "routine", inspection_date });
-  const followUp = { kind: "follow_up", inspection_date: "2026-11-20" };
 
-  it("credits the portal when every routine inspection is dated", () => {
-    const note = bullittSourceNote([followUp, routine("2026-11-12")], AGENCY);
-    expect(note).toContain("Kentucky's inspection portal");
+  it("credits the county and says the date isn't published, never the portal", () => {
+    const note = bullittSourceNote(AGENCY);
     expect(note).toContain(AGENCY);
-  });
-
-  it("says the date isn't published when the results came from the sheet", () => {
-    for (const history of [[followUp, routine(null)], [followUp], []]) {
-      expect(bullittSourceNote(history, AGENCY)).toContain("without its date");
-    }
+    expect(note).toContain("without its date");
+    expect(note).not.toContain("portal");
   });
 });

@@ -307,9 +307,7 @@ describe("categoryFilter with counties that have no facility types", () => {
   it("applies to pins and rings by default", () => {
     const f = buildLayerFilters({ ...base, catToggles: schoolsOnly(), untypedRegions: undefined });
     for (const id of ["points-green", "points-violation-ring"]) {
-      expect(f[id]).toContainEqual(
-        categoryFilter(schoolsOnly(), ["bullitt", "oldham", "shelby", "spencer"]),
-      );
+      expect(f[id]).toContainEqual(categoryFilter(schoolsOnly(), ["bullitt"]));
     }
   });
 });
