@@ -40,8 +40,8 @@ pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/)
 supabase/                 migrations (full schema baseline + later changes) and functions/ (submit-feedback,
                           email-dispatch)
 docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist), REFACTOR_PLAN.md
-.github/workflows/        ci.yml, ingest.yml, db-backup.yml, archive.yml, etl-check.yml, schema-dump.yml,
-                          digest.yml, email-outbox.yml
+.github/workflows/        ci.yml, e2e.yml, ingest.yml, bullitt-ingest.yml, portal-ingest.yml, db-backup.yml, etl-check.yml,
+                          digest.yml, email-outbox.yml, schema-dump.yml
 ```
 
 `src/lib/` modules: searchText, samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
