@@ -1,4 +1,7 @@
-# Daily load of the counties read from Kentucky's inspection portal (docs/COUNTIES.md):
+# PAUSED: no schedule. Kentucky's portal is read only with permission (docs/COUNTIES.md,
+# "Paused"); don't run this by hand until then. The daily schedule was "15 9 * * *".
+#
+# Load of the counties read from Kentucky's inspection portal (docs/COUNTIES.md):
 # the portal -> Supabase, then geocoding. Writes only the portal_* tables
 # (supabase/migrations/20261119000000_portal_counties.sql must have been run).
 # Jefferson (ingest.yml) and Bullitt (bullitt-ingest.yml) don't depend on this job: if it
@@ -20,9 +23,6 @@ on:
         description: "Try again for places no geocoder found before"
         type: boolean
         default: false
-  schedule:
-    # Once a day is plenty: two requests per county, about 450 KB.
-    - cron: "15 9 * * *"
 concurrency: portal-ingest
 jobs:
   run:

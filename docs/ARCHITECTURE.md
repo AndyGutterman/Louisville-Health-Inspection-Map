@@ -1,6 +1,6 @@
 # Architecture
 
-Louisville Food Safe is a map of food-establishment inspections in Jefferson County (Louisville Metro), Bullitt County and Oldham County. Daily jobs load each county's public data into a Supabase database, and a React site reads it.
+Louisville Food Safe is a map of food-establishment inspections in Jefferson County (Louisville Metro) and Bullitt County. Daily jobs load each county's public data into a Supabase database, and a React site reads it.
 
 ## System overview
 
@@ -8,13 +8,11 @@ Louisville Food Safe is a map of food-establishment inspections in Jefferson Cou
 flowchart LR
   subgraph sources["Sources"]
     arcgis["Louisville Metro<br/>ArcGIS"]
-    portal["Kentucky<br/>inspection portal"]
     sheet["Bullitt<br/>Google Sheet"]
   end
 
   subgraph jobs["GitHub Actions"]
     ingest["ingest.yml"]
-    portaljob["portal-ingest.yml"]
     bullittjob["bullitt-ingest.yml"]
     emails["digest.yml<br/>email-outbox.yml"]
   end
@@ -23,7 +21,6 @@ flowchart LR
   site["Website<br/>React on Netlify"]
 
   arcgis --> ingest --> db
-  portal --> portaljob --> db
   sheet --> bullittjob --> db
   db --> emails
   db <-->|supabase-js| site
@@ -31,7 +28,7 @@ flowchart LR
 
 The README's [How it works](../README.md#how-it-works) draws both halves in more detail: which source feeds which county, the fallbacks (connected and not), geocoding, and the scheduled backup, check and archive jobs.
 
-- **Data in:** each county has its own job and its own tables (Jefferson: `facilities`, `inspections`, `inspection_violations`; Bullitt: `bullitt_*`; portal counties: `portal_*`). `pipeline/tests/` covers the helpers.
+- **Data in:** each county has its own job and its own tables (Jefferson: `facilities`, `inspections`, `inspection_violations`; Bullitt: `bullitt_*`; the paused portal counties: `portal_*`, docs/COUNTIES.md). `pipeline/tests/` covers the helpers.
 - **Data out:** the site reads pins, inspections and violations through `supabase-js` (every query is in `apps/web/src/api/`). Accounts use email one-time codes, and saved places and watch areas are stored per user.
 - **Emails:** `packages/core/email/` builds the weekly digest and one-off emails; the admin page's preview uses the same function as the send.
 - **Feedback:** the feedback form posts to the `submit-feedback` edge function (`supabase/functions/`), which rate-limits by IP.
