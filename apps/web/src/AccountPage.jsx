@@ -114,6 +114,7 @@ export default function AccountPage({
   zIndex, // phones: lets Map.jsx put this page above or below the info drawer
   bottomInset, // phones: px of the info drawer sitting over the bottom of this page
   onOpenAdmin, // opens the email admin page; its button shows for admins only
+  onOpenPins, // opens the pin control center; admins only too
   areaEdit, // passed to WatchlistTab: a watch area just changed on the map
   onAreasChange, // passed to WatchlistTab: its areas changed, so the map's circles follow
 }) {
@@ -165,10 +166,19 @@ export default function AccountPage({
             </button>
           )}
         </div>
-        {admin && onOpenAdmin && (
-          <button className="acct-admin-link" data-testid="open-admin" onClick={onOpenAdmin}>
-            {t("account.admin")}
-          </button>
+        {admin && (onOpenAdmin || onOpenPins) && (
+          <div className="acct-admin-links">
+            {onOpenAdmin && (
+              <button className="acct-admin-link" data-testid="open-admin" onClick={onOpenAdmin}>
+                {t("account.admin")}
+              </button>
+            )}
+            {onOpenPins && (
+              <button className="acct-admin-link" data-testid="open-pins" onClick={onOpenPins}>
+                {t("account.pins")}
+              </button>
+            )}
+          </div>
         )}
         <DigestToggle user={user} />
         <WatchlistTab

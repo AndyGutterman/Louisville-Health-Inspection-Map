@@ -44,6 +44,7 @@ export const en = {
   "account.closePanel": "Close account panel",
   "account.close": "Close",
   "account.admin": "Email admin",
+  "account.pins": "Pin control center",
   "account.privacy": "Privacy",
   "account.digest.title": "Weekly digest email",
   "account.digest.sub":
@@ -170,6 +171,7 @@ export const es = {
   "account.closePanel": "Cerrar el panel de la cuenta",
   "account.close": "Cerrar",
   "account.admin": "Administrar correos",
+  "account.pins": "Control de pines",
   "account.privacy": "Privacidad",
   "account.digest.title": "Resumen semanal por correo",
   "account.digest.sub":

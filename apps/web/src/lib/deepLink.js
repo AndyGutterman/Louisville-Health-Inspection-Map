@@ -1,13 +1,14 @@
 // Links into the site from the digest email: /?eid=<establishment id> opens that place,
 // /?page=learn opens the Learn page, /?page=privacy the privacy page. /?page=admin opens
-// the email admin page (a bookmark for the owner; it shows nothing to anyone else). Pure: Map.jsx applies the result and
+// the email admin page and /?page=pins the pin control center (bookmarks for the owner;
+// they show nothing to anyone else). Pure: Map.jsx applies the result and
 // cleans the URL.
 
-const PAGES = ["learn", "admin", "privacy"];
+const PAGES = ["learn", "admin", "pins", "privacy"];
 
 /**
  * @param {string} search  window.location.search
- * @returns {{ eid: string|null, page: "learn"|"admin"|"privacy"|null, rest: string }} rest: the remaining query
+ * @returns {{ eid: string|null, page: "learn"|"admin"|"pins"|"privacy"|null, rest: string }} rest: the remaining query
  *   string without a leading "?", so the URL can be rewritten without these parameters.
  */
 export function parseDeepLink(search) {

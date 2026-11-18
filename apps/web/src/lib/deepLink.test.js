@@ -13,6 +13,7 @@ describe("parseDeepLink", () => {
   it("reads the Learn and admin page links and ignores other pages", () => {
     expect(parseDeepLink("?page=learn").page).toBe("learn");
     expect(parseDeepLink("?page=admin").page).toBe("admin");
+    expect(parseDeepLink("?page=pins").page).toBe("pins");
     expect(parseDeepLink("?page=privacy").page).toBe("privacy");
     expect(parseDeepLink("?page=settings").page).toBe(null);
     expect(parseDeepLink("?page=admin&x=1").rest).toBe("x=1");
