@@ -102,13 +102,13 @@ Website paths below are relative to `apps/web/`.
 | Date formats                                                  | `src/lib/dates.js`                                                                       |
 | Address search for watch areas                                | `src/lib/geocode.js`, `src/AddressPicker.jsx`                                            |
 | Phone / desktop breakpoints in components                     | `src/hooks/useMediaQuery.js`                                                             |
-| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/InfoDrawer.jsx`                                           |
+| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/features/drawer/useBottomSheet.js`                        |
 | Map pan limits                                                | `src/lib/mapBounds.js`                                                                   |
 | Date-filter options and the map data cache settings           | `src/lib/constants.js`                                                                   |
 | Styles for a component                                        | `src/styles/<Component>.css` (imported by the component)                                 |
 | Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx`                                                             |
-| The info drawer and its history                               | `src/InfoDrawer.jsx`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css`   |
-| Filters and score sliders                                     | `src/FilterSearch.jsx`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css`          |
+| The info drawer and its history                               | `src/features/drawer/`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
+| Filters and score sliders                                     | `src/features/filters/`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css`         |
 | Watch areas on the map                                        | `src/features/map/useWatchAreaLayer.js`, `src/watchAreaLayer.js` (the editor)            |
 | Map popups (hover, pinned, "1 of 3", Table View row)          | `src/features/map/popups.jsx`                                                            |
 | Pin and ring layers, and how the filters apply to them        | `src/features/map/mapLayers.js`, `src/lib/mapFilters.js`                                 |
