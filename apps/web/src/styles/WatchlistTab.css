@@ -17,7 +17,7 @@
 }
 .wl-usage {
   font-size: 0.74rem;
-  color: rgba(255, 255, 255, 0.34);
+  color: rgba(255, 255, 255, 0.58);
   font-weight: 700;
 }
 .wl-empty {
@@ -84,7 +84,7 @@
   color: #fbbc05;
 }
 .wl-score.bad {
-  color: #ea4335;
+  color: #f26b5e;
 }
 .wl-score .dt {
   color: rgba(255, 255, 255, 0.4);
@@ -219,7 +219,7 @@
   color: #fbbc05;
 }
 .wl-place-score.bad {
-  color: #ea4335;
+  color: #f26b5e;
 }
 .wl-place-date {
   font-size: 0.64rem;
@@ -238,7 +238,7 @@
     border-color 0.12s;
 }
 .wl-click:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.3);
+  outline: 2px solid #8ab4f8;
   outline-offset: 2px;
 }
 .wl-place.wl-click:hover {
@@ -327,7 +327,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 6px;
 }
 .wl-add-foot {
@@ -339,7 +339,7 @@
 }
 .wl-hint {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
 }
 .wl-btn {
   padding: 10px 20px;

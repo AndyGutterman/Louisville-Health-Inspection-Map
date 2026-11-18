@@ -233,7 +233,7 @@
   font-size: 0.66rem;
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.6);
   flex: 1;
 }
 
@@ -362,7 +362,7 @@
   letter-spacing: 0.05px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -514,8 +514,13 @@
   cursor: pointer;
   transition: background 0.1s;
 }
-.tbl-row:hover {
+.tbl-row:hover,
+.tbl-row:focus-visible {
   background: rgba(255, 255, 255, 0.05);
+}
+.tbl-row:focus-visible {
+  outline: 2px solid #8ab4f8;
+  outline-offset: -2px;
 }
 .table-grid tbody tr:last-child td {
   border-bottom: none;
@@ -538,7 +543,7 @@
 }
 
 .tbl-score-badge.ok {
-  background: #34a853;
+  background: #188038;
   color: #fff;
 }
 .tbl-score-badge.warn {
@@ -546,12 +551,12 @@
   color: #111;
 }
 .tbl-score-badge.bad {
-  background: #ea4335;
+  background: #d93025;
   color: #fff;
 }
 .tbl-score-badge.na {
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 0.75rem;
   border: 1px dashed rgba(255, 255, 255, 0.18);
 }
@@ -632,7 +637,7 @@
 
 .table-result-count {
   font-size: 0.78rem;
-  opacity: 0.5;
+  color: rgba(255, 255, 255, 0.65);
   white-space: nowrap;
   min-width: 80px;
 }
@@ -957,7 +962,6 @@
 .table-footer--phone .table-result-count {
   min-width: 0;
   font-size: 0.74rem;
-  opacity: 0.75;
 }
 .table-footer--phone .table-pagination {
   margin-left: 0;

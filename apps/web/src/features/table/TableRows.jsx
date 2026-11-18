@@ -106,9 +106,19 @@ export function TableGrid({ rows, loading, error, openRow, sort, onRowHover, onR
                 key={rowKey(row)}
                 className="tbl-row"
                 data-testid="table-row"
+                // Reachable with Tab and opened with Enter or Space, like the phone's cards.
+                tabIndex={0}
+                aria-label={`${row.name || "Unknown"}, ${row.address || ""}: open details`}
                 onPointerEnter={() => onRowHover?.(row.establishment_id, row)}
                 onPointerLeave={() => onRowHoverEnd?.()}
+                onFocus={() => onRowHover?.(row.establishment_id, row)}
+                onBlur={() => onRowHoverEnd?.()}
                 onClick={() => openRow(row)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  openRow(row);
+                }}
               >
                 <td>
                   <span className={`tbl-score-badge ${scoreBand(row.score)}`}>

@@ -51,15 +51,14 @@ export default function InspectionCard({
   // similarNearby: [{eid, name}] — nearby permits that may represent the same place
   const similar = Array.isArray(similarNearby) ? similarNearby : [];
 
+  // A click anywhere on the card opens "More info" (a mouse convenience). The card isn't a
+  // button itself: it holds the save, close and "may also be listed as" buttons, and
+  // controls inside a button can't be reached by a screen reader. The "More info" row
+  // below is the real button, for the keyboard and screen readers.
   return (
     <div
       className={`inspect-card ${open ? "open" : ""}`}
-      onClick={() => setOpen((v) => !v)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") setOpen((v) => !v);
-      }}
+      onClick={() => hasDetails && setOpen((v) => !v)}
     >
       {meta && (
         <div className="inspect-meta" title={metaTitle || ""}>
@@ -250,15 +249,24 @@ export default function InspectionCard({
 
       {hasDetails && (
         <>
-          <div className="inspect-more-inline">
+          <button
+            type="button"
+            className="inspect-more-inline"
+            aria-expanded={open}
+            aria-controls="inspect-details"
+            onClick={(e) => {
+              e.stopPropagation(); // the card's own click would toggle it straight back
+              setOpen((v) => !v);
+            }}
+          >
             <span>More info</span>
             <svg viewBox="0 0 24 24" width="16" height="16" className="chev" aria-hidden="true">
               <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
-          </div>
+          </button>
 
           {open && (
-            <div className="inspect-details">
+            <div className="inspect-details" id="inspect-details">
               <div className="inspect-details-grid">
                 {items.map((it) => (
                   <div className="detail-item" key={it.label}>

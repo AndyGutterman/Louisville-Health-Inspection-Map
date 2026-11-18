@@ -66,7 +66,7 @@
   cursor: pointer;
   background: rgba(234, 67, 53, 0.1);
   border: 1px solid rgba(234, 67, 53, 0.22);
-  color: rgba(234, 67, 53, 0.85);
+  color: #f26b5e;
   font-weight: 700;
   font-size: 0.8rem;
   font-family: inherit;
@@ -184,7 +184,7 @@
   margin-top: 2px;
   font-size: 0.76rem;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.62);
 }
 .acct-digest-error {
   margin-top: 8px;

@@ -141,7 +141,7 @@
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.32);
+  color: rgba(255, 255, 255, 0.58);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.07em;
@@ -152,7 +152,7 @@
     background 0.12s;
 }
 .wn-tab:hover {
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.04);
 }
 .wn-tab.active-latest {
@@ -265,7 +265,7 @@
 }
 .wn-sub {
   font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.6);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -273,7 +273,6 @@
 }
 .wn-noloc {
   font-style: italic;
-  opacity: 0.75;
 }
 .wn-viol {
   font-size: 0.62rem;
