@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { scrollBehavior } from "../../lib/motion.js";
 import { SITE, renderDigest } from "@lfs/core/email/digest.js";
 import { setSubscription } from "../../api/admin.js";
 import { confirmsCount, errorText, whenText } from "../../lib/adminEmail.js";
 import EmailPreview from "./EmailPreview.jsx";
-import { usePeople, useWatchAreas, useWeekSummary } from "./useDigestData.js";
+import { usePeople, usePersonalParts, useWeekSummary } from "./useDigestData.js";
 
 const WINDOWS = [7, 14, 30];
 const isOn = (person) => person?.alert_frequency === "weekly";
@@ -47,9 +48,9 @@ export default function DigestTab({ me, send, onSubscribers }) {
   const week = useWeekSummary(days);
   const people = usePeople();
   useEffect(() => onSubscribers(people.subscribers), [people.subscribers, onSubscribers]);
-  const [who, setWho] = useState(null); // an accounts row; null is the digest with no watch areas
+  const [who, setWho] = useState(null); // an accounts row; null is the digest with no saved places or watch areas
   const person = who ? (people.rows.find((r) => r.user_id === who) ?? null) : null;
-  const mine = useWatchAreas(person?.user_id ?? null, days);
+  const mine = usePersonalParts(person?.user_id ?? null, days);
   const previewRef = useRef(null);
 
   const [busy, setBusy] = useState(null); // which button is working
@@ -61,10 +62,13 @@ export default function DigestTab({ me, send, onSubscribers }) {
     if (!week.summary || mine.areas == null) return null;
     return renderDigest(week.summary, {
       areas: mine.areas,
+      saved: mine.saved,
+      // In the language they get it in (profiles.language; English before the migration).
+      lang: person?.language,
       // The footer as they'd see it; the real link's token never leaves the database.
       unsubscribeUrl: isOn(person) ? `${SITE}/?unsubscribe=preview` : null,
     });
-  }, [week.summary, mine.areas, person]);
+  }, [week.summary, mine.areas, mine.saved, person]);
 
   const pick = (userId) => {
     setWho(userId);
@@ -72,7 +76,7 @@ export default function DigestTab({ me, send, onSubscribers }) {
     setError(null);
     // On a phone the preview is below the list: bring it into view.
     requestAnimationFrame(() =>
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      previewRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }),
     );
   };
   const act = async (name, work) => {
@@ -160,7 +164,7 @@ export default function DigestTab({ me, send, onSubscribers }) {
               aria-pressed={who == null}
               onClick={() => pick(null)}
             >
-              <span className="adm-person-email">Someone with no watch areas</span>
+              <span className="adm-person-email">Someone with nothing saved</span>
               <span className="adm-chips">
                 <span className="adm-chip">the part everyone gets</span>
               </span>
@@ -188,8 +192,13 @@ export default function DigestTab({ me, send, onSubscribers }) {
 
         <section className="adm-card adm-previewing" ref={previewRef}>
           <div className="adm-card-title" data-testid="admin-preview-who">
-            {person ? person.email : "Someone with no watch areas"}
+            {person ? person.email : "Someone with nothing saved"}
           </div>
+          {person && (
+            <div className="adm-dim" data-testid="admin-preview-language">
+              Email language: {person.language === "es" ? "Spanish" : "English"}
+            </div>
+          )}
           {person && !isOn(person) && (
             <div className="adm-dim">
               Not subscribed: Tuesday&apos;s send skips them. This is what they&apos;d get.

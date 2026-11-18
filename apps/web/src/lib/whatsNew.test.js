@@ -1,11 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { WHATS_NEW_TABS, scoreBadge, swipeTab, whatsNewDate } from "./whatsNew.js";
 import { formatMonthDay } from "./dates.js";
+import { LANGUAGES, translate } from "./i18n.js";
+import { STRINGS } from "./strings.js";
 
 describe("WHATS_NEW_TABS", () => {
   it("is Latest, Violations, Top Scores, and opens on Latest", () => {
-    expect(WHATS_NEW_TABS.map((t) => t.label)).toEqual(["Latest", "Violations", "Top Scores"]);
+    expect(WHATS_NEW_TABS.map((t) => t.id)).toEqual(["latest", "issues", "perfect"]);
+    expect(WHATS_NEW_TABS.map((t) => translate("en", `whatsNew.tab.${t.id}`))).toEqual([
+      "Latest",
+      "Violations",
+      "Top Scores",
+    ]);
     expect(WHATS_NEW_TABS[0].rpc).toBe("get_latest_inspections");
+  });
+
+  it("has a name and an empty message for every tab, in every language", () => {
+    for (const { code } of LANGUAGES) {
+      for (const { id } of WHATS_NEW_TABS) {
+        expect(STRINGS[code][`whatsNew.tab.${id}`], ` ${id}`).toBeTruthy();
+        expect(STRINGS[code][`whatsNew.empty.${id}`], ` ${id}`).toBeTruthy();
+      }
+    }
   });
 
   it("gives every tab its own id and data source", () => {

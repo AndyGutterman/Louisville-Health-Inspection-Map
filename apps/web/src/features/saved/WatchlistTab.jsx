@@ -1,5 +1,6 @@
 // The Saved panel's contents: saved places (SavedPlaces) and watch areas (WatchAreaCard,
 // AddAreaForm). This file holds the state and the reads and writes (api/watchlist.js).
+import { scrollBehavior } from "../../lib/motion.js";
 import React, { useState, useEffect } from "react";
 import {
   addWatchArea,
@@ -10,6 +11,7 @@ import {
   removeWatchArea,
   updateWatchArea,
 } from "../../api/watchlist.js";
+import { useT } from "../../I18nContext.jsx";
 import { applyAreaEdit, withoutZone } from "../../lib/watchAreaEdits.js";
 import { CAPS, ZONE_ROWS } from "./limits.js";
 import SavedPlaces from "./SavedPlaces.jsx";
@@ -28,6 +30,7 @@ export default function WatchlistTab({
   areaEdit, // { id, update, n }: an area just moved or resized on the map (useWatchlist)
   onAreasChange, // (areas) => void; this list's areas after an add, remove or resize
 }) {
+  const { t } = useT();
   const [items, setItems] = useState([]);
   const [areas, setAreas] = useState([]);
   const [zones, setZones] = useState({});
@@ -46,7 +49,7 @@ export default function WatchlistTab({
     if (!focusAreaId || loading) return undefined;
     const el = document.querySelector(`[data-area-id="${focusAreaId.id}"]`);
     if (!el) return undefined;
-    el.scrollIntoView({ block: "start", behavior: "smooth" });
+    el.scrollIntoView({ block: "start", behavior: scrollBehavior() });
     el.classList.add("wl-flash");
     const t = setTimeout(() => el.classList.remove("wl-flash"), 1600);
     return () => clearTimeout(t);
@@ -58,13 +61,13 @@ export default function WatchlistTab({
       const e = wRes.error || aRes.error;
       if (e) {
         console.error("Watchlist load failed:", e);
-        setBanner(`Couldn't load your watchlist: ${e.message}`);
+        setBanner(t("saved.loadError", { message: e.message }));
       }
       setItems(wRes.data || []);
       setAreas(aRes.data || []);
       setLoading(false);
     });
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps -- t: a language change must not re-read
 
   // The map and info drawer can now change bookmarks while this list is on screen.
   const firstRefresh = React.useRef(true);
@@ -133,7 +136,7 @@ export default function WatchlistTab({
     });
     setSaving(false);
     if (error) {
-      setBanner(`Couldn't save that area: ${error.message}`);
+      setBanner(t("saved.addError", { message: error.message }));
       return;
     }
     changeAreas([data, ...areas]);
@@ -150,7 +153,7 @@ export default function WatchlistTab({
   async function updateAreaRadius(id, r) {
     const { error } = await updateWatchArea(id, { radius_miles: r });
     if (error) {
-      setBanner(`Couldn't change that radius: ${error.message}`);
+      setBanner(t("saved.radiusError", { message: error.message }));
       return;
     }
     setZones((prev) => withoutZone(prev, id));
@@ -160,7 +163,7 @@ export default function WatchlistTab({
   if (loading) {
     return (
       <>
-        <div className="wl-empty">Loading…</div>
+        <div className="wl-empty">{t("saved.loading")}</div>
       </>
     );
   }
@@ -185,7 +188,7 @@ export default function WatchlistTab({
 
       <div className="wl-section">
         <div className="wl-section-hd">
-          <h3>Watch areas</h3>
+          <h3>{t("saved.areas.title")}</h3>
           <span className="wl-usage">
             {areas.length} / {CAPS.areas}
           </span>
@@ -193,7 +196,7 @@ export default function WatchlistTab({
 
         {areas.length === 0 && (
           <div className="wl-empty" style={{ marginBottom: 12 }}>
-            Add an address to see every restaurant within a radius, ranked however you like.
+            {t("saved.areas.empty")}
           </div>
         )}
 
@@ -217,9 +220,7 @@ export default function WatchlistTab({
         </div>
 
         {atAreaCap ? (
-          <div className="wl-quiet">
-            You're using all {CAPS.areas} watch areas. Remove one to add another.
-          </div>
+          <div className="wl-quiet">{t("saved.areas.full", { n: CAPS.areas })}</div>
         ) : (
           <AddAreaForm
             pickerKey={pickerKey}

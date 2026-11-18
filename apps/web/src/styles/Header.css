@@ -93,11 +93,16 @@
   justify-self: start;
   width: clamp(200px, 28vw, 420px);
   min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .header-search .search-wrap {
   position: relative;
   width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .header-search .icon {
@@ -413,6 +418,82 @@
   content: attr(data-initial);
 }
 
+/* The language picker (LanguagePicker.jsx): a header button with a native <select>
+   stretched invisibly over it, so a tap opens the system's own list. */
+.lang-picker {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lang-picker select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px; /* no zoom-on-focus on iPhones */
+}
+.lang-picker:focus-within {
+  outline: 2px solid #8ab4f8;
+  outline-offset: 2px;
+}
+.lang-picker .flag {
+  display: block;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.lang-picker .icon {
+  flex-shrink: 0;
+}
+
+/* Phones: the flag takes less room, so the search box's words fit. */
+@media (max-width: 640px) {
+  .header-search {
+    gap: 6px;
+  }
+  .lang-picker {
+    min-width: 34px;
+    padding: 0 4px;
+  }
+  .lang-picker .flag {
+    width: 20px;
+    height: 13px;
+  }
+  .header-search input {
+    padding-right: 6px;
+    font-size: 0.86rem;
+  }
+}
+
+/* Very narrow phones (320px, or a zoomed-in window): the name shrinks to fit the width, and
+   the search row and the buttons keep their room (WCAG 1.4.10, no sideways scrolling). */
+@media (max-width: 380px) {
+  /* The name's font ("Tilt Neon", from Google Fonts) is wider than the fallback it shows
+     while loading, so the three words may wrap onto two lines instead of running off. */
+  .app-header .brand {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 2px;
+    max-width: 100%;
+  }
+  .app-header .brand > span,
+  .brand > span {
+    font-size: 6.4vw;
+    padding: 0 2px;
+  }
+  .app-header .header-inner {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    column-gap: 6px !important;
+  }
+}
+
 /* Names-only and addresses-only toggles inside the search box (AppHeader.jsx), like a
    code editor's find bar: dim until pressed. Phones show them only while the search is
    in use, to keep the header quiet. */
@@ -464,7 +545,7 @@
     display: none;
   }
   .header-search .search-wrap input {
-    padding-right: 12px;
+    padding-right: 6px;
   }
   .search-wrap:focus-within .search-fields,
   .search-wrap--busy .search-fields {

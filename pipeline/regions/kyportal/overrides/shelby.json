@@ -1,0 +1,9 @@
+{
+  "_how": [
+    "Pins placed by hand for Shelby County addresses no geocoder finds. Same format as regions/bullitt/overrides.json, whose _how explains each field.",
+    "query: copy it from the job's '\u2717 no match' line, the part after the dash.",
+    "name: the place's name as the job prints it. With a name, the pin is for that place only; use one whenever the query has no house number, or every place in town with that address would get the pin.",
+    "Empty until the first load shows which addresses no geocoder finds."
+  ],
+  "places": []
+}

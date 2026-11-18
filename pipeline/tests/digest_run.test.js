@@ -25,13 +25,16 @@ const AREA = { id: "x", name: "Home", radius: 2, total: 1, failing: 1, places: R
 const JANE = { id: "u-jane", email: "jane@example.com", token: "tok-jane" };
 const SAM = { id: "u-sam", email: "sam@example.com", token: "tok-sam" };
 
-// A database with two subscribers; Jane has a watch area. Records what was asked of it.
-function fakeStore({ delivered = [] } = {}) {
-  const calls = { watchAreas: [], recorded: [], weekRows: 0 };
+// A database with two subscribers; Jane has a watch area, Sam a saved place that was
+// inspected (Jane can be given it too). Records what was asked of it.
+function fakeStore({ delivered = [], janeSaves = false, samSpanish = false } = {}) {
+  const SAM_ = samSpanish ? { ...SAM, language: "es" } : SAM;
+  const calls = { watchAreas: [], savedPlaces: [], recorded: [], weekRows: 0 };
+  const saved = [{ id: null, name: null, total: 2, places: ROWS }];
   return {
     calls,
     weekRows: async () => (calls.weekRows++, ROWS),
-    subscribers: async () => [JANE, SAM],
+    subscribers: async () => [JANE, SAM_],
     accounts: async (emails) =>
       emails.map(
         (email) =>
@@ -45,6 +48,14 @@ function fakeStore({ delivered = [] } = {}) {
       calls.watchAreas.push({ days, ids });
       return new Map(ids == null || ids.includes(JANE.id) ? [[JANE.id, [AREA]]] : []);
     },
+    savedPlaces: async (days, ids) => {
+      calls.savedPlaces.push({ days, ids });
+      const people = [SAM.id, ...(janeSaves ? [JANE.id] : [])];
+      return new Map(
+        people.filter((id) => ids == null || ids.includes(id)).map((id) => [id, saved]),
+      );
+    },
+    language: async (id) => (id === SAM.id && samSpanish ? "es" : "en"),
     delivered: async () => new Set(delivered),
     recordDelivery: async (jobId, r, status, error) => {
       calls.recorded.push({ jobId, email: r.email, status, error });
@@ -89,6 +100,28 @@ describe("runJob", () => {
         ["job-1", SAM.email, "sent"],
       ],
     );
+  });
+
+  it("puts each subscriber's saved places in their copy, read once for everyone", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    await runJob(digest({ id: "job-1" }), { store, send, today: TODAY });
+
+    assert.deepEqual(store.calls.savedPlaces, [{ days: 7, ids: null }]);
+    assert.doesNotMatch(outbox[0].html, /Your saved places/); // Jane saved nothing
+    assert.match(outbox[1].html, /Your saved places/);
+    assert.match(outbox[1].html, /1 of your 2 saved places was inspected this week/);
+  });
+
+  it("names a place once when it's both saved and in a watch area", async () => {
+    const store = fakeStore({ janeSaves: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(digest({ id: "job-1" }), { store, send, today: TODAY });
+
+    const jane = outbox[0];
+    assert.equal(jane.html.split("TACO SHOP").length - 1, 1);
+    assert.equal(jane.text.split("TACO SHOP").length - 1, 1);
+    assert.match(jane.html, /1 inspection this week, 1 failing \(1 shown above\)/);
   });
 
   it("a second run of the same job skips everyone already delivered", async () => {
@@ -169,6 +202,36 @@ describe("runJob", () => {
     assert.equal(outbox[0].to, "owner@example.com");
     assert.match(outbox[0].html, /Your watch area/);
     assert.equal(outbox[0].unsubscribeUrl, null);
+  });
+
+  it("each subscriber's digest is in their own language", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(digest(), { store, send, today: TODAY });
+    const jane = outbox.find((m) => m.to === JANE.email);
+    const sam = outbox.find((m) => m.to === SAM.email);
+    assert.match(jane.subject, /this week/);
+    assert.match(sam.subject, /esta semana/);
+    assert.match(sam.html, /Cancelar suscripción/);
+  });
+
+  it("a digest sent as a Spanish-language account is in Spanish, whoever gets it", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    const job = digest({ audience: "emails", to_emails: ["owner@example.com"], as_user: SAM.id });
+    await runJob(job, { store, send, today: TODAY });
+    assert.match(outbox[0].subject, /esta semana/);
+  });
+
+  it("a one-off email's footer follows the subscriber's language", async () => {
+    const store = fakeStore({ samSpanish: true });
+    const { outbox, send } = fakeMailer();
+    await runJob(
+      { kind: "custom", audience: "subscribers", subject: "Hi", body: "x" },
+      { store, send, today: TODAY },
+    );
+    assert.match(outbox.find((m) => m.to === SAM.email).html, /Cancelar suscripción/);
+    assert.match(outbox.find((m) => m.to === JANE.email).html, />Unsubscribe</);
   });
 
   it("a custom email is the typed message, with each subscriber's unsubscribe link", async () => {

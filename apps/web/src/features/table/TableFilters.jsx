@@ -1,7 +1,7 @@
 // Table View's chip rows: County, inspection Type and Facility category.
-import { nameList } from "../../lib/regions.js";
+import { useT } from "../../I18nContext.jsx";
 import { FACILITY_CATS } from "../../lib/tableQuery.js";
-import { regionName } from "./tableRegions.js";
+import { joinNames, regionName } from "./tableRegions.js";
 
 /**
  * regions: the counties listed; unlisted: switched on but not in the table views yet.
@@ -22,18 +22,19 @@ export default function TableFilters({
   setSelCats,
   toggleCat,
 }) {
+  const { t, locale } = useT();
   return (
     <div className="table-filters" data-testid="table-filters">
       {/* County chips */}
       <div className="table-filter-row">
-        <span className="table-filter-label">County</span>
+        <span className="table-filter-label">{t("table.county")}</span>
         <div className="table-type-chips">
           {REGIONS.length !== 1 && (
             <button
               className={`table-chip ${county === null ? "active" : ""}`}
               onClick={() => pickCounty(null)}
             >
-              {REGIONS.length === 2 ? "Both" : "All"}
+              {REGIONS.length === 2 ? t("table.both") : t("table.all")}
             </button>
           )}
           {REGIONS.map((r) => (
@@ -49,8 +50,12 @@ export default function TableFilters({
           ))}
           {unlisted.length > 0 && (
             <span className="table-filter-note" data-testid="table-county-note">
-              {nameList(unlisted.map((r) => r.shortName))}{" "}
-              {unlisted.length > 1 ? "aren't" : "isn't"} in Table View yet
+              {t(unlisted.length > 1 ? "table.notInTable.many" : "table.notInTable.one", {
+                names: joinNames(
+                  unlisted.map((r) => r.shortName),
+                  t,
+                ),
+              })}
             </span>
           )}
         </div>
@@ -59,22 +64,22 @@ export default function TableFilters({
       {/* Inspection type chips */}
       {types.length > 0 && (
         <div className="table-filter-row">
-          <span className="table-filter-label">Type</span>
+          <span className="table-filter-label">{t("table.type")}</span>
           <div className="table-type-chips">
             <button
               className={`table-chip ${selTypes === null ? "active" : ""}`}
               onClick={() => setSelTypes(null)}
             >
-              All
+              {t("table.all")}
             </button>
-            {types.map((t) => (
+            {types.map((ty) => (
               <button
-                key={t.type}
-                className={`table-chip ${selTypes?.has(t.type) ? "active" : ""}`}
-                onClick={() => toggleType(t.type)}
-                title={`${t.count.toLocaleString()} inspections`}
+                key={ty.type}
+                className={`table-chip ${selTypes?.has(ty.type) ? "active" : ""}`}
+                onClick={() => toggleType(ty.type)}
+                title={t("table.typeCount", { n: ty.count.toLocaleString(locale) })}
               >
-                {t.type}
+                {ty.type}
               </button>
             ))}
           </div>
@@ -83,29 +88,31 @@ export default function TableFilters({
 
       {/* Facility category chips: Jefferson only (its data is the one with types) */}
       <div className="table-filter-row">
-        <span className="table-filter-label">Facility</span>
+        <span className="table-filter-label">{t("table.facility")}</span>
         {facilityOn ? (
           <div className="table-type-chips">
             <button
               className={`table-chip ${selCats === null ? "active" : ""}`}
               onClick={() => setSelCats(null)}
             >
-              All
+              {t("table.all")}
             </button>
-            {Object.entries(FACILITY_CATS).map(([key, spec]) => (
+            {Object.keys(FACILITY_CATS).map((key) => (
               <button
                 key={key}
                 className={`table-chip ${selCats?.has(key) ? "active" : ""}`}
                 onClick={() => toggleCat(key)}
-                title="Jefferson County only: Bullitt's data has no facility types"
+                title={t("table.facilityTitle")}
               >
-                {spec.label}
+                {t(`table.cat.${key}`)}
               </button>
             ))}
           </div>
         ) : (
           <span className="table-filter-note" data-testid="table-facility-note">
-            {county ? `${regionName(county)}'s` : "This county's"} data has no facility types
+            {county
+              ? t("table.noFacilityNamed", { name: regionName(county) })
+              : t("table.noFacilityThis")}
           </span>
         )}
       </div>

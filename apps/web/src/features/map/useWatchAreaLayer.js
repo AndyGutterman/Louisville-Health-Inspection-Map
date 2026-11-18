@@ -15,6 +15,7 @@ const CIRCLE_COLOR = "#ff9f1c";
  * @param {object[]} o.watchAreas
  * @param {React.RefObject} o.pinnedSlot  the popup slot shared with the pin popups
  * @param {Function} o.onOpenPanel   (areaId) clicking the editor card opens the Saved panel
+ * @param {Function} [o.t]          the page's translator (English when left out)
  * @param {Function} o.onCommit      (area, { center_lat, center_lon, radius_miles }) save an edit
  */
 export function useWatchAreaLayer(o) {
@@ -50,6 +51,7 @@ export function useWatchAreaLayer(o) {
             popupRef: pinnedSlot,
             area,
             getAreas: () => latest.current.watchAreas,
+            t: latest.current.t,
             onOpenPanel: (areaId) => latest.current.onOpenPanel(areaId),
             onCommit: (patch) => latest.current.onCommit(area, patch),
           });

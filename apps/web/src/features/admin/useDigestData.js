@@ -1,10 +1,11 @@
 // The data behind the Digest tab: the week's inspections (the one read of any size, so
 // it's asked for once per window and kept for the page's life), the accounts list, and
-// the picked person's watch areas.
+// the picked person's own parts of the email (saved places, watch areas).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { summarize } from "@lfs/core/email/digest.js";
 import {
   SUBSCRIBERS_PAGE,
+  fetchDigestSaved,
   fetchSubscribers,
   fetchWatchAreas,
   fetchWeekRows,
@@ -13,7 +14,7 @@ import { useLatest } from "../../hooks/useLatest.js";
 import { errorText, louisvilleToday } from "../../lib/adminEmail.js";
 
 const weeks = new Map(); // "2026-11-10:7" -> Promise of rows
-const areas = new Map(); // "2026-11-10:7:<user id>" -> Promise of areas
+const personal = new Map(); // "2026-11-10:7:<user id>" -> Promise of { areas, saved }
 
 function once(cache, key, read) {
   if (!cache.has(key)) {
@@ -61,13 +62,23 @@ export function useWeekSummary(days) {
   return { summary, error, loading };
 }
 
-/** A person's watch areas for the window; [] for nobody (the generic digest). */
-export function useWatchAreas(userId, days) {
+/**
+ * A person's own parts of the email for the window: { areas, saved }, read side by side.
+ * Nobody picked (the generic digest): no areas, no saved places.
+ */
+export function usePersonalParts(userId, days) {
   const key = userId ? `${louisvilleToday()}:${days}:${userId}` : null;
   const { data, error, loading } = useKeyed(key, () =>
-    once(areas, key, () => fetchWatchAreas(userId, days)),
+    once(personal, key, async () => {
+      const [areas, saved] = await Promise.all([
+        fetchWatchAreas(userId, days),
+        fetchDigestSaved(userId, days),
+      ]);
+      return { areas, saved };
+    }),
   );
-  return { areas: userId ? data : [], error, loading };
+  if (!userId) return { areas: [], saved: [], error: null, loading: false };
+  return { areas: data?.areas ?? null, saved: data?.saved ?? [], error, loading };
 }
 
 /** The accounts list: searched in the database, a page at a time. */

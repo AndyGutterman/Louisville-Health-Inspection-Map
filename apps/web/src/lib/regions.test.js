@@ -37,8 +37,14 @@ describe("REGIONS", () => {
     expect(region.attribution).toBeTruthy();
   });
 
-  it("covers Jefferson and Bullitt counties", () => {
-    expect(enabledRegions().map((r) => r.id)).toEqual(["jefferson", "bullitt", "oldham"]);
+  it("covers Jefferson, Bullitt and the portal counties", () => {
+    expect(enabledRegions().map((r) => r.id)).toEqual([
+      "jefferson",
+      "bullitt",
+      "oldham",
+      "shelby",
+      "spencer",
+    ]);
   });
 
   // The map flies to `bounds` when a county is picked, so they must frame the outline.
@@ -115,14 +121,14 @@ describe("undatedRegionIds", () => {
 
 describe("untypedRegionIds", () => {
   it("lists counties whose data has no facility types", () => {
-    expect(untypedRegionIds()).toEqual(["bullitt", "oldham"]);
+    expect(untypedRegionIds()).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
   });
 });
 
 describe("formItemRegionIds and portalRegionIds", () => {
   it("lists counties whose violations are form items, and those read from the portal", () => {
-    expect(formItemRegionIds()).toEqual(["bullitt", "oldham"]);
-    expect(portalRegionIds()).toEqual(["oldham"]);
+    expect(formItemRegionIds()).toEqual(["bullitt", "oldham", "shelby", "spencer"]);
+    expect(portalRegionIds()).toEqual(["oldham", "shelby", "spencer"]);
   });
 });
 
@@ -130,6 +136,8 @@ describe("regionOfId", () => {
   it("tells each county's ids apart, and treats the rest as Louisville's", () => {
     expect(regionOfId("bullitt-0a1b2c").id).toBe("bullitt");
     expect(regionOfId("oldham-0a1b2c").id).toBe("oldham");
+    expect(regionOfId("shelby-0a1b2c").id).toBe("shelby");
+    expect(regionOfId("spencer-0a1b2c").id).toBe("spencer");
     expect(regionOfId("12345").id).toBe(DEFAULT_REGION);
     expect(regionOfId("oldhamx").id).toBe(DEFAULT_REGION);
     expect(regionOfId(null).id).toBe(DEFAULT_REGION);

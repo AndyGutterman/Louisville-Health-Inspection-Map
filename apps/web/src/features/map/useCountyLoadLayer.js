@@ -7,9 +7,11 @@ import maplibregl from "maplibre-gl";
 import "../../styles/CountyLoad.css";
 import { useLatest } from "../../hooks/useLatest.js";
 import { countyStatusText } from "../../lib/counties.js";
+import { translate } from "../../lib/i18n.js";
 import { outlineSourceId } from "../../lib/regions.js";
 import { CLICKABLE_LAYERS } from "./mapLayers.js";
 
+const english = (key, vars) => translate("en", key, vars);
 const STRIPES = "county-stripes";
 const stripeLayerId = (regionId) => `${outlineSourceId(regionId)}-stripes`;
 
@@ -28,10 +30,10 @@ function stripeImage(size = 32, period = 16, band = 6) {
 }
 
 // The button's words: "Bullitt County" over "Tap to load", "Loading…" and so on.
-function buttonLabel(county) {
-  if (county.state === "ready") return "Tap to show";
-  if (!county.state) return "Tap to load";
-  return countyStatusText(county);
+function buttonLabel(county, t) {
+  if (county.state === "ready") return t("counties.tapToShow");
+  if (!county.state) return t("counties.tapToLoad");
+  return countyStatusText(county, t);
 }
 
 /**
@@ -40,9 +42,11 @@ function buttonLabel(county) {
  * @param {boolean} o.mapReady      true once the pin layers and county outlines exist
  * @param {object[]} o.counties     { id, name, labelAt, shown, state } per county
  * @param {Function} o.onShowCounty (id) switch a county on
+ * @param {Function} [o.t]          the page's translator (English when left out)
  */
 export function useCountyLoadLayer(o) {
   const { mapRef, mapReady, counties } = o;
+  const t = o.t ?? english;
   const latest = useLatest(o);
   const markers = useRef({}); // county id -> { marker, button, label }
 
@@ -124,12 +128,12 @@ export function useCountyLoadLayer(o) {
           .addTo(map);
         m = markers.current[county.id] = { marker, button, label };
       }
-      m.label.textContent = buttonLabel(county);
+      m.label.textContent = buttonLabel(county, t);
       m.button.dataset.state = county.state ?? "idle";
       m.button.disabled = county.state === "loading";
-      m.button.setAttribute("aria-label", `${county.name}: ${buttonLabel(county)}`);
+      m.button.setAttribute("aria-label", `${county.name}: ${buttonLabel(county, t)}`);
     }
-  }, [mapRef, mapReady, counties, latest]);
+  }, [mapRef, mapReady, counties, latest, t]);
 
   // Buttons go with the map.
   useEffect(

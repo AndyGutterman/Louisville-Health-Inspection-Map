@@ -1,9 +1,11 @@
-// Sorting and labels for the places in a watch area (WatchlistTab.jsx). Pure.
+// Sorting and labels for the places in a watch area (WatchlistTab.jsx). Pure: labels are
+// keys for t() (lib/strings.saved.js); `label` is the English one.
+import { translate } from "./i18n.js";
 
 export const SORTS = [
-  { key: "distance", label: "Distance" },
-  { key: "score", label: "Score" },
-  { key: "violations", label: "Violations" },
+  { key: "distance", label: "Distance", labelKey: "saved.sort.distance" },
+  { key: "score", label: "Score", labelKey: "saved.sort.score" },
+  { key: "violations", label: "Violations", labelKey: "saved.sort.violations" },
 ];
 
 export const DEFAULT_SORT = "violations";
@@ -29,8 +31,8 @@ export function sortPlaces(rows, key) {
 
 // "3 violations · 6 mo". Bullitt County publishes only the latest inspection, undated,
 // so its count is for that inspection.
-export function violationText(p) {
+// t is the useT() word lookup; English without it.
+export function violationText(p, t = (key, vars) => translate("en", key, vars)) {
   const n = p.violations_6mo;
-  const noun = n === 1 ? "violation" : "violations";
-  return p.region === "bullitt" ? `${n} ${noun} · latest` : `${n} ${noun} · 6 mo`;
+  return t(p.region === "bullitt" ? "saved.violLatest" : "saved.viol6mo", { n });
 }

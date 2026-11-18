@@ -8,6 +8,7 @@
 import { supabase } from "../lib/supabase.js";
 import {
   DIGEST_COLUMNS,
+  groupSavedPlaces,
   groupWatchAreas,
   sinceFilter,
   windowStart,
@@ -47,6 +48,14 @@ export async function fetchWatchAreas(userId, days) {
     await supabase.rpc("admin_digest_watch_areas", { p_user_id: userId, p_days: days }),
   );
   return groupWatchAreas(rows).get(userId) ?? [];
+}
+
+/** One person's saved lists with their places inspected in the window ([{ id, name, total, places }]). */
+export async function fetchDigestSaved(userId, days) {
+  const rows = must(
+    await supabase.rpc("admin_digest_saved_places", { p_user_id: userId, p_days: days }),
+  );
+  return groupSavedPlaces(rows).get(userId) ?? [];
 }
 
 /**

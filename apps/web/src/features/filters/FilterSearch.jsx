@@ -7,6 +7,7 @@ import "../../styles/ToggleRow.css";
 import "../../styles/CountyLoad.css";
 import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
+import { useT } from "../../I18nContext.jsx";
 import { useMediaQuery } from "../../hooks/useMediaQuery.js";
 import PinBar from "./PinBar.jsx";
 import PinSwitches from "./PinSwitches.jsx";
@@ -33,6 +34,7 @@ export default function FilterSearch({
   counties = [], // each one's switch: { id, name, shown, state, places } (Map.jsx)
   onToggleCounty, // (id, on)
 }) {
+  const { t } = useT();
   const [tab, setTab] = React.useState("adjust");
   const [collapsed, setCollapsed] = React.useState(true);
   const isDesktop = useMediaQuery("(min-width: 900px)");
@@ -91,7 +93,7 @@ export default function FilterSearch({
             <button
               type="button"
               className="menu-btn"
-              aria-label={collapsed ? "Expand controls" : "Collapse controls"}
+              aria-label={collapsed ? t("filters.expand") : t("filters.collapse")}
               onClick={() => setCollapsed((v) => !v)}
             >
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -119,12 +121,12 @@ export default function FilterSearch({
 
             <div className="filters">
               <Tabs.Root className="rx-tabs" value={tab} onValueChange={setTab}>
-                <Tabs.List className="rx-tabs-list" aria-label="Adjust or Filter">
+                <Tabs.List className="rx-tabs-list" aria-label={t("filters.tabsLabel")}>
                   <Tabs.Trigger className="rx-tab" value="adjust">
-                    Adjust
+                    {t("filters.tab.adjust")}
                   </Tabs.Trigger>
                   <Tabs.Trigger className="rx-tab" value="filter">
-                    Filter
+                    {t("filters.tab.filter")}
                   </Tabs.Trigger>
                 </Tabs.List>
 

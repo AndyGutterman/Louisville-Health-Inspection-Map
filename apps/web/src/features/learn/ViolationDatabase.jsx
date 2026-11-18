@@ -3,25 +3,23 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { summarizeViolations } from "../../lib/violationSummary.js";
 import { toTitleCase } from "../../lib/titleCase.js";
+import Bold from "./Bold.jsx";
+import { useT } from "../../I18nContext.jsx";
 import { fetchPlacesWithViolation, fetchViolationSummary } from "../../api/learn.js";
 
 // ─── Timeline options ────────────────────────────────────────────────────────
 const TIMELINE_OPTS = [
-  {
-    key: "all",
-    label: "All time",
-    days: null,
-    note: "Every recorded citation since data collection began.",
-  },
-  { key: "12mo", label: "12 months", days: 365, note: "Citations from the past 12 months only." },
-  { key: "6mo", label: "6 months", days: 182, note: "Citations from the past 6 months only." },
-  { key: "3mo", label: "3 months", days: 91, note: "Citations from the past 3 months only." },
+  { key: "all", days: null },
+  { key: "12mo", days: 365 },
+  { key: "6mo", days: 182 },
+  { key: "3mo", days: 91 },
 ];
 
 // ─── Violations database section ─────────────────────────────────────────────
 const PAGE_SIZE = 40;
 
 export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishment }) {
+  const { t, locale } = useT();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,11 +88,12 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
       } catch (e) {
         // No fallback that pages through inspection_violations: one failed request used
         // to start a download of the whole table, a page at a time.
-        setError(e.message || "Failed to load violations");
+        setError(e.message || t("learn.vdb.failed"));
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t only changes with the language
   }, [cutoffDate]);
 
   // Word-boundary regex — "rat" won't match inside "temperature"
@@ -119,7 +118,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
 
   const visible = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
   const totalCitations = rows.reduce((s, r) => s + r.count, 0);
-  const scopeNote = TIMELINE_OPTS.find((o) => o.key === timeline)?.note ?? "";
+  const scopeNote = t(`learn.vdb.tl.${timeline}.note`);
 
   function Highlighted({ text }) {
     if (!searchRegex) return <>{text}</>;
@@ -152,7 +151,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
     <>
       {/* Timeline selector */}
       <div className="ln-vdb-timeline">
-        <span className="ln-vdb-tl-label">Showing</span>
+        <span className="ln-vdb-tl-label">{t("learn.vdb.showing")}</span>
         {TIMELINE_OPTS.map((opt) => (
           <button
             key={opt.key}
@@ -162,16 +161,16 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
               setSearch("");
             }}
           >
-            {opt.label}
+            {t(`learn.vdb.tl.${opt.key}`)}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="ln-vdb-loading">Loading violations…</div>
+        <div className="ln-vdb-loading">{t("learn.vdb.loading")}</div>
       ) : error ? (
         <div className="ln-vdb-loading" style={{ color: "#ff9a9a" }}>
-          Error: {error}
+          {t("learn.vdb.error", { message: error })}
         </div>
       ) : (
         <>
@@ -180,12 +179,14 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
           {/* Stats */}
           <div className="ln-vdb-stats">
             <span className="ln-vdb-stat">
-              <strong>{rows.length.toLocaleString()}</strong> distinct violation types
+              <Bold text={t("learn.vdb.types", { n: rows.length.toLocaleString(locale) })} />
             </span>
             <span className="ln-vdb-stat">
-              <strong>{totalCitations.toLocaleString()}</strong> total citations
+              <Bold text={t("learn.vdb.citations", { n: totalCitations.toLocaleString(locale) })} />
               {timeline !== "all" && (
-                <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}> in window</span>
+                <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}>
+                  {t("learn.vdb.inWindow")}
+                </span>
               )}
             </span>
           </div>
@@ -202,7 +203,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
               <input
                 className="ln-vdb-search"
                 type="text"
-                placeholder="Search violations…"
+                placeholder={t("learn.vdb.search")}
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -215,10 +216,10 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
           {/* List */}
           {filtered.length === 0 ? (
             <div className="ln-vdb-loading">
-              No violations match "{search}".
+              {t("learn.vdb.noMatch", { search })}
               <br />
               <span style={{ fontSize: ".76rem", color: "rgba(255,255,255,0.30)" }}>
-                Try a broader term.
+                {t("learn.vdb.broader")}
               </span>
             </div>
           ) : (
@@ -230,7 +231,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                     <div
                       className={"ln-vdb-row" + (isExpanded ? " expanded" : "")}
                       onClick={() => handleRowClick(r.desc)}
-                      title="Click to see establishments with this violation"
+                      title={t("learn.vdb.rowTitle")}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
@@ -246,19 +247,17 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
 
                     {isExpanded && (
                       <div className="ln-vdb-drill">
-                        <div className="ln-vdb-drill-title">Establishments with this violation</div>
+                        <div className="ln-vdb-drill-title">{t("learn.vdb.drillTitle")}</div>
                         {drillLoading ? (
-                          <div className="ln-vdb-drill-loading">Loading…</div>
+                          <div className="ln-vdb-drill-loading">{t("learn.vdb.loadingShort")}</div>
                         ) : drillData.length === 0 ? (
-                          <div className="ln-vdb-drill-loading">
-                            No results found in this time window.
-                          </div>
+                          <div className="ln-vdb-drill-loading">{t("learn.vdb.drillNone")}</div>
                         ) : (
                           <>
                             <div className="ln-vdb-drill-chips">
                               {drillData.map((est) => {
                                 const vDate = est.violation_date
-                                  ? new Date(est.violation_date).toLocaleDateString(undefined, {
+                                  ? new Date(est.violation_date).toLocaleDateString(locale, {
                                       month: "short",
                                       day: "numeric",
                                       year: "2-digit",
@@ -282,7 +281,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                                     {(vDate || vScore != null) && (
                                       <span
                                         className="ln-vdb-chip-score"
-                                        title="Score · date when cited"
+                                        title={t("learn.vdb.scoreDate")}
                                       >
                                         {vScore != null ? vScore : ""}
                                         {vDate ? ` · ${vDate}` : ""}
@@ -293,9 +292,7 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                               })}
                             </div>
                             {drillTotal >= 50 && (
-                              <div className="ln-vdb-drill-more">
-                                Showing top 50 results — search to narrow down.
-                              </div>
+                              <div className="ln-vdb-drill-more">{t("learn.vdb.top50")}</div>
                             )}
                           </>
                         )}
@@ -309,12 +306,12 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
 
           {!showAll && filtered.length > PAGE_SIZE && (
             <button className="ln-vdb-show-more" onClick={() => setShowAll(true)}>
-              Show all {filtered.length.toLocaleString()} results
+              {t("learn.vdb.showAll", { n: filtered.length.toLocaleString(locale) })}
             </button>
           )}
           {showAll && filtered.length > PAGE_SIZE && (
             <button className="ln-vdb-show-more" onClick={() => setShowAll(false)}>
-              Collapse
+              {t("learn.vdb.collapse")}
             </button>
           )}
         </>

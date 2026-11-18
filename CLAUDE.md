@@ -1,18 +1,18 @@
 # Louisville Food Safe: project context for Claude Code
 
-Read this first. It was written on 2026-11-05 from a long chat session and covers what the project is, how it is organized, the decisions made, the gotchas found, and what is left to do. Check `git log` and `git status` before trusting the "state" section: it may be a little behind the repo.
+Read this first. It was written on 2026-11-05 from a long chat session (brought up to date 2026-11-18) and covers what the project is, how it is organized, the decisions made, the gotchas found, and what is left to do. Check `git log` and `git status` before trusting the "state" section: it may be a little behind the repo.
 
 Be extremely cognizant of our 5GB monthly egress limits on supabase and all free tier limits for supabase. In the past we had an issue where Claude literally hit that in a day doing some loop... Be conscious of our limits. Be conservative there.
 
 ## What this is
 
-An interactive map of health inspection scores for Louisville, KY restaurants and food service places. Live at https://louisvillefoodsafe.netlify.app. It is a solo, open-source project and the owner's flagship résumé project, so code quality, tests, CI and docs matter as much as features. The owner does not expect outside contributors, so do NOT add CONTRIBUTING files, issue or PR templates, or Dependabot.
+An interactive map of health inspection scores for restaurants and food service places in Louisville, KY (Jefferson County), plus Bullitt and Oldham counties. Live at https://louisvillefoodsafe.netlify.app. It is a solo, open-source project and the owner's flagship résumé project, so code quality, tests, CI and docs matter as much as features. The owner does not expect outside contributors, so do NOT add CONTRIBUTING files, issue or PR templates, or Dependabot.
 
-Data flow: Louisville Metro ArcGIS REST API -> Node pipeline scripts (`pipeline/`) run by GitHub Actions -> Supabase (Postgres, Auth, one Edge Function) -> React site on Netlify.
+Data flow: each county's source (Louisville Metro's ArcGIS for Jefferson; Kentucky's statewide portal for Oldham and Bullitt, with Bullitt's own sheet as its fallback) -> Node pipeline scripts (`pipeline/`) run by GitHub Actions -> Supabase (Postgres, Auth, two Edge Functions) -> React site on Netlify. The README's "How it works" draws it, with the fallbacks.
 
 Stack: React 19, Vite 7, MapLibre GL 5, Supabase (supabase-js), Geoapify (address search), Vitest, ESLint, Prettier, Netlify, GitHub Actions.
 
-A phased readability refactor is in progress: plan, decisions and known bugs are in `docs/REFACTOR_PLAN.md`. Phases 0 and 1 are done (2026-11-06).
+A phased readability refactor: plan, decisions and known bugs are in `docs/REFACTOR_PLAN.md`. Phases 0, 1, 2, 4 and 5 are done, phase 6 nearly (2026-11-18); phase 3 (the pipeline) is left.
 
 ## Repo layout (Windows, PowerShell; repo root is `Louisville-Health-Inspection-Map`)
 
@@ -32,19 +32,24 @@ apps/web/                 React app (was InspectionWebsite/)
   src/features/drawer/    the info drawer: InfoDrawer (shell), InspectionCard, History, useBottomSheet, useDrawerWidth
   src/api/                every Supabase query, one file per topic (mapData, watchlist, table, whatsNew,
                           learn, account, admin). Components don't call supabase.from/.rpc themselves.
-  src/*.jsx               the other components (InfoDrawer, WhatsNew, FilterSearch, ...)
+  src/features/filters/   the filter card: FilterSearch (shell), PinBar, PinSwitches, FilterTab, CountySwitch, CategoryIcon
+  src/features/saved/     the Saved panel: WatchlistTab (state, reads), SavedPlaces, WatchAreaCard, AddAreaForm, limits
+  src/features/learn/     the Learn page: LearnPage, ViolationDatabase, LoginModal (the sign-in form)
+  src/features/privacy/   the privacy page (/?page=privacy), its own chunk
+  src/*.jsx               the other components (WhatsNew, AccountPage, FeedbackModal, ScoreThreshold, AddressPicker, ...)
 packages/core/            shared by the website and the pipeline, pure: categories.js, grading.js (the
                           score scale), regions.js (county ids and names), email/ (the digest and one-off
                           emails, the rules for an email job); tests in packages/core/tests (node --test)
 pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
 supabase/                 migrations (full schema baseline + later changes) and functions/ (submit-feedback,
-                          email-dispatch)
-docs/                     ARCHITECTURE.md (mermaid diagrams), SMOKE_TEST.md (manual checklist), REFACTOR_PLAN.md
+                          email-dispatch, and _shared/cors.ts for both)
+docs/                     ARCHITECTURE.md, SMOKE_TEST.md, REFACTOR_PLAN.md, ACCESSIBILITY.md, BULLITT.md, COUNTIES.md,
+                          DIGEST.md, EMAIL_ADMIN.md, PRIVACY.md
 .github/workflows/        ci.yml, e2e.yml, ingest.yml, bullitt-ingest.yml, portal-ingest.yml, db-backup.yml, etl-check.yml,
                           digest.yml, email-outbox.yml, schema-dump.yml
 ```
 
-`src/lib/` modules: searchText, samePlaceDetection, scoring, categories, dates, dedupe, geocode, bottomSheet, mapBounds, constants.
+`src/lib/` holds about 35 small pure modules (search, scoring, categories, dedupe, map filters and cache, counties, paging, dates, the bottom sheet, ...), each with its test beside it.
 
 ## Commands (from the repo root)
 
@@ -122,7 +127,7 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - **Pan limits:** `lib/mapBounds.js` widens the old fixed box by an amount that scales with the window, so pins under side panels can be panned into view.
 - **Auth:** Supabase email one-time **6-digit code** (not the magic link). `AuthContext.jsx` exposes the single client from `lib/supabase.js`. For local magic links to work, `http://localhost:5173/**` must be in Supabase Redirect URLs; the code flow avoids that.
 - **Feedback:** `FeedbackModal.jsx` posts to the `submit-feedback` edge function (IP rate limit, honeypot, cooldown).
-- **Weekly digest email:** `docs/DIGEST.md`. `pipeline/digest/`, `digest.yml` (Tuesdays), `profiles.alert_frequency = 'weekly'`, `lib/digest.js`, `lib/deepLink.js` (`/?eid=`, `/?page=learn`). Each of a subscriber's watch areas is its own part of the email (`digest_watch_areas`, migration `20261124000000`, a few rows per area). A run of the workflow by hand goes only to the owner (`audience: me`, the `DIGEST_TEST_TO` secret) unless `audience` is changed; `dry_run` attaches the email instead of sending.
+- **Weekly digest email:** `docs/DIGEST.md`. `pipeline/digest/`, `digest.yml` (Tuesdays), `profiles.alert_frequency = 'weekly'`, `lib/digest.js`, `lib/deepLink.js` (`/?eid=`, `/?page=learn`). Each of a subscriber's watch areas is its own part of the email (`digest_watch_areas`, migration `20261124000000`, a few rows per area), below their saved places inspected that week (`digest_saved_places`, migration `20261128000000`); the email names each place once (`oncePerEmail`). A run of the workflow by hand goes only to the owner (`audience: me`, the `DIGEST_TEST_TO` secret) unless `audience` is changed; `dry_run` attaches the email instead of sending.
 - **Email admin page:** read `docs/EMAIL_ADMIN.md` first. `/?page=admin` (and an "Email admin" button in the Saved panel, for admins only): preview anyone's digest, send tests and one-off emails, see what was sent. `features/admin/`, `api/admin.js`, `lib/adminEmail.js`. An admin is a row in `admin_users`, added by hand in SQL; every `admin_*` database function checks it (migration `20261125000000`), so the page hiding things is only a convenience. The site only queues a row in `email_jobs`; `pipeline/digest/outbox.js` (`email-outbox.yml`, started by the `email-dispatch` edge function) sends it with the same code as Tuesday's digest (`pipeline/digest/run.js`) and logs each address in `email_deliveries`, so "Send again" never sends twice. The emails are `packages/core/email/` (`digest.js`, `custom.js`): the preview and the email are one function, so change an email there. The outbox workflow's log is public: never print an address in `pipeline/digest/`. In e2e, `openApp(page, { answers: { "rpc/is_admin": true } })` plus `mockAuth`/`signIn` (`e2e/admin.spec.js`).
 - **Privacy page:** `/?page=privacy`, `features/privacy/PrivacyPage.jsx` (its own chunk), linked from the sign-in form, the feedback form, Saved, the Learn page and every email's footer. Every line on it has to stay true: when the site stores something new about a person, sends data to a new service or adds analytics, update the page and the date in `lib/privacy.js`. It says only what the site does by itself: no promise that needs a person to keep it (no contact inbox, no deadline, no "ask and it will be deleted", no "you will be told"; owner's call, 2026-11-17), and it says an account can't be deleted yet. `docs/PRIVACY.md` maps each statement to the code.
 - **Date filter and map cache constants:** `lib/constants.js`.
@@ -145,15 +150,43 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 
 ## State (verify with git)
 
-Applied and committed: lint cleanup, same-place extraction, scoring/categories/dates/dedupe/geocode extraction, shared `useMediaQuery`, phone bottom sheet and layering, outside-click fix for What's New, scaled pan limits, Vitest and CI, "round 9" (component CSS in `src/styles/`, constants in `lib/constants.js`, root README), refactor phases 0 and 1 (schema baseline in `supabase/migrations/`, workspace layout, Prettier), the feedback RLS fix, the nightly-backup fix, the phone PR workflow with Playwright, and the Map.jsx split into `features/map/` (2026-11-08).
+As of 2026-11-19 (PRs up to #88 merged). Four PRs from an overnight run are open, all against `main`; **merge #89 first**: #90, #91 and #92 are built on its branch (`feat/i18n-spanish`), so until it merges their diffs also show its commits.
 
-## To do, in rough order
+- **#89 Spanish, finished** (issue #7): flag picker (inline US/Spain SVG, `features/map/LanguagePicker.jsx`) in the top left of every page, before the search box or the back button; every interface string in English and Spanish (`lib/strings.js` plus `strings.filters.js`, `.table.js`, `.saved.js`, `.pages.js`, merged there; `lib/i18n.test.js` enforces both languages have every key); the admin page stays English. The weekly email goes out in the subscriber's language: `profiles.language` (`en`/`es`), `packages/core/email/words.js` (tested word list; `renderDigest`/`renderCustom` take `lang`), `pipeline/digest` renders each copy in the recipient's language, the admin preview shows and uses it. Sign-up from the Spanish site saves `es`; a signed-in subscriber who switches language is offered the email in it once (`DigestLanguageOffer.jsx`), and the Saved panel always shows the choice. The privacy page says the language is stored (`PRIVACY_UPDATED` 2026-11-19).
+- **#90 Shelby and Spencer** from Kentucky's portal, like Oldham (off by default, loaded when switched on). Hardin (about twice Oldham's size) left out: `docs/COUNTIES.md`.
+- **#91 Violation rings:** Louisville amber-red, every other county goldenrod (`features/map/mapLayers.js`).
+- **#92 Accessibility part 2:** 320px reflow, reduced motion, dialog focus (`hooks/useDialogFocus.js`), 24px tap targets; `e2e/a11y-part2.spec.js`.
+- The refactor's phases 0, 1, 2, 4 and 5 are done, and phase 6 nearly: every big component is split into `features/`. Lint has 0 warnings.
+- Tests (with the open PRs): about 435 website unit and component tests, 73 in `packages/core`, 209 in the pipeline, and 212 Playwright runs (desktop and phone) including the axe checks (`e2e/a11y.spec.js`, in Spanish too) and `a11y-part2.spec.js`.
+- Gotcha from that run: running Prettier from inside `pipeline/` (`npx prettier --write tests`) reformatted `pipeline/tests/fixtures/kyportal_oldham.html`, the portal's saved page, and broke 13 tests. Run `npm run format` from the repo root, and `git status` before committing.
+- **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care. The overnight run made none.
 
-1. Add screenshots at `docs/images/desktop.png` and `mobile.png` (no personal info such as emails in them) and uncomment them in the README.
-2. Coverage: `npm run test:coverage` works (`@vitest/coverage-v8`, the same version as vitest; `src/lib` is about 98% of lines). Components are untested, so describe any badge as logic-layer coverage. Codecov is optional.
-3. Tests for fixed bugs: pull the What's New outside-click rule into a small testable function; add a few Testing Library component tests (drawer, What's New including the no-pin row). Needs jsdom.
-4. Refactor phases 3, 6 and 7 in `docs/REFACTOR_PLAN.md` (pipeline restructure; splitting the big components). `packages/core` (phase 2), `api/` for every panel (phase 4) and the Map.jsx split (phase 5) are done. Phase 3 changes the scripts that load production data: do it from a machine that can run them against the database (a dry run first), not blind from a cloud session.
-5. Later: consider TypeScript after the split.
+## To do, in order
+
+**Waiting on the owner** (each needs the dashboard, a deploy or a decision; none can be done from a session):
+
+1. Supabase → Edge Functions → Secrets: `ALLOWED_ORIGIN` must be `https://louisvillefoodsafe.netlify.app` with no trailing slash (a slash blocked the admin email button and all feedback from June to November 2026).
+2. Deploy both edge functions after #84: `npx supabase functions deploy submit-feedback --no-verify-jwt --project-ref iyahhhgqmhbadgczbfwy` and `npx supabase functions deploy email-dispatch --project-ref iyahhhgqmhbadgczbfwy`. Then delete the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` secrets, and send a test from the Feedback button.
+3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, `20261128000000_digest_saved_places.sql`, and (after #89 merges) **`20261129000000_digest_language.sql`** (adds `profiles.language`; until it runs every email is English and the language offer stays hidden).
+4. Netlify: delete the unused `GEOAPIFY_KEY` variable (the site uses `VITE_GEOAPIFY_KEY`).
+5. Decide whether approximate Bullitt pins (`ky911-approx`) should look different (`docs/BULLITT.md`, Decisions 9).
+6. Merge order: #89, then #90, #91, #92. After #90, run "Ingest portal counties" by hand for `shelby` then `spencer`, check the geocoding report, then add them to the scheduled list in `portal-ingest.yml`. Look at the ring colours (#91) and the larger score switches (#92) on a phone.
+7. Have a Spanish speaker skim `lib/strings*.js`, `packages/core/email/words.js` and the Spanish privacy text.
+
+**Code, next in line:**
+
+1. **Spanish leftovers:** the email admin page is English by design; raw Supabase error text still shows as received; a real screen-reader pass in Spanish.
+2. **Accessibility, still by hand** (`docs/ACCESSIBILITY.md`, "Not checked yet"): VoiceOver and TalkBack on the dialogs and the bottom sheet.
+3. **Pipeline (refactor phase 3)**, from a machine that can run against the database, dry run first, and only once egress has reset:
+   - `overlay_geometry.js` never saves coordinates (it should write `geom` only);
+   - `etl-accuracy-check.js` reads a different server and fields than the ingest;
+   - `seed_facilities` doesn't record its runs, so `Recover.js` can't recover it;
+   - Jefferson's ingest has no "refuse a source that shrank" guard like the portal and Bullitt jobs;
+   - the portal's Jefferson data could become Jefferson's fallback (not connected; `docs/COUNTIES.md`).
+4. **Phase 6 leftovers:** split `ScoreThreshold.jsx`; CSS clean-up; a component test for the info drawer (like `WhatsNew.test.jsx`).
+5. **Egress audit:** find what used 5 GB this cycle (the daily chart first), and keep a fresh map load and Table View as small as they can be.
+6. Maybe: Hardin County from the portal (`docs/COUNTIES.md`); showing portal counties in Table View, Saved and What's New.
+7. Later: consider TypeScript.
 
 ## Working with the owner
 

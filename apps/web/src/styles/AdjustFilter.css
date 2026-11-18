@@ -220,6 +220,7 @@
 }
 
 .seg-option {
+  min-height: 24px;
   padding: 5px 14px;
   border: 0;
   background: transparent;

@@ -6,6 +6,10 @@ import OverlapNav from "./OverlapNav.jsx";
 import { formatDateSafe } from "../../lib/dates.js";
 import { parseSimilarNearby } from "../../lib/inspectionHistory.js";
 import { regionById } from "../../lib/regions.js";
+import { translate } from "../../lib/i18n.js";
+
+// The words when none are passed in (tests, or before the map knows the language).
+const ENGLISH = { t: (key, vars) => translate("en", key, vars), locale: undefined };
 
 const POPUP_OPTIONS = {
   anchor: "bottom",
@@ -23,19 +27,19 @@ const esc = (s) =>
   );
 
 const scoreText = (p) => (p.score === 0 || p.score == null ? "N/A" : p.score);
-const gradeText = (p) => (p.grade ? ` (${esc(p.grade)})` : "");
 // Bullitt's routine inspections are undated when they come from the county's sheet; some
 // are then estimated (lib/bullitt.js).
-const dateText = (p) =>
-  (p.date_text ?? formatDateSafe(p.date)) + (p.date_estimated ? " (estimated)" : "");
+const dateText = (p, { t, locale }) =>
+  (p.date_text ?? formatDateSafe(p.date, locale)) +
+  (p.date_estimated ? ` ${t("popup.estimated")}` : "");
 const canSave = (p) => regionById(p.region).has.saving;
 
-const saveLabel = (saved) => (saved ? "Remove from watchlist" : "Save to watchlist");
+const saveLabel = (saved, t) => t(saved ? "popup.unsave" : "popup.save");
 
 // Styled in styles/Map.css (.popup-pin-btn): a finger-sized tap target around the icon,
 // and no focus ring left on it after a tap.
-function saveButtonHTML(eid, saved) {
-  const label = saveLabel(saved);
+function saveButtonHTML(eid, saved, t) {
+  const label = esc(saveLabel(saved, t));
   return `<button
     type="button"
     class="popup-pin-btn${saved ? " is-saved" : ""}"
@@ -52,32 +56,34 @@ function saveButtonHTML(eid, saved) {
 
 // Name, address, date, score, save button, "may also be listed as", and the
 // "N locations here" badge when several places share the spot.
-export function popupHTML(p, { saved = false, overlapCount = 0 } = {}) {
+// words: { t, locale } in the site's language (I18nContext.jsx); English when left out.
+export function popupHTML(p, { saved = false, overlapCount = 0, words = ENGLISH } = {}) {
+  const { t } = words;
   const similar = parseSimilarNearby(p.similar_nearby);
   const aliasNote = similar.length
-    ? `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">⚠ May also be listed as: ${similar
+    ? `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.45);border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">⚠ ${esc(t("popup.alsoListed"))} ${similar
         .map((n) => `<em>${esc(n.name)}</em>`)
         .join(", ")}</div>`
     : "";
   const overlap =
     overlapCount > 1
-      ? `<div class="overlap-badge" aria-live="polite">${overlapCount} locations here</div>`
+      ? `<div class="overlap-badge" aria-live="polite">${esc(t("popup.overlap", { n: overlapCount }))}</div>`
       : "";
   return `<div class="popup-content" style="font-size:14px;max-width:240px">
     <strong>${esc(p.name)}</strong><br/>
     <small>${esc(p.address_full || p.address)}</small><br/>
-    <small>Inspected: ${esc(dateText(p))}</small><br/>
+    <small>${esc(t("popup.inspected", { date: dateText(p, words) }))}</small><br/>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:1px">
-      <span>Score: ${scoreText(p)}${gradeText(p)}</span>
-      ${canSave(p) ? saveButtonHTML(p.establishment_id, saved) : ""}
+      <span>${esc(t("popup.score", { score: `${scoreText(p)}${p.grade ? ` (${p.grade})` : ""}` }))}</span>
+      ${canSave(p) ? saveButtonHTML(p.establishment_id, saved, t) : ""}
     </div>
     ${aliasNote}
     ${overlap}
   </div>`;
 }
 
-function paintSaveButton(btn, saved) {
-  const label = saveLabel(saved);
+function paintSaveButton(btn, saved, t) {
+  const label = saveLabel(saved, t);
   btn.classList.toggle("is-saved", saved);
   btn.title = label;
   btn.setAttribute("aria-label", label);
@@ -92,6 +98,7 @@ function paintSaveButton(btn, saved) {
  *   onOpenDrawer(eid, props): clicking a popup opens the info drawer
  *   onGroupShow(feature): a "1 of 3" popup shows this place (opened, or stepped to)
  *   colorForScore(score): the popup's pointer takes the pin's colour
+ *   words(): { t, locale }, the site's current language (English when left out)
  */
 export function createPopups({
   map,
@@ -101,6 +108,7 @@ export function createPopups({
   onOpenDrawer,
   onGroupShow,
   colorForScore,
+  words = () => ENGLISH,
 }) {
   let hover = null; // the hover popup
   let hoverId = null; // feature under the pointer, so moving within one pin doesn't redraw
@@ -120,6 +128,7 @@ export function createPopups({
     popupHTML(feature.properties, {
       saved: isSaved(feature.properties.establishment_id),
       overlapCount,
+      words: words(),
     });
 
   // Pointer colour, the save button, and clicking the popup to open the drawer.
@@ -174,6 +183,7 @@ export function createPopups({
         total={features.length}
         onPrev={() => step(-1)}
         onNext={() => step(1)}
+        t={words().t}
       />,
     );
 
@@ -266,7 +276,7 @@ export function createPopups({
     syncSaveButtons() {
       for (const popup of [pinnedSlot.current, hover]) {
         const btn = popup?.getElement()?.querySelector(".popup-pin-btn");
-        if (btn?.dataset.eid) paintSaveButton(btn, isSaved(btn.dataset.eid));
+        if (btn?.dataset.eid) paintSaveButton(btn, isSaved(btn.dataset.eid), words().t);
       }
     },
   };
