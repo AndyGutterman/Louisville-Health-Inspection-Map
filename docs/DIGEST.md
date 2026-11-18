@@ -2,7 +2,8 @@
 
 One email a week to everyone who subscribed: this week's inspections, the ones that
 scored under 85 or got a C placard, the perfect scores, a button to the map. Anyone with
-watch areas also gets each area as its own part of the email (see "Watch areas"). Tuesdays at
+saved places or watch areas also gets those first, as their own parts of the email (see
+"Saved places" and "Watch areas"), and the email names each place only once. Tuesdays at
 11:00 UTC (6 or 7 am in Louisville) from `.github/workflows/digest.yml`.
 
 ## How it works
@@ -27,6 +28,21 @@ watch areas also gets each area as its own part of the email (see "Watch areas")
   changes the display name. Gmail's SMTP allows about 500 messages a day.
 - **Links:** `/?eid=<id>` opens that place on the map, `/?page=learn` the Learn page
   (`lib/deepLink.js`).
+
+## Saved places
+
+Someone with saved places gets "Your saved places" at the top of the email: the ones that
+were inspected this week, failing first, then most violations ("1 of your 12 saved places
+was inspected this week"), or a line saying none was. `digest_saved_places` (migration
+`20261128000000`) returns only the saved places that were inspected, with the person's
+count of saved places, in one read for the whole send. The admin page previews it with
+`admin_digest_saved_places`. On a database without that function the email goes out
+without this part, and the run's log says so.
+
+**Each place once.** A saved place listed here is left out of the watch areas and of the
+shared lists below it, and a place in two watch areas is listed in the first
+(`oncePerEmail` in `packages/core/email/digest.js`). Totals stay whole: an area says "5
+inspections this week (1 shown above)", and the subject counts every failing inspection.
 
 ## Watch areas
 

@@ -454,6 +454,17 @@ Object.assign(TABLES, {
       posted_date: null,
     },
   ],
+  // Jane saved River City Tacos, which is also in her watch area: the email lists it
+  // once, with the saved places (packages/core/email/digest.js oncePerEmail).
+  "rpc/admin_digest_saved_places": [
+    {
+      user_id: JANE.id,
+      saved_total: 4,
+      ...whatsNewRow(PLACES[1]),
+      region: "jefferson",
+      posted_date: null,
+    },
+  ],
   "rpc/admin_queue_email": QUEUED_JOB_ID,
   "rpc/admin_email_jobs": [
     job({

@@ -3,7 +3,14 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { groupWatchAreas, renderDigest, summarize, FAIL_SCORE } from "@lfs/core/email/digest.js";
+import {
+  groupSavedPlaces,
+  groupWatchAreas,
+  oncePerEmail,
+  renderDigest,
+  summarize,
+  FAIL_SCORE,
+} from "@lfs/core/email/digest.js";
 
 const row = (over) => ({
   establishment_id: "1",
@@ -187,5 +194,111 @@ describe("renderDigest with watch areas", () => {
   it("marks a test send in the subject only", () => {
     assert.equal(subject, "4 inspections this week, 2 failing · Louisville Food Safe");
     assert.match(renderDigest(s, { test: true }).subject, /^\[Test\] 4 inspections/);
+  });
+});
+
+describe("groupSavedPlaces", () => {
+  it("gives each person their count of saved places and the ones inspected", () => {
+    const byUser = groupSavedPlaces([
+      { user_id: "u1", saved_total: 3, ...row({ establishment_id: "a" }) },
+      { user_id: "u1", saved_total: 3, ...row({ establishment_id: "b" }) },
+      { user_id: "u2", saved_total: 2, establishment_id: null },
+    ]);
+    assert.equal(byUser.get("u1").total, 3);
+    assert.deepEqual(
+      byUser.get("u1").places.map((r) => r.establishment_id),
+      ["a", "b"],
+    );
+    assert.deepEqual(byUser.get("u2"), { total: 2, places: [] });
+  });
+});
+
+describe("oncePerEmail", () => {
+  const s = summarize(ROWS, { today: "2026-11-10" });
+  const saved = { total: 3, places: [ROWS[0]] }; // TACO, failing
+  const area = (id, ids) => ({
+    id,
+    name: id,
+    radius: 1,
+    total: ids.length,
+    failing: 0,
+    places: ids.map((e) => row({ establishment_id: e })),
+  });
+
+  it("leaves a saved place out of the watch areas, and counts it as shown above", () => {
+    const mine = oncePerEmail({ saved, areas: [area("home", ["a", "x", "c"])] });
+    assert.deepEqual(
+      mine.areas[0].places.map((r) => r.establishment_id),
+      ["x", "c"],
+    );
+    assert.equal(mine.areas[0].above, 1);
+  });
+
+  it("lists a place in two watch areas only in the first", () => {
+    const mine = oncePerEmail({ areas: [area("home", ["x"]), area("work", ["x", "y"])] });
+    assert.deepEqual(
+      mine.areas[1].places.map((r) => r.establishment_id),
+      ["y"],
+    );
+    assert.equal(mine.areas[1].above, 1);
+  });
+
+  it("drops what the personal parts showed from the shared lists", () => {
+    const mine = oncePerEmail({
+      saved,
+      areas: [area("home", ["c"])],
+      failing: s.failing,
+      perfect: s.perfect,
+    });
+    assert.deepEqual(
+      mine.failing.map((r) => r.establishment_id),
+      ["b"],
+    );
+    assert.equal(mine.failingAbove, 1);
+    assert.deepEqual(mine.perfect, []);
+  });
+
+  it("changes nothing for someone with no saved places or areas", () => {
+    const mine = oncePerEmail({ failing: s.failing, perfect: s.perfect });
+    assert.equal(mine.failing.length, s.failing.length);
+    assert.equal(mine.failingAbove, 0);
+  });
+});
+
+describe("renderDigest with saved places", () => {
+  const s = summarize(ROWS, { today: "2026-11-10" });
+  const times = (text, needle) => text.split(needle).length - 1;
+
+  it("puts the saved places first, and names each place once", () => {
+    const { html, text } = renderDigest(s, { saved: { total: 3, places: [ROWS[0]] } });
+    assert.match(html, /Your saved places/);
+    assert.match(html, /1 of your 3 saved places was inspected this week/);
+    assert.ok(html.indexOf("Your saved places") < html.indexOf("Everywhere this week"));
+    assert.equal(times(html, "TACO &lt;SHOP&gt;"), 1);
+    assert.equal(times(text, "TACO <SHOP>"), 1);
+    assert.match(html, /a C placard \(1 shown above\)/);
+  });
+
+  it("says so when none of them was inspected", () => {
+    const { html, text } = renderDigest(s, { saved: { total: 2, places: [] } });
+    assert.match(html, /None of your 2 saved places were inspected this week/);
+    assert.match(text, /Your saved places: None of your 2 saved places/);
+  });
+
+  it("says the failing list is all above when every failing place is", () => {
+    const { html } = renderDigest(s, { saved: { total: 2, places: [ROWS[0], ROWS[1]] } });
+    assert.match(html, /Only the 2 places shown above\./);
+  });
+
+  it("has no saved part for someone with no saved places", () => {
+    const { html } = renderDigest(s, { saved: { total: 0, places: [] } });
+    assert.doesNotMatch(html, /Your saved places/);
+    assert.doesNotMatch(html, /Everywhere this week/);
+  });
+
+  it("keeps the subject's counts whole", () => {
+    const plain = renderDigest(s).subject;
+    const mine = renderDigest(s, { saved: { total: 3, places: [ROWS[0]] } }).subject;
+    assert.equal(mine, plain);
   });
 });
