@@ -19,13 +19,15 @@ const buildCommit = {
 export default defineConfig({
   plugins: [react(), buildCommit],
   test: {
-    environment: "node", // switch to "jsdom" per-file when component tests arrive
+    // Component tests ask for a DOM in their first line: // @vitest-environment jsdom
+    environment: "node",
     include: ["src/**/*.test.{js,jsx}"],
     // `npm run test:coverage` (needs @vitest/coverage-v8). Scoped to the logic layer.
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.js"],
-      exclude: ["src/**/*.test.js"],
+      // supabase.js only creates the client: there is no logic in it to test.
+      exclude: ["src/**/*.test.js", "src/lib/supabase.js"],
       reporter: ["text", "lcov"],
     },
   },
