@@ -41,8 +41,8 @@ docs/
 | 3     | Pipeline: ArcGIS client, Louisville adapter, steps, single runner (dry-run first)                                                                                                                                | Medium     |
 | 4     | Web data layer: every Supabase query in `api/` (map and drawer 2026-11-08; Table View, What's New, Learn, Saved and the account 2026-11-17). Not done: hooks around them                                         | Medium     |
 | 5     | Split `Map.jsx` (done 2026-11-08, see below)                                                                                                                                                                     | Highest    |
-| 6     | Remaining components, CSS clean-up, dead code                                                                                                                                                                    | Low–medium |
-| 7     | Docs: architecture, CONTRIBUTING, "adding a county", decision notes                                                                                                                                              | None       |
+| 6     | Remaining components, CSS clean-up, dead code. Split 2026-11-17: Table View, drawer, Learn page, filters (`features/`); dead code removed. Left: CSS clean-up, `WatchlistTab`, `ScoreThreshold`                  | Low–medium |
+| 7     | Docs: architecture, "adding a county" (`docs/COUNTIES.md`), decision notes. No CONTRIBUTING: no outside contributors are expected (CLAUDE.md)                                                                    | None       |
 
 After each phase: lint, tests, build and [SMOKE_TEST.md](SMOKE_TEST.md) pass.
 
@@ -92,10 +92,10 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 - `pipeline/overlay_geometry.js` never saves coordinates (expects `_lon`/`_lat`, which `fetchArcGISPage` never provides), so new places only get a pin through geocoding.
 - `pipeline/etl-accuracy-check.js` queries a different server and field names than the ETL; probably skips or fails every record.
 - `pipeline/Recover.js` can't recover `seed_facilities`, which never records its runs.
-- The table view's row-click popup is a simpler copy of the map popup (no save button).
+- Fixed 2026-11-17: a Table View row click opened a simpler copy of the map popup (no date, no save button); it now opens the map's own popup.
 - Fixed 2026-11-08: opening a second place before the first one's details arrived showed the first place's card (`useDrawer.js`, with an e2e test).
 - The Learn page drill-down shows each place's _current_ score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
-- `AuthContext.jsx` calls `unsubscribe_by_token`, which doesn't exist, so every unsubscribe link reports "isn't valid". Alert emails were never built.
+- Fixed with the weekly digest: `unsubscribe_by_token` (called from `AuthContext.jsx`) was missing, so every unsubscribe link said "isn't valid". Migration `20261116000000_weekly_digest.sql` adds it, and every digest email's footer link uses it.
 - Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
 - Fixed 2026-11-17: `seed_categories` ran last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would have made `backfill_types` fail. `ingest.yml` now loads the categories first.
 - `facilities.lon`/`lat` are generated from `geom`: the `trg_sync_lonlat` trigger does nothing, and fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error).
