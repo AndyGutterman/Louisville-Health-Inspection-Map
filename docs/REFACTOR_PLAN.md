@@ -96,9 +96,9 @@ Not done, and still worth doing: the `data-map-overlay` attribute (the panel lis
 - Fixed 2026-11-08: opening a second place before the first one's details arrived showed the first place's card (`useDrawer.js`, with an e2e test).
 - The Learn page drill-down shows each place's _current_ score, not its score when cited, and no date. A fix (`get_establishments_for_violation` v2) was written but never reached production, probably because changing a function's return columns needs `DROP FUNCTION` first.
 - Fixed with the weekly digest: `unsubscribe_by_token` (called from `AuthContext.jsx`) was missing, so every unsubscribe link said "isn't valid". Migration `20261116000000_weekly_digest.sql` adds it, and every digest email's footer link uses it.
-- Unused database objects: `consume_geo_quota` and the `geo_usage*` tables, `facility_aliases`, `v_zip_codes`, `violation_alerts`, and the alert columns on `profiles`. Decide: build, or drop.
+- Unused database objects: decided 2026-11-18, drop. `supabase/migrations/20261127000000_drop_unused_objects.sql` drops `consume_geo_quota` and the `geo_usage*` tables, `v_zip_codes`, `v_latest_insp_per_type`, `v_inspection_table`, `get_violation_flags`, `trg_sync_lonlat`, `profiles.display_name`, and `facility_aliases` and `violation_alerts` if empty. The other alert columns (`alert_email`, `alert_frequency`) are the digest's and stay.
 - Fixed 2026-11-17: `seed_categories` ran last, but `facilities` has a foreign key to `facility_categories`, so a brand-new type/subtype pair would have made `backfill_types` fail. `ingest.yml` now loads the categories first.
-- `facilities.lon`/`lat` are generated from `geom`: the `trg_sync_lonlat` trigger does nothing, and fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error).
+- `facilities.lon`/`lat` are generated from `geom`, so fixing `overlay_geometry.js` must write only `geom` (writing `lon`/`lat` is an error). The `trg_sync_lonlat` trigger, which did nothing, is dropped by `20261127000000`.
 - Redundant indexes: `facilities_establishment_id_uidx` duplicates the primary key; `inspections_establishment_id_idx` is covered by `inspections_est_idx`. Dropped by `supabase/migrations/20261126000000_drop_redundant_indexes.sql` (the first is kept if a foreign key is tied to it).
 
 ## Region-specific facts in the database
