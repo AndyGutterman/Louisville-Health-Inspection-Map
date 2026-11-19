@@ -1,4 +1,4 @@
-// PostToolUse (Edit, Write, MultiEdit; see .claude/settings.json). Formats the file that was
+// PostToolUse (Edit, Write; see .claude/settings.json). Formats the file that was
 // just changed with Prettier, as CLAUDE.md asks, so nobody has to remember to run it.
 // Files Prettier doesn't handle are skipped. A file Prettier can't parse is reported to Claude.
 import fs from "node:fs";
@@ -10,7 +10,9 @@ const file = input.tool_input?.file_path;
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const FORMATTED = /\.(m?jsx?|css|md|json|ya?ml|html)$/;
 
-if (!file || !FORMATTED.test(file) || !fs.existsSync(file)) process.exit(0);
+// Only files in this repo: a scratch file or ~/.claude is not ours to format.
+const inRepo = file && !path.relative(projectDir, path.resolve(file)).startsWith("..");
+if (!inRepo || !FORMATTED.test(file) || !fs.existsSync(file)) process.exit(0);
 
 try {
   execFileSync(

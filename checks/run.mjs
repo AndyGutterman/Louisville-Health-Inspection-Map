@@ -28,7 +28,7 @@ export function runRules({ files, read, rules: ruleList = rules }) {
     if (text === null) continue;
     const lines = text.split("\n");
     for (const rule of applicable) {
-      for (const found of rule.check(file, text, { read })) {
+      for (const found of rule.check(file, text, { read, files })) {
         if (!allowedBy(rule, lines, found.line)) {
           problems.push({ file, rule: rule.id, line: found.line, message: found.message });
         }
