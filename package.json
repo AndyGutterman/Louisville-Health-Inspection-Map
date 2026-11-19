@@ -12,7 +12,7 @@
     "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
     "lint": "npm run lint -w apps/web",
-    "test": "npm test --workspaces && node --test checks/rules.test.mjs",
+    "test": "npm test --workspaces && node --test checks/rules.test.mjs .claude/hooks/guard.test.mjs",
     "check:rules": "node checks/run.mjs",
     "test:coverage": "npm run test:coverage -w apps/web",
     "format": "prettier --write .",
