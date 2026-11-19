@@ -5,7 +5,7 @@
 
 **Live site: https://louisvillefoodsafe.netlify.app**
 
-An interactive map of health inspection scores for restaurants and other food service establishments in Louisville, KY (Jefferson County), with Bullitt and Oldham counties next door. It loads each county's public inspection data every day and makes it easy to browse: pins colored by score, full inspection histories, and the specific violations behind each score.
+An interactive map of health inspection scores for restaurants and other food service establishments in Louisville, KY (Jefferson County), with Bullitt County next door. It loads each county's public inspection data every day and makes it easy to browse: pins colored by score, full inspection histories, and the specific violations behind each score.
 
 <p align="center">
   <img src="docs/images/desktop.png" alt="The map on a desktop, with a restaurant's score and inspection history open beside it" width="68%">
@@ -25,37 +25,33 @@ An interactive map of health inspection scores for restaurants and other food se
 
 ## How it works
 
-### Data in: three counties, three daily jobs
+### Data in: two counties, two daily jobs
 
 ```mermaid
 flowchart LR
   arcgis["Louisville Metro<br/>ArcGIS"]
-  portal["Kentucky<br/>inspection portal"]
   sheet["Bullitt County<br/>Google Sheet"]
 
   ingest["ingest.yml<br/>Jefferson"]
-  portaljob["portal-ingest.yml<br/>Oldham, Bullitt"]
   bullittjob["bullitt-ingest.yml<br/>Bullitt"]
 
   geocode["Geocoders<br/>KY 911, Census,<br/>Nominatim"]
   db[("Supabase<br/>Postgres")]
 
   arcgis --> ingest --> db
-  portal --> portaljob --> db
   sheet --> bullittjob --> db
   ingest -.-> geocode
-  portaljob -.-> geocode
   bullittjob -.-> geocode
-  portal -.->|has Jefferson too,<br/>not connected| ingest
 ```
 
-| County    | Source                            | Fallback                                                                                                                        |
-| --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Jefferson | Louisville Metro's ArcGIS feeds   | **None connected.** The state portal lists Jefferson too (about 8,300 places), but no job reads it for Jefferson                |
-| Bullitt   | The state portal, which has dates | **Connected:** the county's own sheet is loaded every day, and the site switches to it when the portal has been down for 3 days |
-| Oldham    | The state portal                  | **None:** it is the only online source. The last good load stays on the map                                                     |
+| County    | Source                                       |
+| --------- | -------------------------------------------- |
+| Jefferson | Louisville Metro's ArcGIS feeds              |
+| Bullitt   | The Bullitt County Health Department's sheet |
 
-Each job writes only its own tables. The portal and Bullitt jobs also refuse a source that looks broken (changed columns, a county under half its usual size), so the last good data stays up; Jefferson's job has no such check yet. Places without coordinates are geocoded (dashed lines), and the results are cached in the database. More in [docs/COUNTIES.md](docs/COUNTIES.md) and [docs/BULLITT.md](docs/BULLITT.md).
+Each job writes only its own tables. The Bullitt job also refuses a source that looks broken (changed columns, a county under half its usual size), so the last good data stays up; Jefferson's job has no such check yet. Places without coordinates are geocoded (dashed lines), and the results are cached in the database. More in [docs/BULLITT.md](docs/BULLITT.md).
+
+A reader for Kentucky's statewide inspection portal (more counties, with dates) is built but paused until there is permission to use it: [docs/COUNTIES.md](docs/COUNTIES.md).
 
 ### Data out, and the jobs around it
 
@@ -143,7 +139,7 @@ CI runs lint, the unit tests and a production build on every push and pull reque
 
 ## About the data
 
-Inspection data comes from each county's public records: [Louisville Metro Open Data](https://data.louisvilleky.gov/) (its ArcGIS REST API) for Jefferson County, Kentucky's statewide food inspection portal for Oldham and Bullitt counties, and the Bullitt County Health Department's published sheet. It is refreshed daily and may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government or any county health department.
+Inspection data comes from each county's public records: [Louisville Metro Open Data](https://data.louisvilleky.gov/) (its ArcGIS REST API) for Jefferson County, and the Bullitt County Health Department's published sheet for Bullitt County. It is refreshed daily and may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government or any county health department.
 
 ## License
 

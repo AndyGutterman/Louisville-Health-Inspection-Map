@@ -179,7 +179,7 @@ export const en = {
     "Every inspection back to about 2016, each with its date, score and A/B/C placard. Each violation names the Food Code item and includes the inspector's comments.",
   "regions.bullitt.source": "Bullitt County Health Department",
   "regions.bullitt.dataNote":
-    "Only each place's latest inspection and its follow-up, dated through Kentucky's statewide inspection portal. When the portal is unavailable, the county's own list is used, which has no inspection date for the latest inspection. No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
+    "Only each place's latest inspection and its follow-up, with no inspection date, no letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
   "regions.oldham.source": "Kentucky's food inspection portal",
   "regions.oldham.dataNote":
     "Only each place's latest inspection and its follow-up, with their dates, from Kentucky's statewide inspection portal, which the health department links to. It lists hotels, pools and schools as well as food service, and a place can have one result per kind of inspection (a school's kitchen and its playground). No letter grade and no inspector comments: each violation is the name of an item on the inspection form. This site keeps each new score as it appears, so history builds up over time.",
@@ -360,7 +360,7 @@ export const es = {
     "Todas las inspecciones desde aproximadamente 2016, cada una con su fecha, puntaje y cartel A/B/C. Cada infracción nombra el punto del Código de Alimentos e incluye los comentarios del inspector.",
   "regions.bullitt.source": "Departamento de Salud del Condado de Bullitt",
   "regions.bullitt.dataNote":
-    "Solo la última inspección de cada lugar y su seguimiento, con fecha según el portal estatal de inspecciones de Kentucky. Cuando el portal no está disponible, se usa la lista del propio condado, que no trae la fecha de la última inspección. No hay calificación con letra ni comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",
+    "Solo la última inspección de cada lugar y su seguimiento, sin fecha de inspección, sin calificación con letra y sin comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",
   "regions.oldham.source": "Portal de inspección de alimentos de Kentucky",
   "regions.oldham.dataNote":
     "Solo la última inspección de cada lugar y su seguimiento, con sus fechas, tomadas del portal estatal de inspecciones de Kentucky, al que enlaza el departamento de salud. Incluye hoteles, piscinas y escuelas además de servicio de alimentos, y un lugar puede tener un resultado por cada tipo de inspección (la cocina de una escuela y su patio de juegos). No hay calificación con letra ni comentarios del inspector: cada infracción es el nombre de un punto del formulario de inspección. Este sitio conserva cada puntaje nuevo a medida que aparece, así que el historial se va formando con el tiempo.",

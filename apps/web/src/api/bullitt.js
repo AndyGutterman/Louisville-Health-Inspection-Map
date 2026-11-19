@@ -24,8 +24,8 @@ export async function fetchBullittFeed() {
 const HISTORY_COLUMNS = "id, kind, inspection_date, score, violations, first_seen, last_seen";
 
 // Every version of one place's inspections we have recorded, from bullitt_results: the
-// portal's while it is answering, the sheet's otherwise (migration 20261120000000). Until
-// that migration has run, the sheet's table directly. Supabase's { data, error }.
+// county sheet's (migration 20261201000000). If that view can't be read, the sheet's
+// table directly. Supabase's { data, error }.
 export async function fetchBullittInspections(eid) {
   const read = (table) => supabase.from(table).select(HISTORY_COLUMNS).eq("establishment_id", eid);
   const picked = await read("bullitt_results");
