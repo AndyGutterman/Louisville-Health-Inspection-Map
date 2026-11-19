@@ -64,6 +64,8 @@ test("score-scale-in-one-place flags 85 and 95, not coordinates, decimals or com
   assert.deepEqual(check("score-scale-in-one-place", "x.jsx", "const r = 0.85 * x;"), []);
   assert.deepEqual(check("score-scale-in-one-place", "x.jsx", "// 85 is the line"), []);
   assert.deepEqual(check("score-scale-in-one-place", "x.jsx", "const w = 1850;"), []);
+  assert.deepEqual(check("score-scale-in-one-place", "x.jsx", 'style={{ width: "95%" }}'), []);
+  assert.deepEqual(check("score-scale-in-one-place", "x.jsx", 'maxHeight: "85vh", t: "95ms"'), []);
 });
 
 test("no-addresses-in-digest-logs flags a log call that names an address", () => {
@@ -80,6 +82,20 @@ test("no-addresses-in-digest-logs flags a log call that names an address", () =>
     check("no-addresses-in-digest-logs", "send.js", "console.log(`Sent ${n}.`)"),
     [],
   );
+});
+
+test("doc-paths-exist flags paths to files that are gone, allowing relative ones", () => {
+  const r = rule("doc-paths-exist");
+  assert.equal(r.applies("CLAUDE.md"), true);
+  assert.equal(r.applies("docs/BULLITT.md"), true);
+  assert.equal(r.applies("apps/web/README.md"), false);
+  const files = ["apps/web/src/lib/scoring.js", "pipeline/regions/kyportal/overrides/oldham.json"];
+  const text = [
+    "See `lib/scoring.js` and `overrides/oldham.json`.",
+    "Also `apps/web/src/lib/gone.js`, `foo.js` and `lib/*.js`.",
+  ].join("\n");
+  const found = r.check("CLAUDE.md", text, { files }).map((f) => f.line);
+  assert.deepEqual(found, [2]);
 });
 
 test("allowedBy needs a rule id and a reason of at least 10 characters", () => {

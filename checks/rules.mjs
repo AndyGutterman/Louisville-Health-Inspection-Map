@@ -110,8 +110,12 @@ export const rules = [
     check(file, text) {
       const out = [];
       text.split("\n").forEach((line, i) => {
-        // A bare 85 or 95, not part of a longer number, a decimal or a negative coordinate.
-        if (!isComment(line) && /(?<![\d.-])(85|95)(?![\d.])/.test(line)) {
+        // A bare 85 or 95: not part of a longer number, a decimal, a negative coordinate,
+        // or a CSS length or duration ("95%", "85vh", "95ms").
+        if (
+          !isComment(line) &&
+          /(?<![\d.-])(85|95)(?![\d.]|%|px|r?em|v[hw]|m?s\b|deg)/.test(line)
+        ) {
           out.push({
             line: i + 1,
             message:
@@ -135,6 +139,30 @@ export const rules = [
           out.push({
             line: lineOf(text, m.index),
             message: "Don't log an address: this log is public. Log a count or an id.",
+          });
+        }
+      }
+      return out;
+    },
+  },
+
+  {
+    id: "doc-paths-exist",
+    why: "CLAUDE.md and the docs are what every agent reads first, and a path that no longer exists sends it looking for code that moved (the keeper's drift check, made automatic).",
+    applies: (file) =>
+      file === "CLAUDE.md" || file === "README.md" || /^(docs|\.claude)\/.+\.md$/.test(file),
+    check(file, text, { files = [] }) {
+      // A path may be written relative to its folder (`lib/scoring.js`), so any tracked
+      // file that ends with it counts. Bare names and globs are skipped.
+      const exists = (p) => files.some((f) => f === p || f.endsWith(`/${p}`));
+      const out = [];
+      for (const m of text.matchAll(
+        /`([\w.-]+\/[\w./-]+\.(?:m?jsx?|ts|css|md|ya?ml|sql|json|html))`/g,
+      )) {
+        if (!exists(m[1])) {
+          out.push({
+            line: lineOf(text, m.index),
+            message: `${m[1]} is not a file in the repo. Update the path, or drop it if the file is gone.`,
           });
         }
       }
