@@ -17,7 +17,7 @@ to store something new about a person, sends data to a new service, or adds anal
 | The page says                                       | Where that is in the code                                                                                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No analytics, no tracking cookies                   | Nothing of the kind in `apps/web` (`git grep -i "analytics\|gtag" apps/web`)                                                                         |
-| Settings and map data kept on the device            | localStorage: `lfs_counties`, `lfs_categories`, `lfs_geodata_*`, `lfs_digest_optin`                                                                  |
+| Settings and map data kept on the device            | localStorage: `lfs_counties`, `lfs_categories`, `lfs_geodata_*`, `lfs_digest_optin`, `lfs_lang`, `lfs_signup_lang`, `lfs_digest_lang_offered`        |
 | An account stores email, saved places, watch areas  | `profiles`, `watchlist`, `watchlist_areas` (the baseline migration)                                                                                  |
 | The language you chose is stored with the account   | `profiles.language`, written when someone signs up from the site or accepts the offer to get the weekly email in their language; the digest reads it |
 | A record of emails sent                             | `email_jobs`, `email_deliveries` (migration `20261125000000`)                                                                                        |

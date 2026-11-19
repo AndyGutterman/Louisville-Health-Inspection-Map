@@ -103,6 +103,13 @@ The owner asks for changes from the Claude app on a phone (a Claude Code **cloud
 - The cloud environment's network access must allow `*.cartocdn.com` (the basemap), or the e2e load test fails. If the setup hook reports it unreachable, tell the owner; the PR's e2e workflow still runs the tests.
 - There is no `.env` and no database password in the cloud. Anything that needs the real Supabase project (pipeline scripts, SQL) is for the owner to run.
 
+### The team (agents, checks and hooks)
+
+- `/ship <request>` (`.claude/commands/ship.md`) runs one change through the team: `planner` (a plan the owner approves), the build, `reviewer` (the diff, in a fresh context), `verifier` (the gates and the screenshots), then **learn**. The learn step is not optional: a mistake that a pattern can find becomes a rule in `checks/rules.mjs` (with a test), and any other becomes a line in the "Judgment checks" list in `.claude/agents/reviewer.md`. Both land in the same change.
+- `npm run check:rules` (`checks/run.mjs`) runs the rules over the tracked files. CI runs it. A line can be excused with `check-allow: <rule-id> <reason>` on it or the line above; the reason must say why. Each rule's `why` says where its lesson came from.
+- `.claude/hooks/guard.mjs` blocks commands that reach Supabase or a database (the egress limit) and commands that print a local `.env`. `.claude/hooks/format.mjs` runs Prettier on every file an edit touches.
+- `keeper` (`.claude/agents/keeper.md`) is the weekly health check: doc drift, repeated mistakes, rule candidates. It opens at most three issues a week and never changes code. It runs as a scheduled task.
+
 ## Things that will bite you (learned the hard way)
 
 - **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list in `lib/outsideClick.js` (control card, drawer, account panel, table panel, What's New, a few buttons; the rule is `closesDrawer`, tested). Any new floating panel or toggle must get the `data-map-overlay` attribute or be added to that list, or it will close the drawer.

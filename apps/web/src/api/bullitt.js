@@ -11,6 +11,7 @@ export async function fetchBullittFeed() {
         .from("v_bullitt_map_feed")
         // Every column: follow_up_violation_count only exists once migration
         // 20261112000000 has run, and naming it before then would fail the whole read.
+        // check-allow: no-select-star-in-browser whole-view map read, on the egress audit list in CLAUDE.md
         .select("*")
         .order("establishment_id")
         .range(from, to),
