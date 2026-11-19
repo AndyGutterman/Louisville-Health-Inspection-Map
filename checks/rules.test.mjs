@@ -98,6 +98,33 @@ test("doc-paths-exist flags paths to files that are gone, allowing relative ones
   assert.deepEqual(found, [2]);
 });
 
+test("rules-match-files needs a paths list whose patterns all match a file", () => {
+  const r = rule("rules-match-files");
+  assert.equal(r.applies(".claude/rules/map.md"), true);
+  assert.equal(r.applies(".claude/agents/reviewer.md"), false);
+  const files = ["apps/web/src/lib/scoring.js", "apps/web/src/Map.jsx"];
+  const good =
+    '---\npaths:\n  - "apps/web/src/lib/{scoring,dedupe}.js"\n  - "apps/web/src/*.jsx"\n---\n# Map';
+  assert.deepEqual(r.check("x.md", good, { files }), []);
+  const renamed =
+    '---\npaths:\n  - "apps/web/src/lib/scoring.js"\n  - "apps/web/src/gone/**"\n---\n';
+  assert.deepEqual(
+    r.check("x.md", renamed, { files }).map((f) => f.line),
+    [4],
+  );
+  assert.deepEqual(
+    r.check("x.md", "# No frontmatter", { files }).map((f) => f.line),
+    [1],
+  );
+});
+
+test("claude-md-stays-short flags a CLAUDE.md over its budget", () => {
+  const r = rule("claude-md-stays-short");
+  assert.deepEqual(r.check("CLAUDE.md", "# Short\n\nFine."), []);
+  assert.equal(r.check("CLAUDE.md", "word ".repeat(2500)).length, 1);
+  assert.equal(r.check("CLAUDE.md", "x\n".repeat(200)).length, 1);
+});
+
 test("allowedBy needs a rule id and a reason of at least 10 characters", () => {
   const r = rule("no-select-star-in-browser");
   const lines = [
