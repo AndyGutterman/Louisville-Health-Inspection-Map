@@ -1,7 +1,7 @@
 // The Learn page's violation database: every kind of violation, how often it was cited
 // in a chosen period, searchable, and opening to the places cited for it.
 import React, { useState, useEffect, useMemo } from "react";
-import { summarizeViolations } from "../../lib/violationSummary.js";
+import { citationShare, summarizeViolations } from "../../lib/violationSummary.js";
 import { toTitleCase } from "../../lib/titleCase.js";
 import Bold from "./Bold.jsx";
 import { useT } from "../../I18nContext.jsx";
@@ -181,14 +181,6 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
             <span className="ln-vdb-stat">
               <Bold text={t("learn.vdb.types", { n: rows.length.toLocaleString(locale) })} />
             </span>
-            <span className="ln-vdb-stat">
-              <Bold text={t("learn.vdb.citations", { n: totalCitations.toLocaleString(locale) })} />
-              {timeline !== "all" && (
-                <span style={{ color: "rgba(255,255,255,0.30)", fontWeight: 400 }}>
-                  {t("learn.vdb.inWindow")}
-                </span>
-              )}
-            </span>
           </div>
 
           {/* Search */}
@@ -242,7 +234,9 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                       <div className="ln-vdb-desc">
                         <Highlighted text={toTitleCase(r.desc)} />
                       </div>
-                      <div className="ln-vdb-count">{r.count.toLocaleString()}×</div>
+                      <div className="ln-vdb-count" title={t("learn.vdb.shareTitle")}>
+                        {citationShare(r.count, totalCitations, locale)}
+                      </div>
                     </div>
 
                     {isExpanded && (
@@ -264,7 +258,6 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                                       timeZone: "UTC",
                                     })
                                   : null;
-                                const vScore = est.violation_score ?? est.score_recent;
                                 return (
                                   <button
                                     key={est.establishment_id}
@@ -278,13 +271,12 @@ export default function ViolationDatabase({ initialCutoffDate, onOpenEstablishme
                                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {est.premise_name || est.establishment_id}
                                     </span>
-                                    {(vDate || vScore != null) && (
+                                    {vDate && (
                                       <span
                                         className="ln-vdb-chip-score"
-                                        title={t("learn.vdb.scoreDate")}
+                                        title={t("learn.vdb.dateCited")}
                                       >
-                                        {vScore != null ? vScore : ""}
-                                        {vDate ? ` · ${vDate}` : ""}
+                                        {vDate}
                                       </span>
                                     )}
                                   </button>

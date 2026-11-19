@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { summarizeViolations } from "./violationSummary.js";
+import { citationShare, summarizeViolations } from "./violationSummary.js";
+
+describe("citationShare", () => {
+  it("rounds to a whole percent at 10% and up", () => {
+    expect(citationShare(475, 2692, "en-US")).toBe("~18%");
+  });
+
+  it("keeps one decimal below 10%", () => {
+    expect(citationShare(118, 2692, "en-US")).toBe("~4.4%");
+    expect(citationShare(3, 2692, "en-US")).toBe("~0.1%");
+  });
+
+  it("says <0.1% for the rarest", () => {
+    expect(citationShare(1, 2692, "en-US")).toBe("<0.1%");
+  });
+
+  it("uses the locale's decimal mark", () => {
+    expect(citationShare(118, 2692, "es-ES")).toBe("~4,4%");
+  });
+
+  it("is empty when there is nothing to divide", () => {
+    expect(citationShare(5, 0)).toBe("");
+    expect(citationShare(0, 10)).toBe("");
+  });
+});
 
 describe("summarizeViolations", () => {
   it("merges rows with the same description", () => {
