@@ -1,201 +1,115 @@
-# Louisville Food Safe: project context for Claude Code
+# Louisville Food Safe
 
-Read this first. It was written on 2026-11-05 from a long chat session (brought up to date 2026-11-18) and covers what the project is, how it is organized, the decisions made, the gotchas found, and what is left to do. Check `git log` and `git status` before trusting the "state" section: it may be a little behind the repo.
+A map of health inspection scores for restaurants and food service places in Louisville, KY (Jefferson County) and Bullitt County. Live at https://louisvillefoodsafe.netlify.app. Solo and open source, and the owner's flagship résumé project: code quality, tests, CI and docs matter as much as features.
 
-Be extremely cognizant of our 5GB monthly egress limits on supabase and all free tier limits for supabase. In the past we had an issue where Claude literally hit that in a day doing some loop... Be conscious of our limits. Be conservative there.
+Sources (Louisville Metro's ArcGIS, Bullitt's own sheet) → `pipeline/` (GitHub Actions) → Supabase (Postgres, Auth, two Edge Functions) → React site on Netlify. The README's "How it works" draws it.
 
-## What this is
+React 19 · Vite 7 · MapLibre GL 5 · supabase-js · Geoapify · Vitest · Playwright · ESLint · Prettier · Node 22 (`.nvmrc`).
 
-An interactive map of health inspection scores for restaurants and food service places in Louisville, KY (Jefferson County), plus Bullitt County. Live at https://louisvillefoodsafe.netlify.app. It is a solo, open-source project and the owner's flagship résumé project, so code quality, tests, CI and docs matter as much as features. The owner does not expect outside contributors, so do NOT add CONTRIBUTING files, issue or PR templates, or Dependabot.
+**What's merged, open and next is in `docs/STATUS.md`.** Read it first, and check it against `git log`.
 
-Data flow: each county's source (Louisville Metro's ArcGIS for Jefferson; Bullitt's own sheet for Bullitt; Kentucky's statewide portal is paused, see below) -> Node pipeline scripts (`pipeline/`) run by GitHub Actions -> Supabase (Postgres, Auth, two Edge Functions) -> React site on Netlify. The README's "How it works" draws it, with the fallbacks.
+## The laws
 
-Stack: React 19, Vite 7, MapLibre GL 5, Supabase (supabase-js), Geoapify (address search), Vitest, ESLint, Prettier, Netlify, GitHub Actions.
+Break one and something real goes wrong. The last column says what stops you. "Only you" means nothing does yet: when one of those gets broken, `/ship`'s learn step should move it left.
 
-A phased readability refactor: plan, decisions and known bugs are in `docs/REFACTOR_PLAN.md`. Phases 0, 1, 2, 4 and 5 are done, phase 6 nearly (2026-11-18); phase 3 (the pipeline) is left.
-
-## Repo layout (Windows, PowerShell; repo root is `Louisville-Health-Inspection-Map`)
-
-The root is an npm workspace (`apps/web`, `packages/core`, `pipeline`) with one `package-lock.json`. Node 22 (`.nvmrc`).
-
-```
-apps/web/                 React app (was InspectionWebsite/)
-  src/lib/                PURE logic, no React, no map instance. Each file has a *.test.js beside it.
-  src/hooks/              shared hooks (useMediaQuery)
-  src/styles/             component stylesheets
-  src/Map.jsx             the app shell (~400 lines): which panels are open, and the layout
-  src/features/map/       the map: useMapLibre (map, pin clicks, outside-click), popups, mapLayers,
-                          useMapFeatures (pins), useDrawer (drawer data), useWatchlist, AppHeader
-  src/features/table/     Table View: TableView (filter state, layout), useTableData (reads), useTableSort,
-                          useTableResize, TableFilters, TableRows, TableFooter; paging maths in lib/tablePaging.js
-  src/features/admin/     the email admin page (/?page=admin), its own chunk, loaded on demand
-  src/features/drawer/    the info drawer: InfoDrawer (shell), InspectionCard, History, useBottomSheet, useDrawerWidth
-  src/api/                every Supabase query, one file per topic (mapData, watchlist, table, whatsNew,
-                          learn, account, admin). Components don't call supabase.from/.rpc themselves.
-  src/features/filters/   the filter card: FilterSearch (shell), PinBar, PinSwitches, FilterTab, CountySwitch, CategoryIcon
-  src/features/saved/     the Saved panel: WatchlistTab (state, reads), SavedPlaces, WatchAreaCard, AddAreaForm, limits
-  src/features/learn/     the Learn page: LearnPage, ViolationDatabase, LoginModal (the sign-in form)
-  src/features/privacy/   the privacy page (/?page=privacy), its own chunk
-  src/*.jsx               the other components (WhatsNew, AccountPage, FeedbackModal, ScoreThreshold, AddressPicker, ...)
-packages/core/            shared by the website and the pipeline, pure: categories.js, grading.js (the
-                          score scale), regions.js (county ids and names), email/ (the digest and one-off
-                          emails, the rules for an email job); tests in packages/core/tests (node --test)
-pipeline/                 data pipeline + maintenance jobs (was etl/ + scripts/); tests in pipeline/tests (node --test)
-supabase/                 migrations (full schema baseline + later changes) and functions/ (submit-feedback,
-                          email-dispatch, and _shared/cors.ts for both)
-docs/                     ARCHITECTURE.md, SMOKE_TEST.md, REFACTOR_PLAN.md, ACCESSIBILITY.md, BULLITT.md, COUNTIES.md,
-                          DIGEST.md, EMAIL_ADMIN.md, PRIVACY.md
-.github/workflows/        ci.yml, e2e.yml, ingest.yml, bullitt-ingest.yml, portal-ingest.yml, db-backup.yml, etl-check.yml,
-                          digest.yml, email-outbox.yml, schema-dump.yml
-```
-
-`src/lib/` holds about 35 small pure modules (search, scoring, categories, dedupe, map filters and cache, counties, paging, dates, the bottom sheet, ...), each with its test beside it.
+| Law                                                                                                                                                                              | Why                                                                                                                        | Enforced by                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Never touch the live Supabase project: no SQL, `psql`, pipeline scripts, or Supabase MCP data tools. Tests use the fixtures; the owner runs the rest.                            | The free tier allows 5 GB of egress a month. An agent's loop once used it in a day, and November 2026 went over (5.41 GB). | `guard.mjs` hook                                     |
+| No browser read that pages through a whole table, and no fallback that does. Name the columns.                                                                                   | The same 5 GB. A fresh map load is already the biggest cost.                                                               | `no-select-star-in-browser` rule, reviewer           |
+| Supabase is queried only from `apps/web/src/api/`.                                                                                                                               | One place to see every read.                                                                                               | `supabase-only-in-api` rule                          |
+| No "critical" labels, chips, red rings or critical-first sorting. Nothing is decided from `critical_yn`.                                                                         | The flag can't tell the Food Code's three kinds of violation apart (owner's call, 2026-11-09, for accuracy and liability). | Only you, and the reviewer                           |
+| Score cut-offs live only in `packages/core/grading.js` (`scoreBand`, `isFailing`).                                                                                               | One badge scale everywhere.                                                                                                | `score-scale-in-one-place` rule                      |
+| Every line on the privacy page stays true. Something new stored about a person, a new service or analytics changes the page, the date in `lib/privacy.js` and `docs/PRIVACY.md`. | The page is a promise to visitors.                                                                                         | `storage-keys-documented` rule (partly), reviewer    |
+| Never print an email address in `pipeline/digest/`, or a `.env` anywhere.                                                                                                        | The outbox workflow's log is public.                                                                                       | `no-addresses-in-digest-logs` rule, `guard.mjs` hook |
+| Kentucky's portal stays off: no portal county, ingest run or read until the owner says permission is in hand.                                                                    | CDP's terms forbid copying and public display.                                                                             | Only you                                             |
+| Don't push to `main` or merge your own pull request. A database change is a new migration in `supabase/migrations/` that the owner runs; nothing assumes it has run.             | Merging deploys production.                                                                                                | Only you                                             |
+| No CONTRIBUTING file, issue or PR templates, or Dependabot.                                                                                                                      | No outside contributors are expected.                                                                                      | Only you                                             |
 
 ## Commands (from the repo root)
 
-```
+```bash
 npm ci
 npm run dev
-npm run lint        # 0 errors and 0 warnings expected
-npm test            # website (vitest), packages/core and pipeline (node --test)
+npm run lint           # 0 errors and 0 warnings
+npm run check:rules    # the repo's own rules (checks/rules.mjs)
+npm test               # website (vitest), packages/core, pipeline, checks and the guard (node --test)
 npm run test:coverage  # website logic-layer coverage (src/lib), about 98% of lines
 npm run build
-npm run format      # Prettier (CI runs format:check)
-npm run e2e         # Playwright smoke tests, desktop + phone (builds the site, ~30s)
+npm run format         # Prettier; CI runs format:check. Only ever from the root.
+npm run e2e -- --trace off   # Playwright, desktop + phone (builds the site, about 30s)
 ```
 
-Workspace-specific: `npm run <script> -w apps/web`, `-w packages/core` or `-w pipeline`. Env vars for the website (see `apps/web/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEOAPIFY_KEY`, `VITE_FEEDBACK_FUNCTION_URL` (optional: feedback goes to the project's own `submit-feedback` function without it). CI uses dummy Supabase values. The pipeline reads `pipeline/.env` locally and GitHub secrets in Actions.
+One workspace: `npm run <script> -w apps/web` (or `-w packages/core`, `-w pipeline`). The website's env vars are in `apps/web/.env.example`; CI and e2e use placeholder Supabase values.
+
+## Where things are
+
+```
+apps/web/src/
+  api/          every Supabase query, one file per topic
+  lib/          pure logic, no React, no map; each file has a test beside it
+  features/     map, drawer, filters, table, saved, learn, admin, privacy
+  Map.jsx       the app shell: which panels are open, and the layout
+  styles/       one stylesheet per component
+packages/core/  shared by the site and the pipeline: categories, grading, regions, email/
+pipeline/       data loads and the weekly email (tests in pipeline/tests)
+supabase/       migrations/ and functions/
+checks/         the rule checks
+docs/           STATUS, ARCHITECTURE, SMOKE_TEST, REFACTOR_PLAN, ACCESSIBILITY, BULLITT, COUNTIES, DIGEST, EMAIL_ADMIN, PRIVACY
+```
+
+## Context that loads itself
+
+The detail for each part of the code is in `.claude/rules/`. Each file loads by itself when you open a file it covers, so you get it exactly when it matters. If you're about to change an area without having opened its files, read its rules file first.
+
+| Area                                                          | Rules file                  |
+| ------------------------------------------------------------- | --------------------------- |
+| Map, pins, filters, search, counties and categories on demand | `.claude/rules/map.md`      |
+| Info drawer, Saved, watch areas, What's New, phone layering   | `.claude/rules/panels.md`   |
+| CSS, contrast, popups                                         | `.claude/rules/css.md`      |
+| Table View                                                    | `.claude/rules/table.md`    |
+| Weekly digest, email admin, edge functions                    | `.claude/rules/email.md`    |
+| Sign-in, feedback, privacy page                               | `.claude/rules/account.md`  |
+| Counties, Bullitt, the paused portal                          | `.claude/rules/counties.md` |
+| Database reads, migrations, egress, the pipeline              | `.claude/rules/data.md`     |
+| Unit, component and e2e tests                                 | `.claude/rules/tests.md`    |
+| English and Spanish                                           | `.claude/rules/i18n.md`     |
+
+Two checks keep this honest: `rules-match-files` fails when a rules file's `paths` stop matching anything (after a rename), and `claude-md-stays-short` fails when this file grows past its budget. New detail goes in a rules file, not here.
 
 ## Conventions
 
-- New logic goes in `src/lib/` first, with a test next to it (`foo.js` + `foo.test.js`). Frontend tests are colocated; pipeline tests live in `pipeline/tests/`. Keep that split.
-- Accessibility (WCAG 2.2 AA, `docs/ACCESSIBILITY.md`): `e2e/a11y.spec.js` runs axe on every main view and must pass. Muted text is at least 55% white; white text on a score colour uses the darker badge shades; icon-only buttons need `aria-label`; no buttons inside a `role="button"`. A new view gets a line in that spec.
-- Component tests (`Foo.test.jsx` beside `Foo.jsx`): first line `// @vitest-environment jsdom`, Testing Library, and `vi.mock` the component's `api/` module so nothing reaches Supabase. Example: `WhatsNew.test.jsx`.
-- Component CSS goes in `src/styles/<Component>.css`, imported by the component. No CSS inside JS template strings.
-- One concern per commit. Conventional-style messages: `fix(drawer): ...`, `refactor: ...`, `chore: ...`.
-- The whole repo is Prettier-formatted (commit `973b174`, listed in `.git-blame-ignore-revs`). Run `npm run format` on files you change.
-- Before committing: lint, test, build. If the map, drawer, filters, or What's New changed, also `npm run e2e` and the manual steps of `docs/SMOKE_TEST.md` it doesn't cover.
-- Git hygiene: use `git add -A` then `git status --short` before committing. Never `git commit -am` (it skips new files, which has already bitten this repo once). Always give the user commands to run from the repo root, using paths relative to it.
-- Reading from the working tree vs HEAD: use `git show HEAD:path` to see committed content.
+- New logic goes in `apps/web/src/lib/` first, with its test beside it. Component CSS goes in `src/styles/<Component>.css`.
+- Accessibility is WCAG 2.2 AA (`docs/ACCESSIBILITY.md`). Icon-only buttons need `aria-label`; no buttons inside a `role="button"`; a new view gets a line in `e2e/a11y.spec.js`.
+- One concern per commit, conventional subjects: `fix(drawer): ...`, `feat(map): ...`, `chore: ...`.
+- `git add -A`, then `git status --short`, then commit. Never `git commit -am`: it skips new files, and that has bitten this repo.
+- Before committing: lint, `check:rules`, test, build. If the map, drawer, filters or What's New changed, also e2e, the screenshots, and the steps in `docs/SMOKE_TEST.md` e2e doesn't cover.
+- `git show HEAD:path` for committed content. The sandbox shell is `sh`: no brace expansion, no `<( )`.
 
-## Workflow: change requests from the owner's phone
+## The phone loop
 
-The owner asks for changes from the Claude app on a phone (a Claude Code **cloud session**, with the PC off) and reviews and merges the result as a pull request in the GitHub app. For each request:
+The owner asks for changes from the Claude app on a phone (a cloud session, PC off), and reviews and merges pull requests in the GitHub app.
 
-1. Start from an up-to-date `main` and create a branch: `fix/...`, `feat/...`, `refactor/...`, `chore/...`, `docs/...` or `test/...`.
-2. Make the change, one concern per commit, following the conventions above.
-3. Verify before pushing: `npm run lint`, `npm test`, `npm run build`, `npm run e2e`. Look at the JPEGs in `apps/web/e2e/screenshots/` for anything visual; you can read them as images.
-4. If the change touches the map, drawer, filters or What's New, add or update a test in `apps/web/e2e/smoke.spec.js`:
-   - Select by role or `data-testid`, never by canvas pins.
-   - Data comes from `apps/web/e2e/support/fixtures.js` (Supabase is mocked). A new Supabase call needs a fixture entry, or the load test fails on purpose.
-5. Push the branch and open a PR against `main`:
-   - In a cloud session, use the built-in GitHub tools. `gh pr ...` is blocked there (GraphQL), but the REST API works: `gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/pulls -f title=... -f head=<branch> -f base=main -f body=...`.
-   - Locally, `gh pr create` if `gh` is installed; otherwise push and give the owner `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
-6. The PR description says, in plain words: what changed and why; what you verified (commands and results); what you could not verify; anything the owner must do (SQL to run in Supabase, Netlify or GitHub settings, secrets).
-7. On the PR, `ci.yml` runs lint, tests and the build, and `e2e.yml` runs Playwright against the Netlify deploy preview (or a build inside the job when there is no preview). `e2e.yml` keeps one comment updated with the result and every screenshot inline, phone and desktop; the images live on the `e2e-screenshots` branch (one commit, holding the 20 most recent PRs, so merged PRs keep their pictures). Netlify posts the preview link.
-8. Wait for those checks (`gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/actions/runs?branch=<branch>`), then tell the owner in the chat: pass or fail, the PR link, and anything in the screenshots worth a look. If a check fails, fix it on the same branch.
-9. The owner reviews and merges; merging to `main` deploys production. In this loop, don't push to `main` or merge your own PR. For database changes, add a migration in `supabase/migrations/` and tell the owner to run it; don't assume it has been run.
+- **Use `/ship <request>`** (`.claude/commands/ship.md`): plan → build → review → verify → learn → pull request → checks. Start the request with "go" to skip waiting for the plan.
+- Locally, branch from an up-to-date `main` as `fix/...`, `feat/...`, `refactor/...`, `chore/...`, `docs/...` or `test/...`; a cloud session uses the branch it was given.
+- Open the pull request with the GitHub tools. `gh pr ...` is blocked in the cloud (GraphQL), but REST works: `gh api repos/AndyGutterman/Louisville-Health-Inspection-Map/pulls -f title=... -f head=<branch> -f base=main -f body=...`. Locally, `gh pr create`, or push and give the owner `https://github.com/AndyGutterman/Louisville-Health-Inspection-Map/compare/main...<branch>?expand=1`.
+- The pull request says what changed and why, what was verified (commands and results), what wasn't, and what the owner must do (SQL, settings, secrets).
+- `ci.yml` runs lint, rules, tests and the build. `e2e.yml` runs Playwright against the Netlify preview and keeps one comment with every screenshot. In a cloud session, subscribe to the pull request's activity instead of polling.
+- **Cloud sessions:** `.claude/hooks/cloud-setup.mjs` runs `npm ci` when the lockfile changed and checks the basemap (`*.cartocdn.com`, needed by e2e; if it's unreachable, tell the owner). Playwright uses the preinstalled Chrome. There is no `.env` and no database password.
 
-### Cloud sessions
+## The team
 
-- `.claude/hooks/cloud-setup.mjs` runs at session start (a SessionStart hook in `.claude/settings.json`): it runs `npm ci` when `package-lock.json` changed, and says whether the map basemap is reachable. It does nothing locally.
-- Playwright uses the preinstalled Chrome (`CHROME_PATH`) in the cloud, and the e2e build gets placeholder Supabase values, so no `.env` is needed.
-- The cloud environment's network access must allow `*.cartocdn.com` (the basemap), or the e2e load test fails. If the setup hook reports it unreachable, tell the owner; the PR's e2e workflow still runs the tests.
-- There is no `.env` and no database password in the cloud. Anything that needs the real Supabase project (pipeline scripts, SQL) is for the owner to run.
-
-### The team (agents, checks and hooks)
-
-- `/ship <request>` (`.claude/commands/ship.md`) runs one change through the team: `planner` (a plan the owner approves; start the request with "go" to skip waiting), the build, `reviewer` (the diff, in a fresh context; two at once, with different lenses, for a medium or large change), `verifier` (the gates and the screenshots), then **learn**, the pull request, and its checks. The learn step is not optional: a mistake that a pattern can find becomes a rule in `checks/rules.mjs` (with a test), and any other becomes a line in the "Judgment checks" list in `.claude/agents/reviewer.md`. Both land in the same change.
-- **Models.** Each agent names its model, so it doesn't depend on the session's: `planner` and `reviewer` run on Opus at high effort (judgment), `verifier` and `keeper` on Sonnet (running commands and reporting). The session's own model does the building: pick Opus for anything bigger than a copy change.
-- `npm run check:rules` (`checks/run.mjs`) runs the rules over the tracked files. CI runs it. A line can be excused with `check-allow: <rule-id> <reason>` on it or the line above; the reason must say why. Each rule's `why` says where its lesson came from. `doc-paths-exist` keeps the paths in this file and `docs/` true.
-- `.claude/hooks/guard.mjs` (tests in `guard.test.mjs`, run by `npm test`) blocks anything that reaches the live Supabase project: `psql`/`pg_dump`/`supabase`, requests to a `*.supabase.co` host, the pipeline's scripts, and the Supabase MCP tools that read or change data (`execute_sql`, `apply_migration`, deploys; small metadata reads such as `list_tables` ask first). It also blocks printing a local `.env`. Quoted text and heredocs (commit messages) are data. `.claude/hooks/format.mjs` runs Prettier on every repo file an edit touches.
-- `keeper` (`.claude/agents/keeper.md`) is the weekly health check: doc drift, repeated mistakes, rule candidates. It opens at most three issues a week and never changes code. It runs as a scheduled task.
-
-## Things that will bite you (learned the hard way)
-
-- **Click-outside handler:** `closeOnOutsideClick` in `features/map/useMapLibre.js` closes the info drawer on any click outside the `KEEP_DRAWER_OPEN` list in `lib/outsideClick.js` (control card, drawer, account panel, table panel, What's New, a few buttons; the rule is `closesDrawer`, tested). Any new floating panel or toggle must get the `data-map-overlay` attribute or be added to that list, or it will close the drawer.
-- **Global CSS leaks into inline-styled elements.** `index.css` has a global `button` rule (padding, background). Inline-styled buttons must set `padding: 0` and sizing explicitly. A selector like `.info-drawer [style]` once forced padding onto every inline-styled element in the drawer and broke the bookmark button; never use broad `[style]` selectors.
-- **`!important` beats inline styles.** Check CSS files before debugging layout in JSX.
-- **Map event handlers are registered once**, when the map loads. They read current state through `useLatest` (`src/hooks/useLatest.js`). Don't add changing values to the map effect's dependency array in `useMapLibre.js`: that rebuilds the map. The same trick keeps a parent's callback out of an effect's dependencies (`onResize` in `features/table/useTableResize.js`).
-- **No "critical" labels:** the data's `critical_yn` flag can't tell the Food Code's three kinds of violation (priority, priority foundation, core) apart, so the site shows every citation as a plain violation and never decides anything from the flag (owner's call, 2026-11-09, for accuracy and liability). Don't bring back critical chips, red rings or critical-first sorting. The database still stores the column; `critical_count`/`critical_6mo` in the functions are deprecated.
-- **Same-place detection:** `lib/samePlaceDetection.js` tags both features with each other's info; it never hides or merges pins. The sub-tenant regex must use `\bat\b` style word boundaries (it once contained raw backspace characters, and an older copy matched any name containing "at"). Tests pin this.
-- Shell caveat: in the sandbox `sh` was used, so brace expansion and `<( )` fail; prefer explicit paths.
-
-## Key behaviors and where they live
-
-- **Pins and bands:** `lib/scoring.js` (presets loose/balanced/strict, `bandExprs`), colors in `Colors.jsx` (`PIN_COLORS`). These follow the visitor's sliders. Score **badges** don't: one fixed scale everywhere (95+ ok, 85 to 94 warn, under 85 bad), `scoreBand` in `packages/core/grading.js`, which also has `isFailing`. Don't write those numbers anywhere else.
-- **Categories:** `packages/core/categories.js` (the pipeline's coverage report reads it too); a category is a set of (facility type, subtype) pairs. Each pair belongs to exactly one category (tested). `lib/categories.js` re-exports it and adds the Filter tab's state.
-- **County ids and names:** `packages/core/regions.js`, for the site, the pipeline and the emails. A new county starts there.
-- **Same-coordinate pins:** `lib/dedupe.js` collapses to the worst establishment, keeps others searchable.
-- **Info drawer:** `features/drawer/` (`InfoDrawer.jsx` the shell, `InspectionCard.jsx`, `History.jsx`, `useBottomSheet.js`, `useDrawerWidth.js`; repeated citations are merged by `lib/violationGroups.js`). Desktop is a side panel. On phones (max-width 600px) it is a bottom sheet with two heights, peek (about 1.5 history rows) and expanded (about 74% of the screen), dragged by a handle; rules in `lib/bottomSheet.js`. Dragging well below peek, or flinging down from peek, closes it.
-- **Records with no map pin:** What's New rows with no coordinates still open the drawer (flagged `noLocation`, shows "No map location on file"), and the map does not move.
-- **Phone layering:** `mobileTop` state in Map.jsx ("account" or "drawer"). Opening Saved goes over the map and over any open drawer; tapping a record in Saved opens the drawer on top and replaces any drawer already open; closing the drawer leaves Saved open. Account page z-index is 3300 when on top, 50 otherwise.
-- **Header button** says "Saved" (class `header-nav-btn--account`); the panel title still says "My Account".
-- **Watch areas:** `watchAreaLayer.js` (circles, editor popup with drag handles). Clicking the popup card (not its buttons) opens the Saved panel scrolled to that area (`openWatchPanelRef`, `focusArea`). Default sort in a watch area is "Violations" (most violations first, then failing grade; `lib/watchAreaSort.js`). Watch areas and saved places cover both counties (migration `20261111000000_both_counties.sql`). Limits, to keep reads small: 3 watch areas per account, 1 to 5 miles, each listing only the 50 places with the most violations (the database sorts and cuts the list); 30 saved places (`CAPS` in `features/saved/limits.js`, `watchAreaLayer.js`, and the database's `enforce_row_cap` triggers, migration `20261123000000_watch_area_limits.sql`).
-- **Pan limits:** `lib/mapBounds.js` widens the old fixed box by an amount that scales with the window, so pins under side panels can be panned into view.
-- **Auth:** Supabase email one-time **6-digit code** (not the magic link). `AuthContext.jsx` exposes the single client from `lib/supabase.js`. For local magic links to work, `http://localhost:5173/**` must be in Supabase Redirect URLs; the code flow avoids that.
-- **Feedback:** `FeedbackModal.jsx` posts to the `submit-feedback` edge function (IP rate limit, honeypot, cooldown).
-- **Weekly digest email:** `docs/DIGEST.md`. `pipeline/digest/`, `digest.yml` (Tuesdays), `profiles.alert_frequency = 'weekly'`, `lib/digest.js`, `lib/deepLink.js` (`/?eid=`, `/?page=learn`). Each of a subscriber's watch areas is its own part of the email (`digest_watch_areas`, migration `20261124000000`, a few rows per area), below their saved places inspected that week (`digest_saved_places`, migration `20261128000000`); the email names each place once (`oncePerEmail`). A run of the workflow by hand goes only to the owner (`audience: me`, the `DIGEST_TEST_TO` secret) unless `audience` is changed; `dry_run` attaches the email instead of sending.
-- **Email admin page:** read `docs/EMAIL_ADMIN.md` first. `/?page=admin` (and an "Email admin" button in the Saved panel, for admins only): preview anyone's digest, send tests and one-off emails, see what was sent. `features/admin/`, `api/admin.js`, `lib/adminEmail.js`. An admin is a row in `admin_users`, added by hand in SQL; every `admin_*` database function checks it (migration `20261125000000`), so the page hiding things is only a convenience. The site only queues a row in `email_jobs`; `pipeline/digest/outbox.js` (`email-outbox.yml`, started by the `email-dispatch` edge function) sends it with the same code as Tuesday's digest (`pipeline/digest/run.js`) and logs each address in `email_deliveries`, so "Send again" never sends twice. The emails are `packages/core/email/` (`digest.js`, `custom.js`): the preview and the email are one function, so change an email there. The outbox workflow's log is public: never print an address in `pipeline/digest/`. In e2e, `openApp(page, { answers: { "rpc/is_admin": true } })` plus `mockAuth`/`signIn` (`e2e/admin.spec.js`).
-- **Privacy page:** `/?page=privacy`, `features/privacy/PrivacyPage.jsx` (its own chunk), linked from the sign-in form, the feedback form, Saved, the Learn page and every email's footer. Every line on it has to stay true: when the site stores something new about a person, sends data to a new service or adds analytics, update the page and the date in `lib/privacy.js`. It says only what the site does by itself: no promise that needs a person to keep it (no contact inbox, no deadline, no "ask and it will be deleted", no "you will be told"; owner's call, 2026-11-17), and it says an account can't be deleted yet. `docs/PRIVACY.md` maps each statement to the code.
-- **Date filter and map cache constants:** `lib/constants.js`.
-- **Counties load on demand:** only Jefferson loads on a first visit. A county that is off is shaded with orange stripes and has a "Tap to load" button on the map (`features/map/useCountyLoadLayer.js`), and a checkbox in the Filter tab's Counties list. `shownCounties` in `Map.jsx` (rules in `lib/counties.js`, remembered in localStorage `lfs_counties`) decides what is loaded, drawn, searched, and listed in Table View and What's New. `useMapFeatures(shown)` reads each county at most once per page and caches it on its own (`lib/mapCache.js`, good until the next daily data load, `DATA_REFRESH_UTC_HOUR`); switching a county off and on never asks the database again. A new county needs `labelAt` in `lib/regions.js`. In e2e, `openApp(page, { counties: [...] })` starts with counties switched on.
-- **Categories load on demand:** a first visit has Restaurants, Retail and Kitchens on (`DEFAULT_CATEGORIES` in `lib/categories.js`, the first three tiles), and only those are read for Jefferson: `useMapFeatures(shown, categories)` asks `v_facility_map_pins` for the categories it lacks in one filtered read (`categoryOrFilter`), and caches each category on its own (`jefferson/schools` in `lib/mapCache.js`). Tapping a tile reads that category once; off and on again reads nothing. The choice is remembered (localStorage `lfs_categories`). A place of a category that isn't loaded (opened from What's New, Table View, Saved, a watch area or an email link, or one of the visitor's saved places) gets its pin from one small read (`loadPins`, `fetchPinsById`), and saved places and the open place pass the category filter (`alwaysShow` in `lib/mapFilters.js`). A map search only covers the categories that are on: the search box says "Searching 3 of 8 place types" with a "Search all" button. In e2e, `openApp` starts with every category on; pass `categories: null` for a first visit.
-- **Jefferson's pins are one read:** `v_facility_map_pins` (migration `20261122000000`), `fetchMapPins` in `api/mapData.js`. There is no fallback: the old one read three whole tables from the browser (removed 2026-11-18). If the read fails, the pages already read stay on the map and the corner indicator offers to try again.
-- **Egress (5 GB a month):** what costs it, biggest first: a fresh map load, Table View pages, the weekly `pg_dump` (`db-backup.yml`: Sundays only, a tiny dump of the tables that can't be rebuilt plus the new rows of `facilities`, `inspections` and `inspection_violations`, about 0.5 MB a run; a full dump, about 12 MB, only when run by hand). Keep backups tiny: the owner prefers thin backups over egress. Don't add a read that pages through a whole table from the browser, and don't add a fallback that does (the Learn page had one).
-- **Bullitt County:** read `docs/BULLITT.md` first. Separate `bullitt_*` tables, `pipeline/regions/bullitt/`. Results come from the county's sheet only while the portal is paused: every Bullitt reader reads the `bullitt_results` view (sheet-only since migration `20261201000000`; it picked the portal when fresh before that). Its pins show once the county is switched on (see "Counties load on demand"); undated Bullitt pins pass the date filter (dated ones are filtered normally) and always pass the category filter, since they have no facility types (`lib/mapFilters.js` `categoryFilter`; the Filter tab lists Jefferson with the category tiles and the untyped counties below, with a one-line note). Per-county capabilities, agency and data sources in `lib/regions.js` (`has`, `agency`, `source`, `dataNote`; the Learn page shows one link and a data note per county). Geocoding order and the redo switch: `docs/BULLITT.md`. Bullitt ids start with `bullitt-` (`lib/bullitt.js`). What's New has three tabs, Latest (`get_latest_inspections`, the same rows as `get_whats_new` by date), Violations (`get_whats_new`, failing first) and Top Scores (`get_top_scores`), listed in `lib/whatsNew.js` `WHATS_NEW_TABS`; all include Bullitt; undated rows say "posted <date>" (`lib/whatsNew.js`).
-- **Kentucky's portal is PAUSED (2026-11-18)** until the owner has permission to use it: no permission has been asked for or given, and CDP's site terms forbid copying and public display. Oldham, Shelby and Spencer are `enabled: false`, the site can't read the `portal_*` tables (migration `20261201000000`), `portal-ingest.yml` has no schedule; nothing was deleted. Don't turn any of it back on, run the job, or add a portal county without the owner saying permission is in hand (`docs/COUNTIES.md`, "Paused"). How it worked: read `docs/COUNTIES.md`. Kentucky's statewide inspection portal has every county, with dates; `pipeline/regions/kyportal/` reads one (two requests) and stores it daily in the `portal_*` tables (`portal-ingest.yml`); Oldham shows on the map from them. Jefferson stays on ArcGIS, and Bullitt's sheet import stays as the fallback: the portal never replaces a source we had ("If the portal goes away" in that doc). Shared helpers for id-less sources: `pipeline/lib/countyRows.js` (rows) and `pipeline/lib/countyGeocode.js` (pins).
-- **Table View:** reads `v_table_latest` / `v_table_inspections` (Jefferson and Bullitt), limited to the counties switched on. It loads nothing until first opened and asks for a row count only when filters change (`lib/tableQuery.js`). On phones, filters fold behind a button and rows are cards. Facility chips only filter Jefferson (Bullitt has no types): picking one switches County to Jefferson; picking Bullitt shows a note instead of chips.
-- **Search:** `lib/searchText.js`, used by the map (`search_key` on each pin, built in `lib/dedupe.js`, matched in `lib/mapFilters.js`) and Table View (`searchFilters` in `lib/tableQuery.js`, a PostgREST `imatch` regex per word). Case, spacing, punctuation and accents are ignored, and every word must match, so "mcdonalds", "Mc Donald's" and "mc'donalds" all find every McDonald's in both counties. No database change.
-- **Map popups** sit under every panel: `.map-container` has `z-index: 0`, so it is its own stacking context.
-
-## Decisions already made
-
-- No contributor scaffolding (see above). Keep `docs/ARCHITECTURE.md` and `docs/SMOKE_TEST.md`.
-- Header label is "Saved" (alternatives considered: Watch, Account, My Places, Watchlist, Alerts).
-- Swipe-to-close on the phone drawer is on; the owner may turn it off.
-- Prettier: done for the whole repo in one commit, CSS and Markdown included (the earlier recommendation to skip CSS was not followed).
-
-## State (verify with git)
-
-As of 2026-11-19 (PRs up to #88 merged). Four PRs from an overnight run are open, all against `main`; **merge #89 first**: #90, #91 and #92 are built on its branch (`feat/i18n-spanish`), so until it merges their diffs also show its commits.
-
-- **#89 Spanish, finished** (issue #7): flag picker (inline US/Spain SVG, `features/map/LanguagePicker.jsx`) in the top left of every page, before the search box or the back button; every interface string in English and Spanish (`lib/strings.js` plus `strings.filters.js`, `.table.js`, `.saved.js`, `.pages.js`, merged there; `lib/i18n.test.js` enforces both languages have every key); the admin page stays English. The weekly email goes out in the subscriber's language: `profiles.language` (`en`/`es`), `packages/core/email/words.js` (tested word list; `renderDigest`/`renderCustom` take `lang`), `pipeline/digest` renders each copy in the recipient's language, the admin preview shows and uses it. Sign-up from the Spanish site saves `es`; a signed-in subscriber who switches language is offered the email in it once (`DigestLanguageOffer.jsx`), and the Saved panel always shows the choice. The privacy page says the language is stored (`PRIVACY_UPDATED` 2026-11-19).
-- **#90 Shelby and Spencer** from Kentucky's portal, like Oldham (off by default, loaded when switched on). Hardin (about twice Oldham's size) left out: `docs/COUNTIES.md`.
-- **#91 Violation rings:** Louisville amber-red, every other county goldenrod (`features/map/mapLayers.js`).
-- **#92 Accessibility part 2:** 320px reflow, reduced motion, dialog focus (`hooks/useDialogFocus.js`), 24px tap targets; `e2e/a11y-part2.spec.js`.
-- The refactor's phases 0, 1, 2, 4 and 5 are done, and phase 6 nearly: every big component is split into `features/`. Lint has 0 warnings.
-- Tests (with the open PRs): about 435 website unit and component tests, 73 in `packages/core`, 209 in the pipeline, and 212 Playwright runs (desktop and phone) including the axe checks (`e2e/a11y.spec.js`, in Spanish too) and `a11y-part2.spec.js`.
-- Gotcha from that run: running Prettier from inside `pipeline/` (`npx prettier --write tests`) reformatted `pipeline/tests/fixtures/kyportal_oldham.html`, the portal's saved page, and broke 13 tests. Run `npm run format` from the repo root, and `git status` before committing.
-- **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care. The overnight run made none.
-
-## To do, in order
-
-**Waiting on the owner** (each needs the dashboard, a deploy or a decision; none can be done from a session):
-
-1. Supabase → Edge Functions → Secrets: `ALLOWED_ORIGIN` must be `https://louisvillefoodsafe.netlify.app` with no trailing slash (a slash blocked the admin email button and all feedback from June to November 2026).
-2. Deploy both edge functions after #84: `npx supabase functions deploy submit-feedback --no-verify-jwt --project-ref iyahhhgqmhbadgczbfwy` and `npx supabase functions deploy email-dispatch --project-ref iyahhhgqmhbadgczbfwy`. Then delete the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` secrets, and send a test from the Feedback button.
-3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, `20261128000000_digest_saved_places.sql`, and (after #89 merges) **`20261129000000_digest_language.sql`** (adds `profiles.language`; until it runs every email is English and the language offer stays hidden).
-4. Netlify: delete the unused `GEOAPIFY_KEY` variable (the site uses `VITE_GEOAPIFY_KEY`).
-5. Decide whether approximate Bullitt pins (`ky911-approx`) should look different (`docs/BULLITT.md`, Decisions 9).
-6. Merge order: #89, then #90, #91, #92. Look at the ring colours (#91) and the larger score switches (#92) on a phone.
-7. Have a Spanish speaker skim `lib/strings*.js`, `packages/core/email/words.js` and the Spanish privacy text.
-
-**Code, next in line:**
-
-1. **Spanish leftovers:** the email admin page is English by design; raw Supabase error text still shows as received; a real screen-reader pass in Spanish.
-2. **Accessibility, still by hand** (`docs/ACCESSIBILITY.md`, "Not checked yet"): VoiceOver and TalkBack on the dialogs and the bottom sheet.
-3. **Pipeline (refactor phase 3)**, from a machine that can run against the database, dry run first, and only once egress has reset:
-   - `overlay_geometry.js` never saves coordinates (it should write `geom` only);
-   - `etl-accuracy-check.js` reads a different server and fields than the ingest;
-   - `seed_facilities` doesn't record its runs, so `Recover.js` can't recover it;
-   - Jefferson's ingest has no "refuse a source that shrank" guard like the portal and Bullitt jobs;
-   - the portal's Jefferson data could become Jefferson's fallback (not connected; `docs/COUNTIES.md`).
-4. **Phase 6 leftovers:** split `ScoreThreshold.jsx`; CSS clean-up; a component test for the info drawer (like `WhatsNew.test.jsx`).
-5. **Egress audit:** find what used 5 GB this cycle (the daily chart first), and keep a fresh map load and Table View as small as they can be.
-6. Maybe, only with permission for the portal: Hardin County (`docs/COUNTIES.md`); showing portal counties in Table View, Saved and What's New.
-7. Later: consider TypeScript.
+- `planner` and `reviewer` run on Opus at high effort; `verifier` and `keeper` on Sonnet (`.claude/agents/`). The session's own model does the building: Opus for anything bigger than a copy change.
+- The reviewer gets the diff, not your reasoning. It has a "Judgment checks" list that grows when a mistake can't be caught by a pattern.
+- `checks/rules.mjs`: each rule's `why` says which mistake it came from. Excuse a line with `check-allow: <rule-id> <reason>` on it or the line above.
+- Hooks: `guard.mjs` blocks the live database and secrets (quoted text and heredocs are data; tests in `guard.test.mjs`), and `format.mjs` runs Prettier on every repo file you edit.
+- `keeper` runs weekly as a scheduled task: drift, repeated mistakes, rule candidates. At most three issues, no code.
 
 ## Working with the owner
 
-Prefers concise, warm, punchy communication that does not sound like an AI, and pushes back on anything long-winded or over-promised. Gets confused by paths and git state, so always say where to run a command, show exact commands, and tell him what the output should look like. Explain "why" briefly before changing something non-obvious. Verify claims against the code instead of guessing; several early assumptions in this project turned out to be wrong and were caught only by reading the files.
+Concise, warm, punchy, not like an AI; pushes back on anything long-winded or over-promised. Gets confused by paths and git state, so always say where to run a command, show exact commands, and tell him what the output should look like. Explain "why" briefly before changing something non-obvious. Verify claims against the code instead of guessing: several early assumptions in this project were wrong and were caught only by reading the files.
+
+| Not this                                                                        | This                                                          |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| "I've successfully implemented a comprehensive solution for county loading! 🎉" | "Counties now load when you switch them on. One read each."   |
+| "You may want to consider possibly running the migration."                      | "Run `20261129000000_digest_language.sql` in the SQL editor." |
+| "All tests should pass."                                                        | "`npm test`: 454 passed. I didn't run e2e: no UI changed."    |

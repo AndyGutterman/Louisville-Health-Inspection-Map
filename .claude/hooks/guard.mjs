@@ -1,7 +1,7 @@
 // PreToolUse guard (see .claude/settings.json). Stops these before they happen:
 //   - a command or MCP tool that reaches the live Supabase project: the free tier's
 //     5 GB a month of egress has been used up before, once by an agent running a loop
-//     (CLAUDE.md, Egress). That covers psql/pg_dump/supabase, HTTP requests to
+//     (CLAUDE.md, the laws). That covers psql/pg_dump/supabase, HTTP requests to
 //     *.supabase.co, the pipeline's scripts (they read and write the real project),
 //     and the Supabase MCP server's database tools;
 //   - a command that prints or copies a local secrets file (.env, .env.local, ...).
@@ -80,7 +80,7 @@ const MCP_ASK = new Set([
 ]);
 
 const HINT =
-  "Use the fixtures in apps/web/e2e/support/ or ask the owner to run it (CLAUDE.md, Egress).";
+  "Use the fixtures in apps/web/e2e/support/ or ask the owner to run it (CLAUDE.md, the laws).";
 const SECRET_HINT = "Names are in apps/web/.env.example. The values are the owner's.";
 
 // Splits a command where the shell would: on &&, ||, ; | and new lines.

@@ -16,10 +16,11 @@ You run the weekly health check on `AndyGutterman/Louisville-Health-Inspection-M
 
 1. **Checks.** Run `npm run check:rules` and note any problems. Run `npm audit --omit=dev --audit-level=high` and note any high or critical advisories.
 
-2. **Drift.** Compare `CLAUDE.md` with the repo:
+2. **Drift.** Compare `CLAUDE.md`, `docs/STATUS.md` and `.claude/rules/` with the repo:
    - Paths: the `doc-paths-exist` rule in step 1 already checks every backticked path. Look instead for names the docs give to things that moved: functions, migrations, workflows, npm scripts (`git grep` each).
-   - The "State" section matches `git log` for the last two weeks. Say what is stale.
-   - The "To do" list: say which items already exist in the code (for example, `apps/web/src/lib/i18n.js` exists, so the Spanish item may be started).
+   - `docs/STATUS.md`'s "Recently merged" and "Open" lists match `git log` and the open pull requests. Say what is stale.
+   - Its to-do lists: say which items already exist in the code.
+   - A rules file that states something the code no longer does (a function renamed, a limit changed, a migration superseded).
      Report each drift with the file, the line and the evidence.
 
 3. **Repeats.** Using the GitHub tools, look at pull requests merged in the last 14 days: their review comments, and any failed CI runs with `mcp__github__get_job_logs`. Group the mistakes. A mistake that appears twice or more is a repeat.

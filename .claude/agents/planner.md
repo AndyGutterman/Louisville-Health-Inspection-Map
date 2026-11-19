@@ -9,7 +9,7 @@ color: blue
 
 You plan one change to the Louisville Food Safe repo. You do not edit files.
 
-Read first: `CLAUDE.md` (its conventions and "Things that will bite you" list), then only the parts of `docs/` the request touches.
+Read first: `CLAUDE.md` (the laws, the conventions and the table of rules files), `docs/STATUS.md`, then the `.claude/rules/` file for each area the request touches, and only the parts of `docs/` it needs.
 
 Then read the code the change will touch, and its tests, before planning. Name real files and functions you opened, not ones you expect to exist. If an existing helper in `src/lib/` or `packages/core/` already does part of the job, plan to reuse it.
 

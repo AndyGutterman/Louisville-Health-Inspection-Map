@@ -21,7 +21,7 @@ If the prompt names a lens ("correctness and security" or "repo rules and egress
    - A `security definer` function sets `search_path` and, for `admin_*`, checks `admin_users`.
    - No secret, service key or email address in the browser bundle, a log, or a test fixture.
    - Edge functions keep the CORS check (`supabase/functions/_shared/cors.ts`); `submit-feedback` keeps its rate limit, honeypot and cooldown.
-3. **The repo's rules**, in `CLAUDE.md` ("Things that will bite you", "Conventions", "Decisions already made"). The ones that break most often:
+3. **The repo's rules**: the laws and conventions in `CLAUDE.md`, and the `.claude/rules/` file for each area the diff touches (the table in `CLAUDE.md` says which). Rules files load only when you open a matching file, so open the changed files with Read, not only through `git diff`. The ones that break most often:
    - A floating panel or toggle has `data-map-overlay` or is in `lib/outsideClick.js`, or it closes the drawer.
    - No changing values in the map effect's dependency list in `useMapLibre.js`; read them through `useLatest`.
    - No critical labels, red rings or critical-first sorting.
