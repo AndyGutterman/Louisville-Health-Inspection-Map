@@ -113,9 +113,12 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   each pin that moved.
 
 - **Workflow:** `.github/workflows/bullitt-ingest.yml`, every two hours at :41 UTC. An
-  unchanged sheet stops after the snapshot check: it writes nothing and skips the
-  hand-pin pass. A load that changed something stamps `data_loads`, so visitors' saved
-  pins are read again on their next visit. (The department changed the sheet on
+  unchanged sheet loads nothing and skips the hand-pin pass; it still reads the pin control
+  center's Bullitt fixes and geocodes any place still waiting for a pin (normally none). A
+  run by hand re-applies the hand-placed pins anyway (`--hand-pins`): run it after an edit
+  to `overrides.json`, or the edit waits for the next sheet change. A changed sheet stamps
+  `data_loads` as soon as it is loaded (before geocoding, which might fail), so visitors'
+  saved pins are read again on their next visit. (The department changed the sheet on
   2026-11-20 just after that day's only run, which is why it went from daily to every two
   hours.)
 - **Website:** both counties' pins show together (the County picker is gone). The date

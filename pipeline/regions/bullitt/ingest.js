@@ -14,6 +14,8 @@
  * Usage (from pipeline/):
  *   node regions/bullitt/ingest.js                    # the scheduled job
  *   node regions/bullitt/ingest.js --retry-failures   # also retry addresses that failed
+ *   node regions/bullitt/ingest.js --hand-pins        # also re-apply hand-placed pins
+ *                                                     # when the sheet is unchanged
  *   node regions/bullitt/ingest.js --redo-geocoding   # geocode every place again (not
  *                                                     # hand-placed ones), ignoring the cache
  *   node regions/bullitt/ingest.js --dry-run          # download and parse only, no database
@@ -73,6 +75,7 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const RETRY_FAILURES = args.includes("--retry-failures");
 const REDO_GEOCODING = args.includes("--redo-geocoding");
+const HAND_PINS = args.includes("--hand-pins");
 
 const PREVIEW = args.find((a) => a.startsWith("--preview="))?.slice("--preview=".length);
 
@@ -250,19 +253,22 @@ async function load(supa, csv, establishments) {
 
   const { supa } = await import("../../lib/db.js"); // only now: --dry-run needs no credentials
   const changed = await load(supa, csv, establishments);
+  // Visitors' saved pins are read again only once the stamp moves (lib/dataLoads.js).
+  // Stamped now, before geocoding: if that fails, the next run sees an unchanged sheet
+  // and would never stamp the new results.
+  if (changed) await markLoaded(supa, "bullitt");
   const geo = geocoderWith(await readFixes(supa, ["bullitt"]));
   // Only a load or a regeocode can move a hand-placed pin (the pin control center writes
   // its own), so an unchanged sheet skips this pass: it reads every Bullitt place, and
-  // the job runs every two hours.
-  const pinsMoved = changed || RETRY_FAILURES || REDO_GEOCODING ? await geo.applyHandPins(supa) : 0;
+  // the job runs every two hours. A run by hand (--hand-pins, the workflow passes it)
+  // applies them anyway, for an edit to overrides.json.
+  const handPins = changed || HAND_PINS || RETRY_FAILURES || REDO_GEOCODING;
+  const pinsMoved = handPins ? await geo.applyHandPins(supa) : 0;
   const tally = await geo.geocodeMissing(supa, {
     retryFailures: RETRY_FAILURES,
     redo: REDO_GEOCODING,
   });
-  // Visitors' saved pins are read again only after this (lib/dataLoads.js).
-  if (changed || pinsMoved || tally.hits || tally.outside || tally.moved) {
-    await markLoaded(supa, "bullitt");
-  }
+  if (pinsMoved || tally.hits || tally.outside || tally.moved) await markLoaded(supa, "bullitt");
 })().catch((err) => {
   console.error("Bullitt ingest failed:", err.message);
   process.exit(1);

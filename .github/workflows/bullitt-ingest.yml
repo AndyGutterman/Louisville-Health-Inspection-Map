@@ -44,4 +44,7 @@ jobs:
       - name: Load and geocode
         env:
           REDO: ${{ inputs.redo_geocoding && '--redo-geocoding' || '' }}
-        run: node regions/bullitt/ingest.js $REDO
+          # A run by hand re-applies hand-placed pins (overrides.json) even when the sheet
+          # is unchanged; scheduled runs skip that pass unless the sheet changed.
+          HAND_PINS: ${{ github.event_name == 'workflow_dispatch' && '--hand-pins' || '' }}
+        run: node regions/bullitt/ingest.js $REDO $HAND_PINS
