@@ -24,6 +24,7 @@ import "dotenv/config";
 import { readFileSync, writeFileSync } from "node:fs";
 import { countyGeocoder } from "../../lib/countyGeocode.js";
 import { parseOverrides } from "../../lib/overrides.js";
+import { readFixes } from "../../lib/placeFixes.js";
 import { countyById, idPrefix } from "./counties.js";
 import { fetchCountyPage } from "./fetch.js";
 import { parsePortalPage } from "./parse.js";
@@ -62,13 +63,14 @@ function printSummary(total, establishments, warnings) {
   for (const w of warnings) console.log(`  ${w}`);
 }
 
-function geocoderFor(county) {
+function geocoderFor(county, fixes) {
   return countyGeocoder({
     outline: readJson(county.outline),
     defaults: { city: county.defaultCity, state: "KY" },
     county911: county.county911,
     keyPrefix: county.id,
     overrides: parseOverrides(readJson(county.overrides)),
+    fixes,
     table: "portal_establishments",
     scope: (q) => q.eq("region", county.id),
   });
@@ -110,8 +112,8 @@ function geocoderFor(county) {
           `and ${stored.newInspections} new inspections.`,
   );
 
-  const geo = geocoderFor(county);
-  await geo.applyOverrides(supa);
+  const geo = geocoderFor(county, await readFixes(supa, [county.id]));
+  await geo.applyHandPins(supa);
   await geo.geocodeMissing(supa, { retryFailures: RETRY_FAILURES, redo: REDO_GEOCODING });
 })().catch((err) => {
   console.error("Portal load failed:", err.message);

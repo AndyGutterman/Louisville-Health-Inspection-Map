@@ -28,6 +28,7 @@ import { containsPoint } from "../../lib/geo.js";
 import { DELAY_MS, USER_AGENT, sleep } from "../../lib/geocode.js";
 import { countyGeocoder } from "../../lib/countyGeocode.js";
 import { parseOverrides } from "../../lib/overrides.js";
+import { readFixes } from "../../lib/placeFixes.js";
 import { parseSheet } from "./parse.js";
 import { planVersions, versionKey } from "./versions.js";
 
@@ -50,15 +51,18 @@ const OVERRIDES = parseOverrides(
   JSON.parse(readFileSync(new URL("./overrides.json", import.meta.url), "utf8")),
 );
 
-// Geocoding steps and cache: lib/countyGeocode.js. Cache keys start "bullitt|".
-const GEO = countyGeocoder({
-  outline: OUTLINE,
-  defaults: DEFAULTS,
-  county911: "Bullitt County",
-  keyPrefix: "bullitt",
-  overrides: OVERRIDES,
-  table: "bullitt_establishments",
-});
+// Geocoding steps and cache: lib/countyGeocode.js. Cache keys start "bullitt|". `fixes`:
+// the pin control center's (lib/placeFixes.js), read once the database is in reach.
+const geocoderWith = (fixes = new Map()) =>
+  countyGeocoder({
+    outline: OUTLINE,
+    defaults: DEFAULTS,
+    county911: "Bullitt County",
+    keyPrefix: "bullitt",
+    overrides: OVERRIDES,
+    fixes,
+    table: "bullitt_establishments",
+  });
 
 // A sheet with less than half the places of the last one is more likely broken than real.
 const MIN_SHARE_OF_LAST = 0.5;
@@ -95,9 +99,10 @@ async function downloadSheet() {
 // --dry-run: no database. With --preview, geocode every place into a GeoJSON file.
 async function dryRun(establishments) {
   if (!PREVIEW) return;
+  const geo = geocoderWith(); // no database: overrides.json only
   const features = [];
   for (const [i, e] of establishments.entries()) {
-    const { query, result } = await GEO.geocode(e);
+    const { query, result } = await geo.geocode(e);
     const outside = result ? !containsPoint(OUTLINE, [result.lon, result.lat]) : null;
     console.log(
       `  ${i + 1}/${establishments.length} ${result ? (outside ? "OUTSIDE" : "ok     ") : "MISS   "} ${result?.provider ?? ""}  ${query}`,
@@ -243,8 +248,9 @@ async function load(supa, csv, establishments) {
 
   const { supa } = await import("../../lib/db.js"); // only now: --dry-run needs no credentials
   await load(supa, csv, establishments);
-  await GEO.applyOverrides(supa);
-  await GEO.geocodeMissing(supa, { retryFailures: RETRY_FAILURES, redo: REDO_GEOCODING });
+  const geo = geocoderWith(await readFixes(supa, ["bullitt"]));
+  await geo.applyHandPins(supa);
+  await geo.geocodeMissing(supa, { retryFailures: RETRY_FAILURES, redo: REDO_GEOCODING });
 })().catch((err) => {
   console.error("Bullitt ingest failed:", err.message);
   process.exit(1);
