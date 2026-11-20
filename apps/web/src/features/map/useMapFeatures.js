@@ -6,7 +6,8 @@
 //     the others when their tile is first tapped. The categories missing are asked for
 //     in one read.
 // Each piece is read from the browser's cache when that is fresh (lib/mapCache.js: good
-// until the next daily data load), and from the database at most once per page
+// until its county's data is loaded again, which the one small read of data_loads at the
+// start of the page says, api/dataLoads.js), and from the database at most once per page
 // otherwise. Switching a county or a category off only hides its pins; switching it back
 // on shows them again without another read.
 //   geoData     the GeoJSON the map draws: one pin per location (lib/dedupe.js), for the
@@ -23,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMapPins, fetchPinsById } from "../../api/mapData.js";
 import { fetchBullittFeed } from "../../api/bullitt.js";
 import { fetchPortalFeed } from "../../api/portal.js";
+import { fetchDataLoads } from "../../api/dataLoads.js";
 import { buildPinFeatures, combineRegions } from "../../lib/mapFeatures.js";
 import { BULLITT, buildBullittFeatures } from "../../lib/bullitt.js";
 import { buildPortalFeatures } from "../../lib/portal.js";
@@ -43,18 +45,21 @@ function browserStorage() {
   }
 }
 
-function readCache(pieceId) {
+// stamp: the county's load stamp (data_loads), or null when unknown.
+function readCache(pieceId, stamp) {
   if (new URLSearchParams(window.location.search).has("bust")) return null; // dev escape hatch
   return readMapCache(browserStorage(), {
     key: countyCacheKey(GEO_CACHE_VERSION, pieceId),
     refreshUtcHour: DATA_REFRESH_UTC_HOUR,
+    stamp,
   });
 }
 
-const saveCache = (pieceId, features) =>
+const saveCache = (pieceId, features, stamp) =>
   writeMapCache(browserStorage(), features, {
     key: countyCacheKey(GEO_CACHE_VERSION, pieceId),
     version: GEO_CACHE_VERSION,
+    stamp,
   });
 
 // How often, at most, the pins are redrawn while data is still arriving.
@@ -106,6 +111,13 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
   const categoriesRef = useRef(categories);
   const byEid = useRef({});
   const coordIndex = useRef(new Map());
+  // When each county last loaded (api/dataLoads.js): read once per page, before any pins,
+  // so pins read afterwards are never older than the stamp they are saved under.
+  const loads = useRef(null);
+  const stampOf = useCallback(async (regionId) => {
+    loads.current ??= fetchDataLoads();
+    return (await loads.current)?.[regionId] ?? null;
+  }, []);
 
   // A county whose data has facility types (Jefferson) loads one category at a time.
   const byCategory = useCallback((region) => !!region.has.categories, []);
@@ -166,31 +178,32 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
 
   // Starts a whole county, from the cache if it's fresh.
   const startWhole = useCallback(
-    (region) => {
+    async (region) => {
       const id = region.id;
       if (store.current[id]) return;
-      const cached = readCache(id);
-      if (cached) {
-        store.current[id] = { region: id, state: "ready", features: cached };
-        return;
-      }
       const piece = { region: id, state: "loading", features: [] };
       store.current[id] = piece;
-      loadCounty(region).then(({ features, ok }) => {
-        piece.features = features;
-        piece.state = ok ? "ready" : "failed";
-        if (ok) saveCache(id, features);
-        publish();
-      });
+      const stamp = await stampOf(id);
+      const cached = readCache(id, stamp);
+      if (cached) {
+        piece.features = cached;
+        piece.state = "ready";
+        return publish();
+      }
+      const { features, ok } = await loadCounty(region);
+      piece.features = features;
+      piece.state = ok ? "ready" : "failed";
+      if (ok) saveCache(id, features, stamp);
+      publish();
     },
-    [publish],
+    [publish, stampOf],
   );
 
   // Reads the given categories of a county in one request (v_facility_map_pins, filtered
   // by facility type), showing pages as they arrive. Each category is cached on its own,
   // so a later visit with other categories on reads only what it lacks.
   const loadCategories = useCallback(
-    async (region, wanted) => {
+    async (region, wanted, stamp) => {
       const mine = wanted.map((c) => [c, store.current[pieceId(region.id, c)]]);
       // Sorted into their categories here too, so a place can't land in two pieces.
       const sort = (rows) => {
@@ -213,7 +226,7 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
       sort(rows ?? seen);
       for (const [c, piece] of mine) {
         piece.state = rows ? "ready" : "failed";
-        if (rows) saveCache(pieceId(region.id, c), piece.features);
+        if (rows) saveCache(pieceId(region.id, c), piece.features, stamp);
       }
       publish();
     },
@@ -226,19 +239,29 @@ export function useMapFeatures(shown, categories = CATEGORY_KEYS, drawnRef) {
     (id) => {
       const region = regionById(id);
       if (!byCategory(region)) return startWhole(region);
-      const missing = [];
+      const wanted = [];
       for (const c of categoriesRef.current) {
         const key = pieceId(id, c);
         if (store.current[key]) continue;
-        const cached = readCache(key);
-        store.current[key] = cached
-          ? { region: id, state: "ready", features: cached }
-          : { region: id, state: "loading", features: [] };
-        if (!cached) missing.push(c);
+        store.current[key] = { region: id, state: "loading", features: [] };
+        wanted.push(c);
       }
-      if (missing.length) loadCategories(region, missing);
+      if (!wanted.length) return;
+      stampOf(id).then((stamp) => {
+        const missing = [];
+        for (const c of wanted) {
+          const piece = store.current[pieceId(id, c)];
+          const cached = readCache(pieceId(id, c), stamp);
+          if (cached) {
+            piece.features = cached;
+            piece.state = "ready";
+          } else missing.push(c);
+        }
+        if (missing.length < wanted.length) publish();
+        if (missing.length) loadCategories(region, missing, stamp);
+      });
     },
-    [byCategory, startWhole, loadCategories],
+    [byCategory, startWhole, loadCategories, stampOf, publish],
   );
 
   const shownKey = shown.join(",");

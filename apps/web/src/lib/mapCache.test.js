@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { countyCacheKey, lastDataRefresh, readMapCache, writeMapCache } from "./mapCache.js";
+import {
+  MAX_STAMPED_AGE,
+  countyCacheKey,
+  lastDataRefresh,
+  readMapCache,
+  writeMapCache,
+} from "./mapCache.js";
 
 // A Storage look-alike (getItem, setItem, removeItem, key, length).
 function memoryStorage(initial = {}, { full = false } = {}) {
@@ -101,5 +107,48 @@ describe("map cache", () => {
     expect(s.keys().sort()).toEqual(
       [countyCacheKey(VERSION, "oldham"), "lfs_counties", KEY, "sb-auth-token"].sort(),
     );
+  });
+});
+
+describe("map cache with load stamps (data_loads)", () => {
+  const S1 = "2026-11-20T14:31:02+00:00";
+  const S2 = "2026-11-21T14:29:40+00:00";
+  const save = (s, stamp, now) => writeMapCache(s, pins, { key: KEY, version: VERSION, stamp, now });
+  const readAt = (s, stamp, now) =>
+    readMapCache(s, { key: KEY, refreshUtcHour: REFRESH, stamp, now });
+
+  it("stays good past the daily refresh hour while the county hasn't loaded again", () => {
+    const s = memoryStorage();
+    save(s, S1, at("2026-11-20T15:00Z"));
+    expect(readAt(s, S1, at("2026-11-21T12:00Z"))).toEqual(pins); // past 11:00, same stamp
+  });
+
+  it("is empty as soon as the county has loaded again", () => {
+    const s = memoryStorage();
+    save(s, S1, at("2026-11-20T15:00Z"));
+    expect(readAt(s, S2, at("2026-11-20T15:05Z"))).toBeNull(); // minutes later, new stamp
+  });
+
+  it(`is read again after ${MAX_STAMPED_AGE / (24 * HOUR)} days even with the same stamp`, () => {
+    const s = memoryStorage();
+    save(s, S1, at("2026-11-20T15:00Z"));
+    expect(readAt(s, S1, at("2026-11-23T14:59Z"))).toEqual(pins);
+    expect(readAt(s, S1, at("2026-11-23T15:00Z"))).toBeNull();
+  });
+
+  it("keeps the daily rule when the stamp is unknown on either side", () => {
+    const s = memoryStorage();
+    save(s, null, at("2026-11-20T12:00Z")); // saved before the table existed
+    expect(readAt(s, S1, at("2026-11-20T23:00Z"))).toEqual(pins);
+    expect(readAt(s, S1, at("2026-11-21T11:00Z"))).toBeNull();
+    save(s, S1, at("2026-11-20T12:00Z")); // the stamp's read failed this visit
+    expect(readAt(s, null, at("2026-11-20T23:00Z"))).toEqual(pins);
+    expect(readAt(s, null, at("2026-11-21T11:00Z"))).toBeNull();
+  });
+
+  it("saves the stamp with the pins", () => {
+    const s = memoryStorage();
+    save(s, S1, at("2026-11-20T15:00Z"));
+    expect(JSON.parse(s.getItem(KEY)).stamp).toBe(S1);
   });
 });

@@ -113,6 +113,46 @@ test("a second visit the same day draws the pins from the browser, not the datab
   expect(pinReads(second.requested)).toEqual([]);
 });
 
+test("saved pins are read again on the next visit after the county loads, and not before", async ({
+  page,
+  context,
+}) => {
+  const pinReads = (requested) => requested.filter((p) => p === "v_facility_map_pins");
+  // The same object for every tab: changing it between visits acts out a load.
+  const answers = { data_loads: [{ region: "jefferson", loaded_at: "2026-11-20T14:31:02+00:00" }] };
+  const first = await openApp(page, { answers });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0);
+  expect(first.requested).toContain("data_loads");
+  await page.close();
+
+  const same = await context.newPage();
+  const second = await openApp(same, { answers });
+  await expect(same.getByTestId("pins-loading")).toHaveCount(0);
+  expect(pinReads(second.requested), "nothing loaded since: no pins read").toEqual([]);
+  await same.close();
+
+  answers.data_loads = [{ region: "jefferson", loaded_at: "2026-11-21T14:29:40+00:00" }];
+  const after = await context.newPage();
+  const third = await openApp(after, { answers });
+  await expect(after.getByTestId("pins-loading")).toHaveCount(0);
+  expect(pinReads(third.requested).length, "a load since: pins read again").toBeGreaterThan(0);
+});
+
+test("before data_loads exists, the map still loads and keeps its pins for the day", async ({
+  page,
+  context,
+}) => {
+  const first = await openApp(page, { missing: ["data_loads"] });
+  await expect(page.getByTestId("pins-loading")).toHaveCount(0);
+  expect(first.requested).toContain("v_facility_map_pins");
+  await page.close();
+
+  const again = await context.newPage();
+  const second = await openApp(again, { missing: ["data_loads"] });
+  await expect(again.getByTestId("pins-loading")).toHaveCount(0);
+  expect(second.requested.filter((p) => p === "v_facility_map_pins")).toEqual([]);
+});
+
 test("a failed page of pins is tried again, and the map finishes loading", async ({ page }) => {
   const { consoleErrors } = await openApp(page, { failOnce: ["v_facility_map_pins"] });
   await expect(page.getByTestId("pins-loading")).toHaveCount(0, { timeout: 10_000 });

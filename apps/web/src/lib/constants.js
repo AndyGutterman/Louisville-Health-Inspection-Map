@@ -22,6 +22,8 @@ export const DATE_FILTER_OPTS = [
 // Map pins are cached in localStorage, one entry per county, or per category of a county
 // that loads by category (lib/mapCache.js). Change the version to force everyone to reload.
 export const GEO_CACHE_VERSION = "lfs_geodata_v9"; // bumped: Jefferson is cached by category
-// The cache is good until the next daily data load. The pipeline's loads start at 08:30,
-// 08:45 and 09:15 UTC (.github/workflows); 11:00 leaves room for a late GitHub runner.
-export const DATA_REFRESH_UTC_HOUR = 11;
+// The fallback when a county's load stamp is unknown (data_loads not there yet, or its
+// read failed; lib/mapCache.js): saved pins are good until this hour UTC comes round. The
+// city publishes around 13:45 UTC and its data is checked every two hours
+// (.github/workflows/ingest.yml), so most days the load lands before 17:00.
+export const DATA_REFRESH_UTC_HOUR = 17;
