@@ -29,6 +29,74 @@ export const previewDoc = (html) =>
 export const confirmsCount = (typed, count) =>
   count > 0 && String(typed ?? "").trim() === String(count);
 
+/**
+ * Where the arrow keys, Home and End take the tab list (the ARIA tabs pattern). Returns
+ * the tab to move to, or null for any other key. Wraps at both ends.
+ * @param {string[]} names  the tabs in order
+ * @param {string} current  the focused tab
+ * @param {string} key      the KeyboardEvent.key
+ */
+export function nextTab(names, current, key) {
+  if (!names.length) return null;
+  const i = names.indexOf(current);
+  if (key === "ArrowRight") return names[(i + 1) % names.length];
+  if (key === "ArrowLeft") return names[(i - 1 + names.length) % names.length];
+  if (key === "Home") return names[0];
+  if (key === "End") return names[names.length - 1];
+  return null;
+}
+
+const LOUISVILLE = "America/Kentucky/Louisville";
+
+/**
+ * A Louisville wall-clock time ("2026-11-20T14:30", from a datetime-local input) as the
+ * ISO instant it is. Null when it isn't a time.
+ */
+export function louisvilleToIso(local) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(local ?? ""));
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  // Louisville's offset from UTC at an instant: its clock reading, as if it were UTC, less
+  // the instant itself.
+  const offsetAt = (instant) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: LOUISVILLE,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(new Date(instant));
+    const at = (type) => Number(parts.find((p) => p.type === type).value);
+    return Date.UTC(at("year"), at("month") - 1, at("day"), at("hour"), at("minute")) - instant;
+  };
+  // Looked up twice: the first guess can sit on the other side of a daylight-saving change.
+  const guess = wall - offsetAt(wall);
+  return new Date(wall - offsetAt(guess)).toISOString();
+}
+
+/** Why a scheduled time can't be used, in words; null when it can. */
+export function scheduleProblem(iso, now = Date.now()) {
+  if (!iso) return "Pick a date and time.";
+  const t = new Date(iso).getTime();
+  if (!(t > now)) return "Pick a time in the future.";
+  if (t > now + 30 * 24 * 60 * 60 * 1000) return "Schedule up to 30 days ahead.";
+  return null;
+}
+
+/** "Thu, Nov 20, 2:30 PM" in Louisville, for a scheduled send. */
+export const scheduledText = (iso) =>
+  new Date(iso).toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: LOUISVILLE,
+  });
+
 /** A database error in words the page can show. */
 export function errorText(error) {
   const code = error?.code;

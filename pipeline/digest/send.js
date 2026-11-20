@@ -27,7 +27,7 @@
  */
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
-import { outcome } from "@lfs/core/email/jobs.js";
+import { outcome, skipsScheduledDigest } from "@lfs/core/email/jobs.js";
 import { buildEmail, runJob } from "./run.js";
 import { makeStore } from "./store.js";
 import { createSender, louisvilleToday, runUrl } from "./smtp.js";
@@ -46,6 +46,13 @@ const PREVIEW = "digest-preview.html";
 (async function run() {
   const { supa } = await import("../lib/db.js");
   const store = makeStore(supa);
+  // The Tuesday schedule stops when the owner has paused it (admin_set_digest_paused).
+  // A run started by hand still goes.
+  const scheduled = process.env.GITHUB_EVENT_NAME === "schedule";
+  if (skipsScheduledDigest({ scheduled, paused: await store.digestPaused() })) {
+    console.log("Tuesday's digest is paused on the admin page: nothing sent.");
+    return;
+  }
   const today = louisvilleToday();
   const job = {
     kind: "digest",

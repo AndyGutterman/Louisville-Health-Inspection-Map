@@ -2,9 +2,12 @@
 # pipeline/digest/outbox.js). The page's email-dispatch function starts this the moment
 # an email is queued; it can also be started by hand here, which sends whatever is
 # waiting. Nothing is sent that isn't a queued row of email_jobs, and a row queued more
-# than a day ago is marked expired instead.
+# than a day ago is marked expired instead. A scheduled email (send_at) waits here until
+# its time: the schedule below checks every 15 minutes, so it goes out within that.
 name: Email outbox
 on:
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       job:

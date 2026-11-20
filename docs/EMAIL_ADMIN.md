@@ -6,11 +6,21 @@ in the Saved panel, which only an admin sees). It does four things:
 - **Digest:** pick any account and see their weekly digest exactly as Tuesday's send would
   write it (their watch areas included). Send it to yourself as a test, send it to them,
   put them on or take them off the digest, or send this week's digest to every subscriber
-  now.
+  now. **Pause / Resume** at the top stops Tuesday's scheduled send only; a digest sent by
+  hand still goes.
 - **Write:** a one-off email in the same card as the digest. Plain text in, with a live
-  preview. To yourself, to a few addresses, or to every subscriber.
-- **Sent:** everything sent or waiting, Tuesday's sends included: who got it, what failed,
-  "Send again" for the ones that didn't get it.
+  preview. To yourself, to a few addresses, or to every subscriber. **Now / Later:** a
+  one-off to yourself or a few addresses can wait for a Louisville date and time, up to 30
+  days ahead. An email to every subscriber always goes now, since its count is checked
+  when it is queued. The outbox checks for due emails every 15 minutes, so a scheduled
+  email goes out within that.
+- **Sent:** the newest 10 sends, and **Show older** for the rest: who got it, what failed,
+  "Send again" for the ones that didn't get it (a scheduled email sent again goes now).
+  A scheduled email shows its time and can be cancelled.
+
+The pause, scheduling and older sends need migration `20261202000000_email_admin_more.sql`
+(the owner runs it). Until it has run, the page works as before: the pause card is hidden,
+and a send that isn't scheduled is queued as it always was.
 
 ## How it is locked down
 

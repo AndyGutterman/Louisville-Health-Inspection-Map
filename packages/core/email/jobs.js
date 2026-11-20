@@ -70,9 +70,20 @@ export function checkJob(job) {
 
 const minutesSince = (iso, now) => (now - new Date(iso).getTime()) / 60000;
 
-/** A queued job that waited too long is not sent: a stale "everyone" must not go out late. */
+/** A queued job whose time has come: no scheduled time, or one that has passed. */
+export const isDue = (job, now = Date.now()) => !job.send_at || new Date(job.send_at) <= now;
+
+/**
+ * A queued job that waited too long is not sent: a stale "everyone" must not go out late.
+ * A scheduled job waits from its scheduled time, not from when it was queued.
+ */
 export const isExpired = (job, now = Date.now()) =>
-  job.status === "queued" && minutesSince(job.queued_at, now) > LIMITS.expireHours * 60;
+  job.status === "queued" &&
+  minutesSince(job.send_at ?? job.queued_at, now) > LIMITS.expireHours * 60;
+
+/** Tuesday's digest is paused and this is the scheduled run: nothing goes out. */
+export const skipsScheduledDigest = ({ scheduled, paused }) =>
+  scheduled === true && paused === true;
 
 /** A job whose sender died part-way: still "sending" long after it started. */
 export const isStuck = (job, now = Date.now()) =>

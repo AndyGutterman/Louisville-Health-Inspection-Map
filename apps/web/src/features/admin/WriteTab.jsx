@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { SITE } from "@lfs/core/email/digest.js";
 import { renderCustom } from "@lfs/core/email/custom.js";
 import { LIMITS, checkJob, parseEmails } from "@lfs/core/email/jobs.js";
-import { confirmsCount, errorText } from "../../lib/adminEmail.js";
+import {
+  confirmsCount,
+  errorText,
+  louisvilleToIso,
+  scheduleProblem,
+} from "../../lib/adminEmail.js";
 import EmailPreview from "./EmailPreview.jsx";
 
 const AUDIENCES = [
@@ -26,6 +31,8 @@ export default function WriteTab({ me, message, onChange, subscribers, send }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [typed, setTyped] = useState("");
+  const [when, setWhen] = useState("now"); // "now" | "later"
+  const [at, setAt] = useState(""); // the Louisville date and time, for "later"
   const set = (fields) => {
     setError(null);
     onChange({ ...message, ...fields });
@@ -34,6 +41,10 @@ export default function WriteTab({ me, message, onChange, subscribers, send }) {
   const { audience } = message;
   const everyone = audience === "subscribers";
   const list = useMemo(() => parseEmails(message.addresses), [message.addresses]);
+  // Only a one-off email to yourself or a list can wait: an email to every subscriber goes
+  // out now, since its count is checked when it is queued.
+  const scheduling = !everyone && when === "later";
+  const sendAt = scheduling ? louisvilleToIso(at) : null;
   const job = {
     kind: "custom",
     audience: everyone ? "subscribers" : "emails",
@@ -42,11 +53,12 @@ export default function WriteTab({ me, message, onChange, subscribers, send }) {
     body: message.body,
     with_button: message.button,
     test: audience === "me",
+    send_at: sendAt,
   };
   const problem =
     audience === "list" && list.invalid.length
       ? `"${list.invalid[0]}" isn't an email address.`
-      : checkJob(job);
+      : (checkJob(job) ?? (scheduling ? scheduleProblem(sendAt) : null));
   const confirmed = !everyone || confirmsCount(typed, subscribers ?? 0);
 
   const email = useMemo(
@@ -144,6 +156,43 @@ export default function WriteTab({ me, message, onChange, subscribers, send }) {
             </label>
           ))}
         </fieldset>
+        {!everyone && (
+          <fieldset className="adm-audience">
+            <legend className="adm-label">When</legend>
+            <label className={`adm-radio${when === "now" ? " on" : ""}`}>
+              <input
+                type="radio"
+                name="adm-when"
+                value="now"
+                checked={when === "now"}
+                onChange={() => setWhen("now")}
+              />
+              <span className="adm-radio-name">Now</span>
+            </label>
+            <label className={`adm-radio${when === "later" ? " on" : ""}`}>
+              <input
+                type="radio"
+                name="adm-when"
+                value="later"
+                checked={when === "later"}
+                onChange={() => setWhen("later")}
+              />
+              <span className="adm-radio-name">Later</span>
+            </label>
+            {when === "later" && (
+              <input
+                className="adm-input adm-input--short"
+                type="datetime-local"
+                aria-label="When to send, Louisville time"
+                value={at}
+                onChange={(e) => setAt(e.target.value)}
+              />
+            )}
+            {when === "later" && (
+              <span className="adm-dim adm-hint">Louisville time, up to 30 days ahead.</span>
+            )}
+          </fieldset>
+        )}
         {audience === "list" && (
           <textarea
             className="adm-input adm-textarea"
@@ -172,7 +221,7 @@ export default function WriteTab({ me, message, onChange, subscribers, send }) {
             disabled={busy || !!problem || !confirmed}
             onClick={submit}
           >
-            {busy ? "Queueing…" : label}
+            {busy ? "Queueing…" : scheduling ? "Schedule email" : label}
           </button>
           {problem && (message.subject || message.body) && (
             <span className="adm-dim" data-testid="write-problem">

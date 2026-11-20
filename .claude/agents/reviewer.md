@@ -38,7 +38,7 @@ Apply these too. `/ship`'s learn step adds to this list when a mistake can't be 
 
 - Privacy: a change that stores something new about a person, sends data to a new service or adds analytics must also change `apps/web/src/lib/privacy.js` (and its date) and `docs/PRIVACY.md`.
 - A new county needs `labelAt` in `apps/web/src/lib/regions.js`.
-- A migration goes in `supabase/migrations/`. Nothing assumes it has been run.
+- A migration goes in `supabase/migrations/`. Nothing assumes it has been run: a new RPC parameter, a new column or a new table must not break the calls and reads that run before the owner applies it (send the new parameter only when it is set, and fall back when the column is missing). A migration's functions are `CREATE OR REPLACE`, so it can run twice.
 - A new view gets a line in `apps/web/e2e/a11y.spec.js`.
 - New visitor-facing text has both an English and a Spanish string (`lib/strings*.js`); `lib/i18n.test.js` only checks that the keys exist, not that the Spanish is a translation.
 

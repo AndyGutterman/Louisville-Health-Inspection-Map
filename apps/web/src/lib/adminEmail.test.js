@@ -4,10 +4,51 @@ import {
   countsText,
   errorText,
   louisvilleToday,
+  louisvilleToIso,
+  nextTab,
   previewDoc,
   queuedNotice,
+  scheduleProblem,
   whenText,
 } from "./adminEmail.js";
+
+describe("a scheduled time", () => {
+  it("reads a Louisville wall-clock time as its instant (EST in November, 5 hours ahead)", () => {
+    expect(louisvilleToIso("2026-11-20T14:30")).toBe("2026-11-20T19:30:00.000Z");
+  });
+  it("is right on the day daylight saving starts (2 am becomes 3 am, 05:00 is already EDT)", () => {
+    // 2027-03-14: 05:00 Louisville is 09:00 UTC (EDT, 4 hours ahead), not 10:00.
+    expect(louisvilleToIso("2027-03-14T05:00")).toBe("2027-03-14T09:00:00.000Z");
+  });
+  it("gives null for anything that isn't a date and time", () => {
+    expect(louisvilleToIso("")).toBeNull();
+    expect(louisvilleToIso("tomorrow")).toBeNull();
+  });
+  it("must be in the future, and at most 30 days ahead", () => {
+    const now = Date.parse("2026-11-20T12:00:00Z");
+    expect(scheduleProblem(null, now)).toMatch(/Pick a date/);
+    expect(scheduleProblem("2026-11-20T11:00:00Z", now)).toMatch(/future/);
+    expect(scheduleProblem("2026-11-21T12:00:00Z", now)).toBeNull();
+    expect(scheduleProblem("2026-12-25T12:00:00Z", now)).toMatch(/30 days/);
+  });
+});
+
+describe("nextTab", () => {
+  const names = ["digest", "write", "sent"];
+  it("moves right and left, wrapping at both ends", () => {
+    expect(nextTab(names, "digest", "ArrowRight")).toBe("write");
+    expect(nextTab(names, "sent", "ArrowRight")).toBe("digest");
+    expect(nextTab(names, "digest", "ArrowLeft")).toBe("sent");
+  });
+  it("Home and End go to the first and last tab", () => {
+    expect(nextTab(names, "write", "Home")).toBe("digest");
+    expect(nextTab(names, "write", "End")).toBe("sent");
+  });
+  it("returns null for any other key, or an empty list", () => {
+    expect(nextTab(names, "write", "Enter")).toBeNull();
+    expect(nextTab([], "write", "ArrowRight")).toBeNull();
+  });
+});
 
 describe("louisvilleToday", () => {
   it("is Louisville's date, not UTC's", () => {

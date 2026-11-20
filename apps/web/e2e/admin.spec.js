@@ -267,6 +267,31 @@ test("a one-off email is previewed as typed; every subscriber needs the count ty
   );
 });
 
+test("Tuesday's digest can be paused, and a one-off email can wait for a later time", async ({
+  page,
+}) => {
+  await openAdmin(page, { dispatch: { started: false, reason: "no_token" } });
+
+  // The digest is on; pausing it says so, and the button becomes Resume.
+  const state = page.getByTestId("digest-pause-state");
+  await expect(state).toContainText("On.");
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(state).toContainText("Paused.");
+  await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeVisible();
+
+  // Later: the button says Schedule email, and the time goes to the database as a time.
+  await page.getByRole("tab", { name: "Write" }).click();
+  await page.getByRole("textbox", { name: "Subject" }).fill("Later");
+  await page.getByRole("textbox", { name: "Message" }).fill("Sent on its own time.");
+  await page.getByRole("radio", { name: "Later", exact: true }).check();
+  const twoDays = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  await page.getByLabel("When to send, Louisville time").fill(twoDays);
+  const request = queued(page);
+  await page.getByRole("button", { name: "Schedule email" }).click();
+  expect(typeof (await request).postDataJSON().p_send_at).toBe("string");
+  await expect(page.getByTestId("admin-notice")).toContainText("Scheduled for");
+});
+
 test("Sent shows who got an email, and a past one can be written from again", async ({ page }) => {
   await openAdmin(page);
   await page.getByRole("tab", { name: "Sent" }).click();
