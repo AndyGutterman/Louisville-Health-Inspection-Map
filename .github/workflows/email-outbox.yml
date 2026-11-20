@@ -32,6 +32,9 @@ jobs:
       SMTP_USERNAME: ${{ secrets.DIGEST_SMTP_PASSWORD && secrets.DIGEST_SMTP_USERNAME || secrets.SMTP_USERNAME }}
       SMTP_PASSWORD: ${{ secrets.DIGEST_SMTP_USERNAME && secrets.DIGEST_SMTP_PASSWORD || secrets.SMTP_PASSWORD }}
       DIGEST_FROM: ${{ secrets.DIGEST_FROM }}
+      # "on" once the unsubscribe edge function is deployed: Gmail and Outlook then get a
+      # one-click unsubscribe (pipeline/digest/smtp.js, docs/DIGEST.md "Landing in spam").
+      ONE_CLICK_UNSUBSCRIBE: ${{ vars.ONE_CLICK_UNSUBSCRIBE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

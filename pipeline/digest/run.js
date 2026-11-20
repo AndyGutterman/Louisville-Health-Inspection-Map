@@ -11,9 +11,12 @@
 import { renderDigest, summarize, SITE } from "@lfs/core/email/digest.js";
 import { renderCustom } from "@lfs/core/email/custom.js";
 
-const unsubscribeUrl = (job, r) =>
-  // Someone else's digest in the owner's inbox carries nobody's unsubscribe link.
-  job.as_user || !r.token ? null : `${SITE}/?unsubscribe=${encodeURIComponent(r.token)}`;
+// Someone else's digest in the owner's inbox carries nobody's unsubscribe link.
+const unsubscribeToken = (job, r) => (job.as_user || !r.token ? null : r.token);
+const unsubscribeUrl = (job, r) => {
+  const token = unsubscribeToken(job, r);
+  return token ? `${SITE}/?unsubscribe=${encodeURIComponent(token)}` : null;
+};
 
 // An SMTP error can quote the address it failed on; run logs are public.
 export const scrub = (message, email) =>
@@ -23,7 +26,8 @@ export const scrub = (message, email) =>
 
 /**
  * Who a job goes to and what each copy says.
- * @returns {Promise<{ to: object[], renderFor: (recipient) => {subject, html, text, unsubscribeUrl} }>}
+ * @returns {Promise<{ to: object[], renderFor: (recipient) => {subject, html, text, unsubscribeUrl, unsubscribeToken} }>}
+ *   unsubscribeToken: for the one-click unsubscribe header (digest/smtp.js), null with no link
  */
 export async function buildEmail(job, { store, today }) {
   if (!["emails", "subscribers"].includes(job.audience)) {
@@ -45,6 +49,7 @@ export async function buildEmail(job, { store, today }) {
             lang: r.language,
           }),
           unsubscribeUrl: url,
+          unsubscribeToken: unsubscribeToken(job, r),
         };
       },
     };
@@ -81,14 +86,15 @@ export async function buildEmail(job, { store, today }) {
           lang: asLanguage ?? r.language,
         }),
         unsubscribeUrl: url,
+        unsubscribeToken: unsubscribeToken(job, r),
       };
     },
   };
 }
 
 /**
- * Sends a job. `send({ to, subject, html, text, unsubscribeUrl })` delivers one email and
- * throws when it can't.
+ * Sends a job. `send({ to, subject, html, text, unsubscribeUrl, unsubscribeToken })`
+ * delivers one email and throws when it can't.
  * @returns {Promise<{ total, sent, failed, skipped }>} skipped: delivered by an earlier run
  */
 export async function runJob(job, { store, send, today, log = () => {} }) {

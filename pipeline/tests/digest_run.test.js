@@ -92,6 +92,8 @@ describe("runJob", () => {
     assert.deepEqual(store.calls.watchAreas, [{ days: 7, ids: null }]);
     // Each carries its own unsubscribe link.
     assert.match(outbox[0].unsubscribeUrl, /unsubscribe=tok-jane$/);
+    // The token rides along for the one-click unsubscribe header (digest/smtp.js).
+    assert.equal(outbox[0].unsubscribeToken, "tok-jane");
     assert.match(outbox[1].html, /unsubscribe=tok-sam/);
     assert.deepEqual(
       store.calls.recorded.map((d) => [d.jobId, d.email, d.status]),
@@ -202,6 +204,7 @@ describe("runJob", () => {
     assert.equal(outbox[0].to, "owner@example.com");
     assert.match(outbox[0].html, /Your watch area/);
     assert.equal(outbox[0].unsubscribeUrl, null);
+    assert.equal(outbox[0].unsubscribeToken, null);
   });
 
   it("each subscriber's digest is in their own language", async () => {
