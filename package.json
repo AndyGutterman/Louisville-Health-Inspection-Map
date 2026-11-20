@@ -17,7 +17,7 @@
     "test:coverage": "npm run test:coverage -w apps/web",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "e2e": "npm run e2e -w apps/web"
+    "e2e": "npm run e2e -w apps/web --"
   },
   "devDependencies": {
     "prettier": "^3.9.10"

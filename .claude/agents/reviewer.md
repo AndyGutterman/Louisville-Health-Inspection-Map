@@ -41,6 +41,8 @@ Apply these too. `/ship`'s learn step adds to this list when a mistake can't be 
 - A migration goes in `supabase/migrations/`. Nothing assumes it has been run: a new RPC parameter, a new column or a new table must not break the calls and reads that run before the owner applies it (send the new parameter only when it is set, and fall back when the column is missing). A migration's functions are `CREATE OR REPLACE`, so it can run twice.
 - A new view gets a line in `apps/web/e2e/a11y.spec.js`.
 - New visitor-facing text has both an English and a Spanish string (`lib/strings*.js`); `lib/i18n.test.js` only checks that the keys exist, not that the Spanish is a translation.
+- A URL that goes out in an email, its body or its headers (`List-Unsubscribe`), must work when a person opens it: a GET. Mail apps without one-click (Apple Mail, Thunderbird) open the header's link in a browser. An endpoint that acts only on a POST answers a GET with somewhere useful, not a 405.
+- A merge that resolves conflicts in a long file (`e2e/support/fixtures.js` after #106) can paste a block in twice. Look for a declaration that appears twice in the diff.
 
 ## Verify before you report
 

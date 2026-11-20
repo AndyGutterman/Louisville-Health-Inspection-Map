@@ -22,3 +22,4 @@ The workflow, like the nightly backup, connects through the Supabase session poo
 
 - `functions/submit-feedback/`: edge function that rate-limits feedback by IP and writes to `feedback`.
 - `functions/email-dispatch/`: edge function that starts the "Email outbox" workflow when the email admin page queues an email. Admins only (it asks the database's `is_admin()` with the caller's session). Setup: `docs/EMAIL_ADMIN.md`.
+- `functions/unsubscribe/`: the one-click unsubscribe the weekly email's `List-Unsubscribe` header points at (RFC 8058). Only a POST unsubscribes, so a link scanner can't unsubscribe anyone; a GET is sent on to the site's `?unsubscribe=` page; it calls `unsubscribe_by_token` with the anon key. Deploy with `--no-verify-jwt`. Setup: `docs/DIGEST.md`, "Landing in spam".

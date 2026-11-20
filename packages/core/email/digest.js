@@ -333,7 +333,7 @@ export function renderDigest(
   ${perfect.length ? section(w.perfectTitle, perfectHtml) : ""}
   ${mapButton(w.openMap)}
   <tr><td style="padding:22px 0 0;color:${DIM};font-size:11px;line-height:1.6;text-align:center;">
-    ${esc(w.disclaimer)}<br>${footerLinks(unsubscribeUrl, lang)}<br>Louisville Food Safe · Louisville, KY
+    ${esc(w.disclaimer)}<br>${unsubscribeUrl ? `${esc(w.why)}<br>` : ""}${footerLinks(unsubscribeUrl, lang)}<br>Louisville Food Safe · Louisville, KY
   </td></tr>`,
     lang,
   });
