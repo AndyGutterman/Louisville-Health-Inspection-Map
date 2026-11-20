@@ -101,6 +101,16 @@ describe("renderDigest", () => {
     assert.doesNotMatch(preview.html, /Unsubscribe/);
   });
 
+  it("says why you're getting it, in your language, only with an unsubscribe link", () => {
+    assert.match(html, /because you subscribed to the Louisville Food Safe weekly digest/);
+    const es = renderDigest(s, {
+      unsubscribeUrl: "https://example.test/?unsubscribe=tok",
+      lang: "es",
+    });
+    assert.match(es.html, /Recibes este correo porque te suscribiste/);
+    assert.doesNotMatch(renderDigest(s).html, /because you subscribed/);
+  });
+
   it("says so when nothing failed", () => {
     const quiet = renderDigest(summarize([row({ score: 97 })], { today: "2026-11-10" }));
     assert.match(quiet.html, /Nothing scored under 85/);
