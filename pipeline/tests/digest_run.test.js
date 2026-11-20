@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildEmail, runJob, scrub } from "../digest/run.js";
+import { TEST_TOKEN, buildEmail, runJob, scrub } from "../digest/run.js";
 
 const TODAY = "2026-11-10";
 const ROWS = [
@@ -171,9 +171,10 @@ describe("runJob", () => {
     assert.equal(r.sent, 2);
     assert.deepEqual(store.calls.watchAreas, [{ days: 7, ids: [JANE.id] }]);
     assert.match(outbox[0].subject, /^\[Test\] /);
-    // An address without an account: no watch areas, no unsubscribe link.
-    assert.equal(outbox[1].unsubscribeUrl, null);
-    assert.doesNotMatch(outbox[1].html, /Unsubscribe/);
+    // An address without an account: no watch areas, and, this being a test, the
+    // placeholder unsubscribe link (a real send has none: tested below).
+    assert.equal(outbox[1].unsubscribeToken, TEST_TOKEN);
+    assert.doesNotMatch(outbox[1].html, /tok-jane/);
     // No job id (a script run on a database without the outbox): nothing to log.
     assert.equal(store.calls.recorded.length, 0);
   });
@@ -189,7 +190,7 @@ describe("runJob", () => {
     assert.deepEqual(store.calls.watchAreas, []);
   });
 
-  it("someone's digest sent to the owner shows their watch areas and no unsubscribe link", async () => {
+  it("someone's test digest sent to the owner shows their watch areas and nobody's unsubscribe link", async () => {
     const store = fakeStore();
     const { outbox, send } = fakeMailer();
     const job = digest({
@@ -203,8 +204,63 @@ describe("runJob", () => {
     assert.deepEqual(store.calls.watchAreas, [{ days: 7, ids: [JANE.id] }]);
     assert.equal(outbox[0].to, "owner@example.com");
     assert.match(outbox[0].html, /Your watch area/);
-    assert.equal(outbox[0].unsubscribeUrl, null);
-    assert.equal(outbox[0].unsubscribeToken, null);
+    // A test copy has a link and headers like a subscriber's, with a token nobody has.
+    assert.equal(outbox[0].unsubscribeToken, TEST_TOKEN);
+    assert.match(outbox[0].unsubscribeUrl, /unsubscribe=00000000-0000-0000-0000-000000000000$/);
+    assert.doesNotMatch(outbox[0].html, /tok-jane/);
+  });
+
+  it("a test to an address with no account (a spam checker) has the footer a subscriber gets", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    const job = digest({
+      audience: "emails",
+      to_emails: ["test-x1y2@srv1.mail-tester.com"],
+      as_user: JANE.id,
+      test: true,
+    });
+    await runJob(job, { store, send, today: TODAY });
+    assert.equal(outbox[0].to, "test-x1y2@srv1.mail-tester.com");
+    assert.match(outbox[0].html, /Your watch area/);
+    assert.match(outbox[0].html, /unsubscribe=00000000-0000-0000-0000-000000000000/);
+    assert.equal(outbox[0].unsubscribeToken, TEST_TOKEN);
+  });
+
+  it("a real send as someone, or to an address with no account, still has no link", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    await runJob(
+      digest({ audience: "emails", to_emails: ["owner@example.com"], as_user: JANE.id }),
+      { store, send, today: TODAY },
+    );
+    await runJob(digest({ audience: "emails", to_emails: ["nobody@example.com"] }), {
+      store,
+      send,
+      today: TODAY,
+    });
+    assert.deepEqual(
+      outbox.map((m) => [m.unsubscribeUrl, m.unsubscribeToken]),
+      [
+        [null, null],
+        [null, null],
+      ],
+    );
+  });
+
+  it("a test to a subscriber, not sent as anyone, keeps their own real link", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    await runJob(digest({ audience: "emails", to_emails: [JANE.email], test: true }), {
+      store,
+      send,
+      today: TODAY,
+    });
+    assert.equal(outbox[0].unsubscribeToken, "tok-jane");
+  });
+
+  it("the placeholder can never be a real token: those are random v4 UUIDs", () => {
+    assert.match(TEST_TOKEN, /^0{8}-0{4}-0{4}-0{4}-0{12}$/);
+    assert.doesNotMatch(TEST_TOKEN, /^[0-9a-f]{8}-[0-9a-f]{4}-4/); // v4 has a 4 here
   });
 
   it("each subscriber's digest is in their own language", async () => {
