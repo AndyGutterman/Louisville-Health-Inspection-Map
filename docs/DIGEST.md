@@ -105,3 +105,48 @@ watch areas; one that isn't subscribed gets no unsubscribe link.
 
 Locally, from `pipeline/`: `node digest/send.js --dry-run` writes `digest-preview.html`;
 `node digest/send.js --to=you@example.com --test` sends one.
+
+## Landing in spam
+
+The first test sends (November 2026) went to Gmail's Spam ("similar to messages that were
+identified as spam in the past") and Outlook's Junk. It isn't sign-in: Gmail's SMTP
+passes SPF, DKIM and DMARC for gmail.com. It's reputation: a new sender with no history,
+sending a newsletter-shaped email full of links to `netlify.app`, a free domain that
+phishing pages use a lot. Code can only do part of the job.
+
+**What the code does**
+
+- Every email with an unsubscribe link names its list (`List-Id`) and says why you're
+  getting it, in the footer.
+- **One-click unsubscribe** (RFC 8058, which Gmail and Yahoo ask of bulk senders): with
+  the repository variable `ONE_CLICK_UNSUBSCRIBE` set to `on`, `List-Unsubscribe` points at
+  the `unsubscribe` edge function with `List-Unsubscribe-Post`, so the mail app shows its
+  own Unsubscribe button next to the sender. The function only acts on a POST, so a link
+  scanner can't unsubscribe anyone, and calls `unsubscribe_by_token`, as the site's
+  unsubscribe page does (`pipeline/digest/smtp.js`, `supabase/functions/unsubscribe/`).
+  Off by default, so the header never points at a function that isn't deployed.
+  A caveat: Gmail's own DKIM signature may not cover these headers, and a provider may
+  ignore one-click until mail is signed by our own domain.
+
+**What the owner does**
+
+1. Deploy the function, from the repo root:
+   `npx supabase functions deploy unsubscribe --no-verify-jwt --project-ref iyahhhgqmhbadgczbfwy`.
+   Then GitHub, Settings, Secrets and variables, Actions, **Variables**:
+   `ONE_CLICK_UNSUBSCRIBE` = `on`.
+2. In your own inboxes, mark the email "Not spam" (Gmail) and "Not junk" (Outlook), and add
+   louisvillefoodsafe@gmail.com to contacts. That trains your inbox and a little of the
+   sender's reputation; it does nothing for other people's.
+3. **Score the email:** send a test to the address [mail-tester.com](https://www.mail-tester.com)
+   shows (the admin page's one-off email, or the workflow's `group` audience). It grades
+   it out of 10 and lists what spam filters dislike. No domain needed; three free tests a day.
+4. **The real fix: a domain of our own** (about $10–15 a year; Netlify serves the site on it
+   for free) and an email service that signs for it, such as Resend (3,000 emails a month
+   free), Postmark or Amazon SES. Then SPF, DKIM and DMARC are ours, the links stop
+   pointing at `netlify.app`, and `smtp.js` only needs the service's SMTP login. A new
+   service is a line on the privacy page and in `docs/PRIVACY.md`.
+5. **Sender score**, once there's a domain: [Google Postmaster Tools](https://postmaster.google.com)
+   shows the domain's reputation with Gmail, spam rate and authentication, after a DNS
+   record proves you own it. It can't be set up for a gmail.com address, and it needs
+   some volume (a few hundred Gmail recipients a day) before it shows numbers. Microsoft's
+   SNDS works by sending IP, which a shared service owns, so it isn't ours to use.
