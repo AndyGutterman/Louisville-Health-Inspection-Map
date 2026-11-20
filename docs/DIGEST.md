@@ -121,9 +121,10 @@ phishing pages use a lot. Code can only do part of the job.
 - **One-click unsubscribe** (RFC 8058, which Gmail and Yahoo ask of bulk senders): with
   the repository variable `ONE_CLICK_UNSUBSCRIBE` set to `on`, `List-Unsubscribe` points at
   the `unsubscribe` edge function with `List-Unsubscribe-Post`, so the mail app shows its
-  own Unsubscribe button next to the sender. The function only acts on a POST, so a link
-  scanner can't unsubscribe anyone, and calls `unsubscribe_by_token`, as the site's
-  unsubscribe page does (`pipeline/digest/smtp.js`, `supabase/functions/unsubscribe/`).
+  own Unsubscribe button next to the sender. Only a POST unsubscribes, so a link scanner
+  can't unsubscribe anyone; a GET (Apple Mail and Thunderbird open the link in a browser)
+  is sent on to the site's unsubscribe page. A POST calls `unsubscribe_by_token`, as that
+  page does (`pipeline/digest/smtp.js`, `supabase/functions/unsubscribe/`).
   Off by default, so the header never points at a function that isn't deployed.
   A caveat: Gmail's own DKIM signature may not cover these headers, and a provider may
   ignore one-click until mail is signed by our own domain.
