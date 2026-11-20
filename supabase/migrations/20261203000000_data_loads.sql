@@ -3,7 +3,8 @@
 --
 -- One row per county ('jefferson', 'bullitt'), written by the pipeline with the service
 -- role at the end of a load that changed something (pipeline/mark_loaded.js, the Bullitt
--- ingest). The website reads both rows once per visit: about 100 bytes.
+-- ingest), and by place_fix_write_pin whenever a pin is placed by hand (below). The
+-- website reads both rows once per visit: about 100 bytes.
 --
 -- Safe to run more than once. Nothing assumes it has run: until it has, the pipeline logs
 -- a warning and carries on, and the website keeps the old rule (pins refresh once a day).
@@ -22,3 +23,49 @@ CREATE POLICY data_loads_read ON public.data_loads
 
 GRANT SELECT ON public.data_loads TO anon, authenticated;
 GRANT ALL ON public.data_loads TO service_role;
+
+-- ── A pin placed by hand moves the stamp too ──────────────────────────────────────────
+-- The pin control center (admin_save_place_fix, admin_clear_place_fix) and the pin-fixes
+-- job (place_fix_record_result) write every pin through place_fix_write_pin. Visitors'
+-- saved pins refreshed daily before; now they refresh when the stamp moves, so the helper
+-- moves it. The body is 20261130000000_place_fixes.sql's, unchanged, plus the last
+-- statement. (Needs that migration's tables; until it has run, no fix is ever written.)
+CREATE OR REPLACE FUNCTION public.place_fix_write_pin(
+  p_region text, p_id text, p_lon double precision, p_lat double precision,
+  p_provider text, p_outside boolean DEFAULT false
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF p_region = 'jefferson' THEN
+    UPDATE public.facilities SET
+      geom = CASE WHEN p_lon IS NULL THEN NULL
+                  ELSE public.st_setsrid(public.st_makepoint(p_lon, p_lat), 4326)::public.geography END,
+      loc_source = 'manual',
+      geocode_provider = p_provider,
+      is_approximate = p_provider NOT IN ('manual', 'hidden'),
+      updated_at = now()
+    WHERE establishment_id = p_id;
+  ELSE
+    UPDATE public.bullitt_establishments SET
+      lon = p_lon, lat = p_lat, geocode_provider = p_provider,
+      geocode_outside_county = CASE WHEN p_lon IS NULL THEN NULL ELSE p_outside END,
+      geocoded_at = now()
+    WHERE id = p_id;
+    UPDATE public.portal_establishments SET
+      lon = p_lon, lat = p_lat, geocode_provider = p_provider,
+      geocode_outside_county = CASE WHEN p_lon IS NULL THEN NULL ELSE p_outside END,
+      geocoded_at = now()
+    WHERE id = p_id;
+  END IF;
+
+  INSERT INTO public.data_loads (region, loaded_at) VALUES (p_region, now())
+    ON CONFLICT (region) DO UPDATE SET loaded_at = excluded.loaded_at;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.place_fix_write_pin(text, text, double precision, double precision, text, boolean)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.place_fix_write_pin(text, text, double precision, double precision, text, boolean)
+  TO service_role;
