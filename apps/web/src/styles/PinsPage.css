@@ -1,0 +1,187 @@
+/* The pin control center (features/pins). Builds on AdminPage.css (cards, chips, fields,
+   buttons). Phone first: the queue above the editor; side by side from 900px. Every
+   button sets its own padding and background, since index.css has a global `button`
+   rule. */
+.adm-page--wide {
+  max-width: 1280px;
+}
+.adm-textlink {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6fcf8a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.pins-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .pins-split {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  }
+  .pins-queue {
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* ── Geocode now ── */
+.pins-job {
+  margin-bottom: 14px;
+}
+.pins-job-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+.pins-job-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+.pins-job-pending {
+  color: rgba(255, 255, 255, 0.7);
+}
+.pins-job-found {
+  color: #6fcf8a;
+}
+.pins-job-outside,
+.pins-job-not_found {
+  color: #fbbf24;
+}
+
+/* ── The queue ── */
+.pins-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pins-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.pins-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0f0f3;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pins-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.pins-row.on {
+  border-color: rgba(111, 207, 138, 0.6);
+  background: rgba(52, 168, 83, 0.12);
+}
+.pins-row-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+.pins-row-addr,
+.pins-row-date {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.pins-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ── One place ── */
+.pins-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.pins-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.pins-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0 0 10px;
+  font-size: 0.84rem;
+}
+.pins-facts dt {
+  color: rgba(255, 255, 255, 0.6);
+}
+.pins-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.pins-address {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+@media (min-width: 600px) {
+  .pins-address {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+.pins-map {
+  width: 100%;
+  height: 340px;
+  margin: 8px 0 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1a1a1f;
+}
+.pins-warn {
+  margin: 6px 0 0;
+  color: #fbbf24;
+  font-size: 0.82rem;
+}
+@media (max-width: 600px) {
+  .pins-map {
+    height: 260px;
+  }
+  .pins-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pins-facts dd {
+    margin-bottom: 4px;
+  }
+}
+.pins-editor h3.adm-card-title {
+  margin: 0 0 6px;
+}
+.pins-editor .adm-card > p.adm-dim {
+  margin: 0 0 10px;
+}

@@ -57,7 +57,7 @@ const FIELD_TOGGLES = [
 
 /**
  * @param {object} p
- * @param {"map"|"learn"|"admin"|"privacy"} p.page
+ * @param {"map"|"learn"|"admin"|"pins"|"privacy"} p.page
  * @param {boolean} p.showSearch     false off the map and on the phone account page
  * @param {string} p.searchTerm
  * @param {Function} p.onSearchChange

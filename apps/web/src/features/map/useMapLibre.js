@@ -16,7 +16,8 @@ import { closesDrawer } from "../../lib/outsideClick.js";
 import { createPopups } from "./popups.jsx";
 import { addRegionOutlines } from "./regionOutlines.js";
 
-const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+// Also the pin control center's map (features/pins/PinMap.jsx).
+export const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const NO_PINS = { type: "FeatureCollection", features: [] };
 
 // The pointer resting near these doesn't auto-pan the map.

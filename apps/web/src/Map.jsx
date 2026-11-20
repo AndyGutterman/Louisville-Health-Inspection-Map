@@ -46,6 +46,7 @@ import PinsLoading from "./PinsLoading.jsx";
 
 // The email admin page (features/admin): its own chunk, so visitors never download it.
 const AdminPage = lazy(() => import("./features/admin/AdminPage.jsx"));
+const PinsPage = lazy(() => import("./features/pins/PinsPage.jsx"));
 // The privacy page: plain text most visitors never open, so it loads on demand too.
 const PrivacyPage = lazy(() => import("./features/privacy/PrivacyPage.jsx"));
 
@@ -142,7 +143,7 @@ export default function Map({ onMapReady }) {
   }, [pins]);
 
   // ── Pages and panels ─────────────────────────────────────────────────────────
-  const [page, setPage] = useState("map"); // "map" | "learn" | "admin" | "privacy"
+  const [page, setPage] = useState("map"); // "map" | "learn" | "admin" | "pins" | "privacy"
   // The Saved panel: beside the drawer on desktop, a full-screen page on phones.
   const [accountOpen, setAccountOpen] = useState(false);
   const [focusArea, setFocusArea] = useState(null); // { id, n }: scroll Saved to this area
@@ -481,7 +482,14 @@ export default function Map({ onMapReady }) {
       {/* The email admin page: its code is fetched only when someone opens it */}
       {page === "admin" && (
         <Suspense fallback={null}>
-          <AdminPage onLogIn={() => setLoginOpen(true)} />
+          <AdminPage onLogIn={() => setLoginOpen(true)} onOpenPins={() => setPage("pins")} />
+        </Suspense>
+      )}
+
+      {/* The pin control center (admins): fetched only when someone opens it */}
+      {page === "pins" && (
+        <Suspense fallback={null}>
+          <PinsPage onLogIn={() => setLoginOpen(true)} onOpenEmail={() => setPage("admin")} />
         </Suspense>
       )}
 
@@ -508,6 +516,7 @@ export default function Map({ onMapReady }) {
           areaEdit={watchlist.areaEdit}
           onAreasChange={watchlist.setWatchAreas}
           onOpenAdmin={() => setPage("admin")}
+          onOpenPins={() => setPage("pins")}
         />
       )}
 
