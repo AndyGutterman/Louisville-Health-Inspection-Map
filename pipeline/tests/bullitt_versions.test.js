@@ -100,3 +100,33 @@ describe("planVersions over a week of daily sheets", () => {
     assert.equal(followUp.last_seen, "2026-11-11");
   });
 });
+
+// The job runs every two hours, so the sheet can change twice in one day (a morning edit,
+// then a fix). A result that appeared at the first run keeps that day; nothing is dated
+// later than the day it was posted.
+describe("planVersions with several runs a day", () => {
+  const { log } = runDays([
+    ["2026-11-20", sheet(CRACKER_BARREL_V1, DINER)], // first load
+    ["2026-11-21", sheet(CRACKER_BARREL_V2, DINER)], // 10:41: re-inspected
+    ["2026-11-21", sheet(CRACKER_BARREL_V2, DINER, NEW_CAFE)], // 16:41: a place added
+    ["2026-11-21", sheet(CRACKER_BARREL_V2, DINER, NEW_CAFE)], // 18:41: unchanged
+  ]);
+
+  it("dates each result to the run of the day it first appeared", () => {
+    assert.deepEqual(
+      log[1].fresh.map((r) => [r.score, r.first_seen]),
+      [[97, "2026-11-21"]],
+    );
+    assert.deepEqual(
+      log[2].fresh.map((r) => [r.score, r.first_seen]),
+      [[100, "2026-11-21"]],
+    );
+    assert.equal(log[3].fresh.length, 0);
+  });
+
+  it("keeps first_seen on a result seen again later the same day", () => {
+    const barrel = log[2].kept.find((r) => r.score === 97);
+    assert.equal(barrel.first_seen, "2026-11-21");
+    assert.equal(barrel.last_seen, "2026-11-21");
+  });
+});

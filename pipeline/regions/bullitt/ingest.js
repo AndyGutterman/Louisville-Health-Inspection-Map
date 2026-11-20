@@ -1,5 +1,5 @@
 /**
- * regions/bullitt/ingest.js — the daily Bullitt County load.
+ * regions/bullitt/ingest.js — the Bullitt County load, checked every two hours.
  *
  *   1. Download the health department's sheet as CSV (parse.js reads it). When it has
  *      changed since the last load, keep a copy in bullitt_snapshots.
@@ -12,7 +12,7 @@
  *      point between neighbouring house numbers. Flag matches outside the county.
  *
  * Usage (from pipeline/):
- *   node regions/bullitt/ingest.js                    # the daily job
+ *   node regions/bullitt/ingest.js                    # the scheduled job
  *   node regions/bullitt/ingest.js --retry-failures   # also retry addresses that failed
  *   node regions/bullitt/ingest.js --redo-geocoding   # geocode every place again (not
  *                                                     # hand-placed ones), ignoring the cache
@@ -29,6 +29,7 @@ import { DELAY_MS, USER_AGENT, sleep } from "../../lib/geocode.js";
 import { countyGeocoder } from "../../lib/countyGeocode.js";
 import { parseOverrides } from "../../lib/overrides.js";
 import { readFixes } from "../../lib/placeFixes.js";
+import { markLoaded } from "../../lib/dataLoads.js";
 import { parseSheet } from "./parse.js";
 import { planVersions, versionKey } from "./versions.js";
 
@@ -142,7 +143,7 @@ async function load(supa, csv, establishments) {
   );
   if (last?.sha256 === sha256) {
     console.log(`Sheet unchanged since ${last.fetched_at}.`);
-    return;
+    return false;
   }
   if (last && establishments.length < last.row_count * MIN_SHARE_OF_LAST) {
     throw new Error(
@@ -236,6 +237,7 @@ async function load(supa, csv, establishments) {
     `Loaded ${establishments.length} places (${added.length} new, ${gone.length} gone) and ` +
       `${fresh.length} new inspections.`,
   );
+  return true;
 }
 
 (async function run() {
@@ -247,10 +249,20 @@ async function load(supa, csv, establishments) {
   if (DRY_RUN) return dryRun(establishments);
 
   const { supa } = await import("../../lib/db.js"); // only now: --dry-run needs no credentials
-  await load(supa, csv, establishments);
+  const changed = await load(supa, csv, establishments);
   const geo = geocoderWith(await readFixes(supa, ["bullitt"]));
-  await geo.applyHandPins(supa);
-  await geo.geocodeMissing(supa, { retryFailures: RETRY_FAILURES, redo: REDO_GEOCODING });
+  // Only a load or a regeocode can move a hand-placed pin (the pin control center writes
+  // its own), so an unchanged sheet skips this pass: it reads every Bullitt place, and
+  // the job runs every two hours.
+  const pinsMoved = changed || RETRY_FAILURES || REDO_GEOCODING ? await geo.applyHandPins(supa) : 0;
+  const tally = await geo.geocodeMissing(supa, {
+    retryFailures: RETRY_FAILURES,
+    redo: REDO_GEOCODING,
+  });
+  // Visitors' saved pins are read again only after this (lib/dataLoads.js).
+  if (changed || pinsMoved || tally.hits || tally.outside || tally.moved) {
+    await markLoaded(supa, "bullitt");
+  }
 })().catch((err) => {
   console.error("Bullitt ingest failed:", err.message);
   process.exit(1);
