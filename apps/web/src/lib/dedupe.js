@@ -1,5 +1,10 @@
 // Same-coordinate handling: several establishments can share one point.
-import { featureSearchKey } from "./searchText.js";
+import {
+  SEARCH_FIELDS,
+  SEARCH_KEY_PROP,
+  featureSearchKey,
+  featureSearchKeys,
+} from "./searchText.js";
 
 export function coordKey([lon, lat]) {
   return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
@@ -35,17 +40,22 @@ export function deduplicateForRender(featureList) {
       const f = feats[0];
       out.push({
         ...f,
-        properties: { ...f.properties, search_key: featureSearchKey(f.properties) },
+        properties: { ...f.properties, ...featureSearchKeys(f.properties) },
       });
       continue;
     }
     const sorted = feats.slice().sort(worstFirst);
     const rep = sorted[0];
     stacked++;
-    // Bake every co-located establishment's search key into the representative's
-    // properties so the search filter can still match a business whose own pin got
-    // suppressed here (lib/searchText.js).
-    const searchKeyAll = sorted.map((f) => featureSearchKey(f.properties)).join(" ");
+    // Bake every co-located establishment's search keys (all, name, address) into the
+    // representative's properties so the search filter can still match a business whose
+    // own pin got suppressed here (lib/searchText.js).
+    const searchKeys = Object.fromEntries(
+      SEARCH_FIELDS.map((field) => [
+        SEARCH_KEY_PROP[field],
+        sorted.map((f) => featureSearchKey(f.properties, field)).join(" "),
+      ]),
+    );
     // Merge violation flags: ring appears if ANY establishment here has violations
     out.push({
       ...rep,
@@ -53,7 +63,7 @@ export function deduplicateForRender(featureList) {
         ...rep.properties,
         has_any_violation: feats.some((f) => f.properties.has_any_violation),
         violation_count: Math.max(...feats.map((f) => f.properties.violation_count ?? 0)),
-        search_key: searchKeyAll,
+        ...searchKeys,
       },
     });
   }

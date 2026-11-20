@@ -54,13 +54,18 @@ describe("worstFirst", () => {
 });
 
 describe("deduplicateForRender", () => {
-  it("keeps features with unique coordinates, adding only their search key", () => {
+  it("keeps features with unique coordinates, adding only their search keys", () => {
     const features = [feature("1", HERE), feature("2", THERE)];
     const out = deduplicateForRender(features);
     expect(out).toHaveLength(2);
     expect(out[0]).toEqual({
       ...features[0],
-      properties: { ...features[0].properties, search_key: "place1" },
+      properties: {
+        ...features[0].properties,
+        search_key: "place1",
+        search_name: "place1",
+        search_addr: "",
+      },
     });
   });
 
@@ -94,6 +99,9 @@ describe("deduplicateForRender", () => {
     expect(rep.properties.search_key).toContain("tacoplace");
     expect(rep.properties.search_key).toContain("pizzaplace");
     expect(rep.properties.search_key).toContain("1mainst");
+    // Each field on its own too, for the names-only and addresses-only search.
+    expect(rep.properties.search_name).toBe("tacoplace pizzaplace");
+    expect(rep.properties.search_addr).toBe("1mainst 1mainst");
   });
 
   it("does not mutate its input", () => {

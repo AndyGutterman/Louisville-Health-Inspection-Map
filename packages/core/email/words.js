@@ -73,7 +73,7 @@ const en = {
   textFailingHead: (everywhere, score) => `${everywhere}Scored under ${score} or a C placard:`,
   textPerfectHead: "Perfect scores:",
   disclaimer:
-    "Scores and placards are the health departments' own. Bullitt and Oldham counties post scores, not placards.",
+    "Scores and placards are the health departments' own. Bullitt County posts scores, not placards.",
   unsubscribe: "Unsubscribe",
   unsubscribeText: (url) => `Unsubscribe: ${url}`,
   aboutData: "About the data",
@@ -119,7 +119,7 @@ const es = {
   textFailingHead: (everywhere, score) => `${everywhere}Menos de ${score} o letrero C:`,
   textPerfectHead: "Puntuaciones perfectas:",
   disclaimer:
-    "Las puntuaciones y los letreros son los de los departamentos de salud. Los condados de Bullitt y Oldham publican puntuaciones, no letreros.",
+    "Las puntuaciones y los letreros son los de los departamentos de salud. El condado de Bullitt publica puntuaciones, no letreros.",
   unsubscribe: "Cancelar suscripción",
   unsubscribeText: (url) => `Cancelar suscripción: ${url}`,
   aboutData: "Sobre los datos",

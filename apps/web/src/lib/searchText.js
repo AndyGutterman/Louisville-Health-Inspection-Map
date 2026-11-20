@@ -27,9 +27,26 @@ export function searchKey(...fields) {
   return fields.map(compact).filter(Boolean).join(" ");
 }
 
-// The search key of a map feature: name, addresses and zip.
-export function featureSearchKey(p = {}) {
+// What the map search looks through: everything, the name only, or the address only
+// (the toggles in the search box). "bar" by name skips every place on Barret Ave; "main"
+// by address skips Main Street Pizza across town.
+export const SEARCH_FIELDS = ["all", "name", "address"];
+
+// The pin property holding each field's key (baked in lib/dedupe.js).
+export const SEARCH_KEY_PROP = { all: "search_key", name: "search_name", address: "search_addr" };
+
+// The search key of a map feature for one field: name, addresses and zip by default.
+export function featureSearchKey(p = {}, field = "all") {
+  if (field === "name") return searchKey(p.name);
+  if (field === "address") return searchKey(p.address_full, p.address, p.zip);
   return searchKey(p.name, p.address_full, p.address, p.zip);
+}
+
+// Every field's key of a feature, as pin properties: { search_key, search_name, search_addr }.
+export function featureSearchKeys(p = {}) {
+  return Object.fromEntries(
+    SEARCH_FIELDS.map((field) => [SEARCH_KEY_PROP[field], featureSearchKey(p, field)]),
+  );
 }
 
 // Whether the text matches every word of the term. True for a blank term.
