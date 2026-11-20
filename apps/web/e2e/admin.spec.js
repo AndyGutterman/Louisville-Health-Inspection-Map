@@ -170,6 +170,35 @@ test("an admin previews a subscriber's digest and sends it to themselves as a te
   await snap(page, testInfo, "admin-sent");
 });
 
+test("a test digest can go to any address, written as the person previewed", async ({
+  page,
+}, testInfo) => {
+  await openAdmin(page);
+  await page.getByTestId("admin-person").filter({ hasText: JANE.email }).click();
+  await expect(emailFrame(page).getByText("Your watch area · 2 mi")).toBeVisible();
+
+  const form = page.getByTestId("admin-test-address");
+  const box = form.getByRole("textbox", { name: "Send this as a test to another address" });
+  const go = form.getByRole("button", { name: "Send test" });
+  await expect(go).toBeDisabled(); // nothing typed
+  await box.fill("not an address");
+  await expect(go).toBeDisabled();
+  await box.fill("test-x1y2@srv1.mail-tester.com");
+  await expect(go).toBeEnabled();
+  await snap(page, testInfo, "admin-test-address");
+
+  const request = queued(page);
+  await go.click();
+  expect((await request).postDataJSON()).toMatchObject({
+    p_kind: "digest",
+    p_audience: "emails",
+    p_to_emails: ["test-x1y2@srv1.mail-tester.com"],
+    p_as_user: JANE.id,
+    p_test: true,
+  });
+  await expect(page.getByTestId("admin-notice")).toContainText("the sender is starting");
+});
+
 test("emailing someone their digest asks first; taking them off the digest is one tap", async ({
   page,
 }) => {
