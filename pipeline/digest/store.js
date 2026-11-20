@@ -168,16 +168,33 @@ export function makeStore(supa, { warn = console.warn } = {}) {
       );
     },
 
+    // Queued jobs whose time has come (a scheduled one waits for its send_at).
     async queuedJobs() {
       return must(
         await supa
           .from("email_jobs")
           .select("*")
           .eq("status", "queued")
+          .or(`send_at.is.null,send_at.lte.${new Date().toISOString()}`)
           .order("queued_at")
           .limit(10),
         "read the outbox",
       );
+    },
+
+    // Is Tuesday's digest paused (admin_set_digest_paused)? On a database without the
+    // settings table, it isn't.
+    async digestPaused() {
+      const { data, error } = await supa
+        .from("email_settings")
+        .select("digest_paused")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) {
+        if (error.code === "42P01" || error.code === "PGRST205") return false;
+        throw new Error(`read the digest pause: ${error.message}`);
+      }
+      return data?.digest_paused === true;
     },
 
     // Takes a queued job for this run. Null when another run took it (or it was

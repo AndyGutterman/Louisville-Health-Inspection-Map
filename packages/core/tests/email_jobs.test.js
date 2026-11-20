@@ -10,11 +10,13 @@ import {
   checkJob,
   describeJob,
   isActive,
+  isDue,
   isEmail,
   isExpired,
   isStuck,
   outcome,
   parseEmails,
+  skipsScheduledDigest,
   statusLabel,
 } from "@lfs/core/email/jobs.js";
 
@@ -111,6 +113,25 @@ describe("a job's age", () => {
     assert.ok(!isExpired({ status: "queued", queued_at: ago(60) }, NOW));
     assert.ok(isExpired({ status: "queued", queued_at: ago(24 * 60 + 1) }, NOW));
     assert.ok(!isExpired({ status: "sent", queued_at: ago(9999) }, NOW));
+  });
+
+  it("counts a scheduled job from its scheduled time, not from when it was queued", () => {
+    const later = new Date(NOW + 3 * 24 * 60 * 60000).toISOString();
+    const scheduled = { status: "queued", queued_at: ago(9999), send_at: later };
+    assert.ok(!isExpired(scheduled, NOW));
+    assert.ok(!isDue(scheduled, NOW));
+    const due = { status: "queued", queued_at: ago(60), send_at: ago(5) };
+    assert.ok(isDue(due, NOW));
+    assert.ok(isDue({ status: "queued", queued_at: ago(60), send_at: null }, NOW));
+  });
+});
+
+describe("the digest pause", () => {
+  it("stops only the scheduled digest while it is paused", () => {
+    assert.ok(skipsScheduledDigest({ scheduled: true, paused: true }));
+    assert.ok(!skipsScheduledDigest({ scheduled: true, paused: false }));
+    // A run started by hand still goes, paused or not.
+    assert.ok(!skipsScheduledDigest({ scheduled: false, paused: true }));
   });
 
   it("calls a job stalled when it has been sending for over 15 minutes", () => {
