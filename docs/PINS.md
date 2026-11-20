@@ -4,13 +4,13 @@
 
 ## What you can do with a place
 
-| Fix               | When                                                                             | What happens                                                                                                                   |
-| ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Save address**  | The source has a typo the geocoder trips on (`PEEWEE VALLEY` for `PEWEE VALLEY`) | The corrected address waits for **Geocode now** (or the county's next daily run). The site keeps showing the source's address. |
-| **Use this pin**  | The address is right but no geocoder finds it                                    | On the map at once (the next map load; visitors' cached pins refresh daily).                                                   |
-| **Leave off map** | A mobile vendor's out-of-state base, a mailing address                           | Off the map at once, and never looked up again.                                                                                |
-| **Skip**          | Nothing to do for now                                                            | Out of the queue (into Skipped) until undone. The daily geocoding still tries it.                                              |
-| **Undo fix**      | Any fix                                                                          | The place goes back exactly as it was before its first fix, pin and all.                                                       |
+| Fix               | When                                                                             | What happens                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Save address**  | The source has a typo the geocoder trips on (`PEEWEE VALLEY` for `PEWEE VALLEY`) | The corrected address waits for **Geocode now** (or the county's next run that loads). The site keeps showing the source's address.           |
+| **Use this pin**  | The address is right but no geocoder finds it                                    | On the map at once (the next map load). It moves the county's `data_loads` stamp, so visitors' saved pins are read again on their next visit. |
+| **Leave off map** | A mobile vendor's out-of-state base, a mailing address                           | Off the map at once, and never looked up again.                                                                                               |
+| **Skip**          | Nothing to do for now                                                            | Out of the queue (into Skipped) until undone. The daily geocoding still tries it.                                                             |
+| **Undo fix**      | Any fix                                                                          | The place goes back exactly as it was before its first fix, pin and all.                                                                      |
 
 "Apply my fix to the N other places at this address" covers a strip mall's shops in one go (each still gets its own fix).
 

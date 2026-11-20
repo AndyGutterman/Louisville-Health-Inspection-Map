@@ -113,7 +113,8 @@ describe("map cache", () => {
 describe("map cache with load stamps (data_loads)", () => {
   const S1 = "2026-11-20T14:31:02+00:00";
   const S2 = "2026-11-21T14:29:40+00:00";
-  const save = (s, stamp, now) => writeMapCache(s, pins, { key: KEY, version: VERSION, stamp, now });
+  const save = (s, stamp, now) =>
+    writeMapCache(s, pins, { key: KEY, version: VERSION, stamp, now });
   const readAt = (s, stamp, now) =>
     readMapCache(s, { key: KEY, refreshUtcHour: REFRESH, stamp, now });
 

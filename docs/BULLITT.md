@@ -112,8 +112,12 @@ Two quirks of the violation text, handled in `pipeline/regions/bullitt/parse.js`
   "Redo geocoding" ticked, geocodes every place again except hand-placed ones and logs
   each pin that moved.
 
-- **Workflow:** `.github/workflows/bullitt-ingest.yml`, daily at 08:45 UTC. GitHub only
-  runs scheduled and manual workflows from `main`, so until this is merged, run it locally.
+- **Workflow:** `.github/workflows/bullitt-ingest.yml`, every two hours at :41 UTC. An
+  unchanged sheet stops after the snapshot check: it writes nothing and skips the
+  hand-pin pass. A load that changed something stamps `data_loads`, so visitors' saved
+  pins are read again on their next visit. (The department changed the sheet on
+  2026-11-20 just after that day's only run, which is why it went from daily to every two
+  hours.)
 - **Website:** both counties' pins show together (the County picker is gone). The date
   filter lets Bullitt's undated pins through (a dated one is filtered like any other), and the category filter doesn't apply to them (they
   always show), since they have no facility types (`lib/mapFilters.js`). The drawer explains the source. Saved places, watch areas
@@ -130,14 +134,16 @@ real date and nothing is estimated (`lib/bullitt.js` estimates only when the fee
 `routine_date`). It is how the fallback still says something better than "Date not
 published".
 
-The sheet never dates the latest routine inspection, but the job loads it daily, so a
-result that first appears after the first load was posted that day: the inspection was
+The sheet never dates the latest routine inspection, but the job checks it every two
+hours, so a result that first appears after the first load was posted that day (or, for
+an edit late in the evening, the day before): the inspection was
 that day or earlier. The site shows that as **"By 11/12/2026"** (popup: "(estimated)";
 drawer header: "Date (estimated)"), with a disclaimer in the drawer. Results already on the
 sheet at the first load stay "Date not published". The rule is `estimatedDate` in
 `apps/web/src/lib/bullitt.js`; the feed columns it needs come from migration
 `20261113000000_bullitt_estimated_dates.sql`. `pipeline/regions/bullitt/versions.js`
-decides which results are new, tested over a week of mocked daily sheets. The date filter
+decides which results are new, tested over a week of mocked daily sheets and several runs
+in one day. The date filter
 still ignores estimates (`date` stays null).
 
 ## Why Bullitt seems to have more violations

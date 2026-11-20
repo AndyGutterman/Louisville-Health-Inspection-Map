@@ -25,7 +25,7 @@ An interactive map of health inspection scores for restaurants and other food se
 
 ## How it works
 
-### Data in: two counties, two daily jobs
+### Data in: two counties, two jobs that load only what changed
 
 ```mermaid
 flowchart LR
@@ -48,6 +48,8 @@ flowchart LR
 | --------- | -------------------------------------------- |
 | Jefferson | Louisville Metro's ArcGIS feeds              |
 | Bullitt   | The Bullitt County Health Department's sheet |
+
+Both jobs check their source every two hours and load only when it has changed: Jefferson's check asks the city's servers for row counts and sums and reads nothing from the database (`pipeline/source_check.js`), and Bullitt's compares the sheet with the last copy. A load stamps `data_loads`, and visitors' saved pins are read again on their next visit after that, not before.
 
 Each job writes only its own tables. The Bullitt job also refuses a source that looks broken (changed columns, a county under half its usual size), so the last good data stays up; Jefferson's job has no such check yet. Places without coordinates are geocoded (dashed lines), and the results are cached in the database. More in [docs/BULLITT.md](docs/BULLITT.md).
 
@@ -79,7 +81,7 @@ flowchart LR
 ```
 
 - **Pipeline** (`pipeline/`): Node scripts load each county into Supabase. Every run is recorded, so a failed or partial sync can be recovered (`Recover.js`).
-- **Website** (`apps/web/`): reads pins, inspections and violations through `supabase-js` and draws the map with MapLibre GL. Each county and each place type loads only when it's switched on, and is kept in the browser until the next daily load. Accounts use email one-time codes, and feedback goes through a rate-limited edge function.
+- **Website** (`apps/web/`): reads pins, inspections and violations through `supabase-js` and draws the map with MapLibre GL. Each county and each place type loads only when it's switched on, and is kept in the browser until that county's data is loaded again (`data_loads`). Accounts use email one-time codes, and feedback goes through a rate-limited edge function.
 - **Emails:** the weekly digest (Tuesdays) and one-off emails from the admin page are sent by GitHub Actions with the same code (`packages/core/email/`).
 - **Upkeep:** a weekly backup of the tables that can't be rebuilt (db-backup.yml) and a weekly accuracy check of the loaded data (etl-check.yml).
 - **Database:** tables, views and functions live in `supabase/migrations/`.
@@ -139,7 +141,7 @@ CI runs lint, the unit tests and a production build on every push and pull reque
 
 ## About the data
 
-Inspection data comes from each county's public records: [Louisville Metro Open Data](https://data.louisvilleky.gov/) (its ArcGIS REST API) for Jefferson County, and the Bullitt County Health Department's published sheet for Bullitt County. It is refreshed daily and may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government or any county health department.
+Inspection data comes from each county's public records: [Louisville Metro Open Data](https://data.louisvilleky.gov/) (its ArcGIS REST API) for Jefferson County, and the Bullitt County Health Department's published sheet for Bullitt County. It is checked for updates every two hours, but each source publishes on its own schedule (Louisville about a week behind), so it may not reflect the very latest inspections. This project is independent and is not affiliated with Louisville Metro Government or any county health department.
 
 ## License
 
