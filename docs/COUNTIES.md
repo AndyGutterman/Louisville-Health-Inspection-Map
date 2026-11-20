@@ -210,3 +210,47 @@ go in `overrides/shelby.json` and `overrides/spencer.json`.
    first load (the sheet's older undated versions aren't merged in).
 4. Later: more counties (a line in `counties.js`, an outline, a geocoding run), and
    Jefferson's marked items for inspections that passed, which ArcGIS doesn't publish.
+
+## Indiana neighbours: Floyd, Clark and Harrison (checked 2026-11-19)
+
+None of the three can be used now. The bar is a written, affirmative permission to reuse
+and display the data, like Louisville Metro's. Public records alone aren't enough.
+
+- **Louisville Metro, for comparison.** Its [Open Data terms](https://louisville-metro-opendata-lojic.hub.arcgis.com/pages/terms-of-use-and-license)
+  (linked from the inspection items' `licenseInfo`; page updated 2025-05-09) publish the
+  data under the Open Data Commons PDDL: "You are free to: Share: copy, distribute and use
+  the data. Create: produce works or sell services/products from the data." Commercial use
+  is allowed and attribution isn't required, but anyone who re-publishes "must explicitly
+  identify the source, version, and modifications made to a dataset".
+- **Floyd County, IN** (New Albany) posts one PDF per retail inspection, latest only, on
+  in.gov ([index](https://www.in.gov/counties/floyd/health-department/environmental-health/food-service/food-establishment-inspections/),
+  a page per year; the 2025 retail page linked 347). The form is Indiana State Form 57480:
+  risk-factor and repeat violation counts, items marked IN/OUT, each violation's text, and
+  **no score**. Its pages say nothing about reuse; the footer reads "Copyright © 2026 State
+  of Indiana - All rights reserved." and links in.gov's [policies](https://www.in.gov/core/policies.html).
+  in.gov's [Terms of Use](https://www.in.gov/core/terms_of_use.html) (no date given):
+  - "Copyrights": "The copying, redistribution, use or publication by you of any such
+    materials or any part of the Portal, ... is strictly prohibited."
+  - "Limited Right to Use": "Except as may otherwise be allowed by law (including but not
+    limited to the Indiana Access to Public Records Law)", only a "limited, nonexclusive
+    license for use solely by you for your own personal use ... and not for republication,
+    distribution, ... sale, preparation of derivative works or other use."
+  - "Prohibited Behavior": no exploiting material "for advertising or commercial purposes".
+
+  The public records exception is a legal argument, not a licence (not legal advice).
+  What would change it: a written reply from the Floyd County Health Department that the
+  posted reports may be shown on a free public map with the source named. An exploration
+  job that lists, parses and geocodes the PDFs was built and kept unpushed on the owner's
+  machine (branch feat/floyd-county-explore), ready if that permission comes. It never
+  reads the signatures or the permit holder.
+
+- **Clark County, IN** (Jeffersonville) posts no reports. Its [Food Inspections page](http://www.clarkhealth.net/index.php/food-related/clark-county-indiana-food-inspections):
+  "Inspections are available for public view in person at the Clark County Health
+  Department, by email, or please fax a written request, and a copy of the requested
+  inspections will be provided." "Letter grades are not assigned in Clark County". No terms
+  of use; the footer says "Copyright 2026 All Rights Reserved".
+- **Harrison County, IN** (Corydon) posts no reports either. Its [Food Protection page](https://www.in.gov/localhealth/harrisoncounty/food-protection/)
+  links forms and ordinances only. Results go on a placard at each place's entrance
+  ([Ordinance 2004-16](https://www.in.gov/localhealth/harrisoncounty/about/placards)), and
+  "The placard shall remain the property of the Harrison County Health Department." Its
+  pages are on in.gov, so the same Terms of Use apply.

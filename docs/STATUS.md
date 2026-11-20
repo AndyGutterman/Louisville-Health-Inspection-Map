@@ -23,6 +23,7 @@ Last brought up to date: 2026-11-19 (pull requests up to #95 merged).
 
 - The refactor (`docs/REFACTOR_PLAN.md`): phases 0, 1, 2, 4 and 5 are done, phase 6 nearly (every big component is split into `features/`); phase 3 (the pipeline) is left.
 - Tests: about 454 website unit and component tests, 73 in `packages/core`, 211 in the pipeline, the rule and guard tests, and about 213 Playwright runs (desktop and phone) including axe (`e2e/a11y.spec.js`, in Spanish too) and `a11y-part2.spec.js`. Lint has 0 warnings.
+- **Indiana neighbours checked (2026-11-19):** Floyd posts reports, but in.gov's terms forbid republishing them; Clark and Harrison post none. None is usable without written permission (`docs/COUNTIES.md`, "Indiana neighbours").
 - **Supabase egress went over the free 5 GB in the November 2026 billing cycle** (5.41 GB on 2026-11-18). The daily chart under Usage → Egress shows which day. Make no reads against the project until the cycle resets, and treat new reads with extra care.
 
 ## Waiting on the owner
