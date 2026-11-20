@@ -139,7 +139,8 @@ phishing pages use a lot. Code can only do part of the job.
    louisvillefoodsafe@gmail.com to contacts. That trains your inbox and a little of the
    sender's reputation; it does nothing for other people's.
 3. **Score the email:** send a test to the address [mail-tester.com](https://www.mail-tester.com)
-   shows (the admin page's one-off email, or the workflow's `group` audience). It grades
+   shows: the admin page's Digest tab, "Test to another address" (`docs/EMAIL_ADMIN.md`,
+   "Scoring it for spam"), sends the real digest with the real footer and headers. It grades
    it out of 10 and lists what spam filters dislike. No domain needed; three free tests a day.
 4. **The real fix: a domain of our own** (about $10–15 a year; Netlify serves the site on it
    for free) and an email service that signs for it, such as Resend (3,000 emails a month
