@@ -16,6 +16,10 @@ describe("a scheduled time", () => {
   it("reads a Louisville wall-clock time as its instant (EST in November, 5 hours ahead)", () => {
     expect(louisvilleToIso("2026-11-20T14:30")).toBe("2026-11-20T19:30:00.000Z");
   });
+  it("is right on the day daylight saving starts (2 am becomes 3 am, 05:00 is already EDT)", () => {
+    // 2027-03-14: 05:00 Louisville is 09:00 UTC (EDT, 4 hours ahead), not 10:00.
+    expect(louisvilleToIso("2027-03-14T05:00")).toBe("2027-03-14T09:00:00.000Z");
+  });
   it("gives null for anything that isn't a date and time", () => {
     expect(louisvilleToIso("")).toBeNull();
     expect(louisvilleToIso("tomorrow")).toBeNull();

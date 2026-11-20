@@ -168,18 +168,16 @@ export function makeStore(supa, { warn = console.warn } = {}) {
       );
     },
 
-    // Queued jobs whose time has come (a scheduled one waits for its send_at).
+    // Queued jobs whose time has come (a scheduled one waits for its send_at). On a
+    // database without the send_at column (20261202000000 not run) every queued job is due.
     async queuedJobs() {
-      return must(
-        await supa
-          .from("email_jobs")
-          .select("*")
-          .eq("status", "queued")
-          .or(`send_at.is.null,send_at.lte.${new Date().toISOString()}`)
-          .order("queued_at")
-          .limit(10),
-        "read the outbox",
+      const base = () =>
+        supa.from("email_jobs").select("*").eq("status", "queued").order("queued_at").limit(10);
+      const { data, error } = await base().or(
+        `send_at.is.null,send_at.lte.${new Date().toISOString()}`,
       );
+      if (error && error.code === "42703") return must(await base(), "read the outbox");
+      return must({ data, error }, "read the outbox");
     },
 
     // Is Tuesday's digest paused (admin_set_digest_paused)? On a database without the

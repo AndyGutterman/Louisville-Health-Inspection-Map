@@ -51,7 +51,7 @@ $$;
 
 -- ── Older sends: a page at a time, with when each one is scheduled for ───────────────
 DROP FUNCTION IF EXISTS public.admin_email_jobs(integer);
-CREATE FUNCTION public.admin_email_jobs(p_limit integer DEFAULT 10, p_offset integer DEFAULT 0)
+CREATE OR REPLACE FUNCTION public.admin_email_jobs(p_limit integer DEFAULT 10, p_offset integer DEFAULT 0)
 RETURNS TABLE(
   id uuid,
   created_at timestamptz,
@@ -93,7 +93,7 @@ $$;
 -- and 30 days ahead, and only a one-off email can be scheduled.
 DROP FUNCTION IF EXISTS public.admin_queue_email(
   text, text, text[], uuid, integer, boolean, text, text, boolean, integer);
-CREATE FUNCTION public.admin_queue_email(
+CREATE OR REPLACE FUNCTION public.admin_queue_email(
   p_kind text,
   p_audience text,
   p_to_emails text[] DEFAULT NULL,
@@ -203,6 +203,29 @@ BEGIN
   )
   RETURNING id INTO v_id;
   RETURN v_id;
+END;
+$$;
+
+-- ── Send again: a scheduled email that is sent again goes now ────────────────────────
+-- The same as 20261125000000's admin_retry_email, and clears send_at: a time that has
+-- passed would otherwise make the job expire at once.
+CREATE OR REPLACE FUNCTION public.admin_retry_email(p_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  n integer;
+BEGIN
+  PERFORM public.assert_admin();
+  UPDATE email_jobs
+     SET status = 'queued', queued_at = now(), send_at = NULL, error = NULL,
+         started_at = NULL, finished_at = NULL
+   WHERE id = p_id
+     AND (status IN ('failed', 'partial', 'expired', 'cancelled')
+       OR (status = 'sending' AND started_at < now() - interval '15 minutes'));
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n > 0;
 END;
 $$;
 

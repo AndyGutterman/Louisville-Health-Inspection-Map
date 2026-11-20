@@ -57,20 +57,24 @@ export function louisvilleToIso(local) {
   if (!m) return null;
   const [y, mo, d, h, mi] = m.slice(1).map(Number);
   const wall = Date.UTC(y, mo - 1, d, h, mi);
-  // What Louisville's clock reads at that instant, as if it were UTC: the difference is
-  // Louisville's offset, which the instant is the wall time less.
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: LOUISVILLE,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(new Date(wall));
-  const at = (type) => Number(parts.find((p) => p.type === type).value);
-  const shown = Date.UTC(at("year"), at("month") - 1, at("day"), at("hour"), at("minute"));
-  return new Date(wall - (shown - wall)).toISOString();
+  // Louisville's offset from UTC at an instant: its clock reading, as if it were UTC, less
+  // the instant itself.
+  const offsetAt = (instant) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: LOUISVILLE,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(new Date(instant));
+    const at = (type) => Number(parts.find((p) => p.type === type).value);
+    return Date.UTC(at("year"), at("month") - 1, at("day"), at("hour"), at("minute")) - instant;
+  };
+  // Looked up twice: the first guess can sit on the other side of a daylight-saving change.
+  const guess = wall - offsetAt(wall);
+  return new Date(wall - offsetAt(guess)).toISOString();
 }
 
 /** Why a scheduled time can't be used, in words; null when it can. */

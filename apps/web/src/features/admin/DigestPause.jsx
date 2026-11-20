@@ -8,12 +8,18 @@ export default function DigestPause() {
   const [paused, setPaused] = useState(null); // null until read
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [missing, setMissing] = useState(false); // the database has no pause yet
 
   useEffect(() => {
     let live = true;
     fetchDigestPaused().then(
       (p) => live && setPaused(p),
-      (e) => live && setError(errorText(e)),
+      (e) => {
+        if (!live) return;
+        // Until 20261202000000 has run there is no pause to show: the card stays hidden.
+        if (e?.code === "PGRST202" || e?.code === "42883") setMissing(true);
+        else setError(errorText(e));
+      },
     );
     return () => {
       live = false;
@@ -32,6 +38,7 @@ export default function DigestPause() {
     }
   };
 
+  if (missing) return null;
   const state =
     paused == null
       ? error

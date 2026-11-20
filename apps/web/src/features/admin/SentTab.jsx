@@ -23,6 +23,8 @@ const POLL_MS = 6000;
 const MAX_POLLS = 40;
 // A page of sends. "Show older" reads the next page; a refresh starts again from the top.
 const PAGE = 10;
+// The most the database returns in one read (admin_email_jobs caps it at 50).
+const MAX_SHOWN = 50;
 
 const SOURCES = { schedule: "Tuesday's send", manual: "run by hand" };
 
@@ -168,8 +170,13 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   const [round, setRound] = useState(0); // bumping it reads again
   const polls = useRef(0);
 
+  // How many sends are on the list: a check in the background reads that many again, so
+  // "Show older" pages stay put. A refresh starts again from the first page.
+  const shown = useRef(PAGE);
+
   const refresh = useCallback(() => {
     polls.current = 0;
+    shown.current = PAGE;
     setRound((n) => n + 1);
   }, []);
   useEffect(refresh, [refreshKey, refresh]);
@@ -177,8 +184,13 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   useEffect(() => {
     if (!round) return;
     let live = true;
-    fetchJobs(PAGE).then(
-      (jobs) => live && setState({ jobs, error: null, more: jobs.length === PAGE }),
+    const want = shown.current;
+    fetchJobs(want).then(
+      (jobs) => {
+        if (!live) return;
+        shown.current = Math.max(PAGE, jobs.length);
+        setState({ jobs, error: null, more: jobs.length === want && want < MAX_SHOWN });
+      },
       (e) => live && setState((s) => ({ ...s, error: errorText(e) })),
     );
     return () => {
@@ -187,7 +199,8 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   }, [round]);
 
   const { jobs } = state;
-  const active = !!jobs?.some((j) => isActive(j));
+  // Only what is due is worth checking: a send scheduled for next week is not "on its way".
+  const active = !!jobs?.some((j) => isActive(j) && isDue(j));
   useEffect(() => {
     if (!active || polls.current >= MAX_POLLS) return;
     const t = setTimeout(() => {
@@ -202,10 +215,12 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   const showOlder = async () => {
     try {
       const older = await fetchJobs(PAGE, jobs.length);
+      const all = [...(jobs ?? []), ...older];
+      shown.current = all.length;
       setState((s) => ({
         ...s,
-        jobs: [...(s.jobs ?? []), ...older],
-        more: older.length === PAGE,
+        jobs: all,
+        more: older.length === PAGE && all.length < MAX_SHOWN,
       }));
     } catch (e) {
       setState((s) => ({ ...s, error: errorText(e) }));

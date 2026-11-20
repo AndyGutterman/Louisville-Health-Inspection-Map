@@ -65,21 +65,22 @@ export async function fetchDigestSaved(userId, days) {
  * @returns {Promise<string>} the job's id
  */
 export async function queueEmail(job, expectCount = null) {
-  return must(
-    await supabase.rpc("admin_queue_email", {
-      p_kind: job.kind,
-      p_audience: job.audience,
-      p_to_emails: job.to_emails ?? null,
-      p_as_user: job.as_user ?? null,
-      p_days: job.days ?? 7,
-      p_test: !!job.test,
-      p_subject: job.subject ?? null,
-      p_body: job.body ?? null,
-      p_with_button: job.with_button ?? true,
-      p_expect_count: expectCount,
-      p_send_at: job.send_at ?? null,
-    }),
-  );
+  const args = {
+    p_kind: job.kind,
+    p_audience: job.audience,
+    p_to_emails: job.to_emails ?? null,
+    p_as_user: job.as_user ?? null,
+    p_days: job.days ?? 7,
+    p_test: !!job.test,
+    p_subject: job.subject ?? null,
+    p_body: job.body ?? null,
+    p_with_button: job.with_button ?? true,
+    p_expect_count: expectCount,
+  };
+  // p_send_at only when the email is scheduled: until 20261202000000 has run, the database
+  // has no such parameter, and an email sent now must still go.
+  if (job.send_at) args.p_send_at = job.send_at;
+  return must(await supabase.rpc("admin_queue_email", args));
 }
 
 /** Whether Tuesday's digest is paused (admin_digest_paused). */
@@ -102,7 +103,11 @@ export const startSender = (jobId) => startWorkflow("email-dispatch", { job: job
 
 /** A page of sends, newest first (admin_email_jobs). */
 export async function fetchJobs(limit = 10, offset = 0) {
-  return must(await supabase.rpc("admin_email_jobs", { p_limit: limit, p_offset: offset }));
+  // p_offset only past the first page: until 20261202000000 has run, the database
+  // has no offset parameter and the first page must still read.
+  const args = { p_limit: limit };
+  if (offset > 0) args.p_offset = offset;
+  return must(await supabase.rpc("admin_email_jobs", args));
 }
 
 /** One job in full (its message), or null. */
