@@ -4,11 +4,30 @@ import {
   countsText,
   errorText,
   louisvilleToday,
+  louisvilleToIso,
   nextTab,
   previewDoc,
   queuedNotice,
+  scheduleProblem,
   whenText,
 } from "./adminEmail.js";
+
+describe("a scheduled time", () => {
+  it("reads a Louisville wall-clock time as its instant (EST in November, 5 hours ahead)", () => {
+    expect(louisvilleToIso("2026-11-20T14:30")).toBe("2026-11-20T19:30:00.000Z");
+  });
+  it("gives null for anything that isn't a date and time", () => {
+    expect(louisvilleToIso("")).toBeNull();
+    expect(louisvilleToIso("tomorrow")).toBeNull();
+  });
+  it("must be in the future, and at most 30 days ahead", () => {
+    const now = Date.parse("2026-11-20T12:00:00Z");
+    expect(scheduleProblem(null, now)).toMatch(/Pick a date/);
+    expect(scheduleProblem("2026-11-20T11:00:00Z", now)).toMatch(/future/);
+    expect(scheduleProblem("2026-11-21T12:00:00Z", now)).toBeNull();
+    expect(scheduleProblem("2026-12-25T12:00:00Z", now)).toMatch(/30 days/);
+  });
+});
 
 describe("nextTab", () => {
   const names = ["digest", "write", "sent"];

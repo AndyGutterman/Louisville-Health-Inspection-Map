@@ -77,8 +77,19 @@ export async function queueEmail(job, expectCount = null) {
       p_body: job.body ?? null,
       p_with_button: job.with_button ?? true,
       p_expect_count: expectCount,
+      p_send_at: job.send_at ?? null,
     }),
   );
+}
+
+/** Whether Tuesday's digest is paused (admin_digest_paused). */
+export async function fetchDigestPaused() {
+  return must(await supabase.rpc("admin_digest_paused")) === true;
+}
+
+/** Pause or resume Tuesday's digest (admin_set_digest_paused). Returns the new state. */
+export async function setDigestPaused(paused) {
+  return must(await supabase.rpc("admin_set_digest_paused", { p_paused: !!paused })) === true;
 }
 
 /**
@@ -89,8 +100,9 @@ export async function queueEmail(job, expectCount = null) {
  */
 export const startSender = (jobId) => startWorkflow("email-dispatch", { job: jobId });
 
-export async function fetchJobs(limit = 10) {
-  return must(await supabase.rpc("admin_email_jobs", { p_limit: limit }));
+/** A page of sends, newest first (admin_email_jobs). */
+export async function fetchJobs(limit = 10, offset = 0) {
+  return must(await supabase.rpc("admin_email_jobs", { p_limit: limit, p_offset: offset }));
 }
 
 /** One job in full (its message), or null. */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { canRetry, describeJob, isActive, statusLabel } from "@lfs/core/email/jobs.js";
+import { canRetry, describeJob, isActive, isDue, statusLabel } from "@lfs/core/email/jobs.js";
 import {
   cancelJob,
   fetchDeliveries,
@@ -13,6 +13,7 @@ import {
   countsText,
   errorText,
   queuedNotice,
+  scheduledText,
   whenText,
 } from "../../lib/adminEmail.js";
 
@@ -20,6 +21,8 @@ import {
 // few seconds, and only for a few minutes, so a forgotten tab can't keep reading.
 const POLL_MS = 6000;
 const MAX_POLLS = 40;
+// A page of sends. "Show older" reads the next page; a refresh starts again from the top.
+const PAGE = 10;
 
 const SOURCES = { schedule: "Tuesday's send", manual: "run by hand" };
 
@@ -75,7 +78,12 @@ function JobCard({ job, onChanged, onDraft, onNotice }) {
     });
   const tone = { sent: "on", partial: "warn", failed: "bad", expired: "bad" }[job.status] ?? "";
   const counts = countsText(job);
-  const waiting = job.status === "queued" && Date.now() - new Date(job.queued_at) > 90_000;
+  // A scheduled email waits for its time, not for the sender: only a due one can be stuck.
+  const scheduled = job.status === "queued" && job.send_at && !isDue(job);
+  const waiting =
+    job.status === "queued" &&
+    isDue(job) &&
+    Date.now() - new Date(job.send_at ?? job.queued_at) > 90_000;
 
   return (
     <li className="adm-job" data-testid="admin-job" data-status={job.status}>
@@ -86,6 +94,11 @@ function JobCard({ job, onChanged, onDraft, onNotice }) {
       </div>
       <div className="adm-job-what">{describeJob(job)}</div>
       {job.as_user_email && <div className="adm-dim">Written as {job.as_user_email}</div>}
+      {scheduled && (
+        <div className="adm-dim" data-testid="admin-job-scheduled">
+          Scheduled for {scheduledText(job.send_at)}. Cancel it to keep it from going out.
+        </div>
+      )}
       {counts && <div className="adm-dim">{counts}</div>}
       {job.error && <div className="adm-error">{job.error}</div>}
       {waiting && (
@@ -164,8 +177,8 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   useEffect(() => {
     if (!round) return;
     let live = true;
-    fetchJobs().then(
-      (jobs) => live && setState({ jobs, error: null }),
+    fetchJobs(PAGE).then(
+      (jobs) => live && setState({ jobs, error: null, more: jobs.length === PAGE }),
       (e) => live && setState((s) => ({ ...s, error: errorText(e) })),
     );
     return () => {
@@ -185,6 +198,20 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
   }, [active, round]);
   const gaveUp = active && polls.current >= MAX_POLLS;
 
+  // The next page of sends, after the ones on the list.
+  const showOlder = async () => {
+    try {
+      const older = await fetchJobs(PAGE, jobs.length);
+      setState((s) => ({
+        ...s,
+        jobs: [...(s.jobs ?? []), ...older],
+        more: older.length === PAGE,
+      }));
+    } catch (e) {
+      setState((s) => ({ ...s, error: errorText(e) }));
+    }
+  };
+
   return (
     <section className="adm-card">
       <div className="adm-sent-head">
@@ -195,7 +222,7 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
               ? "Stopped checking. Refresh to look again."
               : active
                 ? "Checking every few seconds while something is on its way."
-                : "The last 10 sends."}
+                : "The newest sends first."}
           </div>
         </div>
         <button type="button" className="adm-btn adm-btn--quiet" onClick={refresh}>
@@ -220,6 +247,13 @@ export default function SentTab({ refreshKey, onDraft, onNotice }) {
           />
         ))}
       </ul>
+      {state.more && (
+        <div className="adm-actions">
+          <button type="button" className="adm-btn adm-btn--quiet" onClick={showOlder}>
+            Show older
+          </button>
+        </div>
+      )}
     </section>
   );
 }

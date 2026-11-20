@@ -46,6 +46,53 @@ export function nextTab(names, current, key) {
   return null;
 }
 
+const LOUISVILLE = "America/Kentucky/Louisville";
+
+/**
+ * A Louisville wall-clock time ("2026-11-20T14:30", from a datetime-local input) as the
+ * ISO instant it is. Null when it isn't a time.
+ */
+export function louisvilleToIso(local) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(local ?? ""));
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  // What Louisville's clock reads at that instant, as if it were UTC: the difference is
+  // Louisville's offset, which the instant is the wall time less.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: LOUISVILLE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(wall));
+  const at = (type) => Number(parts.find((p) => p.type === type).value);
+  const shown = Date.UTC(at("year"), at("month") - 1, at("day"), at("hour"), at("minute"));
+  return new Date(wall - (shown - wall)).toISOString();
+}
+
+/** Why a scheduled time can't be used, in words; null when it can. */
+export function scheduleProblem(iso, now = Date.now()) {
+  if (!iso) return "Pick a date and time.";
+  const t = new Date(iso).getTime();
+  if (!(t > now)) return "Pick a time in the future.";
+  if (t > now + 30 * 24 * 60 * 60 * 1000) return "Schedule up to 30 days ahead.";
+  return null;
+}
+
+/** "Thu, Nov 20, 2:30 PM" in Louisville, for a scheduled send. */
+export const scheduledText = (iso) =>
+  new Date(iso).toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: LOUISVILLE,
+  });
+
 /** A database error in words the page can show. */
 export function errorText(error) {
   const code = error?.code;

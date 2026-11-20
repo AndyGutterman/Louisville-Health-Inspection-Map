@@ -6,7 +6,14 @@
 import { useCallback, useState } from "react";
 import { checkJob } from "@lfs/core/email/jobs.js";
 import { queueEmail, startSender } from "../../api/admin.js";
-import { EMPTY_MESSAGE, OUTBOX_WORKFLOW_URL, nextTab, queuedNotice } from "../../lib/adminEmail.js";
+import {
+  EMPTY_MESSAGE,
+  OUTBOX_WORKFLOW_URL,
+  nextTab,
+  queuedNotice,
+  scheduledText,
+} from "../../lib/adminEmail.js";
+import DigestPause from "./DigestPause.jsx";
 import DigestTab from "./DigestTab.jsx";
 import WriteTab from "./WriteTab.jsx";
 import SentTab from "./SentTab.jsx";
@@ -38,7 +45,13 @@ function Admin({ user, onOpenPins }) {
       const problem = checkJob(job);
       if (problem) throw new Error(problem);
       const id = await queueEmail(job, expectCount);
-      setNotice(queuedNotice(await startSender(id)));
+      // A scheduled email waits for its time: the sender checks every 15 minutes, so there
+      // is nothing to start now.
+      if (job.send_at) {
+        setNotice({ ok: true, text: `Scheduled for ${scheduledText(job.send_at)}.` });
+      } else {
+        setNotice(queuedNotice(await startSender(id)));
+      }
       setSentKey((n) => n + 1);
       open("sent");
     },
@@ -120,6 +133,7 @@ function Admin({ user, onOpenPins }) {
         aria-labelledby="adm-tab-digest"
         hidden={tab !== "digest"}
       >
+        <DigestPause />
         <DigestTab me={user} send={send} onSubscribers={setSubscribers} />
       </div>
       {seen.has("write") && (

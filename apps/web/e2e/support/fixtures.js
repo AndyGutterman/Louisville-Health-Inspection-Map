@@ -568,6 +568,8 @@ Object.assign(TABLES, {
   "rpc/admin_set_subscription": true,
   "rpc/admin_retry_email": true,
   "rpc/admin_cancel_email": true,
+  "rpc/admin_digest_paused": false,
+  "rpc/admin_set_digest_paused": true,
 });
 
 // ── The pin control center (features/pins, migration 20261130000000) ─────────────────
