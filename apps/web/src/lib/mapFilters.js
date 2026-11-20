@@ -4,7 +4,7 @@ import { HIT_LAYER, RING_LAYER } from "./pinPicking.js";
 import { bandExprs } from "./scoring.js";
 import { CATEGORY_SPECS, allCategoriesOn } from "./categories.js";
 import { DRAW_ORDER } from "./constants.js";
-import { searchTokens } from "./searchText.js";
+import { SEARCH_KEY_PROP, searchTokens } from "./searchText.js";
 import { DEFAULT_REGION, undatedRegionIds, untypedRegionIds } from "./regions.js";
 
 // Matches no feature: the filter for a score band that is switched off.
@@ -13,11 +13,13 @@ export const HIDDEN = ["==", ["get", "score"], "__none__"];
 // Forgiving match (lib/searchText.js): every word of the term must appear in the pin's
 // search_key, which holds the name, addresses and zip of every place sharing the pin
 // (lib/dedupe.js), compacted to letters and digits. So "mc donald's", "mcdonalds" and
-// "mc'donalds" all find McDonald's. null when the term is blank.
-export function searchExpression(searchTerm) {
+// "mc'donalds" all find McDonald's. field narrows it to the name or the address (the
+// search box's toggles), whose keys are baked beside search_key. null for a blank term.
+export function searchExpression(searchTerm, field = "all") {
   const tokens = searchTokens(searchTerm);
   if (!tokens.length) return null;
-  const haystack = ["coalesce", ["get", "search_key"], ""];
+  const prop = SEARCH_KEY_PROP[field] ?? SEARCH_KEY_PROP.all;
+  const haystack = ["coalesce", ["get", prop], ""];
   const has = (t) => [">=", ["index-of", t, haystack], 0];
   return tokens.length === 1 ? has(tokens[0]) : ["all", ...tokens.map(has)];
 }
@@ -114,6 +116,7 @@ export function passesCategory(props, catToggles, untypedRegions = [], alwaysSho
  * @param {object|null} filters.catToggles  category filter state (lib/categories.js), or
  *   null for a county without categories
  * @param {string} filters.searchTerm
+ * @param {"all"|"name"|"address"} [filters.searchField]  what the search looks through
  * @param {string|null} filters.cutoffDate  YYYY-MM-DD, or null for all time
  * @param {string[]} [filters.undatedRegions]  counties the date filter lets through
  *   (defaults to those whose data has no dates, lib/regions.js)
@@ -127,6 +130,7 @@ export function buildLayerFilters({
   show,
   catToggles,
   searchTerm,
+  searchField = "all",
   cutoffDate,
   undatedRegions = undatedRegionIds(),
   untypedRegions = untypedRegionIds(),
@@ -135,7 +139,7 @@ export function buildLayerFilters({
   const bands = bandExprs(pins);
   const shared = [];
   if (catToggles) shared.push(categoryFilter(catToggles, untypedRegions, alwaysShow));
-  const search = searchExpression(searchTerm);
+  const search = searchExpression(searchTerm, searchField);
   if (search) shared.push(search);
   const date = dateExpression(cutoffDate, undatedRegions);
   if (date) shared.push(date);

@@ -11,6 +11,7 @@ export async function fetchBullittFeed() {
         .from("v_bullitt_map_feed")
         // Every column: follow_up_violation_count only exists once migration
         // 20261112000000 has run, and naming it before then would fail the whole read.
+        // check-allow: no-select-star-in-browser whole-view map read, on the egress audit list in CLAUDE.md
         .select("*")
         .order("establishment_id")
         .range(from, to),
@@ -24,8 +25,8 @@ export async function fetchBullittFeed() {
 const HISTORY_COLUMNS = "id, kind, inspection_date, score, violations, first_seen, last_seen";
 
 // Every version of one place's inspections we have recorded, from bullitt_results: the
-// portal's while it is answering, the sheet's otherwise (migration 20261120000000). Until
-// that migration has run, the sheet's table directly. Supabase's { data, error }.
+// county sheet's (migration 20261201000000). If that view can't be read, the sheet's
+// table directly. Supabase's { data, error }.
 export async function fetchBullittInspections(eid) {
   const read = (table) => supabase.from(table).select(HISTORY_COLUMNS).eq("establishment_id", eid);
   const picked = await read("bullitt_results");
