@@ -68,3 +68,4 @@ tmp/
 
 # ─── Supabase CLI temp files ──────────────────────────────────────
 supabase/.temp/
+.claude/skills/netlify-*/
