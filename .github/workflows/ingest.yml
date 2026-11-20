@@ -1,8 +1,16 @@
+# Louisville Metro (ArcGIS) -> Supabase. Checked every two hours; loads only when the
+# city's data has changed (pipeline/source_check.js, lib/ingestGate.js), at most twice a
+# day on the schedule. A check reads nothing from the database: it asks the city's
+# servers for row counts and sums, and compares them with the last load's fingerprint,
+# which GitHub's Actions cache keeps (newest entry starting "ingest-state-"). A run by
+# hand always loads. The city re-uploads its layers once a day, around 13:45 UTC.
 name: Ingest ArcGIS -> Supabase
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "30 8 * * *"
+    # Every two hours at :23, off the busy top of the hour (GitHub started the old 08:30
+    # run 7 to 10 hours late in November 2026). A check with nothing new takes a minute.
+    - cron: "23 */2 * * *"
 concurrency: ingest
 jobs:
   run:
@@ -22,44 +30,97 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
 
+      # The newest saved state (the key never matches exactly; the prefix finds the newest).
+      # The path is the same in every cache step: it is part of the cache's identity.
+      - name: Restore the last load's fingerprint
+        uses: actions/cache/restore@v4
+        with:
+          path: pipeline/.ingest-state/state.json
+          key: ingest-state-${{ github.run_id }}
+          restore-keys: ingest-state-
+
+      - name: Has the city's data changed?
+        id: gate
+        env:
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node source_check.js
+
+      # Saved before the load, so a load that fails still counts toward the daily cap, and
+      # the next check tries again (the fingerprint in it is still the old one).
+      - name: Count this load
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: pipeline/.ingest-state/state.json
+          key: ingest-state-${{ github.run_id }}-${{ github.run_attempt }}-try
+
+      # Every step from here to the fingerprint save runs only when the gate said so (and,
+      # as always, only while the steps before it succeeded).
       - name: Install
+        if: steps.gate.outputs.run == 'true'
         working-directory: .
         run: npm ci -w pipeline
 
       - name: Test
+        if: steps.gate.outputs.run == 'true'
         run: npm test
 
       - name: Recover failed runs
+        if: steps.gate.outputs.run == 'true'
         run: node Recover.js
 
       # First: facilities.(facility_type, subtype) is a foreign key to facility_categories,
       # so a type/subtype pair the city adds must be in that table before backfill_types
       # writes it onto a facility.
       - name: Seed categories
+        if: steps.gate.outputs.run == 'true'
         run: node seed_categories.js
 
       - name: Seed facilities
+        if: steps.gate.outputs.run == 'true'
         run: node seed_facilities.js
 
       - name: Overlay geometry — pass 1
+        if: steps.gate.outputs.run == 'true'
         run: node overlay_geometry.js
 
       - name: Seed inspections
+        if: steps.gate.outputs.run == 'true'
         run: node seed_inspections.js
 
       - name: Overlay geometry — pass 2
+        if: steps.gate.outputs.run == 'true'
         run: node overlay_geometry.js
 
       - name: Backfill facility types
+        if: steps.gate.outputs.run == 'true'
         run: node backfill_types.js
 
       - name: Geocode missing geometry
+        if: steps.gate.outputs.run == 'true'
         run: node geocode_missing.js
 
       - name: Seed violations
+        if: steps.gate.outputs.run == 'true'
         run: node seed_violations.js
+
+      # Tells the website the pins changed (data_loads, migration 20261203000000), so a
+      # visitor's saved pins are read again on their next visit and not before.
+      - name: Mark the load
+        if: steps.gate.outputs.run == 'true'
+        run: node mark_loaded.js jefferson
+
+      - name: Remember this load's fingerprint
+        if: steps.gate.outputs.run == 'true'
+        run: mv .ingest-state/done.json .ingest-state/state.json
+
+      - name: Save the fingerprint
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: pipeline/.ingest-state/state.json
+          key: ingest-state-${{ github.run_id }}-${{ github.run_attempt }}-done
 
       # GitHub switches a public repo's scheduled workflows off after 60 days without
       # commits, silently; a week later Supabase's free plan would pause the project for
