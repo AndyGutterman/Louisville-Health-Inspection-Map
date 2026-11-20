@@ -292,7 +292,8 @@ export default function DigestTab({ me, send, onSubscribers }) {
             </button>
           </form>
           <div className="adm-dim">
-            Marked [Test], with a placeholder unsubscribe link that works for nobody.
+            Marked [Test]. Its unsubscribe link works for nobody, unless it goes to a subscriber's
+            own address with &ldquo;Someone with nothing saved&rdquo; picked.
           </div>
           {error && (
             <div className="adm-error" role="alert">

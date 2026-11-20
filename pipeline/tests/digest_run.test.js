@@ -258,6 +258,22 @@ describe("runJob", () => {
     assert.equal(outbox[0].unsubscribeToken, "tok-jane");
   });
 
+  it("a one-off email's test to an address with no token keeps no link, like its preview", async () => {
+    const store = fakeStore();
+    const { outbox, send } = fakeMailer();
+    const job = {
+      kind: "custom",
+      audience: "emails",
+      to_emails: ["owner@example.com"],
+      subject: "Hello",
+      body: "A note.",
+      test: true,
+    };
+    await runJob(job, { store, send, today: TODAY });
+    assert.equal(outbox[0].unsubscribeToken, null);
+    assert.equal(outbox[0].unsubscribeUrl, null);
+  });
+
   it("the placeholder can never be a real token: those are random v4 UUIDs", () => {
     assert.match(TEST_TOKEN, /^0{8}-0{4}-0{4}-0{4}-0{12}$/);
     assert.doesNotMatch(TEST_TOKEN, /^[0-9a-f]{8}-[0-9a-f]{4}-4/); // v4 has a 4 here

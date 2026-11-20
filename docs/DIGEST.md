@@ -101,7 +101,8 @@ goes only to you** unless you change "audience", so a test can't email everyone.
 - **days**: widen the window (say 14) when a week is quiet.
 
 Test sends say "[Test]" in the subject. An address with an account gets that account's
-watch areas; one that isn't subscribed gets no unsubscribe link.
+watch areas; one that isn't subscribed gets the placeholder unsubscribe link and headers
+(`TEST_TOKEN` in `digest/run.js`), which unsubscribe nobody.
 
 Locally, from `pipeline/`: `node digest/send.js --dry-run` writes `digest-preview.html`;
 `node digest/send.js --to=you@example.com --test` sends one.

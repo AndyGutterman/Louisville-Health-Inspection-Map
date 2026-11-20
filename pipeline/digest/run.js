@@ -18,11 +18,12 @@ import { renderCustom } from "@lfs/core/email/custom.js";
 // v4 UUID (profiles.digest_token), and this one isn't.
 export const TEST_TOKEN = "00000000-0000-0000-0000-000000000000";
 
-// Someone else's digest carries nobody's unsubscribe link: a test copy gets TEST_TOKEN,
-// a real send none.
+// Someone else's digest carries nobody's unsubscribe link: a test digest gets
+// TEST_TOKEN, a real send none. A one-off email's test doesn't: the Write tab's preview
+// shows no footer for a few addresses, and the test should look like the preview.
 const unsubscribeToken = (job, r) => {
   const own = job.as_user || !r.token ? null : r.token;
-  return own ?? (job.test ? TEST_TOKEN : null);
+  return own ?? (job.test && job.kind === "digest" ? TEST_TOKEN : null);
 };
 const unsubscribeUrl = (job, r) => {
   const token = unsubscribeToken(job, r);
