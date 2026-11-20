@@ -6,7 +6,7 @@
 import { useCallback, useState } from "react";
 import { checkJob } from "@lfs/core/email/jobs.js";
 import { queueEmail, startSender } from "../../api/admin.js";
-import { EMPTY_MESSAGE, OUTBOX_WORKFLOW_URL, queuedNotice } from "../../lib/adminEmail.js";
+import { EMPTY_MESSAGE, OUTBOX_WORKFLOW_URL, nextTab, queuedNotice } from "../../lib/adminEmail.js";
 import DigestTab from "./DigestTab.jsx";
 import WriteTab from "./WriteTab.jsx";
 import SentTab from "./SentTab.jsx";
@@ -70,8 +70,21 @@ function Admin({ user, onOpenPins }) {
             id={`adm-tab-${name}`}
             aria-controls={`adm-panel-${name}`}
             aria-selected={tab === name}
+            tabIndex={tab === name ? 0 : -1}
             className={`adm-tab${tab === name ? " on" : ""}`}
             onClick={() => open(name)}
+            onKeyDown={(e) => {
+              // The ARIA tabs pattern: arrows, Home and End move between tabs.
+              const to = nextTab(
+                TABS.map(([t]) => t),
+                name,
+                e.key,
+              );
+              if (!to) return;
+              e.preventDefault();
+              open(to);
+              document.getElementById(`adm-tab-${to}`)?.focus();
+            }}
           >
             {label}
           </button>

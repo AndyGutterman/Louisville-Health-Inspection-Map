@@ -29,6 +29,23 @@ export const previewDoc = (html) =>
 export const confirmsCount = (typed, count) =>
   count > 0 && String(typed ?? "").trim() === String(count);
 
+/**
+ * Where the arrow keys, Home and End take the tab list (the ARIA tabs pattern). Returns
+ * the tab to move to, or null for any other key. Wraps at both ends.
+ * @param {string[]} names  the tabs in order
+ * @param {string} current  the focused tab
+ * @param {string} key      the KeyboardEvent.key
+ */
+export function nextTab(names, current, key) {
+  if (!names.length) return null;
+  const i = names.indexOf(current);
+  if (key === "ArrowRight") return names[(i + 1) % names.length];
+  if (key === "ArrowLeft") return names[(i - 1 + names.length) % names.length];
+  if (key === "Home") return names[0];
+  if (key === "End") return names[names.length - 1];
+  return null;
+}
+
 /** A database error in words the page can show. */
 export function errorText(error) {
   const code = error?.code;

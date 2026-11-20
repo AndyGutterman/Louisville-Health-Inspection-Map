@@ -4,10 +4,28 @@ import {
   countsText,
   errorText,
   louisvilleToday,
+  nextTab,
   previewDoc,
   queuedNotice,
   whenText,
 } from "./adminEmail.js";
+
+describe("nextTab", () => {
+  const names = ["digest", "write", "sent"];
+  it("moves right and left, wrapping at both ends", () => {
+    expect(nextTab(names, "digest", "ArrowRight")).toBe("write");
+    expect(nextTab(names, "sent", "ArrowRight")).toBe("digest");
+    expect(nextTab(names, "digest", "ArrowLeft")).toBe("sent");
+  });
+  it("Home and End go to the first and last tab", () => {
+    expect(nextTab(names, "write", "Home")).toBe("digest");
+    expect(nextTab(names, "write", "End")).toBe("sent");
+  });
+  it("returns null for any other key, or an empty list", () => {
+    expect(nextTab(names, "write", "Enter")).toBeNull();
+    expect(nextTab([], "write", "ArrowRight")).toBeNull();
+  });
+});
 
 describe("louisvilleToday", () => {
   it("is Louisville's date, not UTC's", () => {
