@@ -1,6 +1,6 @@
 # Architecture
 
-Louisville Food Safe is a map of food-establishment inspections in Jefferson County (Louisville Metro) and Bullitt County. Daily jobs load each county's public data into a Supabase database, and a React site reads it.
+Louisville Food Safe is a map of food-establishment inspections in Jefferson County (Louisville Metro) and Bullitt County. Jobs check each county's public data every two hours and load it into a Supabase database when it has changed, and a React site reads it.
 
 ## System overview
 
@@ -100,31 +100,31 @@ sequenceDiagram
 
 Website paths below are relative to `apps/web/`.
 
-| I want to change                                              | Look in                                                                                  |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Score colours, presets, red/yellow/green bands                | `src/lib/scoring.js`                                                                     |
-| Which facility types belong to a category                     | `src/lib/categories.js`                                                                  |
-| How "may also be listed as" duplicates are detected           | `src/lib/samePlaceDetection.js`                                                          |
-| How pins sharing one location are collapsed                   | `src/lib/dedupe.js`                                                                      |
-| Date formats                                                  | `src/lib/dates.js`                                                                       |
-| Address search for watch areas                                | `src/lib/geocode.js`, `src/AddressPicker.jsx`                                            |
-| Phone / desktop breakpoints in components                     | `src/hooks/useMediaQuery.js`                                                             |
-| Phone info drawer: peek / expanded heights and the drag rules | `src/lib/bottomSheet.js`, `src/features/drawer/useBottomSheet.js`                        |
-| Map pan limits                                                | `src/lib/mapBounds.js`                                                                   |
-| Date-filter options and the map data cache settings           | `src/lib/constants.js`                                                                   |
-| Styles for a component                                        | `src/styles/<Component>.css` (imported by the component)                                 |
-| Which layer is on top on phones (account page vs info drawer) | `mobileTop` in `src/Map.jsx`                                                             |
-| The info drawer and its history                               | `src/features/drawer/`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
-| Filters and score sliders                                     | `src/features/filters/`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css`         |
-| Watch areas on the map                                        | `src/features/map/useWatchAreaLayer.js`, `src/watchAreaLayer.js` (the editor)            |
-| Map popups (hover, pinned, "1 of 3", Table View row)          | `src/features/map/popups.jsx`                                                            |
-| Pin and ring layers, and how the filters apply to them        | `src/features/map/mapLayers.js`, `src/lib/mapFilters.js`                                 |
-| Clicking pins, closing the drawer on outside clicks, edge pan | `src/features/map/useMapLibre.js`                                                        |
-| Loading the pins (and the session cache)                      | `src/features/map/useMapFeatures.js`, `src/api/mapData.js`, `src/lib/mapFeatures.js`     |
-| What the info drawer loads                                    | `src/features/map/useDrawer.js`, `src/lib/inspectionHistory.js`                          |
-| Saving places, watch-area data                                | `src/features/map/useWatchlist.js`, `src/api/watchlist.js`                               |
-| The header bar                                                | `src/features/map/AppHeader.jsx`                                                         |
-| Watchlist and account panel                                   | `src/AccountPage.jsx`, `src/features/saved/`                                             |
-| The weekly digest and one-off emails, the email admin page    | `packages/core/email/`, `pipeline/digest/`, `src/features/admin/`, `docs/EMAIL_ADMIN.md` |
-| Nightly data load                                             | `pipeline/`, `.github/workflows/ingest.yml`                                              |
-| Database tables, views, functions and security rules          | `supabase/migrations/` (start with the baseline file)                                    |
+| I want to change                                                | Look in                                                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Score colours, presets, red/yellow/green bands                  | `src/lib/scoring.js`                                                                     |
+| Which facility types belong to a category                       | `src/lib/categories.js`                                                                  |
+| How "may also be listed as" duplicates are detected             | `src/lib/samePlaceDetection.js`                                                          |
+| How pins sharing one location are collapsed                     | `src/lib/dedupe.js`                                                                      |
+| Date formats                                                    | `src/lib/dates.js`                                                                       |
+| Address search for watch areas                                  | `src/lib/geocode.js`, `src/AddressPicker.jsx`                                            |
+| Phone / desktop breakpoints in components                       | `src/hooks/useMediaQuery.js`                                                             |
+| Phone info drawer: peek / expanded heights and the drag rules   | `src/lib/bottomSheet.js`, `src/features/drawer/useBottomSheet.js`                        |
+| Map pan limits                                                  | `src/lib/mapBounds.js`                                                                   |
+| Date-filter options and the map data cache settings             | `src/lib/constants.js`                                                                   |
+| Styles for a component                                          | `src/styles/<Component>.css` (imported by the component)                                 |
+| Which layer is on top on phones (account page vs info drawer)   | `mobileTop` in `src/Map.jsx`                                                             |
+| The info drawer and its history                                 | `src/features/drawer/`, `src/styles/RestaurantInfo.css`, `History.css`, `Violations.css` |
+| Filters and score sliders                                       | `src/features/filters/`, `src/ScoreThreshold.jsx`, `src/styles/AdjustFilter.css`         |
+| Watch areas on the map                                          | `src/features/map/useWatchAreaLayer.js`, `src/watchAreaLayer.js` (the editor)            |
+| Map popups (hover, pinned, "1 of 3", Table View row)            | `src/features/map/popups.jsx`                                                            |
+| Pin and ring layers, and how the filters apply to them          | `src/features/map/mapLayers.js`, `src/lib/mapFilters.js`                                 |
+| Clicking pins, closing the drawer on outside clicks, edge pan   | `src/features/map/useMapLibre.js`                                                        |
+| Loading the pins (and the browser cache, `src/lib/mapCache.js`) | `src/features/map/useMapFeatures.js`, `src/api/mapData.js`, `src/api/dataLoads.js`       |
+| What the info drawer loads                                      | `src/features/map/useDrawer.js`, `src/lib/inspectionHistory.js`                          |
+| Saving places, watch-area data                                  | `src/features/map/useWatchlist.js`, `src/api/watchlist.js`                               |
+| The header bar                                                  | `src/features/map/AppHeader.jsx`                                                         |
+| Watchlist and account panel                                     | `src/AccountPage.jsx`, `src/features/saved/`                                             |
+| The weekly digest and one-off emails, the email admin page      | `packages/core/email/`, `pipeline/digest/`, `src/features/admin/`, `docs/EMAIL_ADMIN.md` |
+| Data loads (checked every two hours, loaded when changed)       | `pipeline/`, `pipeline/source_check.js`, `.github/workflows/ingest.yml`                  |
+| Database tables, views, functions and security rules            | `supabase/migrations/` (start with the baseline file)                                    |

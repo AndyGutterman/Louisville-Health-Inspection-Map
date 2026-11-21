@@ -149,6 +149,27 @@ export const rules = [
   },
 
   {
+    id: "migration-dollar-quotes-close",
+    why: "A JavaScript String.replace turned a function's closing $$; into $; while editing 20261203000000_data_loads.sql (in a replacement string, $$ stands for one $), and did it again while this rule was being written. Prettier skips the migrations folder and nothing runs them before the owner does, so a broken body would first fail in the SQL editor.",
+    applies: (file) => /^supabase\/migrations\/.+\.sql$/.test(file),
+    check(file, text) {
+      const out = findAll(
+        text,
+        /^[ \t]*\$;?[ \t]*$/gm,
+        "A lone $ where a function body should close with $$; (a mangled dollar quote).",
+      );
+      const quotes = [...text.matchAll(/\$\$/g)];
+      if (quotes.length % 2) {
+        out.push({
+          line: lineOf(text, quotes[quotes.length - 1].index),
+          message: "An odd number of $$ quotes: a function body is opened and never closed.",
+        });
+      }
+      return out;
+    },
+  },
+
+  {
     id: "doc-paths-exist",
     why: "CLAUDE.md and the docs are what every agent reads first, and a path that no longer exists sends it looking for code that moved (the keeper's drift check, made automatic).",
     applies: (file) =>

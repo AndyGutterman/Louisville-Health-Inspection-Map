@@ -384,6 +384,12 @@ export const TABLES = {
   // none. The mock filters this by region, so each switch reads only its own.
   v_portal_map_feed: PORTAL_PLACES,
   portal_inspections: [],
+  // When each county last loaded (api/dataLoads.js): the map keeps its saved pins while
+  // these stay the same. A test changes them through `answers` to act out a load.
+  data_loads: [
+    { region: "jefferson", loaded_at: "2026-11-20T14:31:02+00:00" },
+    { region: "bullitt", loaded_at: "2026-11-14T15:22:10+00:00" },
+  ],
   bullitt_results: bullittInspections,
   bullitt_inspections: bullittInspections,
   // Failing first (grade C or score under 85), then newest, like the SQL. The Bullitt row

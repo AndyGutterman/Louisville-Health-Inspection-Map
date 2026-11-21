@@ -33,6 +33,14 @@ test("pipeline scripts are blocked; their tests are not", () => {
   allowed("npm run build");
 });
 
+test("node --check only parses a pipeline file, so it is allowed", () => {
+  allowed("node --check pipeline/regions/bullitt/ingest.js");
+  allowed("cd pipeline && node -c source_check.js");
+  allowed("node --check pipeline/regions/bullitt/ingest.js && echo syntax-ok");
+  // Running it after the check is still running it.
+  blocked("node --check pipeline/seed_violations.js && node pipeline/seed_violations.js");
+});
+
 test("requests to a Supabase host are blocked, the e2e placeholder is not", () => {
   blocked("curl https://abc123.supabase.co/rest/v1/inspections");
   blocked("node -e \"fetch('https://abc123.supabase.co/rest/v1/x')\"");

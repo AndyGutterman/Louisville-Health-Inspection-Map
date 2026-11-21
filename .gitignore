@@ -69,3 +69,6 @@ tmp/
 # ─── Supabase CLI temp files ──────────────────────────────────────
 supabase/.temp/
 .claude/skills/netlify-*/
+
+# ─── Pipeline: the source check's state (pipeline/source_check.js; CI keeps it in a cache) ──
+pipeline/.ingest-state/

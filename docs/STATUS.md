@@ -2,10 +2,16 @@
 
 This is the project's moving part, kept out of `CLAUDE.md` so that file stays rules only. Read it at the start of a session, check it against `git log --oneline -20`, and update it in the same pull request that changes what it says. The `keeper` agent flags drift here every week.
 
-Last brought up to date: 2026-11-19 (pull requests up to #95 merged).
+Last brought up to date: 2026-11-20 (pull requests up to #107 merged).
 
 ## Recently merged
 
+- **#107** The digest lands in spam: one-click unsubscribe, list headers (`docs/DIGEST.md`, "Landing in spam").
+- **#106** Email admin, round two: scheduled one-off emails, older sends, the digest pause (`docs/EMAIL_ADMIN.md`).
+- **#105** Indiana neighbours checked, none usable (`docs/COUNTIES.md`).
+- **#102** Learn page: violation chips show their citation share, not scores.
+- **#100, #101** The review team: rule checks, agents, `/ship`, hooks, and `.claude/rules/`.
+- **#96–#98** The pin control center (`/?page=pins`, `docs/PINS.md`): hand fixes per place, and Geocode now.
 - **#95** The portal is paused (see `.claude/rules/counties.md`).
 - **#94** Search toggles: names or addresses only.
 - **#93** CLAUDE.md state after the overnight run.
@@ -16,8 +22,7 @@ Last brought up to date: 2026-11-19 (pull requests up to #95 merged).
 
 ## Open
 
-- **#100** The review team: rule checks, agents, `/ship`, hooks.
-- **#101** Stronger agents and guard, and this file (stacked on #100: merge it into #100, then #100).
+- **Ingest when changed** (`feat/ingest-when-changed`): Louisville and Bullitt are checked every two hours and load only when the source changed (Louisville's check reads nothing from the database); visitors' saved pins refresh after a load (`data_loads`, migration `20261203000000`), not at a fixed hour.
 
 ## Where things stand
 
@@ -39,7 +44,7 @@ Each needs the dashboard, a deploy or a decision; none can be done from a sessio
    npx supabase functions deploy email-dispatch --project-ref iyahhhgqmhbadgczbfwy
    ```
    Then delete the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` secrets, and send a test from the Feedback button.
-3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, `20261128000000_digest_saved_places.sql`, **`20261129000000_digest_language.sql`** (adds `profiles.language`; until it runs every email is English and the language offer stays hidden) and `20261201000000_portal_off.sql`, if it hasn't run.
+3. Run the migrations not yet run: `20261126000000_drop_redundant_indexes.sql`, `20261127000000_drop_unused_objects.sql`, `20261128000000_digest_saved_places.sql`, **`20261129000000_digest_language.sql`** (adds `profiles.language`; until it runs every email is English and the language offer stays hidden) `20261201000000_portal_off.sql`, if it hasn't run, and `20261203000000_data_loads.sql` (until it runs, the pipeline logs a warning and visitors' pins refresh once a day at 17:00 UTC).
 4. Netlify: delete the unused `GEOAPIFY_KEY` variable (the site uses `VITE_GEOAPIFY_KEY`).
 5. Decide whether approximate Bullitt pins (`ky911-approx`) should look different (`docs/BULLITT.md`, Decisions 9).
 6. Look at the ring colours (#91) and the larger score switches (#92) on a phone.

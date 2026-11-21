@@ -20,8 +20,8 @@ describe("DATE_FILTER_OPTS", () => {
 });
 
 describe("DATA_REFRESH_UTC_HOUR", () => {
-  it("is after the pipeline's daily loads (08:30 to 09:15 UTC), with room to spare", () => {
-    expect(DATA_REFRESH_UTC_HOUR).toBeGreaterThanOrEqual(10);
+  it("is after the city publishes (about 13:45 UTC) and the next check or two", () => {
+    expect(DATA_REFRESH_UTC_HOUR).toBeGreaterThanOrEqual(16);
     expect(DATA_REFRESH_UTC_HOUR).toBeLessThan(24);
   });
 });

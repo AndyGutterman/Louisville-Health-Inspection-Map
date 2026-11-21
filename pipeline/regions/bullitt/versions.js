@@ -3,8 +3,9 @@
  *
  * The sheet only ever shows each place's latest routine inspection and follow-up. A result
  * whose content (score, violations, follow-up date) matches no version already stored for
- * that place is a new version, stored with first_seen = today. Because the job runs daily,
- * first_seen is the day the department posted the result, which is how the website dates
+ * that place is a new version, stored with first_seen = today. Because the job runs
+ * several times a day, first_seen is the day the department posted the result (within
+ * about two hours, or the next morning for a late-evening edit), which is how the website dates
  * routine inspections the sheet leaves undated (apps/web/src/lib/bullitt.js).
  */
 

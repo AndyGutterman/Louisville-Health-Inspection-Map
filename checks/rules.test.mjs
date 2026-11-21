@@ -156,3 +156,18 @@ test("runRules reports problems with file, line and rule, and honours allowances
     },
   ]);
 });
+
+test("migration-dollar-quotes-close flags a mangled or unclosed function body", () => {
+  const r = rule("migration-dollar-quotes-close");
+  assert.equal(r.applies("supabase/migrations/20261203000000_data_loads.sql"), true);
+  assert.equal(r.applies("pipeline/source_check.js"), false);
+  const fn = (close) =>
+    ["CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$", "BEGIN", "END;", close, ""].join(
+      "\n",
+    );
+  assert.deepEqual(check("migration-dollar-quotes-close", "m.sql", fn("$$;")), []);
+  // What the String.replace did: the closing $$; became $; (line 4), leaving one $$ (line 1).
+  assert.deepEqual(check("migration-dollar-quotes-close", "m.sql", fn("$;")), [4, 1]);
+  // A dollar amount in a comment is not a quote.
+  assert.deepEqual(check("migration-dollar-quotes-close", "m.sql", "-- costs $5\nSELECT 1;\n"), []);
+});
