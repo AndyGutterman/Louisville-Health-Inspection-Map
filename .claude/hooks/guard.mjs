@@ -112,6 +112,9 @@ function pipelineScripts(projectDir) {
 /** True when `node <args>` would run a pipeline file that isn't a test. */
 function runsPipelineFile(args, projectDir) {
   if (args.includes("--test")) return false;
+  // `node --check` (or -c) only parses the file; nothing runs. Blocking it once left a
+  // pipeline edit unchecked for syntax (lint covers only the website).
+  if (args.includes("--check") || args.includes("-c")) return false;
   const script = args.find((a) => !a.startsWith("-"));
   if (!script) return false;
   const pipelineDir = path.join(projectDir, "pipeline");
