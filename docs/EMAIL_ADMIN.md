@@ -4,8 +4,9 @@ A page on the site, for the owner only, at **`/?page=admin`** (or the "Email adm
 in the Saved panel, which only an admin sees). It does four things:
 
 - **Digest:** pick any account and see their weekly digest exactly as Tuesday's send would
-  write it (their watch areas included). Send it to yourself as a test, send it to them,
-  put them on or take them off the digest, or send this week's digest to every subscriber
+  write it (their watch areas included). Send it to yourself as a test, send the same test
+  to any address ("Test to another address": a spam checker's, say, account or not), send
+  it to them, put them on or take them off the digest, or send this week's digest to every subscriber
   now. **Pause / Resume** at the top stops Tuesday's scheduled send only; a digest sent by
   hand still goes.
 - **Write:** a one-off email in the same card as the digest. Plain text in, with a live
@@ -110,6 +111,12 @@ the digest's.
   "Admins only".
 - On the Digest tab, "Send me this as a test". The Sent tab should go Queued → Sending →
   Sent within a minute or two, and the email arrives marked "[Test]".
+- **Scoring it for spam:** open [mail-tester.com](https://www.mail-tester.com), copy the
+  address it shows, paste it into "Test to another address" on the Digest tab (with a
+  subscriber picked, so the email has their watch areas), press **Send test**, wait for
+  Sent, then press "Then check your score" there. A test copy carries the same footer link
+  and List-Unsubscribe headers as a subscriber's, with a placeholder token that unsubscribes
+  nobody (`TEST_TOKEN` in `pipeline/digest/run.js`; the site says the link isn't valid).
 - In the SQL editor, `SELECT status, kind, audience, sent_count FROM email_jobs ORDER BY created_at DESC LIMIT 5;`
   shows the same history.
 - "Queued, but the sender didn't start (the browser couldn't reach it…)": the function never

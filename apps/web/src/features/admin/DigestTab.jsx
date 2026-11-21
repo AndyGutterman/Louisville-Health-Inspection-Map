@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { scrollBehavior } from "../../lib/motion.js";
 import { SITE, renderDigest } from "@lfs/core/email/digest.js";
+import { isEmail } from "@lfs/core/email/jobs.js";
 import { setSubscription } from "../../api/admin.js";
 import { confirmsCount, errorText, whenText } from "../../lib/adminEmail.js";
 import EmailPreview from "./EmailPreview.jsx";
@@ -38,7 +39,8 @@ function PersonRow({ person, picked, onPick }) {
 
 /**
  * The weekly digest: pick anyone and see their email exactly as Tuesday's send would
- * write it, send it to yourself or to them, or send this week's to everyone now.
+ * write it, send it to yourself, to them, or as a test to any address (a spam checker's),
+ * or send this week's to everyone now.
  * @param {{ me: object, send: (job, expectCount?) => Promise<void>,
  *   onSubscribers: (count: number|null) => void }} p  onSubscribers: the Write tab's
  *   "every subscriber" needs the same count
@@ -57,6 +59,7 @@ export default function DigestTab({ me, send, onSubscribers }) {
   const [error, setError] = useState(null);
   const [confirmThem, setConfirmThem] = useState(false);
   const [typed, setTyped] = useState("");
+  const [testTo, setTestTo] = useState(""); // any address, e.g. a mail-tester.com one
 
   const email = useMemo(() => {
     if (!week.summary || mine.areas == null) return null;
@@ -95,6 +98,11 @@ export default function DigestTab({ me, send, onSubscribers }) {
   const toMe = () =>
     act("me", () =>
       send(digest({ to_emails: [me.email], as_user: person?.user_id ?? null, test: true })),
+    );
+  // The same test, to an address that needn't be an account: a spam checker's, a colleague's.
+  const toAddress = () =>
+    act("address", () =>
+      send(digest({ to_emails: [testTo.trim()], as_user: person?.user_id ?? null, test: true })),
     );
   const toThem = () =>
     act("them", () => send(digest({ to_emails: [person.email], test: false }))).then(() =>
@@ -257,6 +265,35 @@ export default function DigestTab({ me, send, onSubscribers }) {
                 {isOn(person) ? "Take off the weekly digest" : "Put on the weekly digest"}
               </button>
             )}
+          </div>
+          <form
+            className="adm-actions"
+            data-testid="admin-test-address"
+            onSubmit={(e) => {
+              e.preventDefault();
+              toAddress();
+            }}
+          >
+            <input
+              className="adm-input"
+              type="email"
+              autoComplete="off"
+              aria-label="Send this as a test to another address"
+              placeholder="Test to another address (mail-tester.com…)"
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="adm-btn"
+              disabled={!email || busy != null || !isEmail(testTo)}
+            >
+              {busy === "address" ? "Queueing…" : "Send test"}
+            </button>
+          </form>
+          <div className="adm-dim">
+            Marked [Test]. Its unsubscribe link works for nobody, unless it goes to a subscriber's
+            own address with &ldquo;Someone with nothing saved&rdquo; picked.
           </div>
           {error && (
             <div className="adm-error" role="alert">

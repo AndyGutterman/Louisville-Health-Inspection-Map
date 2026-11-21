@@ -44,7 +44,7 @@ Each needs the dashboard, a deploy or a decision; none can be done from a sessio
 5. Decide whether approximate Bullitt pins (`ky911-approx`) should look different (`docs/BULLITT.md`, Decisions 9).
 6. Look at the ring colours (#91) and the larger score switches (#92) on a phone.
 7. Have a Spanish speaker skim `lib/strings*.js`, `packages/core/email/words.js` and the Spanish privacy text.
-8. **The digest lands in spam** (`docs/DIGEST.md`, "Landing in spam"): deploy the `unsubscribe` edge function, then set the repository variable `ONE_CLICK_UNSUBSCRIBE` to `on`; score a test on mail-tester.com; decide on a domain of our own and an email service (the real fix, and the way to Google Postmaster Tools).
+8. **The digest lands in spam** (`docs/DIGEST.md`, "Landing in spam"): deploy the `unsubscribe` edge function, then set the repository variable `ONE_CLICK_UNSUBSCRIBE` to `on`; score a test on mail-tester.com (the Digest tab's "Test to another address", `docs/EMAIL_ADMIN.md`); decide on a domain of our own and an email service (the real fix, and the way to Google Postmaster Tools).
 
 ## Code, next in line
 
