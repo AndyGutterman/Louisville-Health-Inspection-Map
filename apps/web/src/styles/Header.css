@@ -501,7 +501,7 @@
    in use, to keep the header quiet. */
 .search-fields {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
