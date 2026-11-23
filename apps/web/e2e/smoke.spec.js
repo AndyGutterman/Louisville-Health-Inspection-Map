@@ -66,6 +66,41 @@ test("the search box narrows to names or addresses", async ({ page }, testInfo) 
   await expect(page.getByPlaceholder("Search map")).toHaveValue("bar");
 });
 
+// Desktop only: the phone stacks the brand on its own row. Above 1280px the search input
+// was wider than its box (no border-box), so it ran under the logo, and the name/address
+// toggles sat about 110px in from the input's visible edge. The real name font is wider
+// than the fallback, so the name is measured in a wide font too (as in a11y-part2).
+const WIDE_NAME =
+  ".brand > span { font-family: 'DejaVu Sans', Verdana, sans-serif !important; font-weight: 800 !important; letter-spacing: 0.08em !important; }";
+test("the header search stays clear of the logo, and its toggles sit on the box's right edge", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "phone", "the phone stacks the brand on its own row");
+  await openApp(page);
+  await page.addStyleTag({ content: WIDE_NAME });
+  const search = page.getByPlaceholder("Search map");
+  const byAddress = page.getByTestId("search-field-address");
+
+  for (const width of [1100, 1280, 1440, 1536, 1920]) {
+    await page.setViewportSize({ width, height: 800 });
+    await search.click();
+    const brand = await page.locator(".brand").boundingBox();
+    const input = await search.boundingBox();
+    const toggle = await byAddress.boundingBox();
+    expect(input.x + input.width, `search box clear of the logo at ${width}px`).toBeLessThanOrEqual(
+      brand.x,
+    );
+    expect(
+      Math.abs(input.x + input.width - (toggle.x + toggle.width)),
+      `address toggle on the search box's right edge at ${width}px`,
+    ).toBeLessThanOrEqual(5);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await search.click();
+  await snap(page, testInfo, "01d-header-1440");
+});
+
 test("the map shows while the rest of the data loads, with a corner indicator", async ({
   page,
 }, testInfo) => {

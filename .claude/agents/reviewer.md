@@ -45,6 +45,7 @@ Apply these too. `/ship`'s learn step adds to this list when a mistake can't be 
 - A merge that resolves conflicts in a long file (`e2e/support/fixtures.js` after #106) can paste a block in twice. Look for a declaration that appears twice in the diff.
 - A side effect hooked into one write path (a stamp, an audit row, a cache bust) must be in every path that writes the same rows. Grep the migrations and the pipeline for other `UPDATE`s of that table: `data_loads` was first added to `place_fix_write_pin` but not to `place_fix_restore`, so Undo left visitors' pins stale.
 - In a job that skips when nothing changed (a hash or fingerprint gate), a "something changed" marker is written straight after the change is saved, before any later step that can fail. Otherwise the next run sees "unchanged" and never writes it (the Bullitt ingest's first `markLoaded`).
+- A CSS value changed on purpose (an offset, a size) needs a test whose threshold is tighter than the old value, so the test fails on the old value. A tolerance looser than the change (a 6px check for a 2px move) passes either way. The header's toggle offset went from 6px to 4px with a 6px check and no test of the change.
 - A change to a helper several kinds of job share is checked against every caller, not just the one the request is about. `unsubscribeToken` in `pipeline/digest/run.js` serves digests and one-off emails; a digest-only placeholder first leaked into one-off test emails (#108).
 
 ## Verify before you report

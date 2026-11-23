@@ -93,6 +93,7 @@
   justify-self: start;
   width: clamp(200px, 28vw, 420px);
   min-width: 200px;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -118,6 +119,7 @@
 
 .header-search input {
   width: 100%;
+  box-sizing: border-box;
   height: 40px;
   padding: 0 12px 0 40px;
   border-radius: 999px;
@@ -499,7 +501,7 @@
    in use, to keep the header quiet. */
 .search-fields {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
