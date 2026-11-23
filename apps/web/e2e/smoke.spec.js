@@ -93,7 +93,7 @@ test("the header search stays clear of the logo, and its toggles sit on the box'
     expect(
       Math.abs(input.x + input.width - (toggle.x + toggle.width)),
       `address toggle on the search box's right edge at ${width}px`,
-    ).toBeLessThanOrEqual(6);
+    ).toBeLessThanOrEqual(5);
   }
 
   await page.setViewportSize({ width: 1440, height: 800 });
